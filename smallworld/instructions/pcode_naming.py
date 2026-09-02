@@ -160,7 +160,49 @@ def canonicalize_operand(
                 return None
             if mapped != name:
                 renamed[attr] = mapped
-        if renamed:
+
+        # p-code has no segment concept: SLEIGH flattens `fs:[0x28]` into an
+        # add against Ghidra's FS_OFFSET, which arrives here as the base
+        # register fsbase. Capstone reports the same access as segment="fs"
+        # with no base. Both are resolvable, but consumers classify a
+        # segment-relative access by the `segment` field, so a backend that
+        # never sets it makes the access unrecognizable. Fold the segment base
+        # back into `segment` so p-code names it the way Capstone does;
+        # address() adds it back.
+        #
+        # `segment` and the resolved address agree exactly after this. The
+        # base/index SPLIT still cannot, and no fold can fix that: Capstone
+        # reports the encoding, where `fs:[rbx+8]` puts rbx in ModRM base and
+        # `gs:[rdx*1+0x13]` puts rdx in the SIB index with no base, while
+        # SLEIGH flattens both to the same sum. The promotion below picks the
+        # ModRM reading because it is far the commoner encoding; the scaled
+        # SIB form is where the two still disagree.
+        was = getattr(operand, "segment", None)
+        segment = was
+        base = renamed.get("base", getattr(operand, "base", None))
+        index = renamed.get("index", getattr(operand, "index", None))
+        scale = getattr(operand, "scale", 1)
+        if segment is None and platdef.segment_base_registers:
+            for seg, base_reg in platdef.segment_base_registers.items():
+                # Which slot the flattened base landed in is just the order
+                # _expr_to_bsid met the terms (base first, then index), not a
+                # guarantee -- so check both. `index` only at scale 1: a
+                # scaled segment base is not a segment reference.
+                if base == base_reg:
+                    segment, base = seg, None
+                elif index == base_reg and scale == 1:
+                    segment, index = seg, None
+                else:
+                    continue
+                if base is None and index is not None and scale == 1:
+                    # The segment base displaced the real base into `index`;
+                    # put it back, so the operand has the base/index split
+                    # Capstone reports rather than one that only differs
+                    # because SLEIGH spelled the address as a sum.
+                    base, index = index, None
+                break
+
+        if renamed or segment != was:
             # type(operand), not the base class: a subclass carries both
             # behaviour (x86's rip fixup) and identity (__repr__ embeds the
             # class name, and equality keys on the repr).
@@ -170,10 +212,10 @@ def canonicalize_operand(
                 else BSIDMemoryReferenceOperand
             )
             return cls(
-                segment=getattr(operand, "segment", None),
-                base=renamed.get("base", getattr(operand, "base", None)),
-                index=renamed.get("index", getattr(operand, "index", None)),
-                scale=getattr(operand, "scale", 1),
+                segment=segment,
+                base=base,
+                index=index,
+                scale=scale,
                 offset=getattr(operand, "offset", 0),
                 size=operand.size,
             )

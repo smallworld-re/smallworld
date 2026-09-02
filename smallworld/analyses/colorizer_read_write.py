@@ -303,6 +303,11 @@ class WRGraph:
             if (
                 isinstance(val, BSIDMemoryReferenceOperand)
                 and type(rw.info) is MemoryLvalInfo
+                # `segment` is part of the address now that it resolves to
+                # segbase+offset: without this, `fs:[0x28]`, `gs:[0x28]` and
+                # an absolute `[0x28]` are one lvalue here (they differ in no
+                # other field), while naming three different cells.
+                and (val.segment == rw.info.bsid.segment)
                 and (val.base == rw.info.bsid.base)
                 and (val.index == rw.info.bsid.index)
                 and (val.scale == rw.info.bsid.scale)

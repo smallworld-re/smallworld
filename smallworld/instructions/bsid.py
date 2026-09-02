@@ -1,9 +1,30 @@
+import functools
 import typing
 
 import claripy
 
 from .. import emulators
-from .instructions import MemoryReferenceOperand
+from ..exceptions import UnsupportedRegisterError
+from ..platforms import Platform, PlatformDef
+from .instructions import MemoryReferenceOperand, _log_fallback_once
+
+
+@functools.lru_cache(maxsize=None)
+def _platform_def(
+    platform: typing.Optional[Platform],
+) -> typing.Optional[PlatformDef]:
+    """`PlatformDef.for_platform`, cached and None-tolerant.
+
+    Only reached for an emulator that carries no `platdef` of its own;
+    `for_platform` walks every subclass uncached, so the result is memoized
+    per platform rather than resolved per operand.
+    """
+    if platform is None:
+        return None
+    try:
+        return PlatformDef.for_platform(platform)
+    except ValueError:
+        return None
 
 
 class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
@@ -27,10 +48,90 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.scale = scale
         self.offset = offset
 
+    def _segment_base_register(
+        self, emulator: emulators.Emulator
+    ) -> typing.Optional[str]:
+        """The register holding this operand's segment base, or None when the
+        operand names no segment or the platform models no base for it.
+
+        `segment` used to be carried but never read, so `fs:[0x28]` resolved to
+        0x28 -- the segment base silently missing from every address computed
+        from a Capstone-produced operand. i386 legitimately has no such
+        register (it models only the 2-byte selectors), so that case falls back
+        to omitting the base rather than raising.
+
+        `platdef` is not on the Emulator interface -- PandaEmulator keeps one
+        only on its worker thread and StyxEmulator has none -- so fall back to
+        resolving it from `platform`, which is. Probing for it and giving up
+        would silently reinstate the bug on exactly those backends.
+        """
+        if not self.segment:
+            return None
+        platdef = getattr(emulator, "platdef", None)
+        if platdef is None:
+            platdef = _platform_def(getattr(emulator, "platform", None))
+        if platdef is None:
+            return None
+        return platdef.segment_base_registers.get(self.segment)
+
+    def _no_segment_base(self, emulator: emulators.Emulator, name: str) -> None:
+        """Report that this emulator cannot supply a segment base.
+
+        Triton deliberately omits fsbase/gsbase from its register map, and the
+        Ghidra and Panda machine defs map them to None, so reading one raises.
+        Raising here would turn an address that used to compute into a crash,
+        so the callers below degrade -- but the answer is then wrong by exactly
+        the segment base, which is worth a warning rather than the per-access
+        debug line it started as. Keyed on the emulator and register, never on
+        the operand, so the once-guard stays bounded.
+        """
+        _log_fallback_once(
+            f"{type(emulator).__name__} cannot read {name!r}; segment-relative "
+            f"addresses will resolve without their segment base"
+        )
+
+    def _segment_base(self, emulator: emulators.Emulator) -> typing.Optional[int]:
+        """This operand's segment base value, or None to contribute nothing."""
+        name = self._segment_base_register(emulator)
+        if name is None:
+            return None
+        try:
+            return emulator.read_register(name)
+        except (UnsupportedRegisterError, NotImplementedError):
+            self._no_segment_base(emulator, name)
+            return None
+
+    def _segment_base_symbolic(
+        self, emulator: emulators.Emulator
+    ) -> typing.Optional[claripy.ast.bv.BV]:
+        """`_segment_base` for the symbolic path.
+
+        Two methods rather than one with a `symbolic` flag: the flag makes the
+        return `int | BV | None`, which is unannotatable, and an unannotated
+        return is an implicit `Any` that hides a BV leaking into `address`'s
+        declared `int`. NotImplementedError is caught alongside the
+        unsupported-register case because that is what the base Emulator
+        raises for a backend with no symbolic support at all -- before this
+        operand grew a segment base, `fs:[0x28]` read no registers and so
+        could not raise there.
+        """
+        name = self._segment_base_register(emulator)
+        if name is None:
+            return None
+        try:
+            return emulator.read_register_symbolic(name)
+        except (UnsupportedRegisterError, NotImplementedError):
+            self._no_segment_base(emulator, name)
+            return None
+
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
         if self.base is not None:
             base = emulator.read_register(self.base)
+
+        segment_base = self._segment_base(emulator)
+        if segment_base is not None:
+            base += segment_base
 
         index = 0
         if self.index is not None:
@@ -46,6 +147,10 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if self.base is not None:
             base = emulator.read_register_symbolic(self.base)
 
+        segment_base = self._segment_base_symbolic(emulator)
+        if segment_base is not None:
+            base = base + segment_base
+
         index = zero
         if self.index is not None:
             index = emulator.read_register_symbolic(self.index)
@@ -56,6 +161,11 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
     def to_json(self) -> dict:
         return {
+            # Dropped here until `segment` started contributing the segment
+            # base to address(): a round-trip through JSON would now silently
+            # move `fs:[0x28]` from fsbase+0x28 back to 0x28 -- the same class
+            # of bug as the `size` note below.
+            "segment": self.segment,
             "base": self.base,
             "index": self.index,
             "scale": self.scale,
@@ -75,8 +185,8 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
             raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
-        # `size` is optional so payloads written before to_json emitted it
-        # still load; it falls back to MemoryReferenceOperand's default.
+        # `size` and `segment` are optional so payloads written before to_json
+        # emitted them still load; they fall back to the __init__ defaults.
         return cls(**dict)
 
     def expr_string(self) -> str:

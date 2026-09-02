@@ -75,6 +75,13 @@ def _load_corpus_harness():
     return module
 
 
+def _platdef(arch, byteorder="LITTLE"):
+    """This platform's definition, by Architecture/Byteorder member name."""
+    from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
+
+    return PlatformDef.for_platform(Platform(Architecture[arch], Byteorder[byteorder]))
+
+
 class PcodeNamingTests(unittest.TestCase):
     """The Ghidra-name -> PlatformDef-name adapter, on its own.
 
@@ -88,27 +95,12 @@ class PcodeNamingTests(unittest.TestCase):
     else in this file it also runs on a base install.
     """
 
-    @staticmethod
-    def _platdef(arch, byteorder="LITTLE"):
-        from smallworld.platforms import (
-            Architecture,
-            Byteorder,
-            Platform,
-            PlatformDef,
-        )
-
-        return PlatformDef.for_platform(
-            Platform(Architecture[arch], Byteorder[byteorder])
-        )
-
     def _canon(self, arch, byteorder, name):
         """canonicalize_operand of one register, as a name or None."""
         from smallworld.instructions import RegisterOperand
         from smallworld.instructions.pcode_naming import canonicalize_operand
 
-        out = canonicalize_operand(
-            RegisterOperand(name), self._platdef(arch, byteorder)
-        )
+        out = canonicalize_operand(RegisterOperand(name), _platdef(arch, byteorder))
         return None if out is None else out.name
 
     def test_x86_flag_bits_and_vector_lanes(self):
@@ -151,7 +143,7 @@ class PcodeNamingTests(unittest.TestCase):
         from smallworld.instructions import RegisterOperand
         from smallworld.instructions.pcode_naming import collapse_widened_defs
 
-        platdef = self._platdef("X86_64", "LITTLE")
+        platdef = _platdef("X86_64", "LITTLE")
         # Ghidra models a 32-bit x86-64 write as zero-extending, so `mov
         # ecx, eax` defs both; the architectural destination is ecx.
         self.assertEqual(
@@ -180,7 +172,7 @@ class PcodeNamingTests(unittest.TestCase):
         from smallworld.instructions import RegisterOperand
         from smallworld.instructions.pcode_naming import collapse_widened_defs
 
-        platdef = self._platdef("X86_64", "LITTLE")
+        platdef = _platdef("X86_64", "LITTLE")
         defs = {RegisterOperand("xmm0"), RegisterOperand("ymm0")}
         self.assertIn(RegisterOperand("ymm0"), collapse_widened_defs(defs, platdef))
 
@@ -235,15 +227,72 @@ class PcodeNamingTests(unittest.TestCase):
         from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
         from smallworld.instructions.pcode_naming import canonicalize_operand
 
-        amd64 = self._platdef("X86_64", "LITTLE")
+        amd64 = _platdef("X86_64", "LITTLE")
         # x86-64 segment addressing reads Ghidra's FS_OFFSET, which AMD64
         # aliases to the fsbase register it models. The reference must survive
-        # with its base rewritten: dropping it reported the stack-protector
-        # read at the top of most functions as reading nothing.
+        # -- dropping it reported the stack-protector read at the top of most
+        # functions as reading nothing -- and it must survive in the shape
+        # Capstone produces for the same instruction, segment="fs" with no
+        # base, or consumers that classify on `segment` stop recognizing it.
         segment = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
         mapped = canonicalize_operand(segment, amd64)
         self.assertIsNotNone(mapped)
-        self.assertEqual((mapped.base, mapped.offset, mapped.size), ("fsbase", 0x28, 8))
+        self.assertEqual(
+            (mapped.segment, mapped.base, mapped.offset, mapped.size),
+            ("fs", None, 0x28, 8),
+        )
+
+        # gs too, and an already-canonical fsbase base (not just Ghidra's
+        # spelling) folds the same way.
+        gs = BSIDMemoryReferenceOperand(base="gsbase", offset=0x13, size=8)
+        mapped_gs = canonicalize_operand(gs, amd64)
+        self.assertIsNotNone(mapped_gs)
+        self.assertEqual((mapped_gs.segment, mapped_gs.base), ("gs", None))
+
+        # An operand that already names its segment is left as it is.
+        already = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        self.assertEqual(canonicalize_operand(already, amd64).segment, "fs")
+
+        # `fs:[rbx+8]`: the flattened segment base takes the base slot and
+        # displaces rbx into index. Folding it out has to put rbx back, or the
+        # same access is base=rbx on Capstone and index=rbx here -- and
+        # operand identity keys on the repr those two produce.
+        displaced = BSIDMemoryReferenceOperand(
+            base="fs_offset", index="rbx", scale=1, offset=8, size=8
+        )
+        out_displaced = canonicalize_operand(displaced, amd64)
+        self.assertEqual(
+            (out_displaced.segment, out_displaced.base, out_displaced.index),
+            ("fs", "rbx", None),
+        )
+
+        # Which slot the base lands in is only the order _expr_to_bsid met the
+        # terms, so the index slot folds too -- at scale 1, since a scaled
+        # segment base is not a segment reference.
+        in_index = BSIDMemoryReferenceOperand(
+            base="rbx", index="fs_offset", scale=1, offset=8, size=8
+        )
+        out_index = canonicalize_operand(in_index, amd64)
+        self.assertEqual(
+            (out_index.segment, out_index.base, out_index.index),
+            ("fs", "rbx", None),
+        )
+        scaled = BSIDMemoryReferenceOperand(
+            base="rbx", index="fs_offset", scale=4, offset=8, size=8
+        )
+        out_scaled = canonicalize_operand(scaled, amd64)
+        self.assertIsNone(out_scaled.segment)
+        self.assertEqual((out_scaled.base, out_scaled.index), ("rbx", "fsbase"))
+
+        # i386 models the fs/gs selectors but no segment base register, so it
+        # has no fold to apply and the unresolvable base is still dropped.
+        i386 = _platdef("X86_32", "LITTLE")
+        self.assertEqual(i386.segment_base_registers, {})
+        self.assertIsNone(
+            canonicalize_operand(
+                BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=4), i386
+            )
+        )
 
         # A base the platform genuinely does not model still goes, since
         # without a base there is no address to compute.
@@ -261,7 +310,7 @@ class PcodeNamingTests(unittest.TestCase):
         )
 
         # And a mappable-but-differently-named one is rewritten, not dropped.
-        mips64 = self._platdef("MIPS64", "BIG")
+        mips64 = _platdef("MIPS64", "BIG")
         renamed = canonicalize_operand(
             BSIDMemoryReferenceOperand(base="t0", offset=8, size=8), mips64
         )
@@ -674,6 +723,156 @@ class MemoryOperandIdentityTests(unittest.TestCase):
         self.assertEqual(sw._memory_reference_operand(mem).base, "r4")
 
 
+class SegmentAddressTests(unittest.TestCase):
+    """`segment` has to reach the computed address. Needs no pyghidra."""
+
+    class _Emu:
+        """Just enough Emulator for address(): a platdef and registers."""
+
+        def __init__(self, platdef, **regs):
+            self.platdef = platdef
+            self._regs = regs
+
+        def read_register(self, name):
+            return self._regs[name]
+
+        def read_register_symbolic(self, name):
+            import claripy
+
+            return claripy.BVV(self._regs[name], self.platdef.address_size * 8)
+
+    def test_segment_base_is_added_to_the_address(self):
+        """`fs:[0x28]` is fsbase+0x28. It used to resolve to 0x28: `segment`
+        was carried on the operand and then read by nothing, so every address
+        computed from a Capstone-produced segment operand was missing the
+        segment base -- and the unmapped-access check in the Unicorn emulator
+        ran on the wrong address."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        amd64 = _platdef("X86_64")
+        emu = self._Emu(amd64, fsbase=0x2000, gsbase=0x3000, rdx=4)
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        self.assertEqual(fs.address(emu), 0x2028)
+
+        gs = BSIDMemoryReferenceOperand(segment="gs", offset=0x13, size=8)
+        self.assertEqual(gs.address(emu), 0x3013)
+
+        # The segment base composes with an index rather than replacing it.
+        indexed = BSIDMemoryReferenceOperand(
+            segment="fs", index="rdx", scale=2, offset=8, size=8
+        )
+        self.assertEqual(indexed.address(emu), 0x2000 + 2 * 4 + 8)
+
+        # No segment: unchanged.
+        plain = BSIDMemoryReferenceOperand(index="rdx", offset=8, size=8)
+        self.assertEqual(plain.address(emu), 12)
+
+    def test_platform_without_a_segment_base_is_unchanged(self):
+        """i386 models the fs/gs selectors but no base register, so there is
+        nothing to add and the address must not raise looking for one."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        i386 = _platdef("X86_32")
+        emu = self._Emu(i386, ebx=0x40)
+        fs = BSIDMemoryReferenceOperand(segment="fs", base="ebx", offset=8, size=4)
+        self.assertEqual(fs.address(emu), 0x48)
+
+    def test_emulator_without_a_platdef_is_tolerated(self):
+        """`platdef` is not on the Emulator interface, and neither is
+        `platform` in practice for a hand-rolled stand-in -- so address() must
+        degrade rather than raise for an object that has neither."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        class Bare:
+            def read_register(self, name):
+                return 0x10
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=8, size=8)
+        self.assertEqual(fs.address(Bare()), 8)
+
+    def test_emulator_with_only_a_platform_resolves_the_base(self):
+        """PandaEmulator keeps its platdef on the worker thread and
+        StyxEmulator has none, but `platform` IS on the Emulator interface.
+        Probing only for `platdef` reinstated the bug on those backends: the
+        p-code operand no longer carries fsbase as its base, so there is no
+        other path to the segment base."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        class NoPlatdef:
+            platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+
+            def read_register(self, name):
+                return {"fsbase": 0x2000}[name]
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        self.assertEqual(fs.address(NoPlatdef()), 0x2028)
+
+    def test_symbolic_address_adds_the_segment_base(self):
+        """symbolic_address has to track address(): crash triage resolves
+        operands through it, and an expression short by the segment base
+        constrains the wrong cell."""
+        import claripy
+
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        emu = self._Emu(_platdef("X86_64"), fsbase=0x2000, rdx=4)
+        fs = BSIDMemoryReferenceOperand(segment="fs", index="rdx", offset=8, size=8)
+        expr = fs.symbolic_address(emu)
+        self.assertEqual(claripy.backends.concrete.eval(expr, 1)[0], 0x2000 + 4 + 8)
+
+    def test_symbolic_address_degrades_without_symbolic_support(self):
+        """`fs:[0x28]` names no base and no index, so symbolic_address used to
+        read no registers at all and worked on a concrete-only emulator. Now
+        that it reads the segment base, the base Emulator's
+        NotImplementedError has to degrade the same way an unreadable register
+        does -- otherwise the operand goes from resolvable to raising."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        class Concrete(self._Emu):
+            def read_register_symbolic(self, name):
+                raise NotImplementedError("no symbolic values here")
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        expr = fs.symbolic_address(Concrete(_platdef("X86_64"), fsbase=0x2000))
+        self.assertEqual(expr.concrete_value, 0x28)
+
+    def test_emulator_that_cannot_read_the_segment_base_degrades(self):
+        """Triton omits fsbase/gsbase so reading one raises, and the Ghidra
+        machine def maps them to None. Raising here would turn an address that
+        used to compute into a crash, so fall back to the old answer."""
+        from smallworld.exceptions import UnsupportedRegisterError
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        amd64 = _platdef("X86_64")
+
+        class NoMSR(self._Emu):
+            def read_register(self, name):
+                if name in ("fsbase", "gsbase"):
+                    raise UnsupportedRegisterError(name)
+                return super().read_register(name)
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        self.assertEqual(fs.address(NoMSR(amd64)), 0x28)
+
+    def test_segment_survives_a_json_round_trip(self):
+        """Now that `segment` moves the address, dropping it on serialization
+        would silently relocate the access -- the same bug `size` had."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        op = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        back = BSIDMemoryReferenceOperand.from_json(op.to_json())
+        self.assertEqual(back.segment, "fs")
+        self.assertEqual(
+            back.address(self._Emu(_platdef("X86_64"), fsbase=0x2000)), 0x2028
+        )
+
+        # A payload written before to_json emitted `segment` still loads.
+        legacy = {"base": "rsp", "index": None, "scale": 1, "offset": -8, "size": 8}
+        self.assertIsNone(BSIDMemoryReferenceOperand.from_json(legacy).segment)
+
+
 class ThumbUseDefBackendTests(unittest.TestCase):
     """Thumb must not go through p-code. Needs no pyghidra: the refusal
     happens before the backend is reached."""
@@ -982,6 +1181,17 @@ class InstructionUseDefTests(unittest.TestCase):
         ),
         ("X86_64", "LITTLE", "f20f104308", "movsd xmm0, [rbx+8]", {"rbx"}, {"xmm0"}),
         ("X86_64", "LITTLE", "488b042500100000", "mov rax, [0x1000]", set(), {"rax"}),
+        # The stack-protector read. SLEIGH flattens the segment reference into
+        # an add against FS_OFFSET, so the whole operand went missing before
+        # the fsbase alias and then lost its `segment` before the fold.
+        (
+            "X86_64",
+            "LITTLE",
+            "64488b042528000000",
+            "mov rax, fs:[0x28]",
+            {"fsbase"},
+            {"rax"},
+        ),
         ("X86_32", "LITTLE", "50", "push eax", {"eax", "esp"}, {"esp"}),
         ("X86_32", "LITTLE", "8b4c2408", "mov ecx, [esp+8]", {"esp"}, {"ecx"}),
         ("POWERPC32", "BIG", "9421ffd0", "stwu r1, -0x30(r1)", {"r1"}, {"r1"}),
