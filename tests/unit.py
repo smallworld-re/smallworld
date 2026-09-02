@@ -102,6 +102,7 @@ from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingCo
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
+from smallworld.state.models.c99.stdlib import TlsGetAddr
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.defaultmmio import (
@@ -118,7 +119,7 @@ from smallworld.state.models.mips64el.systemv.systemv import (
     MIPS64ELSysVCallingContext,
 )
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
-from smallworld.state.models.model import Model
+from smallworld.state.models.model import RELOCATED_TLS_MODULE, Model
 from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
@@ -4928,6 +4929,72 @@ class TlsGetAddrModelTests(ModelTestCase):
         self.assertNotEqual(other, first)
 
 
+class TlsDialectAgreementTests(ModelTestCase):
+    """Both TLS dialects must reach one thread-local through the same bytes.
+
+    gcc picks a TLS dialect per translation unit, so a single image can hold
+    a general-dynamic `__tls_get_addr` reference and a gnu2 descriptor
+    reference to the SAME `__thread` variable. When the two models kept
+    separate pools this passed every test in isolation and still corrupted:
+    the write through one dialect was invisible to the read through the other.
+    """
+
+    DESC = 0x4000
+    TI = 0x4020
+    BLOCK_OFFSET = 0x10
+
+    def setUp(self):
+        super().setUp()
+        self.emu.map_memory(0x4000, 0x100)
+        self.gd = self.lookup("__tls_get_addr")
+        self.desc = self.lookup("__tlsdesc_resolve")
+        # Stand in for the library: one pool, the descriptor model aimed at
+        # the arena of the module the relocator reports.
+        self.gd.static_buffer_address = 0x60000
+        self.desc.tls_arena_address = 0x60000 + self.gd.module_arena_offset(
+            RELOCATED_TLS_MODULE
+        )
+        self.desc.tls_arena_size = self.gd.TLS_ARENA_SIZE
+
+    def _via_tls_get_addr(self, offset):
+        self.emu.write_memory(
+            self.TI,
+            RELOCATED_TLS_MODULE.to_bytes(8, "little") + offset.to_bytes(8, "little"),
+        )
+        return self.call(self.gd, self.TI)
+
+    def _via_descriptor(self, offset, thread_pointer=0):
+        self.emu.write_memory(
+            self.DESC, (0).to_bytes(8, "little") + offset.to_bytes(8, "little")
+        )
+        self.emu.write_register("rax", self.DESC)
+        self.emu.write_register("fsbase", thread_pointer)
+        self.desc.model(self.emu)
+        # gnu2 returns a thread-pointer-relative offset; the caller adds the
+        # thread pointer to get the address.
+        return (thread_pointer + self.emu.read_register("rax")) & ((1 << 64) - 1)
+
+    def test_both_dialects_reach_the_same_storage(self):
+        self.assertEqual(
+            self._via_descriptor(self.BLOCK_OFFSET),
+            self._via_tls_get_addr(self.BLOCK_OFFSET),
+        )
+
+    def test_agreement_holds_with_a_thread_pointer(self):
+        # The address the descriptor path lands on must not depend on where
+        # the thread pointer happens to sit.
+        expected = self._via_tls_get_addr(self.BLOCK_OFFSET)
+        for tp in (0, 0x60000 + 0x50000, 0x7FFF0000):
+            self.assertEqual(self._via_descriptor(self.BLOCK_OFFSET, tp), expected, tp)
+
+    def test_distinct_thread_locals_stay_distinct_across_dialects(self):
+        # Sharing storage must not collapse different thread-locals together.
+        self.assertNotEqual(
+            self._via_descriptor(self.BLOCK_OFFSET),
+            self._via_tls_get_addr(self.BLOCK_OFFSET + 8),
+        )
+
+
 class TlsDescFixtureTests(unittest.TestCase):
     """End-to-end over a real gnu2-dialect object (tests/tlsdesc).
 
@@ -5008,16 +5075,23 @@ class TlsDescFixtureTests(unittest.TestCase):
         for d in self.elf.tlsdesc_descriptors:
             self.assertEqual(self._descriptor(d)[0], model._address)
 
-    def test_library_reserves_the_resolvers_static_buffer(self):
-        # The library must hand the model a buffer inside its own region;
-        # without it the resolver raises on its first call.
+    def test_library_shares_tls_get_addrs_arena(self):
+        # The resolver owns no storage: the library must aim it at
+        # __tls_get_addr's arena for the module the relocator reports, or the
+        # two dialects read and write different bytes for one thread-local.
         libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
         libc.link(self.elf)
-        model = libc.models["__tlsdesc_resolve"]
-        self.assertIsNotNone(model.static_buffer_address)
-        self.assertGreaterEqual(model.static_buffer_address, libc.address)
+        desc = libc.models["__tlsdesc_resolve"]
+        gd = libc.models["__tls_get_addr"]
+        self.assertEqual(desc.static_space_required, 0, "reserved a second pool")
+        self.assertEqual(
+            desc.tls_arena_address,
+            gd.static_buffer_address + gd.module_arena_offset(RELOCATED_TLS_MODULE),
+        )
+        self.assertEqual(desc.tls_arena_size, gd.TLS_ARENA_SIZE)
+        self.assertGreaterEqual(desc.tls_arena_address, libc.address)
         self.assertLessEqual(
-            model.static_buffer_address + model.static_space_required,
+            desc.tls_arena_address + desc.tls_arena_size,
             libc.address + libc.get_capacity(),
         )
 
@@ -5171,10 +5245,11 @@ class TlsDescResolveModelTests(ModelTestCase):
         super().setUp()
         self.emu.map_memory(self.DESC, 0x100)
         self.model = self.lookup("__tlsdesc_resolve")
-        self.model.static_buffer_address = self.ARENA
-        # Derived, not restated: shrinking the pool must shrink the bound the
-        # out-of-pool tests below check against.
-        self.ARENA_SIZE = self.model.static_space_required
+        # The library normally assigns this from __tls_get_addr's pool; the
+        # model owns no storage of its own.
+        self.ARENA_SIZE = TlsGetAddr.TLS_ARENA_SIZE
+        self.model.tls_arena_address = self.ARENA
+        self.model.tls_arena_size = self.ARENA_SIZE
 
     def _resolve(self, argument, thread_pointer=0):
         """Call the resolver the way gnu2 code does: descriptor in %rax."""
@@ -5187,8 +5262,8 @@ class TlsDescResolveModelTests(ModelTestCase):
         self.model.model(self.emu)
         return self.emu.read_register("rax")
 
-    def test_requires_static_buffer(self):
-        self.model.static_buffer_address = None
+    def test_requires_shared_arena(self):
+        self.model.tls_arena_address = None
         with self.assertRaises(exceptions.ConfigurationError):
             self._resolve(0)
 

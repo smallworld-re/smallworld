@@ -9,6 +9,7 @@ from smallworld.state.models.funcptr import FunctionPointer
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
+from ..model import RELOCATED_TLS_MODULE
 from .utils import _emu_strlen
 
 logger = logging.getLogger("__name__")
@@ -489,7 +490,10 @@ class TlsGetAddr(CStdModel):
     #: relocator reports every module as id 1 (see R_X86_64_DTPMOD64), so the
     #: image seeds that module's arena; without it every thread-local reads
     #: zero rather than its initializer.
-    tls_image_offset = TLS_ARENA_SIZE * (1 % 8)
+    tls_image_offset = TLS_ARENA_SIZE * (RELOCATED_TLS_MODULE % TLS_MAX_MODULES)
+    #: A thread-local can only ever be read within its own arena (the model
+    #: clamps to one), so that -- not the whole pool -- is the room an image has.
+    tls_image_capacity = TLS_ARENA_SIZE
     _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
     # Reserved once by the library, which sets self.static_buffer_address and maps
     # the (zeroed) region; sized to hold the whole arena pool.
@@ -500,6 +504,11 @@ class TlsGetAddr(CStdModel):
         # Kept for interface compatibility (the library assigns it, like
         # malloc/calloc), but TLS no longer draws from the heap.
         self.heap: typing.Optional[Heap] = None
+
+    @classmethod
+    def module_arena_offset(cls, module: int) -> int:
+        """Offset within the pool at which ``module``'s arena begins."""
+        return cls.TLS_ARENA_SIZE * (module % cls.TLS_MAX_MODULES)
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
@@ -543,16 +552,16 @@ class TlsDescResolve(CStdModel):
     # for the second form) or write a proper self-pointer; otherwise the
     # second form lands the access at arena - thread_pointer.
     #
-    # Storage is a single bounded pool in this model's own zeroed static
-    # buffer, indexed directly by the descriptor's argument (the block offset),
-    # so repeated accesses to one thread-local see the same bytes and a garbage
-    # argument cannot escape the pool. Unlike TlsGetAddr, which has two
-    # independent inputs (module, offset) and so needs per-module arenas, the
-    # argument here is a single linear offset: splitting it into arenas would
-    # only add aliasing, since the clamp would then apply at every internal
-    # arena boundary rather than once at the end of the pool.
+    # Storage is TlsGetAddr's arena for module 1 -- the module the relocator
+    # reports for every thread-local -- indexed by the descriptor's argument
+    # (the block offset), so repeated accesses to one thread-local see the same
+    # bytes and a garbage argument cannot escape the arena. The descriptor ABI
+    # has no module field, which is exactly why the two models can share: both
+    # dialects reduce to "block offset within the one module's block", so
+    # `gd_x` and `desc_x` naming the same thread-local land on the same bytes
+    # whichever dialect each translation unit was built with.
     #
-    # The returned offset is arena_address - thread_pointer, so the caller's
+    # The returned offset is tls_arena_address - thread_pointer, so the caller's
     # thread-pointer-relative access lands back on the arena.
     name = "__tlsdesc_resolve"
     # Not a C function: the descriptor ABI passes its argument in a fixed
@@ -561,12 +570,15 @@ class TlsDescResolve(CStdModel):
     argument_types: typing.List[ArgumentType] = []
     return_type = ArgumentType.POINTER
 
-    TLS_POOL_SIZE = 0x8000  # bytes of scratch shared by all thread-locals
-    _TLS_HEADROOM = 0x40  # keep a wide access from a near-pool-end offset in-bounds
-    static_space_required = TLS_POOL_SIZE
-    #: The pool is indexed directly by a thread-local's block offset, so a
-    #: module's PT_TLS initialization image seeds it from the start.
-    tls_image_offset = 0
+    # No storage of its own: it shares TlsGetAddr's arena for module 1, which
+    # is the module the relocator reports for every thread-local (see
+    # R_X86_64_DTPMOD64). gcc picks a TLS dialect per translation unit, so one
+    # image can reach the SAME thread-local through both models; with separate
+    # pools a write through one is invisible to a read through the other.
+    # Sharing also stops every amd64 harness reserving a second 32 KiB pool it
+    # may never touch. Assigned by the library, like malloc's heap.
+    static_space_required = 0
+    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
 
     #: Register holding the descriptor address on entry and the offset on exit.
     descriptor_register: str = ""
@@ -575,9 +587,9 @@ class TlsDescResolve(CStdModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        if self.static_buffer_address is None:
+        if self.tls_arena_address is None or self.tls_arena_size <= 0:
             raise exceptions.ConfigurationError(
-                "__tlsdesc_resolve needs its static buffer; none was reserved"
+                "__tlsdesc_resolve needs the shared TLS arena; none was assigned"
             )
         if not self.descriptor_register or not self.thread_pointer_register:
             raise exceptions.ConfigurationError(
@@ -589,9 +601,10 @@ class TlsDescResolve(CStdModel):
             desc + self.platdef.address_size, ArgumentType.POINTER, emulator
         )
         off = min(
-            argument % self.TLS_POOL_SIZE, self.TLS_POOL_SIZE - self._TLS_HEADROOM
+            argument % self.tls_arena_size,
+            max(0, self.tls_arena_size - self._TLS_HEADROOM),
         )
-        addr = self.static_buffer_address + off
+        addr = self.tls_arena_address + off
         try:
             thread_pointer = emulator.read_register(self.thread_pointer_register)
         except exceptions.UnsupportedRegisterError:

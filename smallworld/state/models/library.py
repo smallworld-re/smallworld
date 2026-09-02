@@ -9,7 +9,7 @@ from ..memory import Memory
 from ..memory.elf import ElfExecutable
 from ..state import BytesValue
 from .cstd import CStdModel
-from .model import Model
+from .model import RELOCATED_TLS_MODULE, Model
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +90,8 @@ class ElfModelLibrary(Memory):
                 )
                 data_offset += model.static_space_required
 
+        self._share_tls_arena()
+
     @property
     @abc.abstractmethod
     def variables(self) -> typing.List[typing.Tuple[str, int]]:
@@ -157,6 +159,28 @@ class ElfModelLibrary(Memory):
                 f"thread-local accesses will call address zero"
             )
 
+    def _share_tls_arena(self) -> None:
+        """Point the TLS-descriptor model at ``__tls_get_addr``'s storage.
+
+        gcc picks a TLS dialect per translation unit, so a single image can
+        reach the SAME thread-local through both models. Both dialects reduce
+        to an offset within the one module the relocator reports, so aiming the
+        descriptor model at that module's arena makes a write through one
+        dialect visible to a read through the other. Two independent pools --
+        which is what separate static buffers gave -- silently disagree.
+        """
+        owner = self.models.get("__tls_get_addr")
+        borrower = self.models.get("__tlsdesc_resolve")
+        if owner is None or borrower is None:
+            return
+        arena_offset = getattr(owner, "module_arena_offset", None)
+        if owner.static_buffer_address is None or arena_offset is None:
+            return
+        borrower.tls_arena_address = owner.static_buffer_address + arena_offset(
+            RELOCATED_TLS_MODULE
+        )
+        borrower.tls_arena_size = owner.TLS_ARENA_SIZE  # type: ignore[attr-defined]
+
     def _seed_tls_image(self, elf: ElfExecutable) -> None:
         """Copy the image's PT_TLS initialization data into each TLS model's
         storage, at the offset that model says the image belongs."""
@@ -168,6 +192,8 @@ class ElfModelLibrary(Memory):
             if offset is None or model.static_buffer_address is None:
                 continue
             room = model.static_space_required - offset
+            if model.tls_image_capacity is not None:
+                room = min(room, model.tls_image_capacity)
             if room <= 0:
                 continue
             if len(image) > room:
