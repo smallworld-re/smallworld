@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- MPC860 (PowerQUICC I) exception delivery and decrementer on the Styx backend
+  (`cpu_model="mpc860"`). Upstream styx-emulator leaves the MPC866M event
+  controller's `tick`/`latch`/`execute` as `todo!()`, so any run long enough to
+  complete an instruction stride panicked and hung. The implementation is
+  carried locally as `nix/styx-emulator-build/mpc860/` plus the patches in
+  `nix/styx-emulator-build/patches/`; it covers exception entry (vector
+  dispatch, MSR entry state, shadow SRR0/SRR1 with `rfi` interception) and a
+  decrementer/timebase driven by the executor stride. Guest reads of SRR0/SRR1
+  are not modelled, and the decrementer's resolution is the executor stride
+  (1000 instructions), so it cannot represent a period shorter than that.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

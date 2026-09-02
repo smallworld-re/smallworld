@@ -98,9 +98,14 @@ ps.buildPythonPackage {
     install -m 0644 ${./mpc860/event.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/event.rs
     install -m 0644 ${./mpc860/exception.rs} source/styx/event-controllers/ppc/styx-mpc866m/src/exception.rs
     install -m 0644 ${./mpc860/hooks.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/hooks.rs
-    patch -p1 -d source < ${./patches/styx-mpc866m-lib.patch}
-    patch -p1 -d source < ${./patches/powerquicci-siu.patch}
-    patch -p1 -d source < ${./patches/powerquicci-mtspr.patch}
+    # -F0 so a rev bump that moves this code fails the build instead of quietly
+    # applying a hunk against approximate context; --no-backup-if-mismatch keeps
+    # stray .orig files out of the tree that gets compiled.
+    for p in ${./patches/styx-mpc866m-lib.patch} \
+             ${./patches/powerquicci-siu.patch} \
+             ${./patches/powerquicci-mtspr.patch}; do
+      patch -p1 -F0 --no-backup-if-mismatch -d source < "$p"
+    done
   '';
 
   postPatch = ''

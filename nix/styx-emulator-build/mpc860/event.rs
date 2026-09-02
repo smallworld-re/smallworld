@@ -45,12 +45,27 @@ impl TryFrom<ExceptionNumber> for Mpc866mIRQn {
 }
 
 impl Mpc866mIRQn {
-    /// Interrupt handler address. The offset is `irqn * 0x100`, based off the
-    /// vector prefix selected by MSR[IP]: `0x0000_0000` (IP=0) or `0xFFF0_0000`
-    /// (IP=1). See the MPC866M reference manual, section 6.1.
+    /// Interrupt handler address, based off the vector prefix selected by
+    /// MSR[IP]: `0x0000_0000` (IP=0) or `0xFFF0_0000` (IP=1). See the MPC866M
+    /// reference manual, section 6.1.
+    ///
+    /// The offset is `irqn * 0x100` for everything up to `FloatingPointAssist`,
+    /// but the hardware table has a reserved slot at `0xF00`, so the five
+    /// implementation-dependent exceptions live at `0x1000`-`0x1400` while their
+    /// discriminants are only `0xF`-`0x13`. Deriving those from the discriminant
+    /// would dispatch each of them one slot low.
     pub(crate) fn vector(self, msr_ip: bool) -> u64 {
+        use Mpc866mIRQn::*;
         let base: u64 = if msr_ip { 0xFFF0_0000 } else { 0x0000_0000 };
-        base + (self as u64) * 0x100
+        let offset: u64 = match self {
+            SoftwareEmulation => 0x10,
+            InstructionTlbMiss => 0x11,
+            DataTlbMiss => 0x12,
+            InstructionTlbError => 0x13,
+            DataTlbError => 0x14,
+            other => other as u64,
+        };
+        base + offset * 0x100
     }
 
     /// Whether SRR0 should hold the *next* instruction address (asynchronous

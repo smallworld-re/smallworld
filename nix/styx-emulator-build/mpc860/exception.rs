@@ -11,11 +11,26 @@ pub(crate) const MSR_EE: u32 = 0x0000_8000; // bit 16: external interrupt enable
 pub(crate) const MSR_ME: u32 = 0x0000_1000; // bit 19: machine check enable
 pub(crate) const MSR_IP: u32 = 0x0000_0040; // bit 25: interrupt prefix (vector base)
 pub(crate) const MSR_LE: u32 = 0x0000_0001; // bit 31: little-endian mode
-pub(crate) const MSR_ILE: u32 = 0x0000_0020; // bit 26: interrupt little-endian mode
+pub(crate) const MSR_ILE: u32 = 0x0001_0000; // bit 15: interrupt little-endian mode
+
+/// Bits cleared on exception entry ("other bits are 0" in the MPC866M reference
+/// manual, section 6.1.2). MSR[IP] is left alone so the vector prefix does not
+/// move, MSR[LE] is copied from MSR[ILE] by the caller, and MSR[ME] is handled
+/// separately because it is only cleared by a machine check.
+pub(crate) const MSR_EXCEPTION_CLEARED: u32 = MSR_EE
+    | 0x0000_4000 // bit 17: PR, problem (user) state
+    | 0x0000_2000 // bit 18: FP, floating point available
+    | 0x0000_0800 // bit 20: FE0, floating point exception mode 0
+    | 0x0000_0400 // bit 21: SE, single-step trace enable
+    | 0x0000_0200 // bit 22: BE, branch trace enable
+    | 0x0000_0100 // bit 23: FE1, floating point exception mode 1
+    | 0x0000_0020 // bit 26: IR, instruction address translation
+    | 0x0000_0010 // bit 27: DR, data address translation
+    | 0x0000_0002; // bit 30: RI, recoverable interrupt
 
 /// Latched ("pending") and enabled bitsets keyed by the `Mpc866mIRQn`
 /// discriminant. Every discriminant is in `1..=31`, so a `u32` bitset suffices.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct ExceptionSet {
     latched: u32,
     enabled: u32,

@@ -1,3 +1,14 @@
+# Local styx-emulator patch giving the PowerQUICC I System Interface Unit a
+# `Peripheral::tick`, so the decrementer and timebase advance with the executor
+# stride and a decrementer underflow latches an exception on the MPC866M event
+# controller (see styx-mpc866m-lib.patch).
+#
+# Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
+# (the `rev` pinned in ../default.nix). Touches no Cargo.toml - styx-mpc866m is
+# already a dependency of styx-powerquicci-processor - so the vendored crate set
+# and `cargoDeps` hash are unchanged.
+#
+# Remove once styx-emulator implements the MPC8xx decrementer upstream.
 --- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit.rs	2026-07-08 17:27:50.445519166 -0400
 +++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit.rs	2026-07-08 17:32:46.687294697 -0400
 @@ -10,7 +10,9 @@
@@ -10,7 +21,7 @@
  use tracing::{debug, error, trace, warn};
  
  mod mtspr_manager;
-@@ -187,4 +189,27 @@
+@@ -187,4 +189,29 @@
      fn name(&self) -> &str {
          "System Interface Unit"
      }
@@ -33,7 +44,9 @@
 +    ) -> Result<(), UnknownError> {
 +        let step = delta.count.min(u32::MAX as u64) as u32;
 +        if self.mtspr_mgr.tick(step) {
-+            let _ = event_controller.latch(Mpc866mIRQn::Decrementer as ExceptionNumber);
++            if let Err(err) = event_controller.latch(Mpc866mIRQn::Decrementer as ExceptionNumber) {
++                warn!("could not latch the decrementer: {err:?}");
++            }
 +        }
 +        Ok(())
 +    }
