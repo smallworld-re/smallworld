@@ -2,7 +2,6 @@ import copy
 import hashlib
 import logging
 import random
-import struct
 import typing
 
 import capstone
@@ -102,6 +101,8 @@ def randomize_uninitialized(
         mem = mems[ma]
 
         def randomize_mem(mem, start, size):
+            if size == 0:
+                return
             bytz = random.randbytes(size)
             mem.write_bytes(start, bytz)
             m.update(bytz)
@@ -255,33 +256,60 @@ class Colorizer(analysis.Analysis):
         self.platform = self.orig_cpu.platform
         self.pdef = platforms.PlatformDef.for_platform(self.platform)
 
-        def check_rws(emu, pc, te, is_read):
-            cs_insn = self._get_instr_at_pc(emu, pc)
-            sw_insn = Instruction.from_capstone(cs_insn)
-            if is_read:
-                operand_list = sw_insn.reads
-            else:
-                operand_list = sw_insn.writes
+        def check_rws(
+            emu,
+            pc,
+            te,
+            is_read,
+            write_addresses=None,
+            sw_insn=None,
+            operand_list=None,
+        ):
+            # sw_insn / operand_list let a caller pass in results it has
+            # already computed for this pc, so reads/writes -- which run
+            # through the pyghidra-backed analysis -- aren't re-derived.
+            if sw_insn is None:
+                cs_insn = self._get_instr_at_pc(emu, pc)
+                sw_insn = Instruction.from_capstone(cs_insn)
+            logger.debug(f"instr={sw_insn}")
+            if operand_list is None:
+                operand_list = sw_insn.reads if is_read else sw_insn.writes
+            logger.debug(f"{'reads' if is_read else 'writes'}={operand_list}")
             rws = []
             for operand in operand_list:
-                if type(operand) is RegisterOperand and operand.name == "rflags":
-                    continue
-                sz = self._operand_size(operand)
-                if isinstance(operand, BSIDMemoryReferenceOperand):
-                    # if addr not mapped, discard this operand
-                    a = operand.address(emu)
-                    ar = (a, a + sz)
-                    if not emu._is_address_range_mapped(ar):
+                if type(operand) is RegisterOperand:
+                    # flow through the flags register is not tracked
+                    if operand.name in ("rflags", "eflags", "flags"):
                         continue
-                conc = operand.concretize(emu)
+                sz = self._operand_size(operand)
+                addr = None
+                if isinstance(operand, BSIDMemoryReferenceOperand):
+                    if write_addresses is None:
+                        addr = operand.address(emu)
+                    elif operand in write_addresses:
+                        addr = write_addresses[operand]
+                    else:
+                        # Can't happen: both callbacks disassemble the
+                        # same pc, so they see the same operands.
+                        logger.debug(f"no captured address for write {operand}")
+                        continue
+                    # if addr not mapped, discard this operand
+                    if not emu._is_address_range_mapped((addr, addr + sz)):
+                        continue
+                    # Read the value at the address captured before the
+                    # instruction ran, not one recomputed from the
+                    # current registers.
+                    conc = emu.read_memory(addr, sz)
+                else:
+                    conc = operand.concretize(emu)
                 color = self._concrete_val_to_color(conc, sz)
-                tup = (operand, conc, color, sz)
+                tup = (operand, conc, color, sz, addr)
                 rws.append(tup)
             rws.sort(key=lambda e: e[0].__repr__())
             if len(rws) == 0:
                 return
             for rw in rws:
-                operand, conc, color, sz = rw
+                operand, conc, color, sz, addr = rw
                 if color == BAD_COLOR:
                     pass
                 else:
@@ -292,16 +320,47 @@ class Colorizer(analysis.Analysis):
                 self.reads = rws
 
         def before_instruction_cb(emu, pc, te):
-            check_rws(emu, pc, te, True)
+            cs_insn = self._get_instr_at_pc(emu, pc)
+            sw_insn = Instruction.from_capstone(cs_insn)
+            check_rws(emu, pc, te, True, sw_insn=sw_insn)
+            # A memory operand names registers, and its address is
+            # defined by their values at instruction *entry* -- so it
+            # has to be resolved now. The instruction may modify a
+            # register its own write address depends on (x86 push and
+            # string ops, AArch64 pre/post-index, PPC update forms),
+            # in which case resolving afterwards names the wrong cell.
+            # Stash the write operands too, so after_instruction_cb
+            # reuses them instead of re-running the analysis.
+            writes = sw_insn.writes
+            self._pending_write_insn = sw_insn
+            self._pending_writes = writes
+            self.write_addresses = {
+                operand: operand.address(emu)
+                for operand in writes
+                if isinstance(operand, BSIDMemoryReferenceOperand)
+            }
 
         def after_instruction_cb(emu, pc, te):
             # note: we have to check writes *after* the instruction
             # executes since we might be writing a computed value
             # which we'll only know the value (color) of after the
-            # instruction executes!
-            check_rws(emu, pc, te, False)
+            # instruction executes! The addresses written, and the
+            # write operands themselves, come from the pre-instruction
+            # capture above.
+            check_rws(
+                emu,
+                pc,
+                te,
+                False,
+                self.write_addresses,
+                sw_insn=self._pending_write_insn,
+                operand_list=self._pending_writes,
+            )
 
         self.colors = {}
+        self.write_addresses = {}
+        self._pending_write_insn = None
+        self._pending_writes = []
         self.shadow_register = {}
         self.shadow_memory = {}
         traceA = TraceExecution(self.hinter, num_insns=self.num_insns)
@@ -345,35 +404,26 @@ class Colorizer(analysis.Analysis):
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int
     ) -> int:
-        # this concrete value can be an int (if it came from a register)
-        # or bytes (if it came from memory read)
-        # we want these in a common format so that we can see them as colors
-        the_bytes: bytes = b""
+        # A concrete value is either an int (from a register) or bytes (from a
+        # memory read). We fold both to one integer "color" so that the same
+        # value has the same color regardless of where it lives. Memory bytes
+        # are interpreted in the *target's* byte order, so a register value and
+        # its stored image agree on big-endian targets as well as little-endian
+        # ones -- otherwise a plain store looks like it creates a new value on
+        # big-endian.
+        byteorder = self.platform.byteorder.value  # "big" or "little"
         if type(concrete_value) is int:
-            if concrete_value < self.min_color:
-                return BAD_COLOR
-            the_bytes = concrete_value.to_bytes(size, byteorder="little")
+            n = concrete_value
         elif (type(concrete_value) is bytes) or (type(concrete_value) is bytearray):
-            # assuming little-endian
-            if int.from_bytes(concrete_value, byteorder="little") < self.min_color:
-                return BAD_COLOR
-            the_bytes = bytes(concrete_value)
+            n = int.from_bytes(concrete_value, byteorder=byteorder)
         else:
             assert 1 == 0
-        # let's make color a number
+        if n < self.min_color:
+            return BAD_COLOR
+        # A 128-bit value (xmm, ...) doesn't fit a 64-bit color; fold the halves.
         if size == 16:
-            q1 = (struct.unpack("<Q", the_bytes[:8]))[0]
-            q2 = (struct.unpack("<Q", the_bytes[8:]))[0]
-            # i mean this will otherwise be big so lets just combine them
-            return q1 ^ q2
-        if size == 8:
-            return struct.unpack("<Q", the_bytes)[0]
-        if size == 4:
-            return struct.unpack("<L", the_bytes)[0]
-        if size == 2:
-            return struct.unpack("<H", the_bytes)[0]
-        assert size == 1
-        return struct.unpack("<B", the_bytes)[0]
+            return (n & ((1 << 64) - 1)) ^ (n >> 64)
+        return n & ((1 << (8 * size)) - 1)
 
     def _add_color(
         self,
@@ -392,7 +442,7 @@ class Colorizer(analysis.Analysis):
         insn: Instruction,
         insn_num: int,
     ):
-        operand, conc, color, operand_size = rw
+        operand, conc, color, operand_size, address = rw
         if color in self.colors.keys():
             # previously observed color
             if is_read:
@@ -412,6 +462,7 @@ class Colorizer(analysis.Analysis):
                 False,
                 insn_num,
                 msg,
+                address,
             )
             self.hinter.send(hint)
         else:
@@ -434,6 +485,7 @@ class Colorizer(analysis.Analysis):
                 True,
                 insn_num,
                 msg,
+                address,
             )
             self.hinter.send(hint)
 
@@ -448,6 +500,7 @@ class Colorizer(analysis.Analysis):
         is_new: bool,
         insn_num: int,
         message: str,
+        address: typing.Optional[int] = None,
     ):
         pc = insn.address
         if type(operand) is RegisterOperand:
@@ -476,7 +529,7 @@ class Colorizer(analysis.Analysis):
                 index_name = operand.index
             return hinting.DynamicMemoryValueHint(
                 time=self.htime(),
-                address=operand.address(emu),
+                address=(address if address is not None else operand.address(emu)),
                 segment=segment_name,
                 base=base_name,
                 index=index_name,

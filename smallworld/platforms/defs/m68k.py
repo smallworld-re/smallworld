@@ -7,6 +7,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 class M68K(PlatformDef):
     architecture = Architecture.M68K
     byteorder = Byteorder.BIG
+    ghidra_language_id = "68000:BE:32:default"
 
     address_size = 4
 

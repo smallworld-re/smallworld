@@ -53,9 +53,9 @@ class AArch64SysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = False
     _floats_are_doubles = False
-    _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6"]
+    _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"]
 
-    _double_arg_regs = ["d0", "d1", "d2", "d3", "d4", "d5"]
+    _double_arg_regs = ["d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7"]
     _init_stack_offset = 0
     _align_stack = False
     _eight_byte_reg_size = 1

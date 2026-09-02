@@ -47,8 +47,8 @@ nop = b"\x60\x00\x00\x00"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
-# Resolved puts target recovered from the current core image.
-puts_addr = 0x409082F0
+# Hook the local PLT stub in the restored text page.
+puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x4B0
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )

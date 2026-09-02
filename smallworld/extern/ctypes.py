@@ -82,7 +82,7 @@ def create_typed_pointer(reference):
     else:
         # Dynamically create a new subclass of TypedPointer to represent this
         # particular type
-        name = f"{type.__name__}Pointer"
+        name = f"{reference.__name__}Pointer"
         cls = type(name, (TypedPointer,), {"type": reference})
         _pointertypes[reference] = cls
         return cls

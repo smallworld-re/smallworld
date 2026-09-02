@@ -2,6 +2,9 @@
 *.pyc
 *.jsonl
 *.json
+!tests/case_timings.json
+# use/def validation corpora are tracked test data
+!tests/pcode_use_def/corpus_*.json
 *.elf
 *.so
 *~

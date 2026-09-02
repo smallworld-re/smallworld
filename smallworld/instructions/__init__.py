@@ -3,6 +3,7 @@ from .arm import ARMInstruction
 from .bsid import BSIDMemoryReferenceOperand, x86BSIDMemoryReferenceOperand
 from .instructions import Instruction, Operand, RegisterOperand
 from .mips import MIPSInstruction
+from .ppc import PPC32Instruction
 from .x86 import AMD64Instruction, x86Instruction
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "x86BSIDMemoryReferenceOperand",
     "Instruction",
     "MIPSInstruction",
+    "PPC32Instruction",
     "Operand",
     "RegisterOperand",
     "x86Instruction",

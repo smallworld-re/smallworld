@@ -7,6 +7,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     add_code_bounds,
+    enroll_triton,
     load_pe_code,
     load_pe_library,
     make_emulator,
@@ -55,6 +56,9 @@ _SPECS = {
         exit_offset=0x10BF,
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 
 SCENARIO_PREFIXES = (("link_pe", "link_pe"),)

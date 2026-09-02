@@ -117,6 +117,18 @@
         else
           pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
 
+      # Unlike TriCore and Xtensa, SuperH is a first-class binutils target in
+      # nixpkgs, so there is no prebuilt tarball to patchelf: we just build the
+      # cross assembler/linker/objcopy from source. `binutils-unwrapped` is
+      # deliberate - the wrapped `binutils` pulls in a bootstrap gcc and a full
+      # sh4 glibc, which we do not need because every SuperH test is assembly.
+      #
+      # The tools come out prefixed `sh4-unknown-linux-gnu-*`, and one build
+      # serves SH-4 big/little and SH-2A: `as` takes `-big`/`-little` and
+      # `--isa=`, and gates out-of-ISA instructions with "opcode not valid for
+      # this cpu variant", so a test source cannot silently drift generations.
+      mkSuperHBinutils = system: (pkgsFor system).pkgsCross.sh4.buildPackages.binutils-unwrapped;
+
       mkTricoreGcc =
         system:
         let
@@ -181,9 +193,10 @@
           pkgs = pkgsFor system;
           xtensaGcc = mkXtensaGcc system;
           tricoreGcc = mkTricoreGcc system;
+          superHBinutils = mkSuperHBinutils system;
 
           tests = pkgs.callPackage ../tests {
-            inherit tricoreGcc xtensaGcc;
+            inherit superHBinutils tricoreGcc xtensaGcc;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
           };
 
@@ -191,6 +204,50 @@
             zephyr =
               let
                 zephyrPkgs = zephyr-nix.packages.${system};
+
+                # nixpkgs bumped setuptools-scm to 10.x, but spsdk 3.9.0 (pulled
+                # in by zephyr's pythonEnv) still pins "setuptools_scm<10" in its
+                # build-system requires. zephyr-nix already carries a fix for
+                # this, but it targets the older "setuptools_scm<8.2" spelling
+                # via a non-fatal --replace-warn, so it silently no-ops and the
+                # spsdk wheel build fails its build-dependency check. Relax the
+                # pin ourselves in prePatch; zephyr-nix only overwrites
+                # postPatch, so this survives its overridePythonAttrs.
+                #
+                # patool's test suite is likewise broken at this nixpkgs
+                # revision: a libmagic/`file` update changed archive MIME
+                # detection and the archive-program lookup, so ~a dozen of its
+                # tests now fail during the build. These are test-environment
+                # regressions, not defects in patool itself (which only needs
+                # to extract SDK archives), so skip its check phase.
+                pythonFixesOverlay = _final: prev: {
+                  pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+                    (_pyfinal: pyprev: {
+                      spsdk = pyprev.spsdk.overridePythonAttrs (old: {
+                        prePatch = (old.prePatch or "") + ''
+                          substituteInPlace pyproject.toml \
+                            --replace-fail "setuptools_scm<10" "setuptools_scm"
+                        '';
+                      });
+                      patool = pyprev.patool.overridePythonAttrs (_old: {
+                        doCheck = false;
+                        doInstallCheck = false;
+                      });
+                    })
+                  ];
+                };
+
+                # Only pythonEnv depends on these packages, so rebuild just that
+                # against the patched package set (reusing zephyr-nix's own
+                # python.nix and its locked inputs); the SDK and host tools are
+                # untouched.
+                pkgsWithPythonFixes = (pkgsFor system).extend pythonFixesOverlay;
+                fixedPythonEnv = pkgsWithPythonFixes.callPackage (zephyr-nix + "/python.nix") {
+                  zephyr-src = zephyr-nix.inputs.zephyr;
+                  pyproject-nix = zephyr-nix.inputs.pyproject-nix;
+                  pkgs = pkgsWithPythonFixes;
+                };
+
                 # openocd-zephyr's udevCheckPhase runs udevadm verify, which
                 # requires a live kernel udev subsystem absent in CI sandboxes.
                 openocdFixed = zephyrPkgs.openocd-zephyr.overrideAttrs (_: {
@@ -199,6 +256,7 @@
               in
               zephyrPkgs
               // {
+                pythonEnv = fixedPythonEnv;
                 hosttools-nix = zephyrPkgs.hosttools-nix.overrideAttrs (old: {
                   propagatedBuildInputs = map (
                     dep: if dep == zephyrPkgs.openocd-zephyr then openocdFixed else dep

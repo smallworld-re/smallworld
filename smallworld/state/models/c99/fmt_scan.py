@@ -618,6 +618,7 @@ def handle_constrained(
     elif length != "":
         raise FormatConversionError(f"Unknown type specifier {length}")
 
+    invert = False
     if conversion[0] == "^":
         invert = True
         conversion = conversion[1:]

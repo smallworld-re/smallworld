@@ -555,20 +555,11 @@ class PandaEmulator(
             raise exceptions.EmulationError("PANDA not started")
 
     def map_memory(self, address: int, size: int) -> None:
-        def page_down(address):
-            return address // self.PAGE_SIZE
-
-        def page_up(address):
-            return (address + self.PAGE_SIZE - 1) // self.PAGE_SIZE
-
         logger.debug(
             f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}"
         )
-        # Translate an addressi + size to a page range
-        if page_down(address) == page_down(address + size):
-            region = (page_down(address), page_up(address + size) + 1)
-        else:
-            region = (page_down(address), page_up(address + size))
+        # Translate an address + size to a page range
+        region = self._page_range_for_memory(address, size)
 
         logger.debug(f"map_memory: Page range: {region}")
 
@@ -647,7 +638,7 @@ class PandaEmulator(
         # can return fewer than the requested number of bytes if the upper bound
         # is past the end of the list being sliced.
         if address % self.PAGE_SIZE != 0:
-            block_size = address % self.PAGE_SIZE
+            block_size = self.PAGE_SIZE - (address % self.PAGE_SIZE)
             if self.panda_thread.panda:
                 self.panda_thread.panda.physical_memory_write(
                     address, content[0:block_size]

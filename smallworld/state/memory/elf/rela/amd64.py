@@ -137,7 +137,12 @@ class AMD64ElfRelocator(ElfRelocator):
             return self._pack(symval + self._get_addend(rela, elf, 1) - rela.offset, 1)
         elif rela.type == R_X86_64_DTPMOD64:
             # TLS module relocations need the runtime-assigned TLS module ID.
-            self._missing_context(rela, "the TLS module ID for the symbol")
+            # SmallWorld emulates a single module in isolation, so there is
+            # exactly one TLS module; assign it the conventional module ID 1.
+            # (DTPOFF64/TPOFF64 below still require real TLS-block layout and
+            # remain unsupported, but DTPMOD64 alone is what blocks loading
+            # otherwise-ordinary TLS-using shared objects.)
+            return self._pack(1, 8)
         elif rela.type == R_X86_64_DTPOFF64:
             # Dynamic TLS offsets depend on the module's TLS block layout.
             self._missing_context(rela, "the symbol's offset within its TLS block")

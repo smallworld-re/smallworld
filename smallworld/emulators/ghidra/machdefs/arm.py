@@ -24,7 +24,7 @@ class ARMMachineDef(GhidraMachineDef):
             "sl": "r10",
             # r11 doubles as the Frame Pointer, if desired.
             "r11": "r11",
-            "fp": "r10",
+            "fp": "r11",
             # r12 doubles as the Intra-call scratch register
             "r12": "r12",
             "ip": "r12",
@@ -349,22 +349,18 @@ class ARMMachineMixinVFPEL:
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
-    language_id = "ARM:LE:32:v5t"
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
-    language_id = "ARM:LE:32:v6"
 
 
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    language_id = "ARM:LE:32:v7"
 
 
 class ARMv7AMachineDef(ARMMachineMixinVFPEL, ARMMachineMixinRA, ARMMachineDef):
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
-    language_id = "ARM:LE:32:v7"

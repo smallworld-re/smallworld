@@ -164,7 +164,8 @@ class MIPS64MachineDef(GhidraMachineDef):
         "jr",
         "beq",
         "beqz",
-        "bne" "bnez",
+        "bne",
+        "bnez",
         "bgez",
         "bgezal",
         "bgtz",
@@ -178,9 +179,7 @@ class MIPS64MachineDef(GhidraMachineDef):
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "MIPS:LE:64:default"
 
 
 class MIPS64BEMachineDef(MIPS64MachineDef):
     byteorder = Byteorder.BIG
-    language_id = "MIPS:BE:64:default"

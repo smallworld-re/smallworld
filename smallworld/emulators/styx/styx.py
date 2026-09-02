@@ -13,9 +13,14 @@ Notable differences from the Unicorn / Ghidra backends:
   the builder. Once built, registration order doesn't matter — hooks and
   writes are routed straight through to the live processor.
 - **No symbolic values**: ``SymbolicValueError`` for any ``claripy`` input.
-- **Limited target set**: 32-bit ARM (armhf/armel) and 32-bit PowerPC (ppc) are
-  supported; anything else raises ``ConfigurationError``. For PowerPC an optional
-  ``cpu_model`` selects the Styx core (``"ppc405"`` default, or ``"mpc860"``).
+- **Limited target set**: 32-bit ARM (armhf/armel), 32-bit PowerPC (ppc),
+  SH-2A-FPU and SH-4 are supported; anything else raises
+  ``ConfigurationError``. For PowerPC an optional ``cpu_model`` selects the Styx
+  core (``"ppc405"`` default, or ``"mpc860"``). SH-2A-FPU is the one target with
+  a purpose-built Styx processor crate; SH-4 goes through Styx's generic
+  ``RawProcessor`` and its arch spec is a stub, so floating point and privileged
+  instructions are unreliable there — see
+  ``machdefs/superh.py`` and ``machdefs/superh4.py``.
 - **Function hooks short-circuit the body**: ``hook_function(addr, fn)``
   installs a code hook at ``addr`` whose callback runs the user function then
   jumps PC to the link register. This matches the Unicorn backend's semantics
@@ -111,7 +116,7 @@ class StyxEmulator(
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
 ):
-    """Styx emulator backend for SmallWorld (32-bit ARM and PowerPC)."""
+    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH)."""
 
     name = "styx-emulator"
     description = "emulator based on the styx-emulator firmware emulation framework"
@@ -456,7 +461,7 @@ class StyxEmulator(
                 ret = None
             if ret is None:
                 return
-            cpu.pc = int(ret) & ~0x1
+            cpu.write_register("pc", int(ret) & ~0x1)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 
@@ -518,6 +523,28 @@ class StyxEmulator(
         self, function: typing.Callable[[emulator.Emulator, int], bool]
     ) -> None:
         super().hook_interrupts(function)
+        self._install_interrupt_dispatcher()
+
+    def hook_interrupt(
+        self, intno: int, function: typing.Callable[[emulator.Emulator], bool]
+    ) -> None:
+        super().hook_interrupt(intno, function)
+        self._install_interrupt_dispatcher()
+
+    def _has_styx_interrupt_hook(self) -> bool:
+        # Track once-only installation via an attribute so we don't double up
+        # on processor-level interrupt hooks.
+        return getattr(self, "_styx_interrupt_hook_installed", False)
+
+    def _install_interrupt_dispatcher(self) -> None:
+        # Register exactly one processor-level InterruptHook. At fire time it
+        # dispatches the per-number handler if present, otherwise the global
+        # handler. Both ``interrupt_hooks`` and ``all_interrupts_hook`` are
+        # populated by the ``super()`` calls before this runs, so a single
+        # dispatcher works regardless of which ``hook_*`` was called first and
+        # never double-registers (which would otherwise double-fire handlers).
+        if self._has_styx_interrupt_hook():
+            return
 
         def _cb(_cpu, intno, _self=self):
             handler = _self.interrupt_hooks.get(int(intno))
@@ -526,29 +553,6 @@ class StyxEmulator(
                 return
             if _self.all_interrupts_hook is not None:
                 _self.all_interrupts_hook(_self, int(intno))
-
-        self._register_styx_hook(InterruptHook(_cb))
-
-    def hook_interrupt(
-        self, intno: int, function: typing.Callable[[emulator.Emulator], bool]
-    ) -> None:
-        super().hook_interrupt(intno, function)
-        # If a global interrupt hook is already installed it will dispatch into
-        # ``self.interrupt_hooks``. Otherwise install one now so per-number
-        # hooks fire too.
-        if self.all_interrupts_hook is None and not self._has_styx_interrupt_hook():
-            self._install_baseline_interrupt_hook()
-
-    def _has_styx_interrupt_hook(self) -> bool:
-        # Track once-only installation via an attribute so we don't double up
-        # on processor-level interrupt hooks.
-        return getattr(self, "_styx_interrupt_hook_installed", False)
-
-    def _install_baseline_interrupt_hook(self) -> None:
-        def _cb(_cpu, intno, _self=self):
-            handler = _self.interrupt_hooks.get(int(intno))
-            if handler is not None:
-                handler(_self)
 
         self._register_styx_hook(InterruptHook(_cb))
         self._styx_interrupt_hook_installed = True

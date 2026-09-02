@@ -1,0 +1,190 @@
+# Local PANDA/QEMU patch adding SuperH SH-4 support for SmallWorld.
+#
+# QEMU already carries a complete `sh4` target; what is missing is PANDA's own
+# glue. This patch supplies the `TARGET_SH4` arms of the six `#error`-terminated
+# ladders in panda/src, exports non-inline status-register accessors that PANDA's
+# cffi bindings can reach, and teaches the Avatar `configurable` machine about
+# SH-4 so SmallWorld can map its own memory instead of using the fixed `r2d`
+# board layout. Remove once upstream PANDA carries equivalent SH-4 support.
+#
+# NOTE: `sh_sr_read`/`sh_sr_write` are declared here and reused by
+# panda-qemu-sh2a.patch; that patch must not redeclare them.
+diff --git a/hw/avatar/configurable_machine.c b/hw/avatar/configurable_machine.c
+--- a/hw/avatar/configurable_machine.c
++++ b/hw/avatar/configurable_machine.c
+@@ -64,6 +64,10 @@ typedef PowerPCCPU THISCPU;
+ #elif defined(TARGET_AVR)
+ #include "target/avr/cpu.h"
+ typedef AVRCPU THISCPU;
++
++#elif defined(TARGET_SH4)
++#include "target/sh4/cpu.h"
++typedef SuperHCPU THISCPU;
+ #endif
+ 
+ /* qapi imports */
+@@ -492,6 +496,9 @@ void avatar_cm_set_entry_point(QDict *conf, THISCPU *cpuu)
+     entry = qdict_get_int(conf, entry_field);
+ 
+     cpuu->env.pc_w = entry >> 1;
++
++#elif defined(TARGET_SH4)
++    cpuu->env.pc = entry;
+ #endif
+ }
+ 
+@@ -582,6 +589,9 @@ static THISCPU *create_cpu(MachineState * ms, QDict *conf)
+     // from hw/ppc/prep.c's ibm_40p_init
+     cpu_ppc_tb_init(&cpuu->env, 100UL * 1000UL * 1000UL);
+     qemu_register_reset(ppc_prep_reset, cpuu);
++
++#elif defined(TARGET_SH4)
++    cpuu = SUPERH_CPU(cpu_create(cpu_type));
+ #endif
+ 
+     (void) cpuobj; // TODO remove
+@@ -688,6 +698,8 @@ static void configurable_machine_class_init(ObjectClass *oc, const void *data)
+     mc->default_cpu_type = POWERPC_CPU_TYPE_NAME("e500v2_v30");
+ #elif defined(TARGET_AVR)
+     mc->default_cpu_type = AVR_CPU_TYPE_NAME("avr5");
++#elif defined(TARGET_SH4)
++    mc->default_cpu_type = SUPERH_CPU_TYPE_NAME("sh7751r");
+ #endif
+ }
+ 
+diff --git a/hw/avatar/meson.build b/hw/avatar/meson.build
+--- a/hw/avatar/meson.build
++++ b/hw/avatar/meson.build
+@@ -24,6 +24,7 @@ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_I386'], if_true: files(
+ ))
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_X86_64'], if_true: files('configurable_machine.c'))
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_PPC'], if_true: files('configurable_machine.c'))
++specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_SH4'], if_true: files('configurable_machine.c'))
+ 
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_AVR'], if_true: files(
+   'configurable_machine.c',
+diff --git a/panda/src/common.c b/panda/src/common.c
+--- a/panda/src/common.c
++++ b/panda/src/common.c
+@@ -154,6 +154,10 @@ target_ulong panda_current_asid(CPUState *cpu) {
+     return (env->CSR_ASID & 0xff);
+   #elif defined(TARGET_TRICORE)
+     return 0;
++  #elif defined(TARGET_SH4)
++    /* SH-4 keeps the current ASID in the low 8 bits of PTEH. */
++    CPUArchState *env = cpu_env(cpu);
++    return (env->pteh & 0xff);
+   #else
+   #error "panda_current_asid() not implemented for target architecture."
+     return 0;
+diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
+--- a/panda/src/panda_arch.c
++++ b/panda/src/panda_arch.c
+@@ -33,6 +33,10 @@ bool panda_in_kernel_mode(const CPUState *cpu) {
+     return (env->priv >= PRV_S);
+ #elif defined(TARGET_TRICORE)
+     return false;
++#elif defined(TARGET_SH4)
++    /* SR.MD (bit 30) selects privileged mode. It is not one of the bits that
++       QEMU splits out of `sr`, so it can be read directly. */
++    return (env->sr & (1u << SR_MD)) != 0;
+ #else
+ #error "panda_in_kernel_mode() not implemented for target architecture."
+     return false;
+@@ -152,6 +156,10 @@ target_ulong panda_current_ksp(CPUState *cpu) {
+     return env->gpr[2];
+ #elif defined(TARGET_TRICORE)
+     return env->gpr_a[10];
++#elif defined(TARGET_SH4)
++    /* R15 on SuperH. See linux-user/sh4/cpu_loop.c, which uses gregs[15] as
++       the stack pointer. */
++    return env->gregs[15];
+ #else
+ #error "panda_current_ksp() not implemented for target architecture."
+     return 0;
+@@ -190,6 +198,9 @@ target_ulong panda_current_sp(const CPUState *cpu) {
+     return env->gpr[2];
+ #elif defined(TARGET_TRICORE)
+     return env->gpr_a[10];
++#elif defined(TARGET_SH4)
++    // R15 on SuperH.
++    return env->gregs[15];
+ #else
+ #error "panda_current_sp() not implemented for target architecture."
+     return 0;
+@@ -230,6 +241,9 @@ target_ulong panda_get_retval(const CPUState *cpu) {
+     return env->gpr[10];
+ #elif defined(TARGET_TRICORE)
+     return env->gpr_d[2];
++#elif defined(TARGET_SH4)
++    // R0 on SuperH.
++    return env->gregs[0];
+ #else
+ #error "panda_get_retval() not implemented for target architecture."
+     return 0;
+@@ -258,6 +272,9 @@ void panda_set_retval(CPUState *cpu, target_ulong value){
+     env->gpr[10] = value;
+ #elif defined(TARGET_TRICORE)
+     env->gpr_d[2] = value;
++#elif defined(TARGET_SH4)
++    // R0 on SuperH.
++    env->gregs[0] = value;
+ #else
+ #error "panda_get_retval() not implemented for target architecture."
+ #endif
+@@ -304,6 +321,13 @@ void panda_set_retval(CPUState *cpu, target_ulong value){
+     #define GPR(x) env->gpr_d[x]
+     target_ulong regs[] = {2, 4, 5, 6, 7};
+ 
++#elif defined(TARGET_SH4)
++    #define GPR(x) env->gregs[x]
++                       // r3,  r4, r5, r6, r7, r0, r1
++                       // Linux/SH passes the syscall number in r3 and arguments
++                       // in r4-r7, r0, r1. See linux-user/sh4/cpu_loop.c.
++    target_ulong regs[] = {3, 4, 5, 6, 7, 0, 1};
++
+ #endif
+ 
+ 
+diff --git a/target/sh4/cpu.c b/target/sh4/cpu.c
+--- a/target/sh4/cpu.c
++++ b/target/sh4/cpu.c
+@@ -29,6 +29,21 @@
+ #include "accel/tcg/cpu-ops.h"
+ #include "tcg/tcg.h"
+ 
++/*
++ * Exported, non-inline accessors for the status register. See the comment on
++ * their declarations in cpu.h: PANDA's cffi-based Python bindings need real
++ * symbols, and SR's M, Q and T bits live in separate CPUSH4State fields.
++ */
++uint32_t sh_sr_read(CPUSH4State *env)
++{
++    return cpu_read_sr(env);
++}
++
++void sh_sr_write(CPUSH4State *env, uint32_t sr)
++{
++    cpu_write_sr(env, sr);
++}
++
+ static void superh_cpu_set_pc(CPUState *cs, vaddr value)
+ {
+     SuperHCPU *cpu = SUPERH_CPU(cs);
+diff --git a/target/sh4/cpu.h b/target/sh4/cpu.h
+--- a/target/sh4/cpu.h
++++ b/target/sh4/cpu.h
+@@ -380,4 +380,13 @@ static inline void cpu_write_sr(CPUSH4State *env, uint32_t sr)
+     env->sr = sr & ~((1u << SR_M) | (1u << SR_Q) | (1u << SR_T));
+ }
+ 
++/*
++ * Non-inline wrappers around cpu_read_sr()/cpu_write_sr(), needed because
++ * PANDA's Python bindings reach the CPU state through cffi, which cannot see
++ * `static inline` functions defined in a header. Reading `env->sr` directly
++ * would silently drop the M, Q and T bits, and T is SuperH's condition flag.
++ */
++uint32_t sh_sr_read(CPUSH4State *env);
++void sh_sr_write(CPUSH4State *env, uint32_t sr);
++
+ #endif /* SH4_CPU_H */

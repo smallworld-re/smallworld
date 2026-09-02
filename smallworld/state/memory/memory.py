@@ -37,21 +37,16 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         Missing/undefined space will be filled with zeros.
 
-        Arguments:
-            byteorder: Byteorder for conversion to raw bytes.
-
         Returns:
-            Bytes for this object with the given byteorder.
+            The bytes of this memory region, with undefined space zero-filled.
         """
 
-        result = b"\x00" * self.size
+        result = bytearray(self.size)
         for offset, value in self.items():
-            # data = value.get_content()
-            result = (
-                result[:offset] + value.to_bytes() + result[offset + value.get_size() :]
-            )
+            b = value.to_bytes()
+            result[offset : offset + len(b)] = b
 
-        return result
+        return bytes(result)
 
     def get_capacity(self) -> int:
         """Gets the total number of bytes this memory region can store.
@@ -178,15 +173,18 @@ class Memory(state.Stateful, dict[int, state.Value]):
                         f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
-                contents = segment.to_bytes()
-                prefix = contents[: part_start - segment_start]
-                suffix = contents[part_end - segment_start :]
-                new_segment_bytes = prefix + part + suffix
-
                 # set content
                 if isinstance(segment, state.BytesValue):
-                    segment.set_content(new_segment_bytes)
+                    assert isinstance(segment._content, bytearray)
+                    segment._content[
+                        part_start - segment_start : part_end - segment_start
+                    ] = part
                 elif isinstance(segment, state.IntegerValue):
+                    contents = segment.to_bytes()
+                    prefix = contents[: part_start - segment_start]
+                    suffix = contents[part_end - segment_start :]
+                    new_segment_bytes = prefix + part + suffix
+
                     as_int = int.from_bytes(new_segment_bytes, segment.byteorder.value)
                     segment.set_content(as_int)
                 else:
@@ -195,6 +193,11 @@ class Memory(state.Stateful, dict[int, state.Value]):
                     if isinstance(segment_content, ctypes.Structure) or isinstance(
                         segment_content, ctypes.Union
                     ):
+                        contents = segment.to_bytes()
+                        prefix = contents[: part_start - segment_start]
+                        suffix = contents[part_end - segment_start :]
+                        new_segment_bytes = prefix + part + suffix
+
                         segment_type = segment_content.__class__
                         as_ctype = segment_type.from_buffer_copy(new_segment_bytes)
                         segment.set_content(as_ctype)
@@ -292,7 +295,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
             address: The address to write to.
             value: The integer value to write.
             size: The size of the integer in bytes.
-            endianness: The byteorder of the platform.
+            byteorder: The byteorder of the platform.
         """
 
         self.write_bytes(
@@ -311,7 +314,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         Arguments:
             address: The address to read from.
             size: The size of the integer in bytes.
-            endianness: The byteorder of the platform.
+            byteorder: The byteorder of the platform.
 
         Returns:
             The integer read from memory.
@@ -329,7 +332,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for segment_offset, segment in sorted(self.items()):
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size() - 1
-            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+            if len(out) > 0 and out[-1].stop + 1 == segment_start:
                 segment_start = out.pop().start
             out.append(
                 range(
@@ -366,7 +369,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 continue
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size() - 1
-            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+            if len(out) > 0 and out[-1].stop + 1 == segment_start:
                 segment_start = out.pop().start
             out.append(
                 range(
@@ -385,7 +388,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 continue
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size() - 1
-            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+            if len(out) > 0 and out[-1].stop + 1 == segment_start:
                 segment_start = out.pop().start
             out.append(
                 range(

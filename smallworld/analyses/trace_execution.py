@@ -7,8 +7,8 @@ from enum import Enum
 import capstone
 
 import smallworld
-from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
-from smallworld.instructions import RegisterOperand
+from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, TraceRes
+from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
@@ -22,29 +22,91 @@ class TraceExecutionCBPoint(Enum):
     AFTER_INSTRUCTION = 2
 
 
+def _concrete_cmp_value(
+    operand,
+    emulator: smallworld.emulators.Emulator,
+    byteorder: typing.Literal["little", "big"],
+) -> typing.Optional[int]:
+    """Concrete integer value of a cmp operand, read from the live emulator.
+
+    A register operand yields its current value; a memory operand yields the
+    integer loaded from its effective address (decoded with `byteorder`).
+    Returns None if the value can't be read -- e.g. the memory operand's address
+    is unmapped -- so a bad read degrades to "unknown" rather than aborting the
+    trace.
+    """
+    try:
+        v = operand.concretize(emulator)
+    except Exception:
+        return None
+    if v is None:
+        return None
+    if isinstance(v, (bytes, bytearray)):
+        return int.from_bytes(v, byteorder)
+    return int(v)
+
+
 def get_cmp_info(
     platform: smallworld.platforms.Platform,
     emulator: smallworld.emulators.Emulator,
     cs_insn: capstone.CsInsn,
-) -> typing.Tuple[typing.List[CmpInfo], typing.List[int]]:
+) -> typing.List[CmpEntry]:
+    """What a comparison instruction compares: one CmpEntry per compared
+    thing, each carrying the value observed at this point in the trace.
+
+    Locations come from Instruction.reads, deduplicated and repr-sorted
+    (test al, al reports al once; no lhs/rhs order is promised);
+    immediates follow in decode order. Compare-and-branch instructions
+    (compare_branch_mnemonics) are included, minus their final immediate
+    -- the branch target. Empty means not a compare, or one whose use/def
+    could not be interpreted (degrade, never abort the trace).
+    """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    if cs_insn.mnemonic in pdefs.compare_mnemonics:
-        # it's a compare -- return list of "reads'
-        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
-        cmp_info = []
-        for op in cs_insn.operands:
-            if op.type == capstone.CS_OP_MEM and (op.access & capstone.CS_AC_READ):
-                cmp_info.append(sw_insn._memory_reference_operand(op))
-            if op.type == capstone.CS_OP_REG and (op.access & capstone.CS_AC_READ):
-                cmp_info.append(RegisterOperand(cs_insn.reg_name(op.value.reg)))
-            if op.type == capstone.CS_OP_IMM:
-                cmp_info.append(op.value.imm)
-        immediates = []
-        for op in cs_insn.operands:
-            if op.type == capstone.x86.X86_OP_IMM:
-                immediates.append(op.value.imm)
-        return (cmp_info, immediates)
-    return ([], [])
+    is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
+    is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
+    if not (is_compare or is_compare_branch):
+        return []
+    try:
+        # from_bytes with the caller's platform -- from_capstone selects by
+        # capstone arch/mode, which is ambiguous across the ARM variants.
+        # The expected ValueError is an ISA with no Instruction subclass;
+        # anything else is a bug and propagates.
+        sw_insn = smallworld.instructions.Instruction.from_bytes(
+            bytes(cs_insn.bytes), cs_insn.address, platform
+        )
+        reads = sw_insn.reads
+        address_regs = sw_insn.address_only_reads()
+    except ValueError as exc:
+        logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
+        return []
+    # Compared locations: reads, minus non-value roles -- registers the
+    # analysis says were read ONLY to form an address (rbp in
+    # `cmp [rbp-0x1c], 47`; dual-role rax in `cmp rax, [rax]` is kept)
+    # and the status register (a plain ARM cmp reads the carry via the
+    # barrel shifter).
+    locations = sorted(
+        (
+            op
+            for op in reads
+            if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
+            and not (
+                isinstance(op, RegisterOperand)
+                and (op.name in address_regs or op.name == pdefs.status_register)
+            )
+        ),
+        key=repr,
+    )
+    imm_ops = [op for op in cs_insn.operands if op.type == capstone.CS_OP_IMM]
+    if is_compare_branch and imm_ops:
+        imm_ops = imm_ops[:-1]  # drop the branch target
+
+    byteorder: typing.Literal["little", "big"] = (
+        "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
+    )
+    return [
+        CmpEntry(source=op, value=_concrete_cmp_value(op, emulator, byteorder))
+        for op in locations
+    ] + [CmpEntry(source=int(op.value.imm), value=int(op.value.imm)) for op in imm_ops]
 
 
 class TraceExecution(analysis.Analysis):
@@ -95,9 +157,17 @@ class TraceExecution(analysis.Analysis):
                     "Unable to read next instruction out of emulator memory"
                 )
             cs_insns, disas = self.emulator._disassemble(code, pc, 1)
+            # capstone may decode zero instructions even though the bytes were
+            # readable -- pc is in-bounds but points at something that is not a
+            # valid instruction (data, or a placeholder/dispatch region such as
+            # the libc-model area).  Signal that with None so the trace loop can
+            # terminate cleanly instead of letting `cs_insns[0]` raise an
+            # IndexError that escapes run() and aborts the caller.
+            if not cs_insns:
+                return None
             return cs_insns[0]
 
-        the_exc = None
+        the_exc: typing.Optional[Exception] = None
         emu_result = TraceRes.ER_NONE
 
         pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
@@ -116,10 +186,31 @@ class TraceExecution(analysis.Analysis):
                 emu_result = TraceRes.ER_BOUNDS
                 break
             cs_insn = get_insn(pc)
-            cmp_info, imm_info = get_cmp_info(self.platform, self.emulator, cs_insn)
+            if cs_insn is None:
+                # In-bounds pc with no decodable instruction.  Treat it as an
+                # emulation failure (control reached non-code) and stop, rather
+                # than crashing the whole analysis.  Recorded like any faulting
+                # step: ER_FAIL with a descriptive exception for hinting.
+                emu_result = TraceRes.ER_FAIL
+                the_exc = smallworld.exceptions.AnalysisRunError(
+                    f"no decodable instruction at pc {pc:#x}"
+                )
+                break
+            cmp_entries = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
+            # TraceElement keeps its historical parallel-list shape (cmp /
+            # immediates / index-aligned cmp_values): its pickled form and
+            # its consumers (magrathea) depend on it. Derived here from the
+            # self-contained entries; immediates are the int-sourced ones.
             te = TraceElement(
-                pc, i, cs_insn.mnemonic, cs_insn.op_str, cmp_info, branch_info, imm_info
+                pc,
+                i,
+                cs_insn.mnemonic,
+                cs_insn.op_str,
+                [e.source for e in cmp_entries],
+                branch_info,
+                [e.source for e in cmp_entries if isinstance(e.source, int)],
+                [e.value for e in cmp_entries],
             )
             trace.append(te)
             # run any callbacks
@@ -131,12 +222,17 @@ class TraceExecution(analysis.Analysis):
                 i += 1
                 logger.debug(cs_insn)
                 self.emulator.step()
-            except (
-                smallworld.exceptions.EmulationBounds,
-                smallworld.exceptions.EmulationExitpoint,
-            ):
-                # this one really isnt an error of any kind; we
-                # encountered code we were not supposed to execute
+            except smallworld.exceptions.EmulationExitpoint:
+                # Reached a designated exit point (the harnessed function's
+                # ret/end): a clean, intended completion. Kept distinct from
+                # ER_BOUNDS so callers can tell "the function returned" from
+                # "control escaped the allowed region."
+                emu_result = TraceRes.ER_EXITPOINT
+                break
+            except smallworld.exceptions.EmulationBounds:
+                # Execution left the allowed bounds without hitting an exit
+                # point -- e.g. an indirect jump through a garbage pointer. Not
+                # a hard emulation fault, but not a clean return either.
                 emu_result = TraceRes.ER_BOUNDS
                 break
             except Exception as e:

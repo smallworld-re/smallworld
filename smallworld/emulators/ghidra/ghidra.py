@@ -42,6 +42,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
+        # The default address space is fixed for the emulator's lifetime;
+        # cache it so per-pcode-op handlers don't re-cross the JPype boundary.
+        self._default_space = self.machdef.language.getDefaultSpace()
         # Set up the context configuration.
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
@@ -115,10 +118,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         state = self._thread.getState()
 
+        size = reg.getMinimumByteSize()
+        # Mask to handle negative ints via two's-complement wraparound.
+        value_unsigned = value & ((1 << (size * 8)) - 1)
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            val = value.to_bytes(reg.getMinimumByteSize(), "big")
+            val = value_unsigned.to_bytes(size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            val = value.to_bytes(reg.getMinimumByteSize(), "little")
+            val = value_unsigned.to_bytes(size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
@@ -276,7 +282,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             )
 
         # Dereference the address to get the original data
-        addr_space = self.machdef.language.getDefaultSpace()
+        addr_space = self._default_space
         addr_addr = addr_space.getAddress(addr)
         data_var = Varnode(addr_addr, out_var.getSize())
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
@@ -465,7 +471,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:
                     # This is a LOAD opcode; could trigger a "read" hook
-                    addr_space = self.machdef.language.getDefaultSpace()
+                    addr_space = self._default_space
                     default_id = addr_space.getSpaceID()
 
                     space_var, addr_var = op.getInputs()
@@ -488,7 +494,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     # It's used if copying directly between two varnodes,
                     # without having to compute an address.
                     # It could be a
-                    addr_space = self.machdef.language.getDefaultSpace()
+                    addr_space = self._default_space
 
                     in_var = op.getInputs()[0]
                     out_var = op.getOutput()

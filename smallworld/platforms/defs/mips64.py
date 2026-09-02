@@ -33,9 +33,38 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 # (The docs for this one were hosted by SGI, and are tricky to find online.)
 
 
+#: Ghidra models MIPS64 with the O32 register names (it reuses the O32
+#: naming for both ABIs); SmallWorld uses N64. That is not a spelling
+#: difference -- the same *name* means a different physical register in
+#: each. Ghidra's t0 is $8, which N64 calls a4, while N64's t0 is $12,
+#: which Ghidra calls t4. So a Ghidra name passed through unchanged lands
+#: on the wrong register and nothing detects it.
+#:
+#: This is the inverse of the map in
+#: emulators/ghidra/machdefs/mips64.py (which goes SmallWorld -> Ghidra);
+#: GhidraMachdefRegisterAliasTests asserts the two stay agreed.
+_GHIDRA_O32_TO_N64 = {
+    # $8-$11: Ghidra t0-t3 are N64's a4-a7
+    "t0": "a4",
+    "t1": "a5",
+    "t2": "a6",
+    "t3": "a7",
+    # $12-$15: Ghidra t4-t7 are N64's t0-t3
+    "t4": "t0",
+    "t5": "t1",
+    "t6": "t2",
+    "t7": "t3",
+    # Ghidra names the accumulator halves hi/lo; SmallWorld models
+    # accumulator 0 as hi0/lo0 (there are four on MIPS64).
+    "hi": "hi0",
+    "lo": "lo0",
+}
+
+
 class MIPSN64PlatformDef(PlatformDef):
     # Abstract MIPS64 platform definition based on the n64 ABI.
     architecture = Architecture.MIPS64
+    ghidra_register_aliases = _GHIDRA_O32_TO_N64
 
     address_size = 8
 
@@ -54,7 +83,7 @@ class MIPSN64PlatformDef(PlatformDef):
         "bltz",
         # Conditional branch-and-link
         "bgezal",
-        "bltzal"
+        "bltzal",
         # Likely conditional branch
         # Skip the delay slot if they are not taken.
         "beql",
@@ -69,11 +98,18 @@ class MIPSN64PlatformDef(PlatformDef):
         "bltzall",
     }
 
+    # Every MIPS conditional branch compares general-purpose register
+    # values directly (there are no condition flags).
+    compare_branch_mnemonics = conditional_branch_mnemonics
+
     compare_mnemonics = {
-        # MIPS doesn't really have integer comparison instructions
-        # All of the conditional branches include a comparsion
-        # relative to zero; the compiler needs to reduce
-        # all conditional tests to comparisons against zero.
+        # Integer comparison: set-less-than writes a boolean to a GPR;
+        # this is how compilers materialize integer compares that
+        # aren't folded into a conditional branch.
+        "slt",
+        "slti",
+        "sltu",
+        "sltiu",
         # Floating-point comparison
         # Save to FCC
         # NOTE: Unlike branches, compares only support eq, lt, and le
@@ -281,6 +317,7 @@ class MIPSN64PlatformDef(PlatformDef):
 
 class MIPS64EL(MIPSN64PlatformDef):
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "MIPS:LE:64:default"
 
     def __init__(self):
         super().__init__()
@@ -305,6 +342,7 @@ class MIPS64EL(MIPSN64PlatformDef):
 
 class MIPS64BE(MIPSN64PlatformDef):
     byteorder = Byteorder.BIG
+    ghidra_language_id = "MIPS:BE:64:default"
 
     capstone_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
 

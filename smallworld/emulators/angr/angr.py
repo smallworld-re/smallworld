@@ -543,7 +543,7 @@ class AngrEmulator(
                 "Writing memory not supported once execution begins."
             )
         v = self.state.memory.load(address, size)
-        if v.symbolic():
+        if v.symbolic:
             if v.op == "Extract":
                 # You got a piece of a possibly-labeled expression
                 # Try parsing the inner expression to see if it's a single symbol.
@@ -637,6 +637,7 @@ class AngrEmulator(
             # There may be over-constraints.  Please be careful.
             self.state.memory.store(address, s, inspect=False)
             self.state.solver.add(v == s)
+            self.state.solver.simplify()
 
     def _write_memory_label_bulk(
         self, labels: typing.List[typing.Tuple[int, int, typing.Optional[str]]]
@@ -658,6 +659,9 @@ class AngrEmulator(
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
+            log.warning(
+                f"Writing {len(content)} bytes of code to {hex(address)} after initialization!"
+            )
             self.write_memory_content(address, content)
         else:
             self._code.append((address, content))
@@ -752,7 +756,7 @@ class AngrEmulator(
 
     def unhook_instructions(self) -> None:
         if not self._initialized:
-            self._gb_instruction_hook = None
+            self._gb_instr_hook = None
 
         elif self._dirty and not self._linear:
             raise NotImplementedError(
@@ -907,7 +911,7 @@ class AngrEmulator(
                     self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
-                            read_start, read_end
+                            (read_start, read_end)
                         )
                     )
                     > 0
@@ -995,7 +999,7 @@ class AngrEmulator(
     def unhook_memory_read(self, start: int, end: int):
         if not self._initialized:
             self._read_hooks = list(
-                filter(lambda x: x[0] != start and x[1] != end, self._read_hooks)
+                filter(lambda x: x[0] != start or x[1] != end, self._read_hooks)
             )
 
         elif self._dirty and not self._linear:
@@ -1044,7 +1048,9 @@ class AngrEmulator(
 
                 res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
-                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                if res is None:
+                    res = expr
+                elif self.platform.byteorder == platforms.Byteorder.LITTLE:
                     # fix byte order if needed.
                     # i don't know _why_ this is needed,
                     # but encoding the result as little-endian on a little-endian
@@ -1109,7 +1115,7 @@ class AngrEmulator(
                 "Memory unhooking not supported once execution begins"
             )
 
-        elif self.state.scratch.global_read_bp is not None:
+        elif self.state.scratch.global_read_bp is None:
             raise exceptions.ConfigurationError("Global memory read hook not present")
 
         else:
@@ -1173,7 +1179,7 @@ class AngrEmulator(
                     self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
-                            write_start, write_end
+                            (write_start, write_end)
                         )
                     )
                     > 0
@@ -1337,16 +1343,21 @@ class AngrEmulator(
         self.hook_memory_writes_symbolic(sym_callback)
 
     def unhook_memory_writes(self) -> None:
-        if self._dirty and not self._linear:
+        if not self._initialized:
+            self._gb_write_hook = None
+
+        elif self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory unhooking not supported once execution begins"
             )
-        if self.state.scratch.global_write_bp is not None:
+
+        elif self.state.scratch.global_write_bp is None:
             raise exceptions.ConfigurationError("Global memory write hook not present")
 
-        bp = self.state.scratch.global_read_bp
-        self.state.scratch.global_read_bp = None
-        self.state.inspect.remove_breakpoint("mem_write", bp)
+        else:
+            bp = self.state.scratch.global_write_bp
+            self.state.scratch.global_write_bp = None
+            self.state.inspect.remove_breakpoint("mem_write", bp)
 
     def _step(self, single_insn: bool):
         """Common routine for all step functions.
@@ -1403,6 +1414,12 @@ class AngrEmulator(
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
             log.error(self.mgr.errored[0].state)
+            if isinstance(self.mgr.errored[0].error, angr.errors.SimIRSBNoDecodeError):
+                raise exceptions.EmulationExecInvalidFailure(
+                    "Undecodable instruction",
+                    self.mgr.errored[0].state._ip.concrete_value,
+                    None,
+                )
             raise exceptions.EmulationError(
                 self.mgr.errored[0].error
             ) from self.mgr.errored[0].error

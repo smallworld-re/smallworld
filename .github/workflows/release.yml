@@ -8,13 +8,15 @@ on:
 jobs:
   Deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     environment:
       name: pypi
     env:
       TZ: UTC
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Install Python 3.12
         run: uv python install 3.12
       - name: Build
@@ -24,7 +26,9 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
         run: uv publish
   Docs:
-    runs-on: smallworld-arc    
+    runs-on: smallworld-arc
+    permissions:
+      contents: write
     steps:          
       - name: Checkout
         uses: actions/checkout@v6

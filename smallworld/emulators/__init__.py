@@ -31,4 +31,18 @@ try:
 except ImportError:
     __styx__ = []
 
-__all__ = __emulator__ + __unicorn__ + __angr__ + __panda__ + __pcode__ + __styx__
+try:
+    from .triton import *  # noqa: F401, F403
+    from .triton import __all__ as __triton__
+except ImportError:
+    __triton__ = []
+
+__all__ = (
+    __emulator__
+    + __unicorn__
+    + __angr__
+    + __panda__
+    + __pcode__
+    + __styx__
+    + __triton__
+)

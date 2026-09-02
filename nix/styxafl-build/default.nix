@@ -30,7 +30,7 @@ ps.buildPythonPackage {
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit src;
-    hash = "sha256-UF2V+7qRSa1teUrI847SrZM8yQu12WblOwExVhYDzPc=";
+    hash = "sha256-v1d8rN4djahXiHmInYSAb7cm2eBu47jhpCC5amMoWrU=";
   };
 
   dontUseCmakeConfigure = true;

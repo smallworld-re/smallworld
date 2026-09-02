@@ -36,10 +36,6 @@ class MSP430AbsMachineDef(GhidraMachineDef):
 class MSP430MachineDef(MSP430AbsMachineDef):
     arch = Architecture.MSP430
 
-    language_id = "TI_MSP430:LE:16:default"
-
 
 class MSP430XMachineDef(MSP430AbsMachineDef):
     arch = Architecture.MSP430X
-
-    language_id = "TI_MSP430X:LE:32:default"

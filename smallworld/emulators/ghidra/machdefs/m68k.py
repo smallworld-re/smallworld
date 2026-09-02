@@ -7,7 +7,6 @@ class M68KMachineDef(GhidraMachineDef):
     byteorder = Byteorder.BIG
 
     # This refers specifically to the 68040.
-    language_id = "68000:BE:32:default"
 
     _registers = {
         "d0": "d0",

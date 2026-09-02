@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import AMD64SysVModel
+
+
+class AMD64SysVErrnoLocation(ErrnoLocation, AMD64SysVModel):
+    pass
 
 
 class AMD64SysVAccess(Access, AMD64SysVModel):
@@ -414,6 +419,7 @@ class AMD64SysVWrite(Write, AMD64SysVModel):
 
 
 __all__ = [
+    "AMD64SysVErrnoLocation",
     "AMD64SysVAccess",
     "AMD64SysVAlarm",
     "AMD64SysVBrk",

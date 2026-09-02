@@ -49,7 +49,7 @@ not seen before, then a new color is added to a set being tracked and
 further reads and writes will be with respect to that.
 
 This analysis is often used in conjunction with a helper function
-``smallworld.colorizer.randomize_uninitialized`` which takes a machine
+``smallworld.analyses.colorizer.randomize_uninitialized`` which takes a machine
 state and examines it, determining any registers or memory bytes that
 are uninitialized, which it proceeds to set to random values. This is
 important since otherwise those will contain 0, which is not a very

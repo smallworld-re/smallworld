@@ -9,6 +9,7 @@ from .common import (
     ARCH_REGISTERS,
     PlatformSpec,
     build_specs,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -112,6 +113,9 @@ _SPECS = build_specs(
     per_arch=_PER_ARCH,
 )
 
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
+
 SCENARIO_PREFIXES = (("recursion", "recursion"),)
 
 SCENARIO_INFO = ScenarioInfo(
@@ -120,7 +124,14 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "recursion"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            # styx-mpc866m's event controller has unimplemented tick/latch/
+            # execute (todo! in event-controllers/ppc/styx-mpc866m/src/lib.rs);
+            # short emulations don't trigger it, but recursion runs long enough
+            # that the controller thread panics and the main loop hangs.
+            "ppc.styx-mpc860": "styx MPC866M event controller unimplemented (hangs)",
+        },
     ),
     run_factory=assert_outputs(
         tuple(

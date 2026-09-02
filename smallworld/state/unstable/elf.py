@@ -138,8 +138,9 @@ class ELFImage(Code):
                 # No one specified an entrypoint.
                 # No entrypoint will be set for this file.
                 self.entry = None
-            # file_entry is relative to file_base; rebase relative to base
-            self.entry = self.file_entry - self.file_base + self.base
+            else:
+                # file_entry is relative to file_base; rebase relative to base
+                self.entry = self.file_entry - self.file_base + self.base
         else:
             # Entrypoint requested.
             if self.user_base is None:

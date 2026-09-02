@@ -51,7 +51,7 @@ class MIPSO32PlatformDef(PlatformDef):
         "bltz",
         # Conditional branch-and-link
         "bgezal",
-        "bltzal"
+        "bltzal",
         # Likely conditional branch
         # Skip the delay slot if they are not taken.
         "beql",
@@ -66,11 +66,18 @@ class MIPSO32PlatformDef(PlatformDef):
         "bltzall",
     }
 
+    # Every MIPS conditional branch compares general-purpose register
+    # values directly (there are no condition flags).
+    compare_branch_mnemonics = conditional_branch_mnemonics
+
     compare_mnemonics = {
-        # MIPS doesn't really have integer comparison instructions
-        # All of the conditional branches include a comparsion
-        # relative to zero; the compiler needs to reduce
-        # all conditional tests to comparisons against zero.
+        # Integer comparison: set-less-than writes a boolean to a GPR;
+        # this is how compilers materialize integer compares that
+        # aren't folded into a conditional branch.
+        "slt",
+        "slti",
+        "sltu",
+        "sltiu",
         # Floating-point comparison
         # Save to FCC
         # NOTE: Unlike branches, compares only support eq, lt, and le
@@ -289,6 +296,7 @@ class MIPSO32PlatformDef(PlatformDef):
 
 class MIPS32EL(MIPSO32PlatformDef):
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "MIPS:LE:32:default"
 
     def __init__(self):
         super().__init__()
@@ -313,6 +321,7 @@ class MIPS32EL(MIPSO32PlatformDef):
 
 class MIPS32BE(MIPSO32PlatformDef):
     byteorder = Byteorder.BIG
+    ghidra_language_id = "MIPS:BE:32:default"
 
     capstone_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_BIG_ENDIAN
 

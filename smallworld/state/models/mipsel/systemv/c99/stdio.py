@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import MIPSELSysVModel
+
+
+class MIPSELSysVPerror(Perror, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVPrintfChk(PrintfChk, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVFprintfChk(FprintfChk, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVSnprintfChk(SnprintfChk, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVSprintfChk(SprintfChk, MIPSELSysVModel):
+    pass
 
 
 class MIPSELSysVFclose(Fclose, MIPSELSysVModel):
@@ -219,6 +244,11 @@ class MIPSELSysVVsscanf(Vsscanf, MIPSELSysVModel):
 
 
 __all__ = [
+    "MIPSELSysVPerror",
+    "MIPSELSysVPrintfChk",
+    "MIPSELSysVFprintfChk",
+    "MIPSELSysVSnprintfChk",
+    "MIPSELSysVSprintfChk",
     "MIPSELSysVFclose",
     "MIPSELSysVFeof",
     "MIPSELSysVFerror",

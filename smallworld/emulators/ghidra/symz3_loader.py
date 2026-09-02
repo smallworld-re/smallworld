@@ -153,16 +153,20 @@ def _install_extension(
     return user_ext_dir / "SymbolicSummaryZ3"
 
 
-def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
-    """Idempotently extract and load the SymbolicSummaryZ3 extension.
+def prepare_extension(install_dir: pathlib.Path | None = None) -> None:
+    """Extract the SymbolicSummaryZ3 extension and add its native libraries to
+    the dynamic-loader search path, *without* starting the JVM.
 
-    Safe to call repeatedly. Starts pyghidra as a side effect if it has not
-    been started; once started, the JVM is hot for the rest of the process.
+    Ghidra discovers extensions (classpath + native libraries) only while its
+    Application initializes, which happens during the first ``pyghidra.start()``
+    in the process. Any code that will later construct a
+    :class:`GhidraSymbolicEmulator` must therefore ensure this has run before
+    that first start -- otherwise the extension's jars and native libraries are
+    invisible to the already-initialized JVM and the SymZ3 classes fail to
+    resolve. Splitting this out lets other pyghidra consumers (e.g. the p-code
+    use/def analysis, which may be the first thing in a process to boot the
+    JVM) prepare the extension up front. Idempotent and safe to call repeatedly.
     """
-    global _ALREADY_LOADED
-    if _ALREADY_LOADED:
-        return
-
     install_dir = _find_install_dir(install_dir)
     props = _application_properties(install_dir)
     version = _ghidra_version_tuple(props)
@@ -194,6 +198,19 @@ def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
     # System.load() runs. Pyghidra starts the JVM the first time it is
     # imported, so the search path must be set first.
     _prepend_dynamic_library_path(str(native_dir))
+
+
+def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
+    """Idempotently extract and load the SymbolicSummaryZ3 extension.
+
+    Safe to call repeatedly. Starts pyghidra as a side effect if it has not
+    been started; once started, the JVM is hot for the rest of the process.
+    """
+    global _ALREADY_LOADED
+    if _ALREADY_LOADED:
+        return
+
+    prepare_extension(install_dir)
 
     import pyghidra
 

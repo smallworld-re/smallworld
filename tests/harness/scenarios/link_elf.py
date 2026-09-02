@@ -7,6 +7,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     add_code_bounds,
+    enroll_triton,
     load_elf_code,
     load_elf_library,
     make_emulator,
@@ -166,6 +167,9 @@ _SPECS = {
         argument_registers=("d4", "a4"),
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
     "mips64": "Unexpected failure",

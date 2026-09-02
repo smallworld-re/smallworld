@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import PowerPCSysVModel
+
+
+class PowerPCSysVPerror(Perror, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVPrintfChk(PrintfChk, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFprintfChk(FprintfChk, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVSnprintfChk(SnprintfChk, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVSprintfChk(SprintfChk, PowerPCSysVModel):
+    pass
 
 
 class PowerPCSysVFclose(Fclose, PowerPCSysVModel):
@@ -219,6 +244,11 @@ class PowerPCSysVVsscanf(Vsscanf, PowerPCSysVModel):
 
 
 __all__ = [
+    "PowerPCSysVPerror",
+    "PowerPCSysVPrintfChk",
+    "PowerPCSysVFprintfChk",
+    "PowerPCSysVSnprintfChk",
+    "PowerPCSysVSprintfChk",
     "PowerPCSysVFclose",
     "PowerPCSysVFeof",
     "PowerPCSysVFerror",

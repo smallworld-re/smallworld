@@ -5,6 +5,27 @@ import capstone
 from ..platforms import Architecture, Byteorder
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
+#: Ghidra's 32-bit ARM model exposes the condition flags as four one-bit
+#: registers. SmallWorld models them as fields of the program status
+#: register, which the M-series calls psr and the R/A-series cpsr -- hence
+#: one map per mixin, below.
+#:
+#: Mapping them costs some precision: Ghidra routes every data-processing
+#: operand through the barrel shifter and seeds a scratch from the carry, so
+#: a plain `add` or an immediate `lsl` reports a *spurious* read of cy (or
+#: ov) and now therefore of the status register. It is not separable from a
+#: real carry read -- `add` and `adc` are identical in p-code -- and Capstone
+#: cannot arbitrate, as it misses the flag reads of `beq` and of
+#: conditionally executed instructions entirely. The trade is deliberate:
+#: unmapped, `cmp` reported writing nothing at all and no conditional branch
+#: read a flag, which understates real dependencies; over-reporting a read
+#: is the safer direction. See tests/pcode_use_def/README.md.
+_ARM_FLAGS = ("ng", "zr", "cy", "ov")
+
+
+def _flag_aliases(register: str) -> typing.Dict[str, str]:
+    return {flag: register for flag in _ARM_FLAGS}
+
 
 class ARMPlatformDef(PlatformDef):
     """Base class for ARM 32-bit platform definitions
@@ -156,6 +177,9 @@ class ARMPlatformMixinM:
     and don't often have an MMU.
     """
 
+    ghidra_register_aliases = _flag_aliases("psr")
+    status_register: typing.Optional[str] = "psr"
+
     def __init__(self):
         super().__init__()
         self._registers |= {
@@ -201,6 +225,9 @@ class ARMPlatformMixinRA:
     but it's designed for real-time operations.
     The major differences are in the MMU semantics, which don't impact registers.
     """
+
+    ghidra_register_aliases = _flag_aliases("cpsr")
+    status_register: typing.Optional[str] = "cpsr"
 
     def __init__(self):
         super().__init__()
@@ -482,12 +509,14 @@ class ARMv5T(ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian."""
 
     architecture = Architecture.ARM_V5T
+    ghidra_language_id = "ARM:LE:32:v5t"
 
 
 class ARMv6M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv6m little-endian."""
 
     architecture = Architecture.ARM_V6M
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv6MThumb(ARMv6M):
@@ -499,12 +528,16 @@ class ARMv6MThumb(ARMv6M):
     """
 
     architecture = Architecture.ARM_V6M_THUMB
+    # ARMv6-M is Thumb; Ghidra decodes Thumb via the TMode context register
+    # within the same SLEIGH language, so this shares ARMv6M's language id.
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv7M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv7m little-endian"""
 
     architecture = Architecture.ARM_V7M
+    ghidra_language_id = "ARM:LE:32:v7"
 
 
 class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
@@ -517,3 +550,4 @@ class ARMv7A(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
     """Platform definition for ARMv7a little-endian"""
 
     architecture = Architecture.ARM_V7A
+    ghidra_language_id = "ARM:LE:32:v7"

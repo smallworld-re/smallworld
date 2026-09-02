@@ -6,6 +6,42 @@
 LIBRARY_MODELS = [
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99PerrorTests",
+        "function": "perror",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99PrintfChkTests",
+        "function": "__printf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99FprintfChkTests",
+        "function": "__fprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99SnprintfChkTests",
+        "function": "__snprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99SprintfChkTests",
+        "function": "__sprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "PosixErrnoLocationTests",
+        "function": "__errno_location",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99CtypeBLocTests",
         "function": "ctype_b_loc",
         "library": "c99",

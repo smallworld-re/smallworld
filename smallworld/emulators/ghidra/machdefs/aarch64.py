@@ -5,7 +5,6 @@ from .machdef import GhidraMachineDef
 class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
-    language_id = "AARCH64:LE:64:v8A"
 
     _registers = {
         # *** General Purpose Registers ***
@@ -83,6 +82,7 @@ class AArch64MachineDef(GhidraMachineDef):
         # NOTE: This list is far from complete; it only covers what Unicorn supports
         # NOTE: angr's aarch64 model is aggressively userspace-only.  None of these are supported
         # Condition Code Register
+        "nzcv": "nzcv",
         "fpcr": None,
         # Floating Point Status Register
         "fpsr": None,

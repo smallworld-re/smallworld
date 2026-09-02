@@ -7,6 +7,8 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 class AArch64(PlatformDef):
     architecture = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "AARCH64:LE:64:v8A"
+    status_register = "nzcv"
 
     address_size = 8
     capstone_arch = capstone.CS_ARCH_ARM64
@@ -115,6 +117,15 @@ class AArch64(PlatformDef):
         "cbhlt",
     }
 
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "cbz",
+        "cbnz",
+        "tbz",
+        "tbnz",
+    }
+
     # TODO: Should arithmetic operations that impact flags be compares?
     compare_mnemonics = {
         # Integer comparison
@@ -185,9 +196,9 @@ class AArch64(PlatformDef):
         "x10": RegisterDef(name="x10", size=8),
         "w10": RegisterAliasDef(name="w10", parent="x10", size=4, offset=0),
         "x11": RegisterDef(name="x11", size=8),
-        "w11": RegisterAliasDef(name="w11", parent="x10", size=4, offset=0),
+        "w11": RegisterAliasDef(name="w11", parent="x11", size=4, offset=0),
         "x12": RegisterDef(name="x12", size=8),
-        "w12": RegisterAliasDef(name="w12", parent="x10", size=4, offset=0),
+        "w12": RegisterAliasDef(name="w12", parent="x12", size=4, offset=0),
         "x13": RegisterDef(name="x13", size=8),
         "w13": RegisterAliasDef(name="w13", parent="x13", size=4, offset=0),
         "x14": RegisterDef(name="x14", size=8),
@@ -205,9 +216,9 @@ class AArch64(PlatformDef):
         "x20": RegisterDef(name="x20", size=8),
         "w20": RegisterAliasDef(name="w20", parent="x20", size=4, offset=0),
         "x21": RegisterDef(name="x21", size=8),
-        "w21": RegisterAliasDef(name="w21", parent="x20", size=4, offset=0),
+        "w21": RegisterAliasDef(name="w21", parent="x21", size=4, offset=0),
         "x22": RegisterDef(name="x22", size=8),
-        "w22": RegisterAliasDef(name="w22", parent="x20", size=4, offset=0),
+        "w22": RegisterAliasDef(name="w22", parent="x22", size=4, offset=0),
         "x23": RegisterDef(name="x23", size=8),
         "w23": RegisterAliasDef(name="w23", parent="x23", size=4, offset=0),
         "x24": RegisterDef(name="x24", size=8),
@@ -239,6 +250,10 @@ class AArch64(PlatformDef):
         # *** System Control Registers ***
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
+        # Condition flags (N, Z, C, V), the PSTATE field addressed as a
+        # system register by mrs/msr. Ghidra reports the four bits
+        # individually; they alias here.
+        "nzcv": RegisterDef(name="nzcv", size=4),
         # Condition Code Register
         "fpcr": RegisterDef(name="fpcr", size=8),
         # Floating Point Status Register

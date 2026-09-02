@@ -108,7 +108,7 @@ execution hits a specific instruction.
 The ``Model`` class is abstract; models of specific functions
 should extend ``Model``, implement ``model()`` with the actual model code,
 and specify a name, the platform the model works with, and the ABI the model assumes.
-For platforms without a concrete ABI, there is ``ABI.NOABI``.
+For platforms without a concrete ABI, there is ``ABI.NONE``.
 
 The ``model()`` function receives the current emulator as an argument,
 and returns nothing.  ``model()`` may access machine state as it likes,
@@ -203,6 +203,34 @@ to capture the behavior of ``puts()``:
     emu.run()  # Prints "Hello, world!" to stdout.
 
 
+Default Function Models
+-----------------------
+
+``ReturnConstant`` is a ready-made ``Model`` that ignores its arguments and
+returns a fixed value, using the correct return register(s) for the given
+platform and ABI.  It's handy for stubbing out a function whose return value
+you want to pin, without writing a bespoke model.
+
+Unlike the named C models, it is *parametric*, so construct it directly rather
+than via ``Model.lookup()``:
+
+.. code-block:: python
+
+    from smallworld.platforms import ABI, Architecture, Byteorder, Platform
+    from smallworld.state.models import ReturnConstant
+    from smallworld.state.models.cstd import ArgumentType
+
+    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+
+    # Force the function at 0x2000 to return 0.
+    model = ReturnConstant(0x2000, platform, ABI.SYSTEMV, value=0)
+    machine.add(model)
+
+``value`` defaults to ``0``.  ``return_type`` (default
+``ArgumentType.POINTER``) controls which register(s) are written and how the
+value is encoded; pass ``ArgumentType.VOID`` for a no-op model that consumes
+the call and returns without writing a value.
+
 MMIO Models
 -----------
 
@@ -253,7 +281,7 @@ to capture reads and writes to a certain location:
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
     from smallworld.platforms import Architecture, Byteorder, Platform
-    from smallworld.state.models import MMIOModel
+    from smallworld.state.models import MemoryMappedModel
     
     machine = Machine()
 
@@ -308,3 +336,98 @@ to capture reads and writes to a certain location:
 
     # Print the final value of our variable
     print(myint.curr_value)
+
+Default MMIO Models
+-------------------
+
+Five ready-made ``MemoryMappedModel`` subclasses cover common cases so you
+don't have to write ``on_read()``/``on_write()`` by hand.  All handle partial
+and straddling accesses for you.
+
+``NullMemoryMappedModel`` makes a region inert: reads report zeroes and writes
+have no visible effect.  Useful for stubbing out an unmodeled peripheral so a
+driver doesn't fault on it.
+
+.. code-block:: python
+
+    from smallworld.state.models import NullMemoryMappedModel
+
+    machine.add(NullMemoryMappedModel(0x40000000, 0x1000))
+
+``RAMMemoryMappedModel`` makes a region behave like ordinary memory: bytes
+written are stored and read back.  The backing bytes are exposed as ``.data``
+(initially zeroed) so a harness can inspect or seed them.
+
+.. code-block:: python
+
+    from smallworld.state.models import RAMMemoryMappedModel
+
+    ram = RAMMemoryMappedModel(0x40000000, 0x1000)
+    machine.add(ram)
+    # ... after emulation, inspect what was written:
+    print(ram.data[0:4])
+
+``UnmappedMemoryMappedModel`` faults on any access: reads raise
+``EmulationReadUnmappedFailure`` and writes raise
+``EmulationWriteUnmappedFailure``, as though the region were not mapped.
+
+.. code-block:: python
+
+    from smallworld.state.models import UnmappedMemoryMappedModel
+
+    machine.add(UnmappedMemoryMappedModel(0x40000000, 0x1000))
+
+``SparseMemoryMappedModel`` models a large region that is sparsely populated
+with registers.  A single model owns the whole region; register handlers for
+individual sub-regions with ``add_register()``.  Anything not covered is
+served by a "slack" model -- ``"null"`` (default), ``"ram"``, or
+``"unmapped"`` (fault on access).  Each registered handler only ever sees
+accesses contained within its own sub-region, so you never deal with
+straddling accesses yourself.
+
+.. code-block:: python
+
+    from smallworld.state.models import (
+        RAMMemoryMappedModel,
+        SparseMemoryMappedModel,
+    )
+
+    # A 4KB device region, zero-filled except for two modeled registers.
+    device = SparseMemoryMappedModel(0x40000000, 0x1000, slack="null")
+
+    # A plain RAM-backed data register...
+    data_reg = device.add_register(RAMMemoryMappedModel(0x40000010, 4))
+
+    # ...and a custom status register that always reads "ready".
+    class StatusRegister(MemoryMappedModel):
+        def on_read(self, emu, addr, size, data):
+            return b"\x01" * size
+
+        def on_write(self, emu, addr, size, value):
+            pass
+
+    device.add_register(StatusRegister(0x40000020, 4))
+
+    machine.add(device)
+
+``LogAccessModel`` wraps another ``MemoryMappedModel`` and logs every read and
+write (at ``DEBUG`` level) before forwarding the access to the wrapped model
+unchanged.  Use it to observe what a program does to a modeled region without
+altering the region's behavior -- e.g. layering logging over a
+``RAMMemoryMappedModel`` or a device-specific model.  The wrapper spans the
+same address range as the model it wraps.
+
+Its constructor takes the model to wrap, the ``logging.Logger`` to emit
+messages to, and an optional ``name`` used to identify the region in log
+messages (defaulting to the class name of the wrapped model).
+
+.. code-block:: python
+
+    import logging
+
+    from smallworld.state.models import LogAccessModel, RAMMemoryMappedModel
+
+    log = logging.getLogger(__name__)
+
+    ram = RAMMemoryMappedModel(0x40000000, 0x1000)
+    machine.add(LogAccessModel(ram, log, name="scratch"))

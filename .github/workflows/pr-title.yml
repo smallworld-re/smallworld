@@ -1,0 +1,29 @@
+name: PR Title
+on:
+  pull_request:
+    branches: [main]
+    # 'edited' lets a title-only fix re-run this check on its own (the head
+    # commit doesn't change). The other types keep the check present and
+    # associated with each head SHA on every PR event, which matters if this
+    # is a required status check.
+    types: [opened, edited, reopened, synchronize]
+
+# Only needs to read the repo to get conventional.sh.
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  Check-Title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check Title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        # conventional.sh is pure bash (no external tools), so this stays a
+        # fast, hosted, nix-free check that re-runs cheaply on title edits.
+        run: bash .github/workflows/scripts/conventional.sh "$TITLE"

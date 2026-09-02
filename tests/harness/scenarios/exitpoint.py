@@ -7,6 +7,7 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    enroll_triton,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -169,6 +170,49 @@ _SPECS = {
         load_address=0x400000,
         link_register="ra",
     ),
+    # SuperH has no C compiler in this tree, so exitpoint.sh{2a,4}.elf.s stand in
+    # for exitpoint.elf.c the way exitpoint.tricore.elf.s does.  All three
+    # SuperH variants assemble to the same three-instruction `main`
+    #   0x400054  mov #42,r0
+    #   0x400056  rts
+    #   0x400058  nop        (rts' delay slot)
+    # (measured with sh4-unknown-linux-gnu-objdump -d on the .o, and
+    # readelf -s on the linked ELF: main = 0x400054, size 6).  So
+    # mid_exit_offset=4 puts the mid-stream exit point on the `rts` at
+    # 0x400056 - reached with r0 already 42, which is the same "stop just
+    # before the return" placement the other arches use.
+    #
+    # The ELF is ET_EXEC with a single PT_LOAD at 0x400000, so load_address
+    # stays None and the loader honours the file's own addresses.
+    # fake_return_size is the 4-byte SuperH pointer; the pushed value is never
+    # read, because the return address comes from `pr` (aliased ra/lr).
+    "sh2a": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "panda", "styx"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
+    "sh4": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "panda"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
+    "sh4el": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "panda"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
     "tricore": ExitpointSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -179,6 +223,9 @@ _SPECS = {
         link_register="ra",
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
     "aarch64.panda": "Waiting for panda-ng",

@@ -11,6 +11,25 @@ class AMD64BasePlatformDef(PlatformDef):
     # The new bases are incompatible, so we need two separate classes.
     byteorder = Byteorder.LITTLE
 
+    # Ghidra names the segment bases fs_offset/gs_offset in p-code; the same
+    # state is modeled here as the fsbase/gsbase registers below. Without this
+    # mapping the p-code naming layer cannot resolve the base of
+    # `mov rax, qword ptr fs:[0x28]` -- the stack-protector read at the top of
+    # most compiled functions -- so it drops the whole memory reference and the
+    # instruction reports reading nothing at all.
+    #
+    # i386 has no equivalent: it models only the 2-byte fs/gs selectors, with
+    # no register holding the segment base, so 32-bit segment-relative accesses
+    # stay unresolvable until it grows one.
+    ghidra_register_aliases = {"fs_offset": "fsbase", "gs_offset": "gsbase"}
+
+    # The other half of that mapping: which register holds each segment's base.
+    # Capstone reports `fs:[0x28]` as segment="fs" with no base, so this is what
+    # lets the operand resolve to fsbase+0x28 instead of to 0x28, and it is what
+    # the p-code naming layer folds the flattened fsbase base back into so both
+    # use/def backends describe the access the same way.
+    segment_base_registers = {"fs": "fsbase", "gs": "gsbase"}
+
     address_size = 8
 
     capstone_arch = capstone.CS_ARCH_X86
@@ -52,6 +71,14 @@ class AMD64BasePlatformDef(PlatformDef):
         # Oddly I can't find this in the opcode tables;
         # it's mentioned tangentially in the docs for Jcc
         # (and it's accepted by the assembler.)
+        "jrcxz",
+        "jecxz",
+        "jcxz",
+    }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
         "jrcxz",
         "jecxz",
         "jcxz",
@@ -317,13 +344,15 @@ class AMD64BasePlatformDef(PlatformDef):
         "mm6": RegisterAliasDef(name="mm6", parent="fpr6", size=8, offset=0),
         "mm7": RegisterAliasDef(name="mm7", parent="fpr7", size=8, offset=0),
         # MSRs
-        "fsbase": RegisterDef(name="fsbase", size=64),  # MSR 0xC0000100
-        "gsbase": RegisterDef(name="gsbase", size=64),  # MSR 0xC0000101
+        "fsbase": RegisterDef(name="fsbase", size=8),  # MSR 0xC0000100
+        "gsbase": RegisterDef(name="gsbase", size=8),  # MSR 0xC0000101
     }
 
 
 class AMD64(AMD64BasePlatformDef):
     architecture = Architecture.X86_64
+    ghidra_language_id = "x86:LE:64:default"
+    status_register = "rflags"
 
     registers = AMD64BasePlatformDef.registers | {
         # *** SSE/AVX/AVX2 registers ***

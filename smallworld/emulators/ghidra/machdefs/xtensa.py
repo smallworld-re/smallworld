@@ -13,9 +13,7 @@ class XTensaMachineDef(GhidraMachineDef):
 
 class XTensaELMachineDef(XTensaMachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "Xtensa:LE:32:default"
 
 
 class XTensaBEMachineDef(XTensaMachineDef):
     byteorder = Byteorder.BIG
-    language_id = "Xtensa:BE:32:default"

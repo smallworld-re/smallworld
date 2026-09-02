@@ -264,6 +264,7 @@ class LoongArchPlatformDef(PlatformDef):
 
 class LoongArch64(LoongArchPlatformDef):
     architecture = Architecture.LOONGARCH64
+    ghidra_language_id = "Loongarch:LE:64:lp64d"
     address_size = 8
 
 

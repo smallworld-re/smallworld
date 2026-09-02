@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import LoongArch64SysVModel
+
+
+class LoongArch64SysVErrnoLocation(ErrnoLocation, LoongArch64SysVModel):
+    pass
 
 
 class LoongArch64SysVAccess(Access, LoongArch64SysVModel):
@@ -414,6 +419,7 @@ class LoongArch64SysVWrite(Write, LoongArch64SysVModel):
 
 
 __all__ = [
+    "LoongArch64SysVErrnoLocation",
     "LoongArch64SysVAccess",
     "LoongArch64SysVAlarm",
     "LoongArch64SysVBrk",

@@ -235,6 +235,10 @@ class Fgetc(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
+        if len(data) == 0:
+            self.set_return_value(emulator, -1)
+            return
+
         self.set_return_value(emulator, data[0])
 
 
@@ -314,7 +318,7 @@ class Freopen(StdioModel):
     name = "freopen"
 
     # FILE *freopen(const char *filename, const char *mode, FILE *stream);
-    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -778,6 +782,10 @@ class Getchar(StdioModel):
 
         data = file.read(1)
 
+        if len(data) == 0:
+            self.set_return_value(emulator, -1)
+            return
+
         self.set_return_value(emulator, data[0])
 
 
@@ -1060,11 +1068,14 @@ class Snprintf(StdioModel):
 
         trunc_bytes = output_bytes
         if len(trunc_bytes) > size:
-            trunc_bytes = trunc_bytes[: size - 1]
-            trunc_bytes += b"\0"
+            if size == 0:
+                trunc_bytes = b""
+            else:
+                trunc_bytes = trunc_bytes[: size - 1]
+                trunc_bytes += b"\0"
 
-        if buf_addr != 0:
-            emulator.write_memory(buf_addr, output_bytes)
+        if buf_addr != 0 and len(trunc_bytes) > 0:
+            emulator.write_memory(buf_addr, trunc_bytes)
 
         self.set_return_value(emulator, len(output_bytes) - 1)
 
@@ -1277,7 +1288,7 @@ class Vsprintf(StdioModel):
 
 
 class Vsscanf(StdioModel):
-    name = "vsprintf"
+    name = "vsscanf"
 
     # int vsscanf(char *str, const char *fmt, va_list args);
     # TODO: Figure out how to decode a va_list
@@ -1292,8 +1303,139 @@ class Vsscanf(StdioModel):
         raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
+class Perror(StdioModel):
+    name = "perror"
+
+    # void perror(const char *s);
+    # Modeled as a no-op: perror's only effect is diagnostic output to stderr,
+    # which is not part of program logic, so eliding it is a complete model for
+    # harnessing (and lets execution continue past the call).
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.VOID
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+
+
+class PrintfChk(StdioModel):
+    name = "__printf_chk"
+
+    # int __printf_chk(int flag, const char *fmt, ...);
+    # _FORTIFY_SOURCE variant of printf: identical except for a leading `flag`.
+    # Declaring it as the first fixed arg makes parse_printf_format start the
+    # varargs after it, exactly as for the real call.
+    argument_types = [ArgumentType.INT, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        fmt_addr = self.get_arg2(emulator)
+        assert isinstance(fmt_addr, int)
+        fmt = emulator.read_memory(fmt_addr, _emu_strlen(emulator, fmt_addr)).decode(
+            "utf-8"
+        )
+        output_bytes = parse_printf_format(self, fmt, emulator).encode("utf-8")
+        try:
+            file = self._fdmgr.get_filestar(self._fdmgr.stdout_filestar)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+        file.write(output_bytes)
+        self.set_return_value(emulator, len(output_bytes))
+
+
+class FprintfChk(StdioModel):
+    name = "__fprintf_chk"
+
+    # int __fprintf_chk(FILE *fp, int flag, const char *fmt, ...);
+    argument_types = [ArgumentType.POINTER, ArgumentType.INT, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        filestar = self.get_arg1(emulator)
+        fmt_addr = self.get_arg3(emulator)
+        assert isinstance(fmt_addr, int)
+        fmt = emulator.read_memory(fmt_addr, _emu_strlen(emulator, fmt_addr)).decode(
+            "utf-8"
+        )
+        output_bytes = parse_printf_format(self, fmt, emulator).encode("utf-8")
+        try:
+            file = self._fdmgr.get_filestar(filestar)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+        file.write(output_bytes)
+        self.set_return_value(emulator, len(output_bytes))
+
+
+class SnprintfChk(StdioModel):
+    name = "__snprintf_chk"
+
+    # int __snprintf_chk(char *s, size_t maxlen, int flag, size_t slen,
+    #                    const char *fmt, ...);
+    argument_types = [
+        ArgumentType.POINTER,
+        ArgumentType.SIZE_T,
+        ArgumentType.INT,
+        ArgumentType.SIZE_T,
+        ArgumentType.POINTER,
+    ]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        buf_addr = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+        fmt_addr = self.get_arg5(emulator)
+        assert isinstance(buf_addr, int)
+        assert isinstance(size, int)
+        assert isinstance(fmt_addr, int)
+        fmt = emulator.read_memory(fmt_addr, _emu_strlen(emulator, fmt_addr)).decode(
+            "utf-8"
+        )
+        output_bytes = parse_printf_format(self, fmt, emulator).encode("utf-8") + b"\0"
+        if size > 0 and len(output_bytes) > size:
+            output_bytes = output_bytes[: size - 1] + b"\0"
+        if buf_addr != 0 and output_bytes:
+            emulator.write_memory(buf_addr, output_bytes)
+        self.set_return_value(emulator, max(0, len(output_bytes) - 1))
+
+
+class SprintfChk(StdioModel):
+    name = "__sprintf_chk"
+
+    # int __sprintf_chk(char *s, int flag, size_t slen, const char *fmt, ...);
+    argument_types = [
+        ArgumentType.POINTER,
+        ArgumentType.INT,
+        ArgumentType.SIZE_T,
+        ArgumentType.POINTER,
+    ]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        buf_addr = self.get_arg1(emulator)
+        fmt_addr = self.get_arg4(emulator)
+        assert isinstance(buf_addr, int)
+        assert isinstance(fmt_addr, int)
+        fmt = emulator.read_memory(fmt_addr, _emu_strlen(emulator, fmt_addr)).decode(
+            "utf-8"
+        )
+        output_bytes = parse_printf_format(self, fmt, emulator).encode("utf-8") + b"\0"
+        if buf_addr != 0:
+            emulator.write_memory(buf_addr, output_bytes)
+        self.set_return_value(emulator, len(output_bytes) - 1)
+
+
 __all__ = [
     "Clearerr",
+    "Perror",
+    "PrintfChk",
+    "FprintfChk",
+    "SnprintfChk",
+    "SprintfChk",
     "Fclose",
     "Feof",
     "Ferror",

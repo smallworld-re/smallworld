@@ -357,7 +357,7 @@ class Recvfrom(FDModel):
             byteorder = "little"
 
         emulator.write_memory(addr, peername.to_bytes(byteorder))
-        emulator.write_memory(addr, peername.size.to_bytes(4, byteorder))
+        emulator.write_memory(addrlen, peername.size.to_bytes(4, byteorder))
 
         if trunc:
             self.set_return_value(emulator, len(data))

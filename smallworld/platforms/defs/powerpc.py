@@ -102,6 +102,14 @@ class PowerPCPlatformDef(PlatformDef):
         _branch_to_label_all | _branch_to_lr_all | _branch_to_ctr_all
     )
 
+    # Branches that compare a register directly instead of reading a
+    # condition-register field set by an earlier compare: the
+    # decrement-ctr-and-branch family tests ctr against zero.
+    compare_branch_mnemonics = {
+        "bdnz",
+        "bdz",
+    }
+
     compare_mnemonics = {
         # Compare registers
         "cmpd",
@@ -575,6 +583,7 @@ class PowerPCPlatformDef(PlatformDef):
 
 class PowerPC32(PowerPCPlatformDef):
     architecture = Architecture.POWERPC32
+    ghidra_language_id = "PowerPC:BE:32:default"
 
     address_size = 4
     capstone_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
@@ -582,6 +591,7 @@ class PowerPC32(PowerPCPlatformDef):
 
 class PowerPC64(PowerPCPlatformDef):
     architecture = Architecture.POWERPC64
+    ghidra_language_id = "PowerPC:BE:64:default"
 
     address_size = 8
     capstone_mode = capstone.CS_MODE_64 | capstone.CS_MODE_BIG_ENDIAN

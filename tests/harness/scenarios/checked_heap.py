@@ -3,7 +3,14 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-from .common import PlatformSpec, TestsPath, make_emulator, make_platform, split_variant
+from .common import (
+    TRITON_ARCHS,
+    PlatformSpec,
+    TestsPath,
+    make_emulator,
+    make_platform,
+    split_variant,
+)
 from .spec import ScenarioInfo, VariantInfo, just_run
 
 _ARCH_SPECS = {
@@ -23,9 +30,9 @@ _ARCH_SPECS = {
 _NO_FIXED_LOAD_ADDRESS = {"armel", "mips", "mips64", "mips64el", "mipsel", "ppc"}
 _NEEDS_T9 = {"mips", "mips64", "mips64el", "mipsel"}
 _EXPECTED_ERRORS = {
-    "read": ("Invalid access at", " of size 1"),
-    "write": ("Invalid access at ", " of size 1"),
-    "uaf": ("Invalid Free at ", None),
+    "read": ("Access uninitialized bytes at ", None),
+    "write": ("Access uninitialized bytes at ", None),
+    "uaf": ("Access freed memory at ", None),
     "double_free": ("Invalid Free at ", None),
 }
 
@@ -43,7 +50,7 @@ NATIVE_PARITY = True
 def _checked_heap_variants() -> Sequence[VariantInfo]:
     out: list[VariantInfo] = []
     for arch in sorted(_ARCH_SPECS):
-        for engine in ("unicorn", "angr", "panda", "pcode"):
+        for engine in ("unicorn", "angr", "panda", "pcode", "triton"):
             if not _supports_engine(arch, engine):
                 continue
             variant = arch if engine == "unicorn" else f"{arch}.{engine}"
@@ -65,6 +72,8 @@ SCENARIO_INFOS = tuple(
 
 
 def _supports_engine(arch: str, engine: str) -> bool:
+    if engine == "triton":
+        return arch in TRITON_ARCHS
     if arch == "riscv64":
         return engine in {"unicorn", "angr", "pcode"}
     return engine in {"unicorn", "angr", "panda", "pcode"}

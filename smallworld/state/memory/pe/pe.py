@@ -207,7 +207,7 @@ class PEExecutable(Executable):
                     # Entry is a no-op; continue
                     continue
                 for off, val in self.items():
-                    if entry.address >= off and entry.address <= val.get_size():
+                    if off <= entry.address < off + val.get_size():
                         # Find the section containing this address
                         contents = bytearray(val.get_content())
                         fix_off = entry.address - off

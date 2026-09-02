@@ -19,6 +19,31 @@ class RegisterAliasDef(RegisterDef):
 
 
 class PlatformDef(metaclass=abc.ABCMeta):
+    #: Ghidra/SLEIGH language id (arch+byteorder) -- the single source of
+    #: truth for both the Ghidra emulator's machine defs and the pcode
+    #: analysis. None if this platform has no Ghidra language.
+    ghidra_language_id: typing.Optional[str] = None
+
+    #: Ghidra/SLEIGH register name -> the name THIS platform uses for the
+    #: same physical register, for the cases where the two namespaces
+    #: disagree about a name rather than merely spelling it differently.
+    #: Read by the p-code use/def naming layer
+    #: (:mod:`smallworld.instructions.pcode_naming`), which cannot consult
+    #: the Ghidra machine defs -- they import Ghidra's Java classes and so
+    #: need a running JVM. Empty for platforms where the two agree.
+    ghidra_register_aliases: typing.Dict[str, str] = {}
+
+    #: Segment name -> the register holding that segment's base address, for
+    #: platforms that model segmented addressing with a base register rather
+    #: than only a selector. Read by
+    #: :meth:`.BSIDMemoryReferenceOperand.address`, which needs it to resolve
+    #: `fs:[0x28]` to fsbase+0x28 rather than to 0x28, and by the p-code
+    #: use/def naming layer, which uses it to recognize a flattened
+    #: segment-relative reference. Empty where the platform models no segment
+    #: base -- i386 keeps only the 2-byte fs/gs selectors, so a 32-bit
+    #: segment-relative access stays unresolvable until it grows one.
+    segment_base_registers: typing.Dict[str, str] = {}
+
     @property
     @abc.abstractmethod
     def architecture(self) -> Architecture:
@@ -66,6 +91,17 @@ class PlatformDef(metaclass=abc.ABCMeta):
 
     implicit_dereference_mnemonics: typing.Set[str] = set()
     """Set of mnemonics for instructions that implicitly dereference a register"""
+
+    compare_branch_mnemonics: typing.Set[str] = set()
+    """Conditional branch mnemonics whose comparison reads registers or
+    memory directly (MIPS beq, AArch64 cbz, x86 jrcxz) rather than
+    condition flags set by an earlier compare."""
+
+    status_register: typing.Optional[str] = None
+    """The register holding the condition flags (rflags, cpsr, nzcv), or
+    None where the platform models none. Named so analyses can tell it
+    apart from data registers: a compare's read of it (ARM data-processing
+    reads the carry through the barrel shifter) is not a compared value."""
 
     @property
     @abc.abstractmethod

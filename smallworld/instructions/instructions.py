@@ -1,4 +1,6 @@
 import abc
+import functools
+import importlib.util
 import logging
 import typing
 
@@ -9,6 +11,49 @@ from smallworld.platforms import Platform, PlatformDef
 from .. import emulators, utils
 
 logger = logging.getLogger(__name__)
+
+# Which implementation backs Instruction.reads / .writes. Chosen per
+# instruction via the `use_def_backend` constructor argument.
+#
+#   capstone (default) the Capstone-based implementation.
+#   pcode    the Ghidra-pcode analysis, on platforms that define a
+#            ghidra_language_id. It runs on pypcode -- Ghidra's SLEIGH
+#            translator, a core dependency -- so it needs neither a Ghidra
+#            install nor a JVM.
+#
+# The pcode analysis is the default; Capstone remains available per
+# instruction for callers that need it, and is what platforms without a
+# ghidra_language_id (Thumb, say) fall back to.
+USE_DEF_BACKEND_CAPSTONE = "capstone"
+USE_DEF_BACKEND_PCODE = "pcode"
+USE_DEF_BACKENDS = (USE_DEF_BACKEND_CAPSTONE, USE_DEF_BACKEND_PCODE)
+DEFAULT_USE_DEF_BACKEND = USE_DEF_BACKEND_PCODE
+
+
+@functools.lru_cache(maxsize=1)
+def _pypcode_available() -> bool:
+    """Whether pypcode -- the SLEIGH translator behind the p-code backend --
+    is importable.
+
+    A core dependency, so normally always true; the probe stays so a partial
+    environment degrades to Capstone rather than raising from a property. A
+    spec probe, not an import: this runs on the first reads/writes access."""
+    return importlib.util.find_spec("pypcode") is not None
+
+
+_logged_fallbacks: typing.Set[str] = set()
+
+
+def _log_fallback_once(reason: str) -> None:
+    """Warn about a pcode->Capstone fallback once per distinct reason.
+
+    reads/writes are properties hit once per instruction by the colorizer
+    and Unicorn; with pcode as the default, a per-access warning for a
+    permanent condition (a Thumb platform, say) is pure noise.
+    """
+    if reason not in _logged_fallbacks:
+        _logged_fallbacks.add(reason)
+        logger.warning(reason)
 
 
 class Operand(metaclass=abc.ABCMeta):
@@ -85,11 +130,18 @@ class MemoryReferenceOperand(Operand):
     def key(self, emulator: emulators.Emulator) -> int:
         return self.address(emulator)
 
+    # Size is part of identity but deliberately not of __repr__, whose
+    # spelling the colorizer truth files and trace harness depend on.
+    # Comparing reprs alone made a 1-byte and an 8-byte access to one
+    # address equal, so a set kept whichever arrived first and concretize()
+    # then read the wrong width.
     def __eq__(self, other):
-        return self.__repr__() == other.__repr__()
+        if not isinstance(other, MemoryReferenceOperand):
+            return NotImplemented
+        return (repr(self), self.size) == (repr(other), other.size)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash((repr(self), self.size))
 
     def concretize(self, emulator: emulators.Emulator) -> typing.Optional[bytes]:
         return emulator.read_memory(self.address(emulator), self.size)
@@ -103,7 +155,15 @@ class Instruction(metaclass=abc.ABCMeta):
         instruction: bytes,
         address: int,
         _instruction: typing.Optional[capstone.CsInsn] = None,
+        use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
     ):
+        if use_def_backend not in USE_DEF_BACKENDS:
+            raise ValueError(
+                f"unknown use/def backend {use_def_backend!r}; "
+                f"expected one of {', '.join(USE_DEF_BACKENDS)}"
+            )
+        #: Which implementation backs reads/writes for this instruction.
+        self.use_def_backend = use_def_backend
         self.instruction = instruction
         self.address = address
 
@@ -141,7 +201,11 @@ class Instruction(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @classmethod
-    def from_capstone(cls, instruction: capstone.CsInsn):
+    def from_capstone(
+        cls,
+        instruction: capstone.CsInsn,
+        use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
+    ) -> "Instruction":
         """Construct from an existing Capstone instruction.
 
         Arguments:
@@ -155,6 +219,7 @@ class Instruction(metaclass=abc.ABCMeta):
                 instruction=instruction.bytes,
                 address=instruction.address,
                 _instruction=instruction,
+                use_def_backend=use_def_backend,
             )
         except ValueError:
             raise ValueError(
@@ -162,7 +227,13 @@ class Instruction(metaclass=abc.ABCMeta):
             )
 
     @classmethod
-    def from_angr(cls, instruction, block, arch: str):
+    def from_angr(
+        cls,
+        instruction,
+        block,
+        arch: str,
+        use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
+    ) -> "Instruction":
         """Construct from an angr disassembler instruction.
 
         Arguments:
@@ -178,12 +249,19 @@ class Instruction(metaclass=abc.ABCMeta):
                 check=lambda x: x.angr_arch == arch,
                 instruction=raw,
                 address=instruction.address,
+                use_def_backend=use_def_backend,
             )
         except ValueError:
             raise ValueError(f"No instruction format for {arch}")
 
     @classmethod
-    def from_bytes(cls, raw: bytes, address: int, platform: Platform):
+    def from_bytes(
+        cls,
+        raw: bytes,
+        address: int,
+        platform: Platform,
+        use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
+    ) -> "Instruction":
         """Construct from a byte string."""
         try:
             return utils.find_subclass(
@@ -191,45 +269,219 @@ class Instruction(metaclass=abc.ABCMeta):
                 check=lambda x: x.platform == platform,
                 instruction=raw,
                 address=address,
+                use_def_backend=use_def_backend,
             )
         except ValueError:
             raise ValueError(f"No instruction format for {platform}")
+
+    #: Whether the Ghidra-pcode backend can analyze this instruction format.
+    #: False where the platform's SLEIGH language needs a non-default
+    #: context register the analysis does not set (ARMV6MThumbInstruction).
+    #: Such a platform still has a ghidra_language_id for its emulator.
+    supports_pcode_use_def: bool = True
 
     @abc.abstractmethod
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         pass
 
+    def _memory_reference_operand(self, operand) -> MemoryReferenceOperand:
+        """Memory operand built from a single Capstone operand.
+
+        Same thing as `_memory_reference` for every architecture but x86,
+        whose `_memory_reference` takes six separate components instead and
+        which therefore overrides both. This exists so callers holding one
+        Capstone operand -- analyses/trace_execution.py's get_cmp_info -- can
+        name one method rather than the x86-only one, which raised
+        AttributeError on any other platform the moment a compare took a
+        memory operand.
+        """
+        return self._memory_reference(operand)
+
+    def _pcode_result(self, purpose: str, platdef: PlatformDef):
+        """Run the p-code analysis for this instruction and validate the
+        answer, or None with a warning when there is no trustworthy one.
+
+        `purpose` names what the caller wanted ("use", "def", "fetch") in
+        the log messages. Every degrade returns None rather than raising:
+        callers are properties and methods reached from Unicorn's fault
+        handler and the colorizer's per-instruction callbacks, and the
+        Capstone backend never raised at them.
+
+        Failures are told apart by type:
+
+        * UseDefError -- the analysis met semantics it cannot express (a
+          masked address, a bare CALLOTHER trap). Routine; logged at info.
+        * ValueError -- a configuration problem, notably a language id
+          SLEIGH does not know. Actionable by the user and identical for
+          every instruction, so warned once.
+        Anything else propagates: with the expected cases typed, a
+        different exception is a bug here or new SLEIGH behavior, and
+        should fail loudly rather than be reclassified as "the
+        instruction could not be analyzed" -- which would be false.
+        """
+        from .pcode_use_def import UseDefError, analyze
+
+        language_id = platdef.ghidra_language_id
+        if language_id is None:
+            # Only reachable when a caller bypasses _pcode_platdef, which
+            # screens the None out.
+            logger.warning(
+                f"{self.platform} defines no ghidra_language_id; "
+                f"{purpose} set is empty"
+            )
+            return None
+        try:
+            # Truncated to what Capstone decoded: analyze wants trailing
+            # bytes to be padding, not the real successor. Ghidra folds a
+            # delay slot into the branch's own p-code, and the length check
+            # below cannot see it -- the reported length is still the
+            # branch's.
+            raw = self.instruction[: self._instruction.size]
+            result = analyze(raw, language_id, self.address)
+        except UseDefError as e:
+            logger.info(
+                f"pcode analysis cannot express {self.instruction.hex()} on "
+                f"{language_id}: {e}; {purpose} set is empty"
+            )
+            return None
+        except ValueError as e:
+            _log_fallback_once(
+                f"pcode analysis unavailable on {language_id} ({e}); "
+                f"use/def sets are empty"
+            )
+            return None
+        if result is None:
+            # Ghidra decoded no instruction from bytes Capstone accepted
+            # (the two disassemblers can disagree on rare encodings).
+            logger.warning(
+                f"pcode analysis produced no instruction for "
+                f"{self.instruction.hex()} on {language_id}; "
+                f"{purpose} set is empty"
+            )
+            return None
+        if result.size != self._instruction.size:
+            # Different lengths means they did not decode the same
+            # instruction, so these operands describe the wrong one. Thumb
+            # is the reachable case -- its language id is the ARM-mode one,
+            # so Thumb bytes decode as a valid, unrelated ARM instruction.
+            logger.warning(
+                f"pcode decoded {result.size} bytes ({result.disassembly}) "
+                f"where Capstone decoded {self._instruction.size} for "
+                f"{self.instruction.hex()} on {language_id}; "
+                f"{purpose} set is empty"
+            )
+            return None
+        return result
+
+    def _pcode_use_def(
+        self, kind: str, platdef: typing.Optional[PlatformDef] = None
+    ) -> typing.Set[Operand]:
+        """Registers and memory references read ('use') or written
+        ('def') by this instruction, per the Ghidra-pcode analysis.
+
+        `platdef` is the already-resolved platform definition, which
+        `_use_pcode` had to look up anyway. PlatformDef.for_platform walks
+        every subclass uncached AND constructs the definition (measured at
+        15 us on x86-64 and 280 us on PowerPC32), so resolving it here as
+        well made every .reads/.writes pay for two -- four per instruction
+        across both properties -- on the path the colorizer and Unicorn hit
+        once per instruction. That is the cost the Capstone path goes out of
+        its way to avoid; see _capstone_use_def.
+        """
+        # Deferred import: pcode_naming imports this module (as bsid does).
+        from .pcode_naming import canonicalize_operand, collapse_widened_defs
+
+        if platdef is None:
+            platdef = PlatformDef.for_platform(self.platform)
+        result = self._pcode_result(kind, platdef)
+        if result is None:
+            return set()
+        operands: typing.Set[Operand] = set()
+        for op in result.uses if kind == "use" else result.defs:
+            canon = canonicalize_operand(op, platdef)
+            if canon is not None:
+                operands.add(canon)
+        if kind == "def":
+            operands = collapse_widened_defs(operands, platdef)
+        return operands
+
+    def _pcode_platdef(self) -> typing.Optional[PlatformDef]:
+        """The platform definition to run the Ghidra-pcode analysis against,
+        or None if reads/writes should use the Capstone implementation
+        instead (per this instruction's `use_def_backend`; see the module
+        comment).
+
+        Returns the resolved definition rather than a bool so the caller does
+        not have to resolve it a second time -- see _pcode_use_def.
+        """
+        if self.use_def_backend != USE_DEF_BACKEND_PCODE:
+            return None
+        if not self.supports_pcode_use_def:
+            _log_fallback_once(
+                f"{type(self).__name__} cannot use the pcode backend "
+                f"(see supports_pcode_use_def); using Capstone"
+            )
+            return None
+        if not _pypcode_available():
+            # pypcode is a core dependency, so this is a broken install
+            # rather than a missing extra -- but a property access is the
+            # wrong place to raise, so degrade to Capstone and say so once.
+            _log_fallback_once(
+                "pypcode is not installed; using the Capstone use/def backend"
+            )
+            return None
+        platdef = PlatformDef.for_platform(self.platform)
+        if platdef.ghidra_language_id is None:
+            # No Ghidra language for this platform, so there is no pcode
+            # implementation to use; fall back rather than fail.
+            _log_fallback_once(
+                f"{self.platform} defines no ghidra_language_id; " f"using Capstone"
+            )
+            return None
+        return platdef
+
+    def _use_pcode(self) -> bool:
+        """Whether reads/writes use the Ghidra-pcode analysis."""
+        return self._pcode_platdef() is not None
+
+    def _capstone_use_def(self, kind: str) -> typing.Set[Operand]:
+        """Capstone-based use ('use') / def ('def') set.
+
+        The fallback used when the pcode backend is unavailable or
+        disabled. Architectures whose _memory_reference does not take a
+        single Capstone operand (x86) override this.
+        """
+        access = capstone.CS_AC_READ if kind == "use" else capstone.CS_AC_WRITE
+        operands: typing.Set[Operand] = set()
+        for operand in self._instruction.operands:
+            if operand.type == capstone.CS_OP_MEM and (
+                not hasattr(operand, "access") or operand.access & access
+            ):
+                # Memory operand; handling is architecture-specific.
+                operands.add(self._memory_reference(operand))
+            elif operand.type == capstone.CS_OP_REG and (
+                not hasattr(operand, "access") or operand.access & access
+            ):
+                # Registers an indirect branch dereferences (MIPS jr's t9)
+                # are reported as the register they are: the location the
+                # transfer will FETCH from is fetches()'s answer, not a
+                # data read. This path used to substitute the memory
+                # reference for the register, losing the register read.
+                operands.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
+        return operands
+
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
 
-        This is a list of string register names and dictionary memory reference
-        specifications (i.e., in the form `base + scale * index + offset`).
+        A set of Operand objects: RegisterOperand for registers and
+        MemoryReferenceOperand for memory (in the form
+        `base + scale * index + offset`).
         """
-
-        platdef = PlatformDef.for_platform(self.platform)
-        read: typing.Set[Operand] = set()
-
-        for operand in self._instruction.operands:
-            if operand.type == capstone.CS_OP_MEM and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
-            ):
-                # This is a memory operand.
-                # Handling is architecture-specific
-                read.add(self._memory_reference(operand))
-            elif operand.type == capstone.CS_OP_REG and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
-            ):
-                if self._instruction.mnemonic in platdef.implicit_dereference_mnemonics:
-                    # This is a register operand that's
-                    # actually dereferenced by the instruction.
-                    # Handle as a memory operand.
-                    read.add(self._memory_reference(operand))
-                else:
-                    # This is a register reference that's used for its value.
-                    read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
-
-        return read
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            return self._pcode_use_def("use", platdef)
+        return self._capstone_use_def("use")
 
     @property
     def writes(self) -> typing.Set[Operand]:
@@ -237,20 +489,98 @@ class Instruction(metaclass=abc.ABCMeta):
 
         Same format as `reads`.
         """
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            return self._pcode_use_def("def", platdef)
+        return self._capstone_use_def("def")
 
-        write: typing.Set[Operand] = set()
+    def fetches(self) -> typing.Set[Operand]:
+        """Memory locations control transfer will FETCH from: the
+        dereference of an indirect branch target's value -- `jr $t9`
+        fetches at [t9], `jmp rax` at [rax].
 
-        for operand in self._instruction.operands:
-            if operand.type == capstone.CS_OP_MEM and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
-            ):
-                write.add(self._memory_reference(operand))
-            elif operand.type == capstone.CS_OP_REG and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
-            ):
-                write.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
+        Not reads. `jr $t9` reads t9 (that is in `reads`) but reads no
+        data memory at [t9]; the *next instruction fetch* does. Keeping
+        the two apart matters to fault attribution: a triage consumer
+        seeing an unmapped [t9] here knows execution was about to leave
+        the map, not that the instruction loaded from it. Genuine data
+        dereferences are unaffected and stay in `reads` -- `jmp qword ptr
+        [0x1234]` really does load its pointer from memory, and that load
+        stays a read; what this method would name is where the *value*
+        of that pointer sends the fetch, which is not statically
+        expressible, so such an instruction reports no fetch operand.
+        Empty for anything that is not an indirect transfer, and for
+        indirect transfers whose target is not a single register's value
+        (`ret`'s target comes off the stack -- the pop is already a read).
 
-        return write
+        The p-code backend identifies indirect transfers structurally
+        (BRANCHIND/CALLIND/RETURN), so this works on every platform with
+        a Ghidra language; the Capstone fallback knows only the
+        instructions listed in the platform's
+        implicit_dereference_mnemonics.
+        """
+        from .bsid import BSIDMemoryReferenceOperand
+
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            from .pcode_naming import canonicalize_register
+
+            result = self._pcode_result("fetch", platdef)
+            if result is None:
+                return set()
+            return {
+                BSIDMemoryReferenceOperand(base=name, size=platdef.address_size)
+                for name in (
+                    canonicalize_register(t, platdef) for t in result.indirect_targets
+                )
+                if name is not None
+            }
+        platdef = PlatformDef.for_platform(self.platform)
+        if self._instruction.mnemonic not in platdef.implicit_dereference_mnemonics:
+            return set()
+        return {
+            BSIDMemoryReferenceOperand(
+                base=self._instruction.reg_name(operand.value.reg),
+                size=platdef.address_size,
+            )
+            for operand in self._instruction.operands
+            if operand.type == capstone.CS_OP_REG
+            and (not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ)
+        }
+
+    def address_only_reads(self) -> typing.Set[str]:
+        """Names of registers in `reads` whose every read served address
+        formation (rbp in `cmp [rbp-0x1c], 47`) -- a subset claim about
+        `reads`, never new operands. A register read both as an address
+        and as a value (`cmp rax, [rax]`) is not listed.
+
+        The p-code backend reports this from the analysis's role tracking.
+        The Capstone fallback cannot know, so it approximates the way
+        get_cmp_info always did: every base/index of a memory read is
+        presumed address-only -- which mislabels the dual-role case.
+        """
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            from .pcode_naming import canonicalize_register
+
+            result = self._pcode_result("address-only", platdef)
+            if result is None:
+                return set()
+            return {
+                name
+                for name in (
+                    canonicalize_register(r, platdef) for r in result.address_only_uses
+                )
+                if name is not None
+            }
+        names: typing.Set[str] = set()
+        for op in self.reads:
+            if isinstance(op, MemoryReferenceOperand):
+                for attr in ("base", "index"):
+                    reg = getattr(op, attr, None)
+                    if reg is not None:
+                        names.add(reg)
+        return names
 
     # def to_json(self) -> dict:
     #     return {

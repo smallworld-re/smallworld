@@ -1,6 +1,6 @@
 from trace_test import test
 
-from smallworld.instructions.bsid import x86BSIDMemoryReferenceOperand
+from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.instructions.instructions import RegisterOperand
 
 if __name__ == "__main__":
@@ -51,32 +51,35 @@ if __name__ == "__main__":
         f"num branches is {branches} but is supposed to be 9",
     )
 
+    # cmp_info lists the locations the compare reads (deduplicated,
+    # sorted by repr, without address-forming registers like rbp),
+    # followed by immediate operands.
     truth_cmps = [
-        (8558, [x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C), 47]),
-        (8568, [x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x20), 0]),
+        (8558, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C), 47]),
+        (8568, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x20), 0]),
         (
             8706,
             [
+                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
                 RegisterOperand("eax"),
-                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
-        (8637, [RegisterOperand("al"), RegisterOperand("al")]),
+        (8637, [RegisterOperand("al")]),
         (8688, [RegisterOperand("al"), 42]),
         (
             8706,
             [
+                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
                 RegisterOperand("eax"),
-                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
-        (8637, [RegisterOperand("al"), RegisterOperand("al")]),
+        (8637, [RegisterOperand("al")]),
         (8688, [RegisterOperand("al"), 42]),
         (
             8706,
             [
+                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
                 RegisterOperand("eax"),
-                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
     ]
