@@ -135,6 +135,14 @@ class ElfModelLibrary(Memory):
                 log.warning(f"Harness requires {model.name}, which is unsupported")
             elf.update_symbol_value(sym, model._address)
 
+        # TLS descriptors carry a resolver address rather than a symbol, so no
+        # relocation above can reach them; they are relocated at load with a
+        # null resolver and bound here, which is the first point at which the
+        # model has an address.
+        tlsdesc = self.models.get("__tlsdesc_resolve")
+        if tlsdesc is not None:
+            elf.bind_tlsdesc_resolver(tlsdesc._address)
+
     def apply(self, emulator: Emulator) -> None:
         super().apply(emulator)
         for _, model in self.models.items():

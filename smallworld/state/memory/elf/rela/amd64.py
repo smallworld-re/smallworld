@@ -206,10 +206,23 @@ class AMD64ElfRelocator(ElfRelocator):
             # This is a marker relocation used to tag a TLS descriptor call sequence.
             return b""
         elif rela.type == R_X86_64_TLSDESC:
-            # TLS descriptors require descriptor contents and runtime resolver state.
-            self._missing_context(
-                rela, "the TLS descriptor contents and resolver state"
-            )
+            # A two-word descriptor { resolver, argument } that gnu2-dialect TLS
+            # code calls indirectly. The argument is the symbol's offset within
+            # its TLS block, which is all the __tlsdesc_resolve model needs to
+            # hand out stable per-thread-local storage. The resolver is left
+            # null here because nothing has an address for one at load time;
+            # Library.link fills it in via bind_tlsdesc_resolver once the model
+            # library is placed. Refusing instead made the whole image fail to
+            # load, which cost every function in it -- a binary needs only one
+            # of these to be unloadable, and the functions that never touch a
+            # thread-local paid for it too.
+            elf.note_tlsdesc_descriptor(rela.offset)
+            # A TLS symbol's st_value is its offset within the TLS block, not
+            # an address, so this is the one place `symval` must not be used:
+            # rebasing it turns a small offset into a load address and loses
+            # the distinction between adjacent thread-locals.
+            argument = rela.symbol.value + self._get_addend(rela, elf, 8)
+            return self._pack(0, 8) + self._pack(argument, 8)
         elif rela.type == R_X86_64_IRELATIVE:
             # Indirect relative relocations require executing an IFUNC resolver
             # at load time and using its return value.

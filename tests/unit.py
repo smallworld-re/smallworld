@@ -91,6 +91,7 @@ from smallworld.hinting.hints import (
 from smallworld.instructions import Instruction, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
+from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
@@ -4925,6 +4926,64 @@ class TlsGetAddrModelTests(ModelTestCase):
         self.assertNotEqual(other, first)
 
 
+class TlsDescResolveModelTests(ModelTestCase):
+    """c99/stdlib.py TlsDescResolve: the gnu2 TLS-descriptor resolver.
+
+    Unlike __tls_get_addr it returns a THREAD-POINTER-RELATIVE offset, because
+    the caller finishes the access with %fs:(%rax); the tests check the offset
+    lands back inside the arena for both a zero and a non-zero thread pointer.
+    """
+
+    DESC = 0x4000
+    ARENA = 0x60000
+    ARENA_SIZE = 0x8000
+
+    def setUp(self):
+        super().setUp()
+        self.emu.map_memory(self.DESC, 0x100)
+        self.model = self.lookup("__tlsdesc_resolve")
+        self.model.static_buffer_address = self.ARENA
+
+    def _resolve(self, argument, thread_pointer=0):
+        """Call the resolver the way gnu2 code does: descriptor in %rax."""
+        self.emu.write_memory(
+            self.DESC,
+            (0).to_bytes(8, "little") + argument.to_bytes(8, "little"),
+        )
+        self.emu.write_register("rax", self.DESC)
+        self.emu.write_register("fsbase", thread_pointer)
+        self.model.model(self.emu)
+        return self.emu.read_register("rax")
+
+    def test_requires_static_buffer(self):
+        self.model.static_buffer_address = None
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._resolve(0)
+
+    def test_offset_lands_in_the_arena(self):
+        # With no thread pointer set the offset IS the address.
+        offset = self._resolve(0x10)
+        self.assertTrue(self.ARENA <= offset < self.ARENA + self.ARENA_SIZE)
+
+    def test_offset_is_thread_pointer_relative(self):
+        # The real layout puts the thread pointer above the block, so the
+        # offset is negative and wraps; the caller's add wraps it back.
+        tp = self.ARENA + 0x50000
+        offset = self._resolve(0x10, thread_pointer=tp)
+        self.assertEqual((tp + offset) & ((1 << 64) - 1), self._resolve(0x10))
+
+    def test_stable_and_distinct_storage(self):
+        first = self._resolve(0x10)
+        self.assertEqual(self._resolve(0x10), first)
+        self.assertNotEqual(self._resolve(0x20), first)
+
+    def test_garbage_argument_stays_bounded(self):
+        # A descriptor holding nonsense must not send the access out of the
+        # pool; that is the whole point of indexing rather than allocating.
+        offset = self._resolve(0xDEADBEEFDEADBEEF)
+        self.assertTrue(self.ARENA <= offset < self.ARENA + self.ARENA_SIZE)
+
+
 class ErrnoLocationModelTests(ModelTestCase):
     """posix/unistd.py ErrnoLocation: returns its static buffer address."""
 
@@ -5129,6 +5188,52 @@ class AMD64StackInitTests(unittest.TestCase):
         argv = [b"foo\0", b"barbaz\0"]  # 11 string bytes
         s = AMD64Stack.initialize_stack(argv, 0x71000000, 0x1000)
         self.assertEqual(s.get_pointer() % 16, 0)
+
+
+class AMD64TlsDescRelocatorTests(unittest.TestCase):
+    """R_X86_64_TLSDESC writes a descriptor instead of refusing to load.
+
+    Refusing cost every function in the image, not just the ones using a
+    thread-local: one unresolvable relocation made the whole ELF unloadable.
+    """
+
+    class _Elf:
+        """Minimal stand-in; the relocator only records descriptors on it."""
+
+        def __init__(self):
+            self.noted = []
+
+        def note_tlsdesc_descriptor(self, address):
+            self.noted.append(address)
+
+    def _rela(self, value, addend):
+        return ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=36,  # R_X86_64_TLSDESC
+            symbol=_make_symbol(value=value, baseaddr=0x400000),
+            addend=addend,
+        )
+
+    def test_writes_descriptor_and_records_it(self):
+        relocator = AMD64ElfRelocator()
+        elf = self._Elf()
+        val = relocator._compute_value(self._rela(0, 0x10), elf)
+        self.assertEqual(len(val), 16, "descriptor is two words")
+        resolver = int.from_bytes(val[:8], "little")
+        argument = int.from_bytes(val[8:], "little")
+        # Resolver is left null; Library.link binds it once a model exists.
+        self.assertEqual(resolver, 0)
+        self.assertEqual(argument, 0x10)
+        self.assertEqual(elf.noted, [0x2000], "descriptor must be recorded for binding")
+
+    def test_argument_is_block_relative_not_rebased(self):
+        # A TLS symbol's st_value is an offset within the TLS block. Rebasing
+        # it by the load address turns adjacent thread-locals into addresses
+        # and loses the distinction the resolver indexes on.
+        relocator = AMD64ElfRelocator()
+        val = relocator._compute_value(self._rela(0x8, 0x4), self._Elf())
+        self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
 
 
 class I386RelocatorTests(unittest.TestCase):

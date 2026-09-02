@@ -4,7 +4,7 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform
+from ....platforms import Architecture, Byteorder, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
@@ -179,6 +179,11 @@ class ElfExecutable(Executable):
         self._static_relas: typing.List[ElfRela] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
         self._relocator: typing.Optional[ElfRelocator] = None
+        # Addresses of TLS-descriptor pairs written by the relocator. Their
+        # resolver word is left null at load -- nothing has an address for a
+        # resolver yet -- and filled in by bind_tlsdesc_resolver once a model
+        # library is linked. See AMD64ElfRelocator's R_X86_64_TLSDESC case.
+        self._tlsdesc_descriptors: typing.List[int] = list()
 
         # Read the entire image out of the file.
         image = file.read()
@@ -1118,6 +1123,28 @@ class ElfExecutable(Executable):
                     self._relocator.relocate(self, rela)
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
+
+    def note_tlsdesc_descriptor(self, address: int) -> None:
+        """Record a TLS descriptor whose resolver word still needs binding."""
+        self._tlsdesc_descriptors.append(address)
+
+    def bind_tlsdesc_resolver(self, address: int) -> None:
+        """Point every TLS descriptor's resolver word at `address`.
+
+        Called once a model library is linked, which is the first moment a
+        resolver has an address at all: the descriptors are relocated at load,
+        long before that. Without this the resolver word stays null and code
+        built with -mtls-dialect=gnu2 calls address zero.
+        """
+        if not self._tlsdesc_descriptors or self.platform is None:
+            return
+        size = PlatformDef.for_platform(self.platform).address_size
+        order: typing.Literal["little", "big"] = (
+            "little" if self.platform.byteorder is Byteorder.LITTLE else "big"
+        )
+        packed = address.to_bytes(size, order)
+        for descriptor in self._tlsdesc_descriptors:
+            self.write_bytes(descriptor, packed)
 
     def link_elf(
         self, elf: "ElfExecutable", dynamic: bool = True, all_syms: bool = False
