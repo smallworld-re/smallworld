@@ -12,6 +12,7 @@ from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
+from .replacement import MemoizingReplacementSolver
 from .simos import HookableSimOS
 
 log = logging.getLogger(__name__)
@@ -263,6 +264,15 @@ class AngrEmulator(
                 angr.options.SIMPLIFY_REGISTER_WRITES,
             },
         )
+        if self._use_replacement_solver:
+            # Swap angr's stock replacement solver for the memoizing one, whose
+            # replacement walk is linear rather than exponential in expression
+            # sharing depth.  Safe to install here: no constraints or
+            # replacements exist on the fresh state yet.
+            self.state.solver._stored_solver = MemoizingReplacementSolver(
+                auto_replace=False
+            )
+
         # If we're in linear mode,
         # limit the maximum number of results when solving
         # for a symbolic IP.  If the IP has constrained solutions,
