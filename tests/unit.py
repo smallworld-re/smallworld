@@ -54,7 +54,6 @@ from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
 
 from smallworld import emulators, exceptions, helpers, hinting, platforms, state, utils
 from smallworld.analyses import trace_execution
-from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
 from smallworld.analyses.colorizer_read_write import (
     ColorizerReadWrite,
     MemLvalDvKey,
@@ -72,6 +71,7 @@ from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, Tr
 from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
+from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
 from smallworld.hinting import (
@@ -7190,9 +7190,7 @@ class MemoizingReplacementSolverTests(unittest.TestCase):
         opt_in = emulators.AngrEmulator(platform, use_replacement_solver=True)
         opt_in._code.append((0x400000, b"\x90\x90"))
         opt_in.initialize()
-        self.assertIsInstance(
-            opt_in.state.solver._solver, MemoizingReplacementSolver
-        )
+        self.assertIsInstance(opt_in.state.solver._solver, MemoizingReplacementSolver)
 
         # A default emulator must not pay the replacement tax at all.
         default = emulators.AngrEmulator(platform)
