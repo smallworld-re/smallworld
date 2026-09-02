@@ -91,6 +91,7 @@ from smallworld.hinting.hints import (
 from smallworld.instructions import Instruction, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
+from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
@@ -118,6 +119,7 @@ from smallworld.state.models.mips64el.systemv.systemv import (
 )
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
 from smallworld.state.models.model import Model
+from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.procinfo import ProcInfoManager
@@ -4924,6 +4926,96 @@ class TlsGetAddrModelTests(ModelTestCase):
 
         other = self.call(self.model, self.TI2)
         self.assertNotEqual(other, first)
+
+
+class TlsDescFixtureTests(unittest.TestCase):
+    """End-to-end over a real gnu2-dialect object (tests/tlsdesc).
+
+    The unit tests above drive the pieces with synthetic inputs; this one uses
+    an image a compiler actually produced, so it catches the parts no
+    hand-built rela can: that the relocation is found at all, and that the
+    descriptor argument is the symbol's TLS-block offset rather than something
+    rebased by the load address.
+
+    NOT covered here: executing the indirect call itself. That needs the image
+    mapped into a machine with the model library applied, and is worth adding
+    if the resolver's runtime behaviour ever changes.
+    """
+
+    SO = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "tlsdesc",
+        "tlsdesc.gnu2.amd64.so",
+    )
+
+    def setUp(self):
+        if not os.path.exists(self.SO):
+            self.skipTest(f"{self.SO} not built (run `make amd64` in tests/)")
+        self.platform = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+        with open(self.SO, "rb") as f:
+            self.elf = ElfExecutable(f, platform=self.platform, user_base=0x100000)
+
+    def _descriptor(self, address):
+        raw = self.elf.read_bytes(address, 16)
+        return (
+            int.from_bytes(raw[:8], "little"),
+            int.from_bytes(raw[8:], "little"),
+        )
+
+    def test_image_loads(self):
+        # Refusing the relocation raised here, which cost every function in
+        # the image rather than only the ones using a thread-local.
+        self.assertTrue(self.elf._tlsdesc_descriptors, "no TLS descriptors found")
+
+    def test_arguments_are_distinct_block_offsets(self):
+        # The fixture has two thread-locals, so the two descriptors must carry
+        # different offsets. Rebasing the symbol value by the load address
+        # turned both into large addresses and lost the distinction.
+        args = sorted(self._descriptor(d)[1] for d in self.elf._tlsdesc_descriptors)
+        self.assertEqual(len(args), 2)
+        self.assertNotEqual(args[0], args[1])
+        for arg in args:
+            self.assertLess(
+                arg, 0x1000, "argument looks like an address, not an offset"
+            )
+
+    def test_resolver_is_null_until_linked_then_bound(self):
+        for d in self.elf._tlsdesc_descriptors:
+            self.assertEqual(self._descriptor(d)[0], 0, "resolver bound too early")
+
+        libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
+        libc.link(self.elf)
+        model = libc.models.get("__tlsdesc_resolve")
+        self.assertIsNotNone(model, "library provides no __tlsdesc_resolve model")
+        for d in self.elf._tlsdesc_descriptors:
+            self.assertEqual(self._descriptor(d)[0], model._address)
+
+    def test_each_thread_local_gets_its_own_storage(self):
+        # The point of carrying the offset through: two thread-locals must not
+        # land on the same bytes.
+        libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
+        libc.link(self.elf)
+        model = libc.models.get("__tlsdesc_resolve")
+        model.static_buffer_address = 0x60000
+
+        emu = emulators.UnicornEmulator(self.platform)
+        emu.map_memory(0x60000, model.static_space_required)
+        emu.map_memory(0x4000, 0x100)
+
+        offsets = []
+        for descriptor in self.elf._tlsdesc_descriptors:
+            _, argument = self._descriptor(descriptor)
+            emu.write_memory(
+                0x4000, (0).to_bytes(8, "little") + argument.to_bytes(8, "little")
+            )
+            emu.write_register("rax", 0x4000)
+            emu.write_register("fsbase", 0)
+            model.model(emu)
+            offsets.append(emu.read_register("rax"))
+        self.assertEqual(len(set(offsets)), 2, "thread-locals share storage")
 
 
 class TlsDescResolveModelTests(ModelTestCase):

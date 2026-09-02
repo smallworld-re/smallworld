@@ -261,7 +261,17 @@ endef
 
 C_OBJ_SRCS := $(wildcard */*.o.c) $(wildcard */*/*.o.c)
 C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
-C_SO_SRCS := $(wildcard */*.so.c) $(wildcard */*/*.so.c)
+# Excludes the gnu2 sources below: they build through their own rule, with an
+# extra flag, and would otherwise match this pattern too.
+C_SO_SRCS := $(filter-out %.gnu2.so.c,$(wildcard */*.so.c) $(wildcard */*/*.so.c))
+
+# TLS-descriptor shared objects. The dialect flag is x86-specific, so these
+# build for x86 only. It is passed EXPLICITLY rather than relying on the
+# compiler default, which differs by toolchain version: a fixture that quietly
+# stopped emitting R_X86_64_TLSDESC would keep passing while testing nothing.
+C_GNU2_SO_SRCS := $(wildcard */*.gnu2.so.c) $(wildcard */*/*.gnu2.so.c)
+AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
+I386_GNU2_CFLAGS := -mtls-dialect=gnu2
 
 define C_ELF_TEMPLATE
 
@@ -274,6 +284,11 @@ $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).so : %.so.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
+
+$(1)_C_GNU2_SOS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.so.c,%.gnu2.$$($(1)_EXT).so,$$(C_GNU2_SO_SRCS)))
+
+%.gnu2.$$($(1)_EXT).so : %.gnu2.so.c
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU2_CFLAGS) -fPIC -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$<
@@ -309,7 +324,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
