@@ -90,6 +90,7 @@ PT_NOTE = 4  # Points to auxiliary information
 PT_SHLIB = 5  # Reserved value; I think it's unused
 PT_PHDR = 6  # Points to program header table
 PT_TLS = 7  # Indicates need for thread-local storage
+STT_TLS = 6  # Symbol names a thread-local; its value is a TLS-block offset
 PT_LOOS = 0x60000000  # Start of OS-specific types
 PT_GNU_EH_FRAME = 0x6474E550  # GNU-specific: Points to exception handler segment
 PT_GNU_STACK = 0x6474E551  # GNU-specific: Describes stack permissions
@@ -1236,7 +1237,19 @@ class ElfExecutable(Executable):
                 continue
 
             o_sym = o_syms[0]
-            self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
+            if o_sym.type == STT_TLS:
+                # A thread-local's value is an offset within its module's TLS
+                # block, not an address. Rebasing it -- adding the definer's
+                # load address and subtracting ours -- leaves the delta between
+                # the two images, which is not an offset into anything: two
+                # thread-locals in modules loaded far apart then resolve to the
+                # same storage, and a definer loaded below the referencer
+                # produces a negative one.
+                self.update_symbol_value(my_sym, o_sym.value, rebase=False)
+            else:
+                self.update_symbol_value(
+                    my_sym, o_sym.value + o_sym.baseaddr, rebase=True
+                )
 
     def __getstate__(self):
         # Override the default pickling mechanism.

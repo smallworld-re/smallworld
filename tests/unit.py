@@ -5045,6 +5045,56 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
 
+class TlsCrossModuleTests(unittest.TestCase):
+    """A thread-local resolved from another module keeps its block offset.
+
+    A TLS symbol's value is an offset within its DEFINER's block, so linking
+    must carry it across unchanged. Rebasing it -- adding the definer's load
+    address and subtracting the referencer's -- leaves the delta between the
+    two images, which indexes nothing: thread-locals in modules loaded far
+    apart collapse onto the same storage, and a definer loaded BELOW the
+    referencer yields a negative offset.
+    """
+
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
+    OFFSET = 0x4  # `shared` sits after `pad` in the definer's block
+
+    def _link(self, ref_base, def_base):
+        ref_path = os.path.join(self.HERE, "tlsref.gnu2.amd64.so")
+        def_path = os.path.join(self.HERE, "tlsdef.gnu2.amd64.so")
+        for path in (ref_path, def_path):
+            if not os.path.exists(path):
+                self.skipTest(f"{path} not built (run `make amd64` in tests/)")
+        plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+        with open(ref_path, "rb") as f:
+            ref = ElfExecutable(f, platform=plat, user_base=ref_base)
+        with open(def_path, "rb") as f:
+            dfn = ElfExecutable(f, platform=plat, user_base=def_base)
+        ref.link_elf(dfn)
+        self.assertTrue(ref.tlsdesc_descriptors, "no descriptor to check")
+        return [
+            int.from_bytes(ref.read_bytes(d, 16)[8:], "little")
+            for d in ref.tlsdesc_descriptors
+        ]
+
+    def test_offset_survives_a_definer_loaded_above(self):
+        for argument in self._link(0x100000, 0x800000):
+            self.assertEqual(argument, self.OFFSET)
+
+    def test_offset_survives_a_definer_loaded_below(self):
+        # The order that used to produce a negative offset.
+        for argument in self._link(0x800000, 0x100000):
+            self.assertEqual(argument, self.OFFSET)
+
+    def test_offset_does_not_depend_on_the_gap_between_modules(self):
+        near = self._link(0x100000, 0x108000)
+        far = self._link(0x100000, 0x900000)
+        self.assertEqual(near, far)
+
+
 class TlsEndToEndTests(unittest.TestCase):
     """Emulate a real thread-local access and check the VALUE.
 
