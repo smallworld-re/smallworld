@@ -525,18 +525,30 @@ class TlsDescResolve(CStdModel):
     # two-word descriptor in the GOT: { resolver, argument }. The caller does
     #     lea  x@TLSDESC(%rip), %rax
     #     call *x@TLSCALL(%rax)      # descriptor address in, offset out
-    #     mov  %fs:(%rax), ...
+    #     mov  %fs:(%rax), ...       # or: mov %fs:0x0,%rdx; add %rdx,%rax
     # so the resolver returns a THREAD-POINTER-RELATIVE offset, not an address
     # -- the difference from TlsGetAddr, which returns the address itself.
     #
-    # Storage follows TlsGetAddr exactly: a bounded pool of arenas in this
-    # model's own zeroed static buffer, indexed by the descriptor's argument,
+    # NOTE: gcc emits BOTH completions above, sometimes in one function. The
+    # first adds the thread-pointer register; the second adds the word AT the
+    # thread pointer (the glibc TCB self-pointer). They agree only when the
+    # harness has set up a TCB, i.e. when the word at [thread_pointer] equals
+    # thread_pointer. Nothing in smallworld does that today, so a harness must
+    # either leave the thread pointer at 0 (and map a zero word at address 0
+    # for the second form) or write a proper self-pointer; otherwise the
+    # second form lands the access at arena - thread_pointer.
+    #
+    # Storage is a single bounded pool in this model's own zeroed static
+    # buffer, indexed directly by the descriptor's argument (the block offset),
     # so repeated accesses to one thread-local see the same bytes and a garbage
-    # argument cannot escape the pool. The returned offset is then
-    # arena_address - thread_pointer, which lands the caller's %fs-relative
-    # access back on the arena. Reading the thread pointer rather than assuming
-    # it also keeps this correct when nothing has set one (it reads 0, and the
-    # offset degenerates to the arena address).
+    # argument cannot escape the pool. Unlike TlsGetAddr, which has two
+    # independent inputs (module, offset) and so needs per-module arenas, the
+    # argument here is a single linear offset: splitting it into arenas would
+    # only add aliasing, since the clamp would then apply at every internal
+    # arena boundary rather than once at the end of the pool.
+    #
+    # The returned offset is arena_address - thread_pointer, so the caller's
+    # thread-pointer-relative access lands back on the arena.
     name = "__tlsdesc_resolve"
     # Not a C function: the descriptor ABI passes its argument in a fixed
     # register rather than the usual argument registers, so there is nothing
@@ -544,10 +556,9 @@ class TlsDescResolve(CStdModel):
     argument_types: typing.List[ArgumentType] = []
     return_type = ArgumentType.POINTER
 
-    TLS_ARENA_SIZE = 0x1000  # bytes of scratch per arena
-    TLS_MAX_SLOTS = 8  # distinct arenas (extra descriptors alias in via %)
-    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
-    static_space_required = TLS_ARENA_SIZE * TLS_MAX_SLOTS
+    TLS_POOL_SIZE = 0x8000  # bytes of scratch shared by all thread-locals
+    _TLS_HEADROOM = 0x40  # keep a wide access from a near-pool-end offset in-bounds
+    static_space_required = TLS_POOL_SIZE
 
     #: Register holding the descriptor address on entry and the offset on exit.
     descriptor_register: str = ""
@@ -569,17 +580,22 @@ class TlsDescResolve(CStdModel):
         argument = self.read_integer(
             desc + self.platdef.address_size, ArgumentType.POINTER, emulator
         )
-        slot = (argument // self.TLS_ARENA_SIZE) % self.TLS_MAX_SLOTS
         off = min(
-            argument % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM
+            argument % self.TLS_POOL_SIZE, self.TLS_POOL_SIZE - self._TLS_HEADROOM
         )
-        addr = self.static_buffer_address + slot * self.TLS_ARENA_SIZE + off
-        thread_pointer = emulator.read_register(self.thread_pointer_register)
-        mask = (1 << (self.platdef.address_size * 8)) - 1
+        addr = self.static_buffer_address + off
+        try:
+            thread_pointer = emulator.read_register(self.thread_pointer_register)
+        except exceptions.UnsupportedRegisterError:
+            # Some backends (ghidra, triton) do not model segment bases at all.
+            # Treating the thread pointer as unset degrades to handing back the
+            # arena address itself, which is what happens on every backend when
+            # nothing has set one.
+            thread_pointer = 0
         # Wraps for a thread pointer above the arena, which is the normal
         # variant-II layout: the caller's add wraps back to the same address.
         emulator.write_register(
-            self.descriptor_register, (addr - thread_pointer) & mask
+            self.descriptor_register, (addr - thread_pointer) & self._long_inv_mask
         )
 
 

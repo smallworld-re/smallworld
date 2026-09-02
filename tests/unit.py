@@ -4951,12 +4951,23 @@ class TlsDescFixtureTests(unittest.TestCase):
     def setUp(self):
         if not os.path.exists(self.SO):
             self.skipTest(f"{self.SO} not built (run `make amd64` in tests/)")
+        # Constructing a POSIXLibc instantiates every model, which populates
+        # the FileDescriptorManager/ProcInfoManager quasi-singletons; reset
+        # them the way ModelTestCase does so they never leak between tests.
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+        logging.disable(logging.ERROR)
         self.platform = platforms.Platform(
             architecture=platforms.Architecture.X86_64,
             byteorder=platforms.Byteorder.LITTLE,
         )
         with open(self.SO, "rb") as f:
             self.elf = ElfExecutable(f, platform=self.platform, user_base=0x100000)
+
+    def tearDown(self):
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+        logging.disable(logging.NOTSET)
 
     def _descriptor(self, address):
         raw = self.elf.read_bytes(address, 16)
@@ -4968,13 +4979,13 @@ class TlsDescFixtureTests(unittest.TestCase):
     def test_image_loads(self):
         # Refusing the relocation raised here, which cost every function in
         # the image rather than only the ones using a thread-local.
-        self.assertTrue(self.elf._tlsdesc_descriptors, "no TLS descriptors found")
+        self.assertTrue(self.elf.tlsdesc_descriptors, "no TLS descriptors found")
 
     def test_arguments_are_distinct_block_offsets(self):
         # The fixture has two thread-locals, so the two descriptors must carry
         # different offsets. Rebasing the symbol value by the load address
         # turned both into large addresses and lost the distinction.
-        args = sorted(self._descriptor(d)[1] for d in self.elf._tlsdesc_descriptors)
+        args = sorted(self._descriptor(d)[1] for d in self.elf.tlsdesc_descriptors)
         self.assertEqual(len(args), 2)
         self.assertNotEqual(args[0], args[1])
         for arg in args:
@@ -4983,39 +4994,55 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
     def test_resolver_is_null_until_linked_then_bound(self):
-        for d in self.elf._tlsdesc_descriptors:
+        # Guard the loops below: with no descriptors they assert nothing, and
+        # "no descriptors were recorded" is the condition this test exists to
+        # detect.
+        self.assertEqual(len(self.elf.tlsdesc_descriptors), 2)
+        for d in self.elf.tlsdesc_descriptors:
             self.assertEqual(self._descriptor(d)[0], 0, "resolver bound too early")
 
         libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
         libc.link(self.elf)
         model = libc.models.get("__tlsdesc_resolve")
         self.assertIsNotNone(model, "library provides no __tlsdesc_resolve model")
-        for d in self.elf._tlsdesc_descriptors:
+        for d in self.elf.tlsdesc_descriptors:
             self.assertEqual(self._descriptor(d)[0], model._address)
 
-    def test_each_thread_local_gets_its_own_storage(self):
-        # The point of carrying the offset through: two thread-locals must not
-        # land on the same bytes.
+    def test_library_reserves_the_resolvers_static_buffer(self):
+        # The library must hand the model a buffer inside its own region;
+        # without it the resolver raises on its first call.
         libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
         libc.link(self.elf)
-        model = libc.models.get("__tlsdesc_resolve")
-        model.static_buffer_address = 0x60000
+        model = libc.models["__tlsdesc_resolve"]
+        self.assertIsNotNone(model.static_buffer_address)
+        self.assertGreaterEqual(model.static_buffer_address, libc.address)
+        self.assertLessEqual(
+            model.static_buffer_address + model.static_space_required,
+            libc.address + libc.get_capacity(),
+        )
 
-        emu = emulators.UnicornEmulator(self.platform)
-        emu.map_memory(0x60000, model.static_space_required)
-        emu.map_memory(0x4000, 0x100)
+    def test_binding_survives_re_relocation(self):
+        # update_symbol_value re-relocates every rela of a symbol, and
+        # link_elf does exactly that. A relocator that hardcoded a null
+        # resolver word would silently unbind the descriptors here, and an
+        # un-deduped descriptor list would grow on every pass.
+        libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
+        libc.link(self.elf)
+        model = libc.models["__tlsdesc_resolve"]
 
-        offsets = []
-        for descriptor in self.elf._tlsdesc_descriptors:
-            _, argument = self._descriptor(descriptor)
-            emu.write_memory(
-                0x4000, (0).to_bytes(8, "little") + argument.to_bytes(8, "little")
+        before = self.elf.tlsdesc_descriptors
+        for name in ("first", "second"):
+            self.elf.update_symbol_value(
+                name, self.elf.get_symbol_value(name, rebase=False), rebase=False
             )
-            emu.write_register("rax", 0x4000)
-            emu.write_register("fsbase", 0)
-            model.model(emu)
-            offsets.append(emu.read_register("rax"))
-        self.assertEqual(len(set(offsets)), 2, "thread-locals share storage")
+
+        self.assertEqual(self.elf.tlsdesc_descriptors, before, "descriptors duplicated")
+        for d in self.elf.tlsdesc_descriptors:
+            self.assertEqual(
+                self._descriptor(d)[0],
+                model._address,
+                "resolver unbound by re-relocation",
+            )
 
 
 class TlsDescResolveModelTests(ModelTestCase):
@@ -5028,13 +5055,15 @@ class TlsDescResolveModelTests(ModelTestCase):
 
     DESC = 0x4000
     ARENA = 0x60000
-    ARENA_SIZE = 0x8000
 
     def setUp(self):
         super().setUp()
         self.emu.map_memory(self.DESC, 0x100)
         self.model = self.lookup("__tlsdesc_resolve")
         self.model.static_buffer_address = self.ARENA
+        # Derived, not restated: shrinking the pool must shrink the bound the
+        # out-of-pool tests below check against.
+        self.ARENA_SIZE = self.model.static_space_required
 
     def _resolve(self, argument, thread_pointer=0):
         """Call the resolver the way gnu2 code does: descriptor in %rax."""
@@ -5238,8 +5267,18 @@ def _make_symbol(value: int, baseaddr: int) -> ElfSymbol:
 
 
 class _FakeElf:
-    def __init__(self, address: int):
+    #: Stands in for the resolver ElfExecutable would have bound, if any.
+    tlsdesc_resolver = 0
+
+    def __init__(self, address: int = 0):
         self.address = address
+        self.noted: list = []
+
+    def note_tlsdesc_descriptor(self, address: int) -> int:
+        # Mirrors ElfExecutable: dedup, and hand back the bound resolver.
+        if address not in self.noted:
+            self.noted.append(address)
+        return self.tlsdesc_resolver
 
 
 class AMD64StackInitTests(unittest.TestCase):
@@ -5289,15 +5328,6 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
     thread-local: one unresolvable relocation made the whole ELF unloadable.
     """
 
-    class _Elf:
-        """Minimal stand-in; the relocator only records descriptors on it."""
-
-        def __init__(self):
-            self.noted = []
-
-        def note_tlsdesc_descriptor(self, address):
-            self.noted.append(address)
-
     def _rela(self, value, addend):
         return ElfRela(
             is_rela=True,
@@ -5309,7 +5339,7 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
 
     def test_writes_descriptor_and_records_it(self):
         relocator = AMD64ElfRelocator()
-        elf = self._Elf()
+        elf = _FakeElf()
         val = relocator._compute_value(self._rela(0, 0x10), elf)
         self.assertEqual(len(val), 16, "descriptor is two words")
         resolver = int.from_bytes(val[:8], "little")
@@ -5319,12 +5349,22 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         self.assertEqual(argument, 0x10)
         self.assertEqual(elf.noted, [0x2000], "descriptor must be recorded for binding")
 
+    def test_writes_the_bound_resolver_when_one_exists(self):
+        # Relocation is not one-shot: update_symbol_value re-runs it for every
+        # rela of a symbol. Hardcoding a null resolver here would silently
+        # unbind descriptors that the model library had already bound.
+        relocator = AMD64ElfRelocator()
+        elf = _FakeElf()
+        elf.tlsdesc_resolver = 0x900144
+        val = relocator._compute_value(self._rela(0, 0x10), elf)
+        self.assertEqual(int.from_bytes(val[:8], "little"), 0x900144)
+
     def test_argument_is_block_relative_not_rebased(self):
         # A TLS symbol's st_value is an offset within the TLS block. Rebasing
         # it by the load address turns adjacent thread-locals into addresses
         # and loses the distinction the resolver indexes on.
         relocator = AMD64ElfRelocator()
-        val = relocator._compute_value(self._rela(0x8, 0x4), self._Elf())
+        val = relocator._compute_value(self._rela(0x8, 0x4), _FakeElf())
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
 
 

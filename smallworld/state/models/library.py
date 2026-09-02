@@ -142,6 +142,14 @@ class ElfModelLibrary(Memory):
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
             elf.bind_tlsdesc_resolver(tlsdesc._address)
+        elif elf.tlsdesc_descriptors:
+            # Silence here would surface much later as a call to address zero,
+            # with nothing tying it back to TLS.
+            log.warning(
+                f"{len(elf.tlsdesc_descriptors)} TLS descriptors need a resolver, "
+                f"but this library provides no __tlsdesc_resolve model; "
+                f"thread-local accesses will call address zero"
+            )
 
     def apply(self, emulator: Emulator) -> None:
         super().apply(emulator)

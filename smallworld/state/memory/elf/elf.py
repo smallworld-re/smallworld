@@ -184,6 +184,11 @@ class ElfExecutable(Executable):
         # resolver yet -- and filled in by bind_tlsdesc_resolver once a model
         # library is linked. See AMD64ElfRelocator's R_X86_64_TLSDESC case.
         self._tlsdesc_descriptors: typing.List[int] = list()
+        # Resolver address the descriptors above should carry. Null until a
+        # model library is linked; remembered so that a descriptor relocated
+        # later -- or re-relocated, which happens whenever a symbol's value is
+        # updated -- is written with the bound resolver rather than null again.
+        self._tlsdesc_resolver: int = 0
 
         # Read the entire image out of the file.
         image = file.read()
@@ -1124,9 +1129,23 @@ class ElfExecutable(Executable):
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
-    def note_tlsdesc_descriptor(self, address: int) -> None:
-        """Record a TLS descriptor whose resolver word still needs binding."""
-        self._tlsdesc_descriptors.append(address)
+    @property
+    def tlsdesc_descriptors(self) -> typing.List[int]:
+        """Addresses of the TLS descriptors this image carries."""
+        return list(self._tlsdesc_descriptors)
+
+    def note_tlsdesc_descriptor(self, address: int) -> int:
+        """Record a TLS descriptor and hand back the resolver it should carry.
+
+        Relocation is not one-shot: `update_symbol_value` re-relocates every
+        rela attached to a symbol, so this can be called repeatedly for the
+        same descriptor. Returning the bound resolver (null until a model
+        library is linked) keeps the relocator idempotent -- a re-relocation
+        after binding rewrites the same resolver instead of nulling it.
+        """
+        if address not in self._tlsdesc_descriptors:
+            self._tlsdesc_descriptors.append(address)
+        return self._tlsdesc_resolver
 
     def bind_tlsdesc_resolver(self, address: int) -> None:
         """Point every TLS descriptor's resolver word at `address`.
@@ -1136,15 +1155,15 @@ class ElfExecutable(Executable):
         long before that. Without this the resolver word stays null and code
         built with -mtls-dialect=gnu2 calls address zero.
         """
-        if not self._tlsdesc_descriptors or self.platform is None:
+        self._tlsdesc_resolver = address
+        if not self._tlsdesc_descriptors:
+            return
+        if self.platform is None:
+            log.error("No platform defined; cannot bind the TLS descriptor resolver!")
             return
         size = PlatformDef.for_platform(self.platform).address_size
-        order: typing.Literal["little", "big"] = (
-            "little" if self.platform.byteorder is Byteorder.LITTLE else "big"
-        )
-        packed = address.to_bytes(size, order)
         for descriptor in self._tlsdesc_descriptors:
-            self.write_bytes(descriptor, packed)
+            self.write_int(descriptor, address, size, self.platform.byteorder)
 
     def link_elf(
         self, elf: "ElfExecutable", dynamic: bool = True, all_syms: bool = False
