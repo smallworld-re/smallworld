@@ -105,6 +105,9 @@ class AMD64ElfRelocator(ElfRelocator):
     def is_tls_descriptor(self, rela: ElfRela) -> bool:
         return rela.type == R_X86_64_TLSDESC
 
+    def is_tls_descriptor_reference(self, rela: ElfRela) -> bool:
+        return rela.type == R_X86_64_GOTPC32_TLSDESC
+
     def _compute_value(self, rela: ElfRela, elf):
         symval = self._symbol_value(rela)
 
@@ -210,8 +213,23 @@ class AMD64ElfRelocator(ElfRelocator):
         elif rela.type == R_X86_64_SIZE64:
             return self._pack(rela.symbol.size + self._get_addend(rela, elf, 8), 8)
         elif rela.type == R_X86_64_GOTPC32_TLSDESC:
-            # TLS descriptors live in the GOT and require a descriptor slot address.
-            self._missing_context(rela, "the GOT base and TLS descriptor entry address")
+            # The unlinked form of R_X86_64_TLSDESC. A linked object already
+            # has its two-word descriptor sitting in the GOT; an object file
+            # only has `lea x@tlsdesc(%rip)` naming a GOT slot the linker
+            # never got to create. Refusing here failed the whole image, which
+            # cost every function in it -- so synthesize the slot instead.
+            slot = elf.tlsdesc_got_slot(rela.symbol.idx)
+            # Fill the descriptor the way the TLSDESC case does. The addend
+            # here belongs to the PC-RELATIVE computation -- gcc emits -4 for
+            # the rip-relative displacement -- and must not reach the
+            # argument, which is the symbol's TLS-block offset alone.
+            elf.write_bytes(
+                slot,
+                self._pack(elf.note_tlsdesc_descriptor(slot), 8)
+                + self._pack(rela.symbol.value, 8),
+            )
+            # G + GOT + A - P: where the slot sits relative to this `lea`.
+            return self._pack(slot + self._get_addend(rela, elf, 4) - rela.offset, 4)
         elif rela.type == R_X86_64_TLSDESC_CALL:
             # This is a marker relocation used to tag a TLS descriptor call sequence.
             return b""

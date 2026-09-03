@@ -259,7 +259,8 @@ endef
 # Linux C template
 # Builds .elf and .so files from C source
 
-C_OBJ_SRCS := $(wildcard */*.o.c) $(wildcard */*/*.o.c)
+# Excludes the gnu2 objects below, for the same reason as C_SO_SRCS.
+C_OBJ_SRCS := $(filter-out %.gnu2.o.c,$(wildcard */*.o.c) $(wildcard */*/*.o.c))
 C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
 # Excludes the gnu2 sources below: they build through their own rule, with an
 # extra flag, and would otherwise match this pattern too.
@@ -273,6 +274,9 @@ C_SO_SRCS := $(filter-out %.gnu2.so.c %.gnu.so.c,$(wildcard */*.so.c) $(wildcard
 # default, which differs by toolchain version: a fixture that quietly stopped
 # emitting R_X86_64_TLSDESC would keep passing while testing nothing.
 C_GNU2_SO_SRCS := $(wildcard */*.gnu2.so.c) $(wildcard */*/*.gnu2.so.c)
+# The same, unlinked: a .o carries R_X86_64_GOTPC32_TLSDESC naming a GOT
+# slot the linker never got to create, rather than R_X86_64_TLSDESC.
+C_GNU2_OBJ_SRCS := $(wildcard */*.gnu2.o.c) $(wildcard */*/*.gnu2.o.c)
 # The classic (general-dynamic) dialect, which reaches a thread-local through
 # __tls_get_addr. Recent gcc defaults to gnu2, so this too must be asked for
 # explicitly to be sure what the fixture contains.
@@ -291,6 +295,12 @@ $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).so : %.so.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
+
+$(1)_C_GNU2_OBJS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.o.c,%.gnu2.$$($(1)_EXT).o,$$(C_GNU2_OBJ_SRCS)))
+
+%.gnu2.$$($(1)_EXT).o : %.gnu2.o.c
+	$$(if $$($(1)_GNU2_CFLAGS),,$$(error no TLS-descriptor dialect flag for $(1); refusing to build $$@))
+	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU2_CFLAGS) -fPIC -o $$@ $$<
 
 $(1)_C_GNU2_SOS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.so.c,%.gnu2.$$($(1)_EXT).so,$$(C_GNU2_SO_SRCS)))
 
@@ -346,7 +356,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :

@@ -105,6 +105,8 @@ PT_HIPROC = 0x7FFFFFFF  # End of processor-specific types
 SHF_WRITE = 0x1  # Section is writable
 SHF_ALLOC = 0x2  # Section occupies memory durring execution
 SHF_EXECINSTR = 0x4  # Section is executable
+SHF_TLS = 0x400  # Section holds thread-local storage
+SHT_NOBITS = 8  # Section occupies no file space (.bss/.tbss)
 
 # Program header flags
 PF_X = 0x1  # Segment is executable
@@ -186,6 +188,11 @@ class ElfExecutable(Executable):
         # resolver yet -- and filled in by bind_tlsdesc_resolver once a model
         # library is linked. See AMD64ElfRelocator's R_X86_64_TLSDESC case.
         self._tlsdesc_descriptors: typing.List[int] = list()
+        # Synthetic GOT for object files, which name descriptor slots a linker
+        # would have created. Keyed by symbol index so a symbol referenced from
+        # several call sites shares one descriptor, as it would after linking.
+        self._tlsdesc_got: typing.Dict[int, int] = dict()
+        self._tlsdesc_got_next: typing.Optional[int] = None
         # PT_TLS: the module's thread-local initialization image, its full
         # size including .tbss, and its required alignment. Empty when the
         # image declares no thread-locals.
@@ -652,6 +659,15 @@ class ElfExecutable(Executable):
         section_data_offsets: typing.Dict[int, int] = dict()
         section_rodata_offsets: typing.Dict[int, int] = dict()
 
+        # The thread-local sections are a TEMPLATE, not process memory: a
+        # thread-local's st_value is an offset within the module's TLS block,
+        # not within the image. They are laid out separately here, and the
+        # symbol loop below uses these offsets rather than the section ones.
+        # They are still allowed into the data blob as before -- the bytes are
+        # dead but excluding them would shift every offset in existing images.
+        tls = bytearray()
+        tls_section_offsets: typing.Dict[int, int] = dict()
+
         # Basically every architecture needs a GOT;
         # they will have relocations that reference either the GOT itself,
         # or a symbol's GOT slot
@@ -663,6 +679,23 @@ class ElfExecutable(Executable):
                 # Section is not allocated;
                 # It's metadata that won't get referenced later.
                 continue
+
+            if (section.flags & SHF_TLS) != 0:
+                skew = len(tls) % section.alignment
+                if skew != 0:
+                    tls.extend(b"\0" * (section.alignment - skew))
+                tls_section_offsets[index] = len(tls)
+                self._tls_align = max(self._tls_align, section.alignment)
+                if section.type == SHT_NOBITS:
+                    # .tbss occupies no file space; it contributes zeroes.
+                    tls.extend(b"\0" * section.original_size)
+                else:
+                    tls.extend(
+                        image[
+                            section.file_offset : section.file_offset
+                            + section.original_size
+                        ]
+                    )
 
             if (section.flags & SHF_EXECINSTR) != 0:
                 # Section is executable
@@ -721,8 +754,21 @@ class ElfExecutable(Executable):
         if len(data) > 0:
             self[data_offset] = BytesValue(bytes(data), None)
 
+        if len(tls) > 0:
+            self._tls_image = bytes(tls)
+            self._tls_size = len(tls)
+
         for sym in elf.symbols:
-            if sym.shndx in self._section_offsets:
+            if sym.type.value == STT_TLS:
+                # A thread-local's value is an offset within its section of
+                # the TLS BLOCK. Adding the section's image offset instead --
+                # which is what happened before -- turns a small block offset
+                # into an image offset, so every descriptor argument named a
+                # slot far outside the block and adjacent thread-locals
+                # stopped being distinguishable from unrelated data.
+                if sym.shndx in tls_section_offsets:
+                    sym.value += tls_section_offsets[sym.shndx]
+            elif sym.shndx in self._section_offsets:
                 sym.value += self._section_offsets[sym.shndx]
 
     def _extract_dtags(self, elf):
@@ -1057,7 +1103,12 @@ class ElfExecutable(Executable):
             return
         unresolved: typing.Dict[str, int] = dict()
         for rela in itertools.chain(self._dynamic_relas, self._static_relas):
-            if rela.symbol.defined or not self._relocator.is_tls_descriptor(rela):
+            if rela.symbol.defined:
+                continue
+            if not (
+                self._relocator.is_tls_descriptor(rela)
+                or self._relocator.is_tls_descriptor_reference(rela)
+            ):
                 continue
             self._relocator.relocate(self, rela)
             name = rela.symbol.name or f"<symbol {rela.symbol.idx}>"
@@ -1203,6 +1254,40 @@ class ElfExecutable(Executable):
         if not self._tls_size:
             return b""
         return self._tls_image.ljust(self._tls_size, b"\x00")
+
+    def tlsdesc_got_slot(self, symbol_index: int) -> int:
+        """Address of the TLS descriptor for a symbol, creating it if needed.
+
+        A linked image has its descriptors in the GOT already; an object file
+        does not, because building the GOT is the linker's job. Rather than
+        refuse the image -- which costs every function in it -- lay the
+        missing slots out past the end of the loaded sections, one per symbol
+        so that repeated references share storage the way a real GOT entry
+        would. The region grows this image's capacity, so it is mapped along
+        with everything else when the memory is applied.
+
+        Allocation is keyed and idempotent because relocation is not one-shot:
+        `update_symbol_value` re-relocates every rela attached to a symbol.
+        """
+        if symbol_index in self._tlsdesc_got:
+            return self._tlsdesc_got[symbol_index]
+        if self.platform is None:
+            raise ConfigurationError(
+                "No platform defined; cannot size a TLS descriptor"
+            )
+        size = 2 * PlatformDef.for_platform(self.platform).address_size
+        if self._tlsdesc_got_next is None:
+            # Start on a page of its own rather than abutting the last
+            # section: a synthetic region overlapping real content would be
+            # far harder to recognise in a memory dump than a gap.
+            self._tlsdesc_got_next = self._page_align(self.size, up=True)
+        offset = self._tlsdesc_got_next
+        self._tlsdesc_got_next += size
+        self.size = max(self.size, offset + size)
+        self[offset] = BytesValue(b"\0" * size, "synthetic TLS descriptor")
+        address = self.address + offset
+        self._tlsdesc_got[symbol_index] = address
+        return address
 
     def note_tlsdesc_descriptor(self, address: int) -> int:
         """Record a TLS descriptor and hand back the resolver it should carry.

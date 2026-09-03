@@ -48,6 +48,16 @@ class ElfRelocator:
         """
         return False
 
+    def is_tls_descriptor_reference(self, rela: ElfRela) -> bool:
+        """Whether this rela is a PC-relative reference to a descriptor SLOT.
+
+        The unlinked form of the same thing: a linker would have placed the
+        two-word descriptor in the GOT and left an `is_tls_descriptor` rela to
+        fill it in, but an object file has not been through a linker, so it
+        names a GOT slot that does not exist yet.
+        """
+        return False
+
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
         try:

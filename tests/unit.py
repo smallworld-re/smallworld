@@ -5126,6 +5126,92 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
 
+class TlsDescObjectFileTests(unittest.TestCase):
+    """An unlinked object reaches thread-locals through a GOT that has no GOT.
+
+    A linked image carries R_X86_64_TLSDESC: the linker already placed the
+    two-word descriptor in the GOT and the relocation only fills it in. An
+    object file carries R_X86_64_GOTPC32_TLSDESC instead, naming a GOT slot
+    the linker never got to create. Refusing it failed the entire image, so
+    every function in the object was lost, not just the TLS ones.
+    """
+
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
+    OBJ = "tlsdesc.gnu2.amd64.o"
+    SO = "tlsdesc.gnu2.amd64.so"
+    BASE = 0x100000
+
+    def setUp(self):
+        self.path = os.path.join(self.HERE, self.OBJ)
+        if not os.path.exists(self.path):
+            self.skipTest(f"{self.path} not built (run `make amd64` in tests/)")
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+        self.plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+
+    def tearDown(self):
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+
+    def _load(self, name):
+        with open(os.path.join(self.HERE, name), "rb") as f:
+            return ElfExecutable(f, platform=self.plat, user_base=self.BASE)
+
+    def _descriptor(self, elf, address):
+        raw = elf.read_bytes(address, 16)
+        return int.from_bytes(raw[:8], "little"), int.from_bytes(raw[8:], "little")
+
+    def test_object_file_loads(self):
+        self.assertIsNotNone(self._load(self.OBJ))
+
+    def test_arguments_are_block_offsets_not_image_offsets(self):
+        # The descriptor argument is a TLS-block offset. Rebasing it by the
+        # section's position in the image -- which is what happened to every
+        # STT_TLS symbol in an object file -- turned 0 and 8 into 0x2000 and
+        # 0x2008, pointing outside the block entirely.
+        elf = self._load(self.OBJ)
+        args = sorted(self._descriptor(elf, d)[1] for d in elf.tlsdesc_descriptors)
+        self.assertEqual(args, [0x0, 0x8])
+
+    def test_matches_the_linked_object(self):
+        # Same source, two forms: they must describe the same thread-locals.
+        obj, so = self._load(self.OBJ), self._load(self.SO)
+        self.assertEqual(
+            sorted(self._descriptor(obj, d)[1] for d in obj.tlsdesc_descriptors),
+            sorted(self._descriptor(so, d)[1] for d in so.tlsdesc_descriptors),
+        )
+        self.assertEqual(obj.tls_image, so.tls_image)
+
+    def test_one_slot_per_symbol(self):
+        # `first` is referenced from two call sites. A real GOT gives it one
+        # entry; allocating per relocation would give it two, and a write
+        # through one would be invisible through the other.
+        elf = self._load(self.OBJ)
+        self.assertEqual(len(elf.tlsdesc_descriptors), 2)
+        self.assertEqual(
+            len(set(elf.tlsdesc_descriptors)), len(elf.tlsdesc_descriptors)
+        )
+
+    def test_synthetic_slots_are_inside_the_image(self):
+        # The slots are laid out past the loaded sections, so the image must
+        # have grown to cover them or they will not be mapped.
+        elf = self._load(self.OBJ)
+        for d in elf.tlsdesc_descriptors:
+            self.assertGreaterEqual(d, elf.address)
+            self.assertLessEqual(d + 16, elf.address + elf.get_capacity())
+
+    def test_resolver_binds_into_the_synthetic_slots(self):
+        elf = self._load(self.OBJ)
+        libc = POSIXLibc(0x900000, self.plat, platforms.ABI.SYSTEMV)
+        libc.link(elf)
+        model = libc.models["__tlsdesc_resolve"]
+        for d in elf.tlsdesc_descriptors:
+            self.assertEqual(self._descriptor(elf, d)[0], model._address)
+
+
 class TlsUndefinedThreadLocalTests(unittest.TestCase):
     """A thread-local no loaded module defines must not become a call to zero.
 
@@ -5384,6 +5470,12 @@ class TlsEndToEndTests(unittest.TestCase):
 
     def test_gnu_dialect_reads_its_initializers(self):
         self.assertEqual(self._run("tlsdesc.gnu.amd64.so"), 23)
+
+    def test_gnu2_object_file_reads_its_initializers(self):
+        # Same source, never linked: the descriptors are synthesized and the
+        # TLS image comes from the .tdata section rather than a PT_TLS header,
+        # so agreeing with the shared object is the whole point.
+        self.assertEqual(self._run("tlsdesc.gnu2.amd64.o"), 23)
 
 
 class TlsDescResolveModelTests(ModelTestCase):
