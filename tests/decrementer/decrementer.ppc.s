@@ -26,8 +26,13 @@ _start:
     li      3, 0              # r3 stays 0 unless the handler runs
     li      5, 100
     mtspr   22, 5             # arm DEC: underflows on the first stride
-    mfmsr   6
-    ori     6, 6, 0x8000      # MSR[EE]
+    # Build MSR from scratch rather than OR-ing MSR[EE] into the reset value.
+    # The MPC8xx comes out of reset with MSR[IP] set, which puts the exception
+    # vectors at 0xFFF00000 - and styx maps 0xFF000000+ READ|WRITE with no
+    # EXEC, so delivering there faults with ProtectedMemoryFetch.  Real
+    # firmware clears IP once it has vectors in low memory; do the same.
+    li      6, 0
+    ori     6, 6, 0x8000      # MSR = EE only: IP=0, so vectors are at 0x000
     mtmsr   6                 # unmask -> the latched decrementer can deliver
 _wait:
     cmpwi   3, 0
