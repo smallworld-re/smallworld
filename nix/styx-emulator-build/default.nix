@@ -97,7 +97,6 @@ ps.buildPythonPackage {
     # so no Cargo.lock / vendor-hash change. See patches/ and mpc860/.
     install -m 0644 ${./mpc860/event.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/event.rs
     install -m 0644 ${./mpc860/exception.rs} source/styx/event-controllers/ppc/styx-mpc866m/src/exception.rs
-    install -m 0644 ${./mpc860/hooks.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/hooks.rs
     # -F0 so a rev bump that moves this code fails the build instead of quietly
     # applying a hunk against approximate context; --no-backup-if-mismatch keeps
     # stray .orig files out of the tree that gets compiled.

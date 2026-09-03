@@ -4,21 +4,30 @@
 # panics and hangs.
 #
 # Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
-# (the `rev` pinned in ../default.nix). The three modules it declares -
-# `event`, `exception`, `hooks` - are installed from ../mpc860/ by `postUnpack`.
+# (the `rev` pinned in ../default.nix). The two modules it declares - `event`
+# and `exception` - are installed from ../mpc860/ by `postUnpack`.
+#
+# This controller registers no code hook of its own. `rfi` has to be
+# intercepted (Unicorn would run it against QEMU's own SRR0/SRR1, which nothing
+# populates), but the PowerQUICC SIU already owns a whole-range per-instruction
+# hook, and `CodeHook::call` is not told which address it was dispatched for -
+# so a second hook would have to find its instruction via `pc()`, which the
+# `rfi` path rewrites. Both hooks cannot coexist; see `mtspr_proxy` in
+# ./powerquicci-mtspr.patch, which owns the opcode and calls back into
+# `take_return_state` here.
+#
 # Touches no Cargo.toml, so the vendored crate set and `cargoDeps` hash are
 # unchanged; keep it that way or both hashes in ../default.nix must be redone.
 #
 # Remove once styx-emulator implements this controller upstream.
---- a/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs	2026-07-08 17:27:50.437622367 -0400
-+++ b/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs	2026-07-08 17:29:38.230469279 -0400
-@@ -22,13 +22,19 @@
+--- a/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs	2026-09-03 11:41:09.849138661 -0400
++++ b/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs	2026-09-03 11:41:09.853138631 -0400
+@@ -22,13 +22,18 @@
  //!   the respective rust object
  //!
  #![allow(dead_code, unused_variables)]
 +mod event;
 +mod exception;
-+mod hooks;
 +
  use derive_more::Display;
  use styx_core::cpu::arch::ppc32::variants::Mpc8xxVariants;
@@ -33,7 +42,7 @@
  /// IRQs for the MPC866m event controller
  ///
  /// ## Notes
-@@ -91,16 +97,6 @@
+@@ -91,16 +96,6 @@
      NonmaskableDevelopmentPort,
  }
  
@@ -50,7 +59,7 @@
  /// Event Controller + Peripheral Orchestrator for the Mpc8xx
  /// Family.
  ///
-@@ -112,14 +108,35 @@
+@@ -112,14 +107,40 @@
  pub struct Mpc866mController {
      #[allow(dead_code)]
      family_variant: Mpc8xxVariants,
@@ -79,14 +88,19 @@
 +    /// interrupt, in which case the `rfi` is left to execute natively against the
 +    /// backend's own SRRs - which is what a guest using `mtspr SRR0; rfi` as a
 +    /// plain mode-switch jump wants.
-+    pub(crate) fn take_return_state(&mut self) -> Option<(u32, u32)> {
++    /// Pop the innermost saved `(SRR0, SRR1)` pair.
++    ///
++    /// Called from the PowerQUICC SIU's per-instruction hook when it decodes an
++    /// `rfi`; see `mtspr_proxy` for why that hook, and not one registered here,
++    /// owns the `rfi` opcode.
++    pub fn take_return_state(&mut self) -> Option<(u32, u32)> {
 +        self.interrupt_stack.pop().map(|(_, srr0, srr1)| (srr0, srr1))
 +    }
 +
      /// Top level method of actual exception insertion into the CPU execution flow
      ///
      /// In general, this target uses registers `SRR0` and `SRR1` to hold the previous
-@@ -134,38 +151,47 @@
+@@ -134,38 +155,47 @@
      /// At this point the IRQ should have already
      /// been translated from an [`ExceptionNumber`] to an [`Mpc866mIRQn`].
      ///
@@ -124,7 +138,7 @@
 -        todo!("Mpc866mController::insert_exception");
 +    /// `SRR0`/`SRR1` are written to shadow state (not CPU registers) because the
 +    /// Unicorn backend does not expose them; the shadow is restored on `rfi` by
-+    /// [`hooks::Mpc860CodeHook`].
++    /// the PowerQUICC SIU's `mtspr_proxy` hook, via [`Self::take_return_state`].
 +    fn insert_exception(
 +        &mut self,
 +        cpu: &mut dyn CpuBackend,
@@ -166,7 +180,7 @@
      }
  }
  
-@@ -173,35 +199,53 @@
+@@ -173,35 +203,54 @@
      fn next(
          &mut self,
          cpu: &mut dyn CpuBackend,
@@ -225,18 +239,10 @@
      ) -> Option<ExceptionNumber> {
 -        None
 +        // Under the Unicorn backend, return-from-interrupt is handled by the
-+        // `rfi` path in `Mpc860CodeHook`; this trait method is not invoked there,
-+        // so popping here does not race that path.
++        // `rfi` branch of the PowerQUICC SIU's `mtspr_proxy` hook, which pops
++        // via `take_return_state`; this trait method is not invoked there, so
++        // popping here does not race that path.
 +        self.interrupt_stack.pop().map(|(irqn, _, _)| irqn)
      }
  
      fn init(
-@@ -209,6 +253,8 @@
-         cpu: &mut dyn CpuBackend,
-         _mmu: &mut MemoryBackend,
-     ) -> Result<(), UnknownError> {
-+        // Per-instruction hook: MSR[EE] tracking + `rfi` emulation.
-+        cpu.add_hook(StyxHook::code(.., hooks::Mpc860CodeHook))?;
-         Ok(())
-     }
- }

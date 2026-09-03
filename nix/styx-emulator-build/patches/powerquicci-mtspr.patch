@@ -4,23 +4,32 @@
 # SPRs are not visible to the Unicorn backend, so without this a guest reads
 # stale backend state.
 #
+# This hook also owns `rfi`, restoring PC/MSR from the MPC866M controller's
+# shadow SRRs. That lives here rather than in a code hook registered by the
+# controller because `CodeHook::call` is not told which address it was
+# dispatched for: every whole-range hook must read `pc()` to find its own
+# instruction, and the `rfi` path rewrites it, so whichever of two such hooks
+# ran second would decode the return target instead. One hook that reads `pc()`
+# once and dispatches on the opcode makes that unrepresentable.
+#
 # Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
 # (the `rev` pinned in ../default.nix). Touches no Cargo.toml, so the vendored
 # crate set and `cargoDeps` hash are unchanged.
 #
 # Remove once styx-emulator models the MPC8xx decrementer upstream.
---- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 10:30:47.962495423 -0400
-+++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 10:31:09.131337611 -0400
-@@ -9,7 +9,7 @@
+--- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 11:40:14.260548694 -0400
++++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 11:40:14.261548687 -0400
+@@ -9,7 +9,8 @@
      hooks::CoreHandle,
      prelude::{CpuBackend, CpuBackendExt},
  };
 -use tracing::{error, info, trace, warn};
++use styx_mpc866m::Mpc866mController;
 +use tracing::{info, trace, warn};
  
  use crate::system_interface_unit::SystemInterfaceUnit;
  
-@@ -20,6 +20,13 @@
+@@ -20,6 +21,13 @@
      tblw: u32,
      tbuw: u32,
      dec: u32,
@@ -34,7 +43,7 @@
  }
  
  impl MtsprStateManager {
-@@ -28,12 +35,63 @@
+@@ -28,12 +36,66 @@
              tblw: 0,
              tbuw: 0,
              dec: 0,
@@ -83,6 +92,9 @@
  }
  
 -const MTSPR_INSN_MASK: u32 = 0xfc_00_03_ff;
++/// PowerPC `rfi` (return from interrupt), primary opcode 19, extended opcode 50.
++/// Every field is fixed, so the whole word is the pattern.
++const RFI_OPCODE: u32 = 0x4c00_0064;
 +/// Primary opcode plus the whole extended opcode and its Rc bit. The extended
 +/// opcode occupies instruction bits 21..=30 and Rc is bit 31, so together they
 +/// span the low 11 bits (`0x7ff`) of the word. Upstream spelled this `0x3ff`,
@@ -99,7 +111,7 @@
  const MTSPR_REG_OPERAND_MASK: u32 = 0x03e0_0000;
  const MTSPR_REG_OPERAND_SHIFT: u8 = 21;
  const MTSPR_SPR_OPERAND_MASK: u32 = 0x001f_f800;
-@@ -41,13 +99,17 @@
+@@ -41,13 +103,17 @@
  
  #[inline]
  fn is_mtspr(b: u32) -> bool {
@@ -124,7 +136,52 @@
  }
  
  #[allow(non_snake_case)]
-@@ -281,8 +343,10 @@
+@@ -252,11 +318,42 @@
+     cpu.set_pc(next_pc).unwrap();
+ }
+ 
++/// Whole-range per-instruction hook for the SPR instructions the Unicorn
++/// backend cannot service itself, plus `rfi`.
++///
++/// `rfi` is handled *here*, rather than in a second whole-range code hook, on
++/// purpose. `CodeHook::call` is not told which address it was dispatched for,
++/// so every such hook has to read `pc()` to find its own instruction - and the
++/// `rfi` branch below rewrites `pc()`. Two hooks therefore cannot coexist:
++/// whichever ran second would decode the *return target* instead of the
++/// instruction being dispatched, emulate it, and skip past it from inside the
++/// first hook's callback. Keeping one hook that reads `pc()` once and dispatches
++/// on the opcode makes that unrepresentable rather than merely unlikely.
++///
++/// The branches are mutually exclusive by primary opcode anyway (`rfi` is 19,
++/// `mtspr`/`mfspr`/`mftb` are all 31), but the early return states it outright.
+ pub(crate) fn mtspr_proxy(proc: CoreHandle) -> Result<(), UnknownError> {
+-    let pc = proc.cpu.pc().unwrap();
++    let pc = proc.cpu.pc()?;
+ 
+     // get insn @ pc
+-    let insn_bytes = proc.mmu.read_u32_be_phys_code(pc).unwrap();
++    let insn_bytes = proc.mmu.read_u32_be_phys_code(pc)?;
++
++    if insn_bytes == RFI_OPCODE {
++        // Under Unicorn `rfi` would execute natively against QEMU's own
++        // SRR0/SRR1, which are not backend-visible and which the controller
++        // never populates, so restore PC/MSR from its shadow instead. MSR is
++        // written before PC so that a failure leaves PC on the `rfi` rather
++        // than resuming with a half-restored MSR.
++        let return_state = proc
++            .event_controller
++            .get_impl::<Mpc866mController>()?
++            .take_return_state();
++        if let Some((srr0, srr1)) = return_state {
++            proc.cpu.write_register(Ppc32Register::Msr, srr1)?;
++            proc.cpu.set_pc(srr0 as u64)?;
++        }
++        return Ok(());
++    }
+ 
+     // check if insn is mtspr
+     if is_mtspr(insn_bytes) {
+@@ -281,8 +378,10 @@
              }
              SprEnum::DEC => {
                  trace!("executing {:?} impl", mtspr);
@@ -136,7 +193,7 @@
                  skip_cpu_insn(proc.cpu);
              }
              SprEnum::CTR | SprEnum::LR => {
-@@ -301,6 +365,33 @@
+@@ -301,6 +400,33 @@
                  );
              }
          }

@@ -58,6 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   decrementer/timebase driven by the executor stride. Guest reads of SRR0/SRR1
   are not modelled, and the decrementer's resolution is the executor stride
   (1000 instructions), so it cannot represent a period shorter than that.
+  `rfi` is emulated from the PowerQUICC SIU's per-instruction hook rather than
+  a second hook of the controller's own: `CodeHook::call` is not told which
+  address it was dispatched for, so two whole-range hooks would both locate
+  their instruction via `pc()`, which the `rfi` path rewrites.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

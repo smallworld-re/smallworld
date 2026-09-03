@@ -3242,6 +3242,42 @@ class StyxPowerPCExecutionTests(unittest.TestCase):
         with self.assertRaises(exceptions.EmulationError):
             self._run_fuzz(b"bad!AAAAAAAA")
 
+    def _run_decrementer(self):
+        # tests/decrementer/decrementer.ppc.s, loaded at 0x900 so that its first
+        # instruction sits on the MPC8xx decrementer vector. `_start` is the
+        # `.balign 32` block that follows at 0x920, and the trailing nop is the
+        # exit point. Keep those offsets in step with the .s file.
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        code = (TESTS_DIR / "decrementer" / "decrementer.ppc.bin").read_bytes()
+        emu.write_code(0x900, code)
+        emu.write_register_content("pc", 0x920)
+        emu.add_exit_point(0x900 + len(code) - 4)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_mpc860_decrementer_exception_and_rfi(self):
+        """The one end-to-end exercise of the MPC866M exception path.
+
+        Covers the SIU tick advancing DEC, the underflow latching a
+        Decrementer, the controller vectoring to 0x900, and the `rfi` that
+        restores PC/MSR from the controller's shadow SRRs -- the SRRs are not
+        visible to the Unicorn backend, so `rfi` has to be emulated, and this
+        is the only test that runs long enough to reach a stride boundary and
+        actually take the exception.
+
+        Reaching the exit point at all is most of the assertion: the guest
+        spins on `r3` and only falls out of the loop once the handler's `rfi`
+        has returned control to it.
+        """
+        emu = self._run_decrementer()
+        self.assertEqual(emu.read_register_content("r3"), 0x5A)
+
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxFuzzScenarioTests(unittest.TestCase):
