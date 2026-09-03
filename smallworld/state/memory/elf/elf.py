@@ -184,13 +184,11 @@ class ElfExecutable(Executable):
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
         self._relocator: typing.Optional[ElfRelocator] = None
         # Addresses of TLS-descriptor pairs written by the relocator. Their
-        # resolver word is left null at load -- nothing has an address for a
-        # resolver yet -- and filled in by bind_tlsdesc_resolver once a model
-        # library is linked. See AMD64ElfRelocator's R_X86_64_TLSDESC case.
+        # resolver word is null at load and filled in by
+        # bind_tlsdesc_resolver once a model library is linked.
         self._tlsdesc_descriptors: typing.List[int] = list()
-        # Synthetic GOT for object files, which name descriptor slots a linker
-        # would have created. Keyed by symbol index so a symbol referenced from
-        # several call sites shares one descriptor, as it would after linking.
+        # Synthetic GOT for object files, whose descriptor slots no linker
+        # built. Keyed by symbol so several call sites share one descriptor.
         self._tlsdesc_got: typing.Dict[int, int] = dict()
         self._tlsdesc_got_next: typing.Optional[int] = None
         # PT_TLS: the module's thread-local initialization image, its full
@@ -199,10 +197,9 @@ class ElfExecutable(Executable):
         self._tls_image: bytes = b""
         self._tls_size: int = 0
         self._tls_align: int = 1
-        # Resolver address the descriptors above should carry. Null until a
-        # model library is linked; remembered so that a descriptor relocated
-        # later -- or re-relocated, which happens whenever a symbol's value is
-        # updated -- is written with the bound resolver rather than null again.
+        # Resolver the descriptors above should carry, remembered so that a
+        # descriptor relocated (or re-relocated) after binding is not written
+        # back to null.
         self._tlsdesc_resolver: int = 0
 
         # Read the entire image out of the file.
@@ -568,12 +565,10 @@ class ElfExecutable(Executable):
                 # Useful for the dynamic linker, but not for us
                 pass
             elif phdr_type == PT_TLS:
-                # The initialization image for this module's thread-locals:
-                # `filesz` bytes of initialized data followed by `memsz -
-                # filesz` zero bytes (.tbss). A TLS symbol's st_value is an
-                # offset into this block, so whoever hands out thread-local
-                # storage can seed it from here -- without which every
-                # thread-local reads zero instead of its initializer.
+                # This module's thread-local initialization image: `filesz`
+                # initialized bytes then `memsz - filesz` zeroes (.tbss). A
+                # TLS symbol's st_value indexes into it, so whoever hands out
+                # thread-local storage can seed it from here.
                 self._tls_image = bytes(phdr.content)[: phdr.physical_size]
                 self._tls_size = int(phdr.virtual_size)
                 self._tls_align = max(1, int(phdr.alignment))
@@ -659,12 +654,11 @@ class ElfExecutable(Executable):
         section_data_offsets: typing.Dict[int, int] = dict()
         section_rodata_offsets: typing.Dict[int, int] = dict()
 
-        # The thread-local sections are a TEMPLATE, not process memory: a
-        # thread-local's st_value is an offset within the module's TLS block,
-        # not within the image. They are laid out separately here, and the
-        # symbol loop below uses these offsets rather than the section ones.
-        # They are still allowed into the data blob as before -- the bytes are
-        # dead but excluding them would shift every offset in existing images.
+        # TLS sections are a template, not process memory: st_value is an
+        # offset within the module's TLS block, not the image, so they get
+        # their own layout, used by the symbol loop below. They still go into
+        # the data blob as before -- dead bytes, but excluding them would
+        # shift every offset in existing images.
         tls = bytearray()
         tls_section_offsets: typing.Dict[int, int] = dict()
 
@@ -760,12 +754,8 @@ class ElfExecutable(Executable):
 
         for sym in elf.symbols:
             if sym.type.value == STT_TLS:
-                # A thread-local's value is an offset within its section of
-                # the TLS BLOCK. Adding the section's image offset instead --
-                # which is what happened before -- turns a small block offset
-                # into an image offset, so every descriptor argument named a
-                # slot far outside the block and adjacent thread-locals
-                # stopped being distinguishable from unrelated data.
+                # Relative to the TLS block, not the image: adding the
+                # section's image offset would point outside the block.
                 if sym.shndx in tls_section_offsets:
                     sym.value += tls_section_offsets[sym.shndx]
             elif sym.shndx in self._section_offsets:
@@ -1079,25 +1069,16 @@ class ElfExecutable(Executable):
     def _relocate_undefined_tls_descriptors(self) -> None:
         """Relocate and record TLS descriptors whose thread-local is external.
 
-        The loops above deliberately skip undefined symbols: a real loader
-        resolves those against another module, which is `link_elf`'s job. That
-        is right for a data or function reference -- an unrelocated one just
-        reads or calls null, and the caller notices.
+        The loops above skip undefined symbols, leaving them for `link_elf`.
+        That is fine for a data or function reference -- an unrelocated one
+        reads or calls null and the caller notices -- but a descriptor's first
+        word is a resolver called INDIRECTLY, so a null one jumps to address
+        zero, and an unrecorded descriptor cannot be bound later either.
 
-        A TLS descriptor is different. Its first word is a resolver that gnu2
-        code CALLS indirectly, so leaving it null does not produce a bad value
-        somewhere; it transfers control to address zero. And because nothing
-        ever recorded the descriptor, `bind_tlsdesc_resolver` did not know to
-        fill it in even once a model library was linked, and no warning
-        mentioned TLS at all. An image referencing an `extern __thread`
-        variable no module defines therefore loaded clean and jumped to zero.
-
-        Relocating them here writes the addend-derived argument and enrolls
-        them for binding, so the call reaches the resolver model instead. The
-        thread-local's true block offset is still unknown -- every such access
-        aliases onto the same storage -- so this warns rather than pretending
-        to have resolved it. If a definer IS linked later, `link_elf` calls
-        `update_symbol_value`, which re-relocates and writes the real offset.
+        Relocating them here enrolls them for binding, so the call reaches the
+        resolver. The real block offset is still unknown and every such access
+        aliases onto one slot, hence the warning. A definer linked later
+        re-relocates through `update_symbol_value` and writes the true offset.
         """
         if self._relocator is None:
             return
@@ -1258,16 +1239,11 @@ class ElfExecutable(Executable):
     def tlsdesc_got_slot(self, symbol_index: int) -> int:
         """Address of the TLS descriptor for a symbol, creating it if needed.
 
-        A linked image has its descriptors in the GOT already; an object file
-        does not, because building the GOT is the linker's job. Rather than
-        refuse the image -- which costs every function in it -- lay the
-        missing slots out past the end of the loaded sections, one per symbol
-        so that repeated references share storage the way a real GOT entry
-        would. The region grows this image's capacity, so it is mapped along
-        with everything else when the memory is applied.
-
-        Allocation is keyed and idempotent because relocation is not one-shot:
-        `update_symbol_value` re-relocates every rela attached to a symbol.
+        An object file has no GOT -- building one is the linker's job -- so
+        the missing slots go past the loaded sections, one per symbol, and
+        grow this image's capacity so they are mapped with everything else.
+        Keyed and idempotent, since `update_symbol_value` re-relocates every
+        rela attached to a symbol.
         """
         if symbol_index in self._tlsdesc_got:
             return self._tlsdesc_got[symbol_index]
@@ -1368,13 +1344,9 @@ class ElfExecutable(Executable):
 
             o_sym = o_syms[0]
             if o_sym.type == STT_TLS:
-                # A thread-local's value is an offset within its module's TLS
-                # block, not an address. Rebasing it -- adding the definer's
-                # load address and subtracting ours -- leaves the delta between
-                # the two images, which is not an offset into anything: two
-                # thread-locals in modules loaded far apart then resolve to the
-                # same storage, and a definer loaded below the referencer
-                # produces a negative one.
+                # A block offset, not an address: rebasing would leave the
+                # delta between the two load addresses, which indexes nothing
+                # -- and goes negative if the definer loaded lower.
                 self.update_symbol_value(my_sym, o_sym.value, rebase=False)
             else:
                 self.update_symbol_value(

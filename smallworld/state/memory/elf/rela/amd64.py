@@ -213,16 +213,13 @@ class AMD64ElfRelocator(ElfRelocator):
         elif rela.type == R_X86_64_SIZE64:
             return self._pack(rela.symbol.size + self._get_addend(rela, elf, 8), 8)
         elif rela.type == R_X86_64_GOTPC32_TLSDESC:
-            # The unlinked form of R_X86_64_TLSDESC. A linked object already
-            # has its two-word descriptor sitting in the GOT; an object file
-            # only has `lea x@tlsdesc(%rip)` naming a GOT slot the linker
-            # never got to create. Refusing here failed the whole image, which
-            # cost every function in it -- so synthesize the slot instead.
+            # The unlinked form of R_X86_64_TLSDESC: an object file has only
+            # `lea x@tlsdesc(%rip)`, naming a GOT slot no linker built, so
+            # synthesize one.
             slot = elf.tlsdesc_got_slot(rela.symbol.idx)
-            # Fill the descriptor the way the TLSDESC case does. The addend
-            # here belongs to the PC-RELATIVE computation -- gcc emits -4 for
-            # the rip-relative displacement -- and must not reach the
-            # argument, which is the symbol's TLS-block offset alone.
+            # The addend belongs to the PC-relative computation (gcc emits -4
+            # for the displacement), not to the argument, which is the
+            # symbol's block offset alone.
             elf.write_bytes(
                 slot,
                 self._pack(elf.note_tlsdesc_descriptor(slot), 8)
@@ -234,24 +231,14 @@ class AMD64ElfRelocator(ElfRelocator):
             # This is a marker relocation used to tag a TLS descriptor call sequence.
             return b""
         elif rela.type == R_X86_64_TLSDESC:
-            # A two-word descriptor { resolver, argument } that gnu2-dialect TLS
-            # code calls indirectly. The argument is the symbol's offset within
-            # its TLS block, which is all the __tlsdesc_resolve model needs to
-            # hand out stable per-thread-local storage. Refusing instead made
-            # the whole image fail to load, which cost every function in it.
-            #
-            # The resolver word comes back from note_tlsdesc_descriptor: null
-            # until a model library is linked (nothing has an address for a
-            # resolver at load time), and the bound address afterwards. Taking
-            # it from the ELF rather than hardcoding zero keeps relocation
-            # idempotent -- update_symbol_value re-relocates every rela of a
-            # symbol, so a hardcoded zero would silently unbind descriptors
-            # that Library.link had already bound.
+            # A two-word descriptor { resolver, argument } that gnu2-dialect
+            # TLS code calls indirectly. The resolver comes from the ELF --
+            # null until a model library is linked, bound afterwards -- rather
+            # than being hardcoded, so that re-relocating a symbol does not
+            # unbind descriptors Library.link already bound.
             resolver = elf.note_tlsdesc_descriptor(rela.offset)
-            # A TLS symbol's st_value is its offset within the TLS block, not
-            # an address, so this is the one place `symval` must not be used:
-            # rebasing it turns a small offset into a load address and loses
-            # the distinction between adjacent thread-locals.
+            # Not `symval`: a TLS symbol's st_value is a block offset, and
+            # rebasing it would turn it into a load address.
             argument = rela.symbol.value + self._get_addend(rela, elf, 8)
             return self._pack(resolver, 8) + self._pack(argument, 8)
         elif rela.type == R_X86_64_IRELATIVE:

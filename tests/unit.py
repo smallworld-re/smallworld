@@ -5005,15 +5005,11 @@ class TlsDialectAgreementTests(ModelTestCase):
 class TlsDescFixtureTests(unittest.TestCase):
     """End-to-end over a real gnu2-dialect object (tests/tlsdesc).
 
-    The unit tests above drive the pieces with synthetic inputs; this one uses
-    an image a compiler actually produced, so it catches the parts no
-    hand-built rela can: that the relocation is found at all, and that the
-    descriptor argument is the symbol's TLS-block offset rather than something
-    rebased by the load address.
-
-    NOT covered here: executing the indirect call itself. That needs the image
-    mapped into a machine with the model library applied, and is worth adding
-    if the resolver's runtime behaviour ever changes.
+    The tests above drive the pieces with synthetic inputs; this uses an image
+    a compiler produced, catching what no hand-built rela can: that the
+    relocation is found at all, and that the argument is the symbol's block
+    offset rather than something rebased by the load address. Executing the
+    call is TlsEndToEndTests' job.
     """
 
     SO = os.path.join(
@@ -5215,14 +5211,11 @@ class TlsDescObjectFileTests(unittest.TestCase):
 class TlsUndefinedThreadLocalTests(unittest.TestCase):
     """A thread-local no loaded module defines must not become a call to zero.
 
-    The loader deliberately leaves relocations against undefined symbols for
-    `link_elf`, which is right for data and function references: an
-    unrelocated one reads or calls null and the caller notices. A TLS
-    descriptor is different -- its first word is a resolver that gnu2 code
-    calls INDIRECTLY, so leaving it null transfers control to address zero.
-    Worse, nothing recorded the descriptor, so binding a resolver later could
-    not reach it and no warning mentioned TLS at all: the image loaded clean
-    and jumped to zero.
+    Relocations against undefined symbols are left for `link_elf`, which is
+    right for data and function references. A descriptor's first word is a
+    resolver called indirectly, so a null one jumps to address zero -- and an
+    unrecorded descriptor could not be bound later either, so the image
+    loaded clean and jumped to zero with no warning.
     """
 
     HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
@@ -5311,15 +5304,10 @@ class TlsUndefinedThreadLocalTests(unittest.TestCase):
 class MachineApplyOrderTests(unittest.TestCase):
     """A Machine applies its CPUs before anything else.
 
-    Machine is a StatefulSet, so iteration order follows a set -- arbitrary,
-    and different between processes. Anything whose apply() READS a register
-    therefore used to see it or not depending on where the CPU happened to
-    land, which is how a TLS execution test passed on its own and failed in
-    the full suite: the resolver installs the TCB self-pointer from the
-    thread-pointer register at apply time.
-
-    Insertion order cannot force the bad case (set order comes from hashes),
-    so this uses many probes: without the guarantee, some land before the CPU.
+    Machine is a StatefulSet, so member order is arbitrary and varies between
+    processes; anything whose apply() reads a register used to see it or not
+    depending on where the CPU landed. Insertion order cannot force the bad
+    case, so this uses many probes -- without the guarantee, some land first.
     """
 
     PROBES = 50
@@ -5412,19 +5400,14 @@ class TlsCrossModuleTests(unittest.TestCase):
 
 
 class TlsEndToEndTests(unittest.TestCase):
-    """Emulate a real thread-local access and check the VALUE.
+    """Emulate a real thread-local access and check the VALUE, not addresses.
 
-    Everything else in these TLS tests checks a relocation, an address or a
-    binding. This one runs the code: `bump(n)` does `first += n; return first
-    + second` over `__thread int first = 7; __thread long second = 11`, so a
-    correct answer requires the whole chain -- the image loads, the resolver
-    hands out storage, the thread pointer resolves, AND the storage was seeded
-    from PT_TLS. Zeroed storage silently returns n instead of n + 18, which is
-    exactly what this used to do.
-
-    Both dialects, because they reach thread-locals by completely different
-    routes: gnu2 through a TLS descriptor and a thread pointer, gnu through
-    __tls_get_addr, which returns an address and needs no thread pointer.
+    `bump(n)` does `first += n; return first + second` over `first = 7,
+    second = 11`, so n + 18 requires the whole chain: the image loads, the
+    resolver hands out storage, the thread pointer resolves, and the storage
+    was seeded from PT_TLS. Zeroed storage silently returns n, which is what
+    this used to do. Run for both dialects, which reach thread-locals by
+    entirely different routes.
     """
 
     BASE, LIBC, TCB, RET = 0x100000, 0x900000, 0x600000, 0x7FFF0000

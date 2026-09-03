@@ -137,16 +137,14 @@ class ElfModelLibrary(Memory):
                 log.warning(f"Harness requires {model.name}, which is unsupported")
             elf.update_symbol_value(sym, model._address)
 
-        # TLS descriptors carry a resolver address rather than a symbol, so no
-        # relocation above can reach them; they are relocated at load with a
-        # null resolver and bound here, which is the first point at which the
-        # model has an address.
-        # Seed thread-local storage from the image's PT_TLS initialization
-        # data. The models hand out storage but have no way to reach the ELF;
-        # this is the one place that holds both, and without it every
-        # thread-local reads zero instead of the value it was declared with.
+        # The models hand out TLS storage but cannot reach the ELF; this is
+        # the one place holding both, and without it every thread-local reads
+        # zero rather than its initializer.
         self._seed_tls_image(elf)
 
+        # Descriptors carry a resolver address rather than a symbol, so no
+        # relocation reaches them; they load with a null resolver and are
+        # bound here, the first point at which the model has an address.
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
             elf.bind_tlsdesc_resolver(tlsdesc._address)
@@ -162,12 +160,10 @@ class ElfModelLibrary(Memory):
     def _share_tls_arena(self) -> None:
         """Point the TLS-descriptor model at ``__tls_get_addr``'s storage.
 
-        gcc picks a TLS dialect per translation unit, so a single image can
-        reach the SAME thread-local through both models. Both dialects reduce
-        to an offset within the one module the relocator reports, so aiming the
-        descriptor model at that module's arena makes a write through one
-        dialect visible to a read through the other. Two independent pools --
-        which is what separate static buffers gave -- silently disagree.
+        gcc picks a TLS dialect per translation unit, so one image can reach
+        the same thread-local through both models. Both reduce to an offset
+        within the module the relocator reports, so sharing that module's
+        arena keeps them consistent; separate pools silently disagree.
         """
         owner = self.models.get("__tls_get_addr")
         borrower = self.models.get("__tlsdesc_resolve")

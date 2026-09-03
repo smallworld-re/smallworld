@@ -479,19 +479,15 @@ def _tls_slot_span(arena_size: int) -> int:
 
 
 def _tls_arena_slot(offset: int, arena_size: int) -> int:
-    """Map a thread-local's block offset onto a bounded slot in its arena.
+    """Map a sign-interpreted block offset onto a bounded slot in its arena.
 
     Both TLS models go through this, so one thread-local reached through
-    either dialect lands on the same bytes (see RELOCATED_TLS_MODULE).
+    either dialect lands on the same bytes.
 
-    `offset` must already be sign-interpreted. A NEGATIVE block offset is
-    ordinary -- an addend like `x - 8` produces one, and the relocator packs
-    it as a huge unsigned word -- but folding that into the arena the obvious
-    way lands it on a perfectly legitimate positive offset, silently giving
-    two different thread-locals the same storage. So negatives get their own
-    half of the arena: still bounded, still stable per offset, but unable to
-    collide with a real one. Garbage arguments have the top bit set and land
-    there too, which is exactly where they belong.
+    Negative offsets are ordinary -- an addend like `x - 8` produces one --
+    and get their own half of the arena, since folding them in with the
+    positives drops them onto legitimate offsets. Garbage arguments have the
+    top bit set and land there too.
     """
     span = _tls_slot_span(arena_size)
     if offset < 0:
@@ -569,36 +565,19 @@ class TlsGetAddr(CStdModel):
 
 
 class TlsDescResolve(CStdModel):
-    # The TLS-descriptor resolver, for code built with -mtls-dialect=gnu2.
-    #
-    # gnu2 replaces the __tls_get_addr call with an indirect call through a
-    # two-word descriptor in the GOT: { resolver, argument }. The caller does
+    # The TLS-descriptor resolver, for code built with -mtls-dialect=gnu2:
     #     lea  x@TLSDESC(%rip), %rax
     #     call *x@TLSCALL(%rax)      # descriptor address in, offset out
     #     mov  %fs:(%rax), ...       # or: mov %fs:0x0,%rdx; add %rdx,%rax
-    # so the resolver returns a THREAD-POINTER-RELATIVE offset, not an address
-    # -- the difference from TlsGetAddr, which returns the address itself.
+    # so this returns a thread-pointer-RELATIVE offset, where TlsGetAddr
+    # returns the address itself. gcc emits both completions, sometimes in one
+    # function; they agree only when [thread_pointer] == thread_pointer, which
+    # apply() arranges.
     #
-    # NOTE: gcc emits BOTH completions above, sometimes in one function. The
-    # first adds the thread-pointer register; the second adds the word AT the
-    # thread pointer (the glibc TCB self-pointer). They agree only when the
-    # harness has set up a TCB, i.e. when the word at [thread_pointer] equals
-    # thread_pointer. Nothing in smallworld does that today, so a harness must
-    # either leave the thread pointer at 0 (and map a zero word at address 0
-    # for the second form) or write a proper self-pointer; otherwise the
-    # second form lands the access at arena - thread_pointer.
-    #
-    # Storage is TlsGetAddr's arena for module 1 -- the module the relocator
-    # reports for every thread-local -- indexed by the descriptor's argument
-    # (the block offset), so repeated accesses to one thread-local see the same
-    # bytes and a garbage argument cannot escape the arena. The descriptor ABI
-    # has no module field, which is exactly why the two models can share: both
-    # dialects reduce to "block offset within the one module's block", so
-    # `gd_x` and `desc_x` naming the same thread-local land on the same bytes
-    # whichever dialect each translation unit was built with.
-    #
-    # The returned offset is tls_arena_address - thread_pointer, so the caller's
-    # thread-pointer-relative access lands back on the arena.
+    # Storage is TlsGetAddr's arena for the module the relocator reports. The
+    # descriptor ABI has no module field, which is why sharing works: both
+    # dialects reduce to a block offset within that one module's block, so a
+    # thread-local reached either way lands on the same bytes.
     name = "__tlsdesc_resolve"
     # Not a C function: the descriptor ABI passes its argument in a fixed
     # register rather than the usual argument registers, so there is nothing
@@ -606,13 +585,9 @@ class TlsDescResolve(CStdModel):
     argument_types: typing.List[ArgumentType] = []
     return_type = ArgumentType.POINTER
 
-    # No storage of its own: it shares TlsGetAddr's arena for module 1, which
-    # is the module the relocator reports for every thread-local (see
-    # R_X86_64_DTPMOD64). gcc picks a TLS dialect per translation unit, so one
-    # image can reach the SAME thread-local through both models; with separate
-    # pools a write through one is invisible to a read through the other.
-    # Sharing also stops every amd64 harness reserving a second 32 KiB pool it
-    # may never touch. Assigned by the library, like malloc's heap.
+    # Borrows TlsGetAddr's arena rather than reserving one, so that a
+    # thread-local written through one dialect is visible through the other.
+    # The library assigns it, like malloc's heap.
     static_space_required = 0
 
     #: Register holding the descriptor address on entry and the offset on exit.
@@ -622,22 +597,17 @@ class TlsDescResolve(CStdModel):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         super().apply(emulator)
-        # Install the TCB self-pointer BEFORE any code runs. gcc hoists the
-        # `mov %fs:0x0,%rdx` that reads it above the descriptor call -- often
-        # to the top of the function -- so a resolver that only writes it
-        # during the call writes it after the value has already been read.
-        # That read then yields zero and the access lands at
-        # `arena - thread_pointer` instead of on the arena.
+        # Install the TCB self-pointer before any code runs: gcc hoists the
+        # `mov %fs:0x0,%rdx` that reads it above the descriptor call, so
+        # writing it during the call would be too late.
         try:
             thread_pointer = emulator.read_register(self.thread_pointer_register)
         except Exception:
             return
         if thread_pointer:
-            # A harness that maps its own TCB may not have been applied yet --
-            # apply order is the caller's, not ours -- so make sure the word
-            # exists before writing it. map_memory only fills gaps, so this
-            # neither disturbs an already-mapped TCB nor stops one being added
-            # later.
+            # A harness that maps its own TCB may not be applied yet, so
+            # make sure the word exists. map_memory only fills gaps, so an
+            # existing or later TCB is undisturbed.
             emulator.map_memory(thread_pointer, self.platdef.address_size)
         self._ensure_tcb_self_pointer(emulator, thread_pointer)
 
@@ -680,21 +650,13 @@ class TlsDescResolve(CStdModel):
     ) -> None:
         """Make the word at the thread pointer point at the thread pointer.
 
-        gcc finishes a descriptor call in one of two ways, and emits both --
-        sometimes within one function:
+        gcc completes a descriptor call either by adding the thread-pointer
+        register or by adding the word AT it, and emits both. glibc's TCB
+        starts with a self-pointer, which is what makes the two agree;
+        nothing else here sets one up, so the second form would otherwise
+        add zero and land the access somewhere unrelated but valid-looking.
 
-            add %fs_base, %rax          # thread-pointer REGISTER
-            mov %fs:0x0,%rdx; add %rdx  # the word AT the thread pointer
-
-        Real glibc keeps a TCB whose first word points at itself, which is
-        what makes the two agree. Nothing else in the harness sets one up, so
-        the second form would otherwise add zero (or whatever happens to be
-        there) and send the access somewhere unrelated -- silently, since a
-        wrong address is still a valid one. Writing the self-pointer here
-        costs one word and makes both forms land on the same storage.
-
-        Best effort: a thread pointer of zero, or one whose page is not
-        mapped, leaves it alone rather than failing the access.
+        Best effort: an unset or unmapped thread pointer is left alone.
         """
         if not thread_pointer:
             return
