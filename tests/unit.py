@@ -4928,6 +4928,29 @@ class TlsGetAddrModelTests(ModelTestCase):
         other = self.call(self.model, self.TI2)
         self.assertNotEqual(other, first)
 
+    def test_offsets_stay_inside_the_modules_own_arena(self):
+        # The per-module arenas are adjacent, so an offset that overran its
+        # own would land on another module's thread-locals rather than
+        # somewhere obviously wrong. Garbage offsets are ordinary here: the
+        # tls_index is guest memory, and a negative one is just an addend.
+        self.model.static_buffer_address = 0x60000
+        arena = 0x60000 + self.model.module_arena_offset(1)
+        for offset in (
+            0x0,
+            0x10,
+            self.model.TLS_ARENA_SIZE - 8,
+            (1 << 64) - 8,
+            1 << 63,
+            0xDEADBEEFDEADBEEF,
+        ):
+            self.emu.write_memory(
+                self.TI1, (1).to_bytes(8, "little") + offset.to_bytes(8, "little")
+            )
+            addr = self.call(self.model, self.TI1)
+            self.assertTrue(
+                arena <= addr < arena + self.model.TLS_ARENA_SIZE, hex(offset)
+            )
+
 
 class TlsDialectAgreementTests(ModelTestCase):
     """Both TLS dialects must reach one thread-local through the same bytes.
@@ -5208,6 +5231,176 @@ class TlsDescObjectFileTests(unittest.TestCase):
             self.assertEqual(self._descriptor(elf, d)[0], model._address)
 
 
+class TlsUninitializedBlockTests(unittest.TestCase):
+    """The uninitialized half of a TLS block is still part of the block.
+
+    Every other fixture here initializes all of its thread-locals, so its
+    whole block is .tdata and PT_TLS has filesz == memsz. `tlsbss` adds an
+    uninitialized `long long` and `int`, which puts two things under test: a
+    linked image's initialization image has to be zero-EXTENDED to memsz, or
+    the storage behind an uninitialized thread-local is not part of the image
+    at all; and an object file, which no linker laid out, has to place .tbss
+    itself -- honouring an alignment that no other fixture exercises, since
+    dropping the padding moves every thread-local after the first.
+    """
+
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
+    OBJ = "tlsbss.gnu2.amd64.o"
+    SO = "tlsbss.gnu2.amd64.so"
+    #: What the linker computed: one initialized byte, seven bytes of padding
+    #: for 8-byte-aligned `wide`, then `tail`.
+    OFFSETS = {"lead": 0x0, "wide": 0x8, "tail": 0x10}
+    #: memsz: 8 bytes of .tdata plus padding, 12 of .tbss. filesz is 1.
+    BLOCK_SIZE = 0x14
+
+    def setUp(self):
+        for name in (self.OBJ, self.SO):
+            if not os.path.exists(os.path.join(self.HERE, name)):
+                self.skipTest(f"{name} not built (run `make amd64` in tests/)")
+        self.plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+
+    def _load(self, name):
+        with open(os.path.join(self.HERE, name), "rb") as f:
+            return ElfExecutable(f, platform=self.plat, user_base=0x100000)
+
+    def test_image_is_zero_extended_to_the_whole_block(self):
+        # The file holds exactly one byte of TLS: `lead`. Everything after it
+        # is .tbss, which occupies no file space, so an image cut off at
+        # filesz cannot seed -- or even reach -- `wide` and `tail`.
+        image = self._load(self.SO).tls_image
+        self.assertEqual(len(image), self.BLOCK_SIZE)
+        self.assertEqual(image[0], 3, "lead lost its initializer")
+        self.assertEqual(image[1:], b"\0" * (self.BLOCK_SIZE - 1))
+
+    def test_object_file_lays_tbss_out_where_the_linker_did(self):
+        # Dropping the alignment padding puts `wide` at offset 1 instead of 8
+        # and slides `tail` with it.
+        obj = self._load(self.OBJ)
+        for name, offset in self.OFFSETS.items():
+            self.assertEqual(obj.get_symbol_value(name, rebase=False), offset, name)
+
+    def test_object_file_matches_the_linked_block(self):
+        # Same source, two forms; the linker's answer is the reference.
+        obj, so = self._load(self.OBJ), self._load(self.SO)
+        self.assertEqual(obj.tls_image, so.tls_image)
+        for name in self.OFFSETS:
+            self.assertEqual(
+                obj.get_symbol_value(name, rebase=False),
+                so.get_symbol_value(name, rebase=False),
+                name,
+            )
+
+    def test_descriptors_carry_every_thread_locals_offset(self):
+        # Three thread-locals, three distinct block offsets, in both forms.
+        for name in (self.OBJ, self.SO):
+            elf = self._load(name)
+            args = sorted(
+                int.from_bytes(elf.read_bytes(d, 16)[8:], "little")
+                for d in elf.tlsdesc_descriptors
+            )
+            self.assertEqual(args, sorted(self.OFFSETS.values()), name)
+
+
+class TlsImageSeedingTests(unittest.TestCase):
+    """The model library is what puts a module's PT_TLS image into storage.
+
+    The models hand out thread-local storage but cannot see the ELF; the
+    library is the one place holding both. Skip this and every thread-local
+    reads zero instead of its initializer, which is silent -- zero is a
+    plausible value for a `__thread int`.
+    """
+
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
+    SO = "tlsbss.gnu2.amd64.so"
+    LIBC = 0x900000
+
+    def setUp(self):
+        self.path = os.path.join(self.HERE, self.SO)
+        if not os.path.exists(self.path):
+            self.skipTest(f"{self.path} not built (run `make amd64` in tests/)")
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+        self.plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+
+    def tearDown(self):
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+
+    def _load(self):
+        with open(self.path, "rb") as f:
+            return ElfExecutable(f, platform=self.plat, user_base=0x100000)
+
+    def _libc(self):
+        return POSIXLibc(self.LIBC, self.plat, platforms.ABI.SYSTEMV)
+
+    @staticmethod
+    def _arena(libc):
+        gd = libc.models["__tls_get_addr"]
+        return gd.static_buffer_address + gd.module_arena_offset(RELOCATED_TLS_MODULE)
+
+    @staticmethod
+    def _arena_bytes(libc, size):
+        # Through to_bytes(), not read_bytes(): the seed lands on top of the
+        # zeroed static buffer the library already reserved, and only the
+        # flattened image resolves the overlap the way apply() does.
+        start = TlsImageSeedingTests._arena(libc) - libc.address
+        return libc.to_bytes()[start : start + size]
+
+    def test_image_lands_where_both_dialects_look_for_it(self):
+        elf, libc = self._load(), self._libc()
+        libc.link(elf)
+        arena = self._arena(libc)
+        self.assertEqual(
+            libc.models["__tlsdesc_resolve"].tls_arena_address,
+            arena,
+            "the resolver reads somewhere the image was not seeded",
+        )
+        self.assertEqual(
+            self._arena_bytes(libc, len(elf.tls_image)),
+            elf.tls_image,
+            "the initialization image is not in the arena",
+        )
+
+    def test_oversized_image_is_truncated_with_a_warning(self):
+        # A module whose block is bigger than one arena cannot be served
+        # whole. The part that fits must still be correct, and the shortfall
+        # has to be said out loud: the thread-locals past the end read zero,
+        # which looks exactly like an uninitialized one.
+        elf, libc = self._load(), self._libc()
+        libc.link(elf)
+        capacity = libc.models["__tls_get_addr"].tls_image_capacity
+        oversized = bytes(range(256)) * (capacity // 256 + 2)
+        elf._tls_image = oversized
+        elf._tls_size = len(oversized)
+
+        with self.assertLogs("smallworld.state.models.library", "WARNING") as caught:
+            libc._seed_tls_image(elf)
+        self.assertTrue(
+            any("TLS image" in line for line in caught.output), caught.output
+        )
+        self.assertEqual(self._arena_bytes(libc, capacity), oversized[:capacity])
+
+    def test_missing_resolver_model_is_reported(self):
+        # A library with no __tlsdesc_resolve model leaves every descriptor's
+        # resolver word null, and the next thread-local access calls address
+        # zero. Nothing else in such a run would mention TLS.
+        elf, libc = self._load(), self._libc()
+        del libc.models["__tlsdesc_resolve"]
+        with self.assertLogs("smallworld.state.models.library", "WARNING") as caught:
+            libc.link(elf)
+        self.assertTrue(
+            any("__tlsdesc_resolve" in line for line in caught.output), caught.output
+        )
+        for d in elf.tlsdesc_descriptors:
+            self.assertEqual(int.from_bytes(elf.read_bytes(d, 8), "little"), 0)
+
+
 class TlsUndefinedThreadLocalTests(unittest.TestCase):
     """A thread-local no loaded module defines must not become a call to zero.
 
@@ -5460,6 +5653,16 @@ class TlsEndToEndTests(unittest.TestCase):
         # so agreeing with the shared object is the whole point.
         self.assertEqual(self._run("tlsdesc.gnu2.amd64.o"), 23)
 
+    def test_uninitialized_thread_locals_keep_the_initialized_one(self):
+        # tlsbss's bump(n) is `wide += n; return (int)wide + lead` over
+        # lead = 3 and an UNINITIALIZED wide, so 8 needs the .tbss half of
+        # the block to be reachable and zero while .tdata is still seeded.
+        self.assertEqual(self._run("tlsbss.gnu2.amd64.so"), 8)
+
+    def test_uninitialized_thread_locals_in_an_object_file(self):
+        # The same, with .tbss laid out by the loader rather than a linker.
+        self.assertEqual(self._run("tlsbss.gnu2.amd64.o"), 8)
+
 
 class TlsDescResolveModelTests(ModelTestCase):
     """c99/stdlib.py TlsDescResolve: the gnu2 TLS-descriptor resolver.
@@ -5541,6 +5744,77 @@ class TlsDescResolveModelTests(ModelTestCase):
         # pool; that is the whole point of indexing rather than allocating.
         offset = self._resolve(0xDEADBEEFDEADBEEF)
         self.assertTrue(self.ARENA <= offset < self.ARENA + self.ARENA_SIZE)
+
+    def test_requires_platform_registers(self):
+        # The descriptor ABI names its registers per architecture. A platform
+        # for which they were never filled in has to say so, rather than
+        # reading a register called "" and returning nonsense.
+        self.model.descriptor_register = ""
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._resolve(0x10)
+
+    def test_degrades_when_the_backend_has_no_thread_pointer(self):
+        # ghidra and triton do not model segment bases, so asking for fsbase
+        # raises. That must degrade to handing back the arena address -- what
+        # every backend does when nothing has set a thread pointer -- rather
+        # than propagating out of a thread-local read.
+        real = self.emu.read_register
+
+        def read_register(name):
+            if name == "fsbase":
+                raise exceptions.UnsupportedRegisterError("no segment bases")
+            return real(name)
+
+        self.emu.read_register = read_register  # type: ignore[method-assign]
+        self.emu.write_memory(
+            self.DESC, (0).to_bytes(8, "little") + (0x10).to_bytes(8, "little")
+        )
+        self.emu.write_register("rax", self.DESC)
+        self.model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), self.ARENA + 0x10)
+
+
+class TlsDescResolveApplyTests(ModelTestCase):
+    """The resolver installs the TCB self-pointer at apply time, not call time.
+
+    gcc completes a descriptor call either by adding %fs directly or by adding
+    the word AT %fs:0, and hoists the load of that word above the call. glibc's
+    TCB starts with a self-pointer, which is what makes the two forms agree;
+    writing one during the call would already be too late.
+
+    Needs a real emulator: the mock one cannot hook functions, which
+    Model.apply insists on.
+    """
+
+    TCB = 0x600000
+
+    def test_apply_installs_the_tcb_self_pointer(self):
+        model = self.lookup("__tlsdesc_resolve")
+        emu = emulators.UnicornEmulator(MODELS_AMD64)
+        emu.write_register("fsbase", self.TCB)
+
+        model.apply(emu)
+
+        # apply() maps the word itself: a harness that maps its own TCB may
+        # not have been applied yet.
+        self.assertEqual(
+            int.from_bytes(emu.read_memory(self.TCB, 8), "little"), self.TCB
+        )
+
+    def test_apply_tolerates_a_backend_with_no_thread_pointer(self):
+        # Best effort: a backend that cannot report a thread pointer gets no
+        # self-pointer, but applying the model must still succeed.
+        model = self.lookup("__tlsdesc_resolve")
+        emu = emulators.UnicornEmulator(MODELS_AMD64)
+        real = emu.read_register
+
+        def read_register(name):
+            if name == "fsbase":
+                raise exceptions.UnsupportedRegisterError("no segment bases")
+            return real(name)
+
+        emu.read_register = read_register  # type: ignore[method-assign]
+        model.apply(emu)
 
 
 class ErrnoLocationModelTests(ModelTestCase):
@@ -5804,6 +6078,94 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         relocator = AMD64ElfRelocator()
         val = relocator._compute_value(self._rela(0x8, 0x4), _FakeElf())
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
+
+
+class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
+    """DTPOFF relocations write a TLS-BLOCK offset, not an address.
+
+    These are the offset half of what general-dynamic (`-mtls-dialect=gnu`)
+    code hands __tls_get_addr, and what debug info uses to describe where a
+    thread-local lives. Refusing them made any image containing one
+    unloadable; resolving them like an ordinary data symbol -- by adding the
+    load base -- would hand the resolver an address to index its arena with.
+    """
+
+    #: A load address the result must NOT pick up.
+    BASE = 0x400000
+
+    def _value(self, type_, value, addend, size):
+        rela = ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=value, baseaddr=self.BASE),
+            addend=addend,
+        )
+        return AMD64ElfRelocator()._compute_value(rela, _FakeElf()), size
+
+    def test_dtpoff64_is_the_block_offset(self):
+        val, size = self._value(17, 0x8, 0, 8)  # R_X86_64_DTPOFF64
+        self.assertEqual(val, (0x8).to_bytes(size, "little"))
+
+    def test_dtpoff64_adds_the_addend(self):
+        # An addend reaches into a thread-local: `&x.field`, or `x - 8`.
+        val, size = self._value(17, 0x8, 0x4, 8)
+        self.assertEqual(val, (0xC).to_bytes(size, "little"))
+
+    def test_dtpoff32_is_the_same_offset_in_four_bytes(self):
+        val, size = self._value(21, 0x8, 0x4, 4)  # R_X86_64_DTPOFF32
+        self.assertEqual(val, (0xC).to_bytes(size, "little"))
+
+    def test_dtpoff32_truncates_rather_than_overflowing(self):
+        # A negative offset is legal and must come out as a wrapped 32-bit
+        # word, not an OverflowError from int.to_bytes.
+        val, _ = self._value(21, 0x0, -8, 4)
+        self.assertEqual(val, (0xFFFFFFF8).to_bytes(4, "little"))
+
+
+class ElfRelocatorTlsDescriptorQueryTests(unittest.TestCase):
+    """Only a relocator can say which of its relocation types is a descriptor.
+
+    The loader sweeps for descriptors whose thread-local nothing defines and
+    asks the relocator, type by type. An architecture with a descriptor ABI
+    this loader does not implement -- i386's R_386_TLS_DESC, for one -- has to
+    answer no, so the sweep leaves it alone instead of relocating it as
+    something it is not.
+    """
+
+    def _rela(self, type_):
+        return ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=0, baseaddr=0),
+            addend=0,
+        )
+
+    def test_amd64_tells_the_two_descriptor_forms_apart(self):
+        relocator = AMD64ElfRelocator()
+        linked = self._rela(36)  # R_X86_64_TLSDESC
+        unlinked = self._rela(34)  # R_X86_64_GOTPC32_TLSDESC
+        marker = self._rela(35)  # R_X86_64_TLSDESC_CALL
+
+        self.assertTrue(relocator.is_tls_descriptor(linked))
+        self.assertTrue(relocator.is_tls_descriptor_reference(unlinked))
+        # The questions are distinct: the linked form is not the unlinked one,
+        # and the call marker -- which relocates to nothing -- is neither.
+        self.assertFalse(relocator.is_tls_descriptor(unlinked))
+        self.assertFalse(relocator.is_tls_descriptor_reference(linked))
+        self.assertFalse(relocator.is_tls_descriptor(marker))
+        self.assertFalse(relocator.is_tls_descriptor_reference(marker))
+
+    def test_an_unimplemented_descriptor_abi_answers_no(self):
+        relocator = I386ElfRelocator()
+        # R_386_TLS_GOTDESC, R_386_TLS_DESC_CALL, R_386_TLS_DESC: i386 has
+        # descriptors, this loader has no i386 resolver model for them.
+        for type_ in (39, 40, 41):
+            self.assertFalse(relocator.is_tls_descriptor(self._rela(type_)), type_)
+            self.assertFalse(
+                relocator.is_tls_descriptor_reference(self._rela(type_)), type_
+            )
 
 
 class I386RelocatorTests(unittest.TestCase):
