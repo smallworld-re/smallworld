@@ -119,13 +119,18 @@ from smallworld.state.models.mips64el.systemv.systemv import (
     MIPS64ELSysVCallingContext,
 )
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
-from smallworld.state.models.model import RELOCATED_TLS_MODULE, Model
+from smallworld.state.models.model import Model
 from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.procinfo import ProcInfoManager
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
+from smallworld.state.models.tls import (
+    RELOCATED_TLS_MODULE,
+    TlsArenaBorrower,
+    TlsArenaOwner,
+)
 
 logging.getLogger("angr").setLevel(logging.ERROR)
 logging.getLogger("claripy").setLevel(logging.ERROR)
@@ -4950,6 +4955,51 @@ class TlsGetAddrModelTests(ModelTestCase):
             self.assertTrue(
                 arena <= addr < arena + self.model.TLS_ARENA_SIZE, hex(offset)
             )
+
+
+class TlsArenaRoleTests(ModelTestCase):
+    """models/tls.py: the library finds TLS storage by role, not by name.
+
+    Which model hands out thread-local storage, and which borrows it, is not
+    something a function name says -- and it is the library, holding both the
+    models and the ELF, that has to pair them up. Declaring the roles is what
+    lets it do that without knowing either model's name.
+    """
+
+    def test_tls_get_addr_owns_the_arena(self):
+        owner = self.lookup("__tls_get_addr")
+        self.assertIsInstance(owner, TlsArenaOwner)
+        # An owner reserves the pool it divides into per-module arenas.
+        self.assertEqual(
+            owner.static_space_required, owner.TLS_ARENA_SIZE * owner.TLS_MAX_MODULES
+        )
+
+    def test_tlsdesc_resolve_borrows_it(self):
+        borrower = self.lookup("__tlsdesc_resolve")
+        self.assertIsInstance(borrower, TlsArenaBorrower)
+        # A borrower reserves nothing and starts with nothing assigned.
+        self.assertEqual(borrower.static_space_required, 0)
+        self.assertIsNone(borrower.tls_arena_address)
+
+    def test_owner_reports_no_arena_until_a_buffer_is_reserved(self):
+        # The library assigns static_buffer_address; before that there is no
+        # address to hand a borrower, and saying so is what stops the library
+        # pointing one at offset-from-None.
+        owner = self.lookup("__tls_get_addr")
+        self.assertIsNone(owner.tls_arena_address_for(RELOCATED_TLS_MODULE))
+        owner.static_buffer_address = 0x60000
+        self.assertEqual(
+            owner.tls_arena_address_for(RELOCATED_TLS_MODULE),
+            0x60000 + owner.module_arena_offset(RELOCATED_TLS_MODULE),
+        )
+
+    def test_an_ordinary_model_holds_no_tls_state(self):
+        # The point of the roles: a model of an unrelated function carries no
+        # TLS fields at all.
+        malloc = self.lookup("malloc")
+        self.assertNotIsInstance(malloc, (TlsArenaOwner, TlsArenaBorrower))
+        self.assertFalse(hasattr(malloc, "tls_arena_address"))
+        self.assertFalse(hasattr(malloc, "tls_image_offset"))
 
 
 class TlsDialectAgreementTests(ModelTestCase):

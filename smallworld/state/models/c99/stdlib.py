@@ -9,7 +9,7 @@ from smallworld.state.models.funcptr import FunctionPointer
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
-from ..model import RELOCATED_TLS_MODULE
+from ..tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 from .utils import _emu_strlen
 
 logger = logging.getLogger("__name__")
@@ -495,7 +495,7 @@ def _tls_arena_slot(offset: int, arena_size: int) -> int:
     return offset % span
 
 
-class TlsGetAddr(CStdModel):
+class TlsGetAddr(CStdModel, TlsArenaOwner):
     # void *__tls_get_addr(tls_index *ti);  -- the glibc dynamic-TLS resolver.
     #
     # tls_index is { unsigned long ti_module; unsigned long ti_offset; } and the
@@ -564,7 +564,7 @@ class TlsGetAddr(CStdModel):
         self.set_return_value(emulator, addr)
 
 
-class TlsDescResolve(CStdModel):
+class TlsDescResolve(CStdModel, TlsArenaBorrower):
     # The TLS-descriptor resolver, for code built with -mtls-dialect=gnu2:
     #     lea  x@TLSDESC(%rip), %rax
     #     call *x@TLSCALL(%rax)      # descriptor address in, offset out
@@ -585,9 +585,9 @@ class TlsDescResolve(CStdModel):
     argument_types: typing.List[ArgumentType] = []
     return_type = ArgumentType.POINTER
 
-    # Borrows TlsGetAddr's arena rather than reserving one, so that a
-    # thread-local written through one dialect is visible through the other.
-    # The library assigns it, like malloc's heap.
+    # TlsArenaBorrower: reserves nothing, and reads TlsGetAddr's arena, so
+    # that a thread-local written through one dialect is visible through the
+    # other. The library assigns it, like malloc's heap.
     static_space_required = 0
 
     #: Register holding the descriptor address on entry and the offset on exit.

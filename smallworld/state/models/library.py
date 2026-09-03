@@ -9,7 +9,8 @@ from ..memory import Memory
 from ..memory.elf import ElfExecutable
 from ..state import BytesValue
 from .cstd import CStdModel
-from .model import RELOCATED_TLS_MODULE, Model
+from .model import Model
+from .tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 
 log = logging.getLogger(__name__)
 
@@ -158,38 +159,46 @@ class ElfModelLibrary(Memory):
             )
 
     def _share_tls_arena(self) -> None:
-        """Point the TLS-descriptor model at ``__tls_get_addr``'s storage.
+        """Hand every borrowing TLS model the owner's storage.
 
         gcc picks a TLS dialect per translation unit, so one image can reach
         the same thread-local through both models. Both reduce to an offset
         within the module the relocator reports, so sharing that module's
         arena keeps them consistent; separate pools silently disagree.
+
+        Which model owns the storage is a role, not a function name, so it is
+        asked for by role -- see `models/tls.py`.
         """
-        owner = self.models.get("__tls_get_addr")
-        borrower = self.models.get("__tlsdesc_resolve")
-        if owner is None or borrower is None:
+        arena: typing.Optional[int] = None
+        size = 0
+        for model in self.models.values():
+            if isinstance(model, TlsArenaOwner):
+                arena = model.tls_arena_address_for(RELOCATED_TLS_MODULE)
+                size = model.TLS_ARENA_SIZE
+                break
+        if arena is None:
+            # No owner in this library, or the owner reserved no buffer.
             return
-        arena_offset = getattr(owner, "module_arena_offset", None)
-        if owner.static_buffer_address is None or arena_offset is None:
-            return
-        borrower.tls_arena_address = owner.static_buffer_address + arena_offset(
-            RELOCATED_TLS_MODULE
-        )
-        borrower.tls_arena_size = owner.TLS_ARENA_SIZE  # type: ignore[attr-defined]
+        for model in self.models.values():
+            if isinstance(model, TlsArenaBorrower):
+                model.tls_arena_address = arena
+                model.tls_arena_size = size
 
     def _seed_tls_image(self, elf: ElfExecutable) -> None:
-        """Copy the image's PT_TLS initialization data into each TLS model's
-        storage, at the offset that model says the image belongs."""
+        """Copy the image's PT_TLS initialization data into the storage that
+        serves thread-locals, at the offset its owner says the image belongs."""
         image = elf.tls_image
         if not image:
             return
         for model in self.models.values():
-            offset = getattr(model, "tls_image_offset", None)
-            if offset is None or model.static_buffer_address is None:
+            if not isinstance(model, TlsArenaOwner):
                 continue
-            room = model.static_space_required - offset
-            if model.tls_image_capacity is not None:
-                room = min(room, model.tls_image_capacity)
+            if model.static_buffer_address is None:
+                continue
+            room = min(
+                model.static_space_required - model.tls_image_offset,
+                model.tls_image_capacity,
+            )
             if room <= 0:
                 continue
             if len(image) > room:
@@ -198,7 +207,7 @@ class ElfModelLibrary(Memory):
                     f"{room:#x} fit; thread-locals past the end read zero"
                 )
             chunk = image[:room]
-            base = model.static_buffer_address - self.address + offset
+            base = model.static_buffer_address - self.address + model.tls_image_offset
             self[base] = BytesValue(chunk, None)
 
     def apply(self, emulator: Emulator) -> None:

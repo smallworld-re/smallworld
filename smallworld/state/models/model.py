@@ -76,12 +76,6 @@ class PythonShellBreakpoint(Breakpoint):
         code.interact(local={"emulator": emulator})
 
 
-#: The module id the relocator reports for every thread-local (see
-#: R_X86_64_DTPMOD64). The harness loads one image, so there is one TLS block;
-#: this names which per-module arena that block's storage lives in.
-RELOCATED_TLS_MODULE = 1
-
-
 class Model(Hook):
     """A runtime function model implemented in Python.
 
@@ -159,17 +153,6 @@ class Model(Hook):
         pass
 
     static_space_required: int = 0
-    #: Offset into this model's static buffer where a module's PT_TLS
-    #: initialization image belongs, or None if the model wants no image.
-    tls_image_offset: typing.Optional[int] = None
-    #: How many bytes of that image the model can actually serve, if less than
-    #: the rest of its static buffer. Bounds the "image does not fit" warning.
-    tls_image_capacity: typing.Optional[int] = None
-    #: TLS storage owned by ANOTHER model, assigned by the library so both TLS
-    #: dialects reach one thread-local through the same bytes. Set on models
-    #: whose static_space_required is 0 because they borrow rather than reserve.
-    tls_arena_address: typing.Optional[int] = None
-    tls_arena_size: int = 0
 
     @classmethod
     def lookup(
