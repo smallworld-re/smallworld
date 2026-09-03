@@ -28,14 +28,22 @@ _start:
     mtspr   22, 5             # arm DEC: underflows on the first stride
     # Build MSR from scratch rather than OR-ing MSR[EE] into the reset value.
     # The MPC8xx comes out of reset with MSR[IP] set, which puts the exception
-    # vectors at 0xFFF00000 - and styx maps 0xFF000000+ READ|WRITE with no
-    # EXEC, so delivering there faults with ProtectedMemoryFetch.  Real
-    # firmware clears IP once it has vectors in low memory; do the same.
+    # vectors at 0xFFF00000; real firmware clears IP once it has vectors in low
+    # memory, and this fixture covers that low-vector path.  Its sibling
+    # decrementer_ip.ppc.s keeps IP set and covers the high vectors.
     li      6, 0
     ori     6, 6, 0x8000      # MSR = EE only: IP=0, so vectors are at 0x000
     mtmsr   6                 # unmask -> the latched decrementer can deliver
+    # Bound the spin.  Delivery needs a couple of 1000-instruction strides, and
+    # 20000 iterations is ~60 of them; if the exception never arrives the loop
+    # still terminates with r3 == 0 and the test FAILS on the assertion instead
+    # of hanging the suite forever - which is the failure mode this whole change
+    # set exists to remove.
+    li      7, 20000
 _wait:
     cmpwi   3, 0
-    beq     _wait             # spin until the handler sets r3
+    bne     _done             # handler ran
+    addic.  7, 7, -1
+    bne     _wait
 _done:
     nop                       # exit point

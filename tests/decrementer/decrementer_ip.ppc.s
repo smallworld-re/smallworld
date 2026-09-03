@@ -7,6 +7,9 @@
 # died on a fetch-protection fault before its handler ran. This fixture is the
 # regression test for nix/styx-emulator-build/patches/powerquicci-vectors.patch;
 # it is loaded at 0xFFF00900 so `_vector` lands on the high decrementer vector.
+#
+# Keep the instruction layout in step with decrementer.ppc.s: the two blobs are
+# the same length and tests/unit.py drives both through the same helper.
     .section .text
     .globl _start
 
@@ -27,8 +30,11 @@ _start:
     mfmsr   6                 # keep the reset MSR, IP included
     ori     6, 6, 0x8000      # + MSR[EE]
     mtmsr   6
+    li      7, 20000          # bounded spin: see decrementer.ppc.s
 _wait:
     cmpwi   3, 0
-    beq     _wait
+    bne     _done
+    addic.  7, 7, -1
+    bne     _wait
 _done:
     nop

@@ -5,7 +5,9 @@
 # stale backend state.
 #
 # This hook also owns `rfi`, restoring PC/MSR from the MPC866M controller's
-# shadow SRRs. That lives here rather than in a code hook registered by the
+# shadow SRRs - and therefore also mirrors guest `mtspr`/`mfspr SRR0/SRR1` into
+# and out of that shadow, since the backend registers those writes land in are
+# ones `rfi` never reads. That lives here rather than in a code hook registered by the
 # controller because `CodeHook::call` is not told which address it was
 # dispatched for: every whole-range hook must read `pc()` to find its own
 # instruction, and the `rfi` path rewrites it, so whichever of two such hooks
@@ -17,19 +19,19 @@
 # crate set and `cargoDeps` hash are unchanged.
 #
 # Remove once styx-emulator models the MPC8xx decrementer upstream.
---- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 11:40:14.260548694 -0400
-+++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs	2026-09-03 11:40:14.261548687 -0400
+--- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs
++++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit/mtspr_manager.rs
 @@ -9,7 +9,8 @@
      hooks::CoreHandle,
      prelude::{CpuBackend, CpuBackendExt},
  };
 -use tracing::{error, info, trace, warn};
-+use styx_mpc866m::Mpc866mController;
++use styx_mpc866m::{Mpc866mController, Mpc866mIRQn};
 +use tracing::{info, trace, warn};
  
  use crate::system_interface_unit::SystemInterfaceUnit;
  
-@@ -20,6 +21,13 @@
+@@ -20,20 +21,81 @@
      tblw: u32,
      tbuw: u32,
      dec: u32,
@@ -43,13 +45,14 @@
  }
  
  impl MtsprStateManager {
-@@ -28,12 +36,66 @@
-             tblw: 0,
-             tbuw: 0,
-             dec: 0,
-+            dec_reload: 0,
-+            dec_active: false,
-+        }
+     pub fn new() -> Self {
+-        Self {
+-            tblw: 0,
+-            tbuw: 0,
+-            dec: 0,
++        // Every field's initial value is its `Default`; spelling them out again
++        // here only creates a second list to forget when a field is added.
++        Self::default()
 +    }
 +
 +    /// Advance the 64-bit timebase by `step`, and (once the guest has programmed
@@ -93,7 +96,11 @@
  
 -const MTSPR_INSN_MASK: u32 = 0xfc_00_03_ff;
 +/// PowerPC `rfi` (return from interrupt), primary opcode 19, extended opcode 50.
-+/// Every field is fixed, so the whole word is the pattern.
++/// Instruction bits 6..=20 are reserved and ignored by the hardware, so this is
++/// matched under `SPR_INSN_MASK` like every other opcode here rather than by an
++/// exact word compare - an `rfi` assembled with a nonzero reserved field would
++/// otherwise run natively against the backend's never-populated SRR0 and branch
++/// to 0.
 +const RFI_OPCODE: u32 = 0x4c00_0064;
 +/// Primary opcode plus the whole extended opcode and its Rc bit. The extended
 +/// opcode occupies instruction bits 21..=30 and Rc is bit 31, so together they
@@ -136,7 +143,24 @@
  }
  
  #[allow(non_snake_case)]
-@@ -252,11 +318,42 @@
+@@ -176,9 +242,13 @@
+ impl MtsprInstruction {
+     pub fn new(data: u32, cpu: &mut dyn CpuBackend) -> Option<Self> {
+         if is_mtspr(data) {
+-            let register = Self::parse_register(data).unwrap();
+-            let value = cpu.read_register::<u32>(register).unwrap();
+-            let spr = Self::parse_spr(data).unwrap();
++            // `is_mtspr` accepts any XO=467 word, so the SPR field can name an
++            // encoding outside `SprEnum`. Return `None` rather than unwrapping:
++            // this runs inside a whole-range code hook, where a panic takes the
++            // emulation thread down and hangs the run.
++            let register = Self::parse_register(data)?;
++            let value = cpu.read_register::<u32>(register).ok()?;
++            let spr = Self::parse_spr(data)?;
+ 
+             Some(Self {
+                 register,
+@@ -252,54 +322,178 @@
      cpu.set_pc(next_pc).unwrap();
  }
  
@@ -161,17 +185,23 @@
      // get insn @ pc
 -    let insn_bytes = proc.mmu.read_u32_be_phys_code(pc).unwrap();
 +    let insn_bytes = proc.mmu.read_u32_be_phys_code(pc)?;
-+
-+    if insn_bytes == RFI_OPCODE {
+ 
+-    // check if insn is mtspr
+-    if is_mtspr(insn_bytes) {
+-        let siu = proc
++    if insn_bytes & SPR_INSN_MASK == RFI_OPCODE {
 +        // Under Unicorn `rfi` would execute natively against QEMU's own
 +        // SRR0/SRR1, which are not backend-visible and which the controller
 +        // never populates, so restore PC/MSR from its shadow instead. MSR is
 +        // written before PC so that a failure leaves PC on the `rfi` rather
 +        // than resuming with a half-restored MSR.
 +        let return_state = proc
-+            .event_controller
+             .event_controller
+-            .peripherals
+-            .get::<SystemInterfaceUnit>()
+-            .unwrap();
 +            .get_impl::<Mpc866mController>()?
-+            .take_return_state();
++            .return_state();
 +        if let Some((srr0, srr1)) = return_state {
 +            proc.cpu.write_register(Ppc32Register::Msr, srr1)?;
 +            proc.cpu.set_pc(srr0 as u64)?;
@@ -179,51 +209,151 @@
 +        return Ok(());
 +    }
  
-     // check if insn is mtspr
-     if is_mtspr(insn_bytes) {
-@@ -281,8 +378,10 @@
+-        let mtspr = MtsprInstruction::new(insn_bytes, proc.cpu).unwrap();
++    // check if insn is mtspr
++    if is_mtspr(insn_bytes) {
++        // Decode before reaching for a peripheral: `mtlr`/`mtctr` are in every
++        // non-leaf epilogue and every indirect call, and neither arm below needs
++        // the SIU, whose lookup is a linear scan of the peripheral list plus an
++        // `Any` downcast.
++        let Some(mtspr) = MtsprInstruction::new(insn_bytes, proc.cpu) else {
++            // An SPR this model does not know: leave it to the backend.
++            warn!(
++                "mtspr @ {:#x}: unrecognised SPR {:#x}",
++                pc,
++                (insn_bytes & MTSPR_SPR_OPERAND_MASK) >> MTSPR_SPR_OPERAND_SHIFT
++            );
++            return Ok(());
++        };
+         trace!("MTSPR @ {:#x}: `{:?}`", pc, mtspr);
+         match mtspr.spr {
+             SprEnum::TBLw => {
+                 trace!("executing {:?} impl", mtspr);
+-                siu.mtspr_mgr.tblw = mtspr.value;
++                proc.event_controller
++                    .peripherals
++                    .get_expect::<SystemInterfaceUnit>()?
++                    .mtspr_mgr
++                    .tblw = mtspr.value;
+                 skip_cpu_insn(proc.cpu);
+             }
+             SprEnum::TBUw => {
+                 trace!("executing {:?} impl", mtspr);
+-                siu.mtspr_mgr.tbuw = mtspr.value;
++                proc.event_controller
++                    .peripherals
++                    .get_expect::<SystemInterfaceUnit>()?
++                    .mtspr_mgr
++                    .tbuw = mtspr.value;
+                 skip_cpu_insn(proc.cpu);
              }
              SprEnum::DEC => {
                  trace!("executing {:?} impl", mtspr);
 -                error!("DEC = {:#x}", mtspr.value);
+-                siu.mtspr_mgr.dec = mtspr.value;
 +                trace!("DEC = {:#x}", mtspr.value);
-                 siu.mtspr_mgr.dec = mtspr.value;
-+                siu.mtspr_mgr.dec_reload = mtspr.value;
-+                siu.mtspr_mgr.dec_active = true;
++                {
++                    let mgr = &mut proc
++                        .event_controller
++                        .peripherals
++                        .get_expect::<SystemInterfaceUnit>()?
++                        .mtspr_mgr;
++                    mgr.dec = mtspr.value;
++                    mgr.dec_reload = mtspr.value;
++                    mgr.dec_active = true;
++                }
++                // Writing a non-negative value to DEC negates any decrementer
++                // request that has not been delivered yet. Without this, a request
++                // latched under the *old* (shorter) period survives the reprogram
++                // and fires the instant the guest re-enables MSR[EE].
++                proc.event_controller
++                    .get_impl::<Mpc866mController>()?
++                    .withdraw(Mpc866mIRQn::Decrementer);
                  skip_cpu_insn(proc.cpu);
              }
++            SprEnum::SRR0 | SprEnum::SRR1 => {
++                // Mirror the write into the controller's shadow pair, which is
++                // what `rfi` restores from. The instruction is *not* skipped -
++                // the backend register is still written, so nothing that reads it
++                // natively regresses - but without this mirror the guest's write
++                // lands only there, and `rfi` would silently ignore it. That
++                // breaks both the "skip the faulting instruction" idiom
++                // (`mfspr SRR0; addi 4; mtspr SRR0; rfi`) and the
++                // `mtspr SRR0/SRR1; rfi` mode switch when it is used after any
++                // exception has been taken.
++                let (srr0, srr1) = if mtspr.spr == SprEnum::SRR0 {
++                    (Some(mtspr.value), None)
++                } else {
++                    (None, Some(mtspr.value))
++                };
++                proc.event_controller
++                    .get_impl::<Mpc866mController>()?
++                    .write_srr(srr0, srr1);
++            }
              SprEnum::CTR | SprEnum::LR => {
-@@ -301,6 +400,33 @@
-                 );
+                 trace!("Backend executing {:?}", mtspr);
              }
-         }
+             SprEnum::IMMR => {
+                 info!("mtspr IMMR, relocating to {:#x}", mtspr.value);
++                let siu = proc
++                    .event_controller
++                    .peripherals
++                    .get_expect::<SystemInterfaceUnit>()?;
+                 siu.set_immr_hooks(proc.cpu, mtspr.value as u64).unwrap();
+             }
+             not_handled => {
+                 // nothing to do for this variant
+-                warn!(
+-                    "unhandled mtspr: {} @ pc: {:#08x}",
+-                    not_handled,
+-                    proc.cpu.pc().unwrap(),
+-                );
++                warn!("unhandled mtspr: {} @ pc: {:#08x}", not_handled, pc);
++            }
++        }
 +    } else if is_mfspr(insn_bytes) || is_mftb(insn_bytes) {
-+        // Read-back of the decrementer/timebase shadow. The MPC8xx DEC/TB SPRs
-+        // are not visible to the Unicorn backend, so a guest `mfspr DEC` /
-+        // `mftb` would otherwise read stale backend state. Return the SIU
-+        // shadow (advanced by the SIU tick) and skip the native instruction.
++        // Read-back of the decrementer/timebase/SRR shadows. None of those SPRs
++        // are visible to the Unicorn backend, so a guest `mfspr DEC` / `mftb` /
++        // `mfspr SRR0` would otherwise read stale (or zero) backend state.
 +        //
 +        // `is_mfspr` also matches `mflr`/`mfctr`/`mfxer`, which appear in most
-+        // function prologues, so the SPR operand is filtered first: the
-+        // peripheral lookup is a linear scan plus a downcast and must not run on
-+        // every prologue. Any other SPR is left to execute natively.
-+        let spr = MtsprInstruction::parse_spr(insn_bytes);
-+        if matches!(spr, Some(SprEnum::DEC | SprEnum::TBLr | SprEnum::TBUr)) {
-+            let siu = proc
-+                .event_controller
-+                .peripherals
-+                .get_expect::<SystemInterfaceUnit>()?;
-+            let value = match spr {
-+                Some(SprEnum::DEC) => siu.mtspr_mgr.dec,
-+                Some(SprEnum::TBLr) => siu.mtspr_mgr.tblw,
-+                _ => siu.mtspr_mgr.tbuw,
-+            };
-+            // The register operand is a 5 bit field, so this cannot fail.
-+            let register = MtsprInstruction::parse_register(insn_bytes).unwrap();
-+            trace!("read shadow {:?} = {:#x} -> {:?}", spr, value, register);
-+            proc.cpu.write_register(register, value)?;
-+            skip_cpu_insn(proc.cpu);
-+        }
++        // function prologues, so dispatch on the SPR operand first: the peripheral
++        // lookup is a linear scan plus a downcast and must not run on every
++        // prologue. Any other SPR is left to execute natively.
++        match MtsprInstruction::parse_spr(insn_bytes) {
++            Some(spr @ (SprEnum::DEC | SprEnum::TBLr | SprEnum::TBUr)) => {
++                let siu = proc
++                    .event_controller
++                    .peripherals
++                    .get_expect::<SystemInterfaceUnit>()?;
++                let value = match spr {
++                    SprEnum::DEC => siu.mtspr_mgr.dec,
++                    SprEnum::TBLr => siu.mtspr_mgr.tblw,
++                    _ => siu.mtspr_mgr.tbuw,
++                };
++                // The register operand is a 5 bit field, so this cannot fail.
++                let register = MtsprInstruction::parse_register(insn_bytes).unwrap();
++                trace!("read shadow {:?} = {:#x} -> {:?}", spr, value, register);
++                proc.cpu.write_register(register, value)?;
++                skip_cpu_insn(proc.cpu);
++            }
++            Some(spr @ (SprEnum::SRR0 | SprEnum::SRR1)) => {
++                // Serve the interrupted context from the same shadow `rfi` uses.
++                // A handler doing `mfspr r3, SRR1` to test the interrupted MSR
++                // reads zero from the backend, because nothing ever writes it.
++                let return_state = proc
++                    .event_controller
++                    .get_impl::<Mpc866mController>()?
++                    .return_state();
++                if let Some((srr0, srr1)) = return_state {
++                    let value = if spr == SprEnum::SRR0 { srr0 } else { srr1 };
++                    let register = MtsprInstruction::parse_register(insn_bytes).unwrap();
++                    trace!("read shadow {:?} = {:#x} -> {:?}", spr, value, register);
++                    proc.cpu.write_register(register, value)?;
++                    skip_cpu_insn(proc.cpu);
++                }
+             }
++            _ => {}
+         }
      }
  
-     Ok(())

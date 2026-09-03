@@ -55,20 +55,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carried locally as `nix/styx-emulator-build/mpc860/` plus the patches in
   `nix/styx-emulator-build/patches/`; it covers exception entry (vector
   dispatch, MSR entry state, shadow SRR0/SRR1 with `rfi` interception) and a
-  decrementer/timebase driven by the executor stride. Guest reads of SRR0/SRR1
-  are not modelled, and the decrementer's resolution is the executor stride
-  (1000 instructions), so it cannot represent a period shorter than that.
+  decrementer/timebase driven by the executor stride.
+
+  `SRR0`/`SRR1` are unreachable through the Unicorn backend
+  (`Ppc32Register::SRR0` maps to `UC_PPC::INVALID`), so they are modelled as one
+  shadow pair - the count the hardware has. Exception entry writes it, guest
+  `mtspr SRR0/SRR1` is mirrored into it, guest `mfspr` is served from it, and
+  `rfi` restores from it without clearing it, so firmware's
+  `mtspr SRR0/SRR1; rfi` mode switch and a handler that redirects its own return
+  both work. Until anything has written the pair, `rfi` falls through to the
+  backend.
+
   `rfi` is emulated from the PowerQUICC SIU's per-instruction hook rather than
   a second hook of the controller's own: `CodeHook::call` is not told which
   address it was dispatched for, so two whole-range hooks would both locate
-  their instruction via `pc()`, which the `rfi` path rewrites. `rfi` with no
-  exception pending falls through to the backend, so firmware's
-  `mtspr SRR0/SRR1; rfi` mode switch keeps working.
+  their instruction via `pc()`, which the `rfi` path rewrites.
+
+  Known limits: the decrementer is modelled as an auto-reloading unsigned
+  counter clocked by retired instructions, where the hardware counter is signed,
+  free-running and clocked by the timebase - so `mfspr DEC` never goes negative
+  and a one-shot arm becomes periodic. Its resolution is the executor stride
+  (1000 instructions) and delivery costs a further stride, because peripherals
+  tick after the controller's delivery point; several underflows within one
+  stride collapse into a single interrupt. None of the controller's state is
+  cleared between `Emulator.run()` calls, since nothing in styx invokes
+  `EventControllerImpl::reset`.
 - The PowerQUICC I region at `0xFF000000` is now mapped executable. It holds
-  the exception vectors whenever `MSR[IP]` is set, which is how the core comes
-  out of reset, and it was the only region in the processor's map without
-  `EXEC` - so any exception taken before firmware cleared `MSR[IP]` failed with
-  a fetch-protection fault instead of reaching its handler.
+  the exception vectors whenever `MSR[IP]` is set, and it was the only region in
+  the processor's map without `EXEC` - so any exception taken with `MSR[IP]` set
+  failed with a fetch-protection fault instead of reaching its handler. Note that
+  styx's MPC8xx builder documents its reset sampling word as `MSR[IP] == 0` and
+  starts the core at the low reset vector `0x100`, but does not actually write
+  MSR, so the core comes up with Unicorn's power-on default of `0x40` (IP set);
+  the EXEC grant is needed either way, for any guest that sets `MSR[IP]`.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

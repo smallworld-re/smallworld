@@ -95,16 +95,39 @@ ps.buildPythonPackage {
     # hangs. These carry a full implementation (exception delivery + decrementer)
     # authored here in-tree, since we do not modify the styx repo. `.rs`-only,
     # so no Cargo.lock / vendor-hash change. See patches/ and mpc860/.
-    install -m 0644 ${./mpc860/event.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/event.rs
-    install -m 0644 ${./mpc860/exception.rs} source/styx/event-controllers/ppc/styx-mpc866m/src/exception.rs
-    # -F0 so a rev bump that moves this code fails the build instead of quietly
-    # applying a hunk against approximate context; --no-backup-if-mismatch keeps
-    # stray .orig files out of the tree that gets compiled.
+    #
+    # `install` overwrites unconditionally, so refuse to run if upstream has
+    # grown files of these names: silently clobbering them would leave a tree
+    # that is neither upstream's nor ours, which is exactly the failure the
+    # patches below are careful to make loud.
+    mpc866m_src=source/styx/event-controllers/ppc/styx-mpc866m/src
+    for f in event exception; do
+      if [ -e "$mpc866m_src/$f.rs" ]; then
+        echo "error: $mpc866m_src/$f.rs exists upstream; the local MPC860" \
+             "implementation would clobber it - reconcile before bumping rev" >&2
+        exit 1
+      fi
+    done
+    install -m 0644 ${./mpc860/event.rs}     "$mpc866m_src/event.rs"
+    install -m 0644 ${./mpc860/exception.rs} "$mpc866m_src/exception.rs"
+    # --no-backup-if-mismatch keeps stray .orig files out of the tree that gets
+    # compiled. -F0 forbids applying a hunk against approximate context, but it
+    # does NOT stop `patch` sliding a hunk to a shifted position, so a rev bump
+    # that merely moves this code would still apply quietly - hence the explicit
+    # offset check. These patches carry hand-written code; they must be re-cut
+    # against the new rev, not slid into place.
     for p in ${./patches/styx-mpc866m-lib.patch} \
              ${./patches/powerquicci-siu.patch} \
              ${./patches/powerquicci-mtspr.patch} \
              ${./patches/powerquicci-vectors.patch}; do
-      patch -p1 -F0 --no-backup-if-mismatch -d source < "$p"
+      patchlog=$(patch -p1 -F0 --no-backup-if-mismatch -d source < "$p")
+      echo "$patchlog"
+      case "$patchlog" in
+        *offset*)
+          echo "error: $p applied with an offset; re-cut it against the pinned rev" >&2
+          exit 1
+          ;;
+      esac
     done
   '';
 

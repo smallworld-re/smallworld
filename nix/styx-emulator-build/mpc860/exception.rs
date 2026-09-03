@@ -18,6 +18,7 @@ pub(crate) const MSR_ILE: u32 = 0x0001_0000; // bit 15: interrupt little-endian 
 /// move, MSR[LE] is copied from MSR[ILE] by the caller, and MSR[ME] is handled
 /// separately because it is only cleared by a machine check.
 pub(crate) const MSR_EXCEPTION_CLEARED: u32 = MSR_EE
+    | 0x0004_0000 // bit 13: POW, power management enable
     | 0x0000_4000 // bit 17: PR, problem (user) state
     | 0x0000_2000 // bit 18: FP, floating point available
     | 0x0000_0800 // bit 20: FE0, floating point exception mode 0
