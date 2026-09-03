@@ -1,0 +1,40 @@
+# Local styx-emulator patch granting EXEC to the PowerQUICC I "top level space"
+# region at 0xFF000000. That region holds the exception vectors whenever MSR[IP]
+# is set - which is how the core comes out of reset (reset MSR is 0x40) - so a
+# decrementer taken before firmware clears IP vectors to 0xFFF00900. It was the
+# only region in the processor's map without EXEC, so those deliveries failed
+# with ProtectedMemoryFetch before the handler ran, making the whole IP=1 vector
+# path unreachable.
+#
+# Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
+# (the `rev` pinned in ../default.nix). Touches no Cargo.toml, so the vendored
+# crate set and `cargoDeps` hash are unchanged.
+#
+# Remove once styx-emulator maps this region executable upstream.
+--- a/styx/processors/ppc/styx-powerquicci-processor/src/lib.rs	2026-09-03 12:05:26.185431119 -0400
++++ b/styx/processors/ppc/styx-powerquicci-processor/src/lib.rs	2026-09-03 12:05:26.204430980 -0400
+@@ -189,14 +189,16 @@
+             .push(MemoryRegion::new(0x0600_0000, 0x0010_1000, MemoryPermissions::all()).unwrap());
+ 
+         // top level space -- gdb wants it ???
+-        regions.push(
+-            MemoryRegion::new(
+-                0xff00_0000,
+-                0x0100_0000,
+-                MemoryPermissions::READ | MemoryPermissions::WRITE,
+-            )
+-            .unwrap(),
+-        );
++        //
++        // This is also where the exception vectors live when MSR[IP] is set,
++        // which is how the core comes out of reset: the table moves from
++        // 0x0000_0000 to 0xFFF0_0000, so a decrementer vectors to 0xFFF0_0900.
++        // Mapped READ|WRITE this region was the only one in the map without
++        // EXEC, so every exception taken before firmware clears MSR[IP] died on
++        // a fetch-protection fault instead of reaching its handler. Real
++        // hardware fetches the reset vector from here, so grant EXEC and match
++        // every other region above.
++        regions.push(MemoryRegion::new(0xff00_0000, 0x0100_0000, MemoryPermissions::all()).unwrap());
+ 
+         for region in regions {
+             mmu.add_memory_region(region)?;

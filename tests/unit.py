@@ -3278,6 +3278,59 @@ class StyxPowerPCExecutionTests(unittest.TestCase):
         emu = self._run_decrementer()
         self.assertEqual(emu.read_register_content("r3"), 0x5A)
 
+    def test_mpc860_decrementer_vectors_high_when_msr_ip_is_set(self):
+        """The same round trip with MSR[IP] left at its reset value.
+
+        The core comes out of reset with MSR[IP] set (reset MSR is 0x40), which
+        moves the exception table from 0x0 to 0xFFF00000. styx mapped that
+        region READ|WRITE -- the only one in the processor's map without EXEC --
+        so every exception taken before firmware cleared IP died on a
+        fetch-protection fault before its handler ran. Regression test for
+        patches/powerquicci-vectors.patch.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        # Sanity-check the premise: if the reset MSR ever stops setting IP this
+        # test would silently stop covering the high vectors.
+        self.assertEqual(emu.read_register_content("msr") & 0x40, 0x40)
+        code = (TESTS_DIR / "decrementer" / "decrementer_ip.ppc.bin").read_bytes()
+        base = 0xFFF00900
+        emu.write_code(base, code)
+        emu.write_register_content("pc", base + 0x20)
+        emu.add_exit_point(base + len(code) - 4)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        self.assertEqual(emu.read_register_content("r3"), 0x5A)
+
+    def test_mpc860_rfi_without_pending_exception_is_a_mode_switch(self):
+        """`rfi` with an empty shadow SRR stack must fall through to the backend.
+
+        Firmware uses ``mtspr SRR0/SRR1; rfi`` to jump and set MSR atomically,
+        with no exception involved. The SIU hook owns the `rfi` opcode but has
+        nothing to restore in that case, and deliberately lets the instruction
+        execute natively so the backend's own SRR0 is honoured. Turning the
+        empty-stack case into an error would look like hardening and would break
+        this idiom, so it is pinned here.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        code = (TESTS_DIR / "decrementer" / "rfi_switch.ppc.bin").read_bytes()
+        emu.write_code(0x1000, code)
+        emu.write_register_content("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(code) - 4)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        # 0xBAD would mean the `rfi` was swallowed and control fell through.
+        self.assertEqual(emu.read_register_content("r3"), 0x99)
+
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxFuzzScenarioTests(unittest.TestCase):

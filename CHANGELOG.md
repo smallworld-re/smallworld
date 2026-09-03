@@ -61,7 +61,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rfi` is emulated from the PowerQUICC SIU's per-instruction hook rather than
   a second hook of the controller's own: `CodeHook::call` is not told which
   address it was dispatched for, so two whole-range hooks would both locate
-  their instruction via `pc()`, which the `rfi` path rewrites.
+  their instruction via `pc()`, which the `rfi` path rewrites. `rfi` with no
+  exception pending falls through to the backend, so firmware's
+  `mtspr SRR0/SRR1; rfi` mode switch keeps working.
+- The PowerQUICC I region at `0xFF000000` is now mapped executable. It holds
+  the exception vectors whenever `MSR[IP]` is set, which is how the core comes
+  out of reset, and it was the only region in the processor's map without
+  `EXEC` - so any exception taken before firmware cleared `MSR[IP]` failed with
+  a fetch-protection fault instead of reaching its handler.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

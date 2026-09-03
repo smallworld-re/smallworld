@@ -102,7 +102,8 @@ ps.buildPythonPackage {
     # stray .orig files out of the tree that gets compiled.
     for p in ${./patches/styx-mpc866m-lib.patch} \
              ${./patches/powerquicci-siu.patch} \
-             ${./patches/powerquicci-mtspr.patch}; do
+             ${./patches/powerquicci-mtspr.patch} \
+             ${./patches/powerquicci-vectors.patch}; do
       patch -p1 -F0 --no-backup-if-mismatch -d source < "$p"
     done
   '';
