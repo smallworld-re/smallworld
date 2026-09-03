@@ -80,14 +80,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stride collapse into a single interrupt. None of the controller's state is
   cleared between `Emulator.run()` calls, since nothing in styx invokes
   `EventControllerImpl::reset`.
-- The PowerQUICC I region at `0xFF000000` is now mapped executable. It holds
-  the exception vectors whenever `MSR[IP]` is set, and it was the only region in
-  the processor's map without `EXEC` - so any exception taken with `MSR[IP]` set
-  failed with a fetch-protection fault instead of reaching its handler. Note that
-  styx's MPC8xx builder documents its reset sampling word as `MSR[IP] == 0` and
-  starts the core at the low reset vector `0x100`, but does not actually write
-  MSR, so the core comes up with Unicorn's power-on default of `0x40` (IP set);
-  the EXEC grant is needed either way, for any guest that sets `MSR[IP]`.
+- The PowerQUICC I exception vectors are now fetchable when `MSR[IP]` is set.
+  They live at `0xFFF00000` in that case, inside the one region in the
+  processor's map without `EXEC` - so any exception taken with `MSR[IP]` set
+  failed with a fetch-protection fault instead of reaching its handler. The
+  16 MiB region is split rather than blanket-granted `EXEC`: only the top 1 MiB
+  holds vectors, and the lower 15 MiB is the IMMR aperture with no backing data,
+  so it stays non-executable and a wild branch into MMIO still stops at the jump
+  site. Note that styx's MPC8xx builder documents its reset sampling word as
+  `MSR[IP] == 0` and starts the core at the low reset vector `0x100`, but does
+  not actually write MSR, so the core comes up with Unicorn's power-on default
+  of `0x40` (IP set); the EXEC grant is needed either way, for any guest that
+  sets `MSR[IP]`.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

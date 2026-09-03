@@ -3297,6 +3297,28 @@ class StyxPowerPCExecutionTests(unittest.TestCase):
         emu = self._run_mpc860_blob("decrementer_ip", 0xFFF00900)
         self.assertEqual(emu.read_register_content("r3"), 0x5A)
 
+    def test_mpc860_immr_aperture_stays_non_executable(self):
+        """The other half of the vectors patch: only the vector page gets EXEC.
+
+        The IP=1 vector table needed to be fetchable, but the region holding it
+        spans 16 MiB and its lower 15 MiB is the IMMR aperture
+        (``immr::DEFAULT_BASE_ADDRESS`` is 0xFF000000) with no backing data.
+        Granting EXEC across the whole thing would delete the only fetch guard
+        over that range, so a wild branch into MMIO would run on through a
+        mapped page instead of stopping at the jump site -- which is the
+        difference between a crash report that names the jump and one that names
+        somewhere further along. The split is what keeps that guard, and this
+        pins it against being widened back.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        emu.write_register_content("pc", 0xFF000000)
+        emu.add_exit_point(0xFF000010)
+        with self.assertRaises(exceptions.EmulationFetchProtectedFailure):
+            emu.run()
+
     def test_mpc860_reset_msr_sets_ip(self):
         """The premise of the high-vector test, checked separately.
 
