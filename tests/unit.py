@@ -4987,6 +4987,13 @@ class TlsDialectAgreementTests(ModelTestCase):
         for tp in (0, 0x60000 + 0x50000, 0x7FFF0000):
             self.assertEqual(self._via_descriptor(self.BLOCK_OFFSET, tp), expected, tp)
 
+    def test_negative_block_offsets_agree_across_dialects(self):
+        # A negative offset is folded specially; both models must fold it the
+        # SAME way or the split reintroduces the disagreement it was added to
+        # prevent.
+        neg = (1 << 64) - 8
+        self.assertEqual(self._via_descriptor(neg), self._via_tls_get_addr(neg))
+
     def test_distinct_thread_locals_stay_distinct_across_dialects(self):
         # Sharing storage must not collapse different thread-locals together.
         self.assertNotEqual(
@@ -5432,6 +5439,27 @@ class TlsDescResolveModelTests(ModelTestCase):
         first = self._resolve(0x10)
         self.assertEqual(self._resolve(0x10), first)
         self.assertNotEqual(self._resolve(0x20), first)
+
+    def test_negative_offset_does_not_alias_a_real_one(self):
+        # An addend like `x - 8` yields a negative block offset, which the
+        # relocator packs as a huge unsigned word. Folding that into the arena
+        # the obvious way put it on top of the legitimate offset 0xff8 -- two
+        # different thread-locals sharing storage, silently.
+        negative = self._resolve((1 << 64) - 8)
+        self.assertNotEqual(negative, self._resolve(0xFF8))
+        self.assertNotEqual(negative, self._resolve(0x8))
+
+    def test_negative_offsets_are_stable_and_distinct(self):
+        first = self._resolve((1 << 64) - 8)
+        self.assertEqual(self._resolve((1 << 64) - 8), first)
+        self.assertNotEqual(self._resolve((1 << 64) - 16), first)
+
+    def test_negative_offset_stays_bounded(self):
+        for raw in ((1 << 64) - 8, (1 << 64) - 0x100000, 1 << 63):
+            offset = self._resolve(raw)
+            self.assertTrue(
+                self.ARENA <= offset < self.ARENA + self.ARENA_SIZE, hex(raw)
+            )
 
     def test_garbage_argument_stays_bounded(self):
         # A descriptor holding nonsense must not send the access out of the

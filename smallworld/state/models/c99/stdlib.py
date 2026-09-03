@@ -462,6 +462,43 @@ class Malloc(CStdModel):
         self.set_return_value(emulator, res)
 
 
+#: Bytes kept clear at the end of each half-arena so that a wide access from
+#: the last reachable slot still lands on mapped storage.
+_TLS_HEADROOM = 0x40
+
+
+def _as_signed(value: int, size: int) -> int:
+    """Reinterpret an unsigned word of `size` bytes as two's-complement."""
+    limit = 1 << (size * 8 - 1)
+    return value - 2 * limit if value >= limit else value
+
+
+def _tls_slot_span(arena_size: int) -> int:
+    """How many distinct block offsets one half of an arena can hold."""
+    return max(1, arena_size // 2 - _TLS_HEADROOM)
+
+
+def _tls_arena_slot(offset: int, arena_size: int) -> int:
+    """Map a thread-local's block offset onto a bounded slot in its arena.
+
+    Both TLS models go through this, so one thread-local reached through
+    either dialect lands on the same bytes (see RELOCATED_TLS_MODULE).
+
+    `offset` must already be sign-interpreted. A NEGATIVE block offset is
+    ordinary -- an addend like `x - 8` produces one, and the relocator packs
+    it as a huge unsigned word -- but folding that into the arena the obvious
+    way lands it on a perfectly legitimate positive offset, silently giving
+    two different thread-locals the same storage. So negatives get their own
+    half of the arena: still bounded, still stable per offset, but unable to
+    collide with a real one. Garbage arguments have the top bit set and land
+    there too, which is exactly where they belong.
+    """
+    span = _tls_slot_span(arena_size)
+    if offset < 0:
+        return arena_size // 2 + ((-offset - 1) % span)
+    return offset % span
+
+
 class TlsGetAddr(CStdModel):
     # void *__tls_get_addr(tls_index *ti);  -- the glibc dynamic-TLS resolver.
     #
@@ -493,8 +530,7 @@ class TlsGetAddr(CStdModel):
     tls_image_offset = TLS_ARENA_SIZE * (RELOCATED_TLS_MODULE % TLS_MAX_MODULES)
     #: A thread-local can only ever be read within its own arena (the model
     #: clamps to one), so that -- not the whole pool -- is the room an image has.
-    tls_image_capacity = TLS_ARENA_SIZE
-    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
+    tls_image_capacity = _tls_slot_span(TLS_ARENA_SIZE)
     # Reserved once by the library, which sets self.static_buffer_address and maps
     # the (zeroed) region; sized to hold the whole arena pool.
     static_space_required = TLS_ARENA_SIZE * TLS_MAX_MODULES
@@ -522,11 +558,11 @@ class TlsGetAddr(CStdModel):
         module = self.read_integer(ti, ptr, emulator)
         offset = self.read_integer(ti + self.platdef.address_size, ptr, emulator)
         # Map (module, offset) into the bounded arena pool: pick a module arena
-        # (garbage/overflow modules alias via %), and index by offset within it,
-        # clamped so even a wide access from a near-end offset stays mapped.
+        # (garbage/overflow modules alias via %), then index by offset within
+        # it through the shared mapping the descriptor model also uses.
         slot = module % self.TLS_MAX_MODULES
-        off = min(
-            offset % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM
+        off = _tls_arena_slot(
+            _as_signed(offset, self.platdef.address_size), self.TLS_ARENA_SIZE
         )
         addr = self.static_buffer_address + slot * self.TLS_ARENA_SIZE + off
         self.set_return_value(emulator, addr)
@@ -578,7 +614,6 @@ class TlsDescResolve(CStdModel):
     # Sharing also stops every amd64 harness reserving a second 32 KiB pool it
     # may never touch. Assigned by the library, like malloc's heap.
     static_space_required = 0
-    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
 
     #: Register holding the descriptor address on entry and the offset on exit.
     descriptor_register: str = ""
@@ -621,9 +656,8 @@ class TlsDescResolve(CStdModel):
         argument = self.read_integer(
             desc + self.platdef.address_size, ArgumentType.POINTER, emulator
         )
-        off = min(
-            argument % self.tls_arena_size,
-            max(0, self.tls_arena_size - self._TLS_HEADROOM),
+        off = _tls_arena_slot(
+            _as_signed(argument, self.platdef.address_size), self.tls_arena_size
         )
         addr = self.tls_arena_address + off
         try:
