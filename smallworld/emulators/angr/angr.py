@@ -12,6 +12,7 @@ from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
+from .replacement import MemoizingReplacementSolver
 from .simos import HookableSimOS
 
 log = logging.getLogger(__name__)
@@ -62,7 +63,13 @@ class AngrEmulator(
     description = "an emulator using angr as its backend"
     version = "0.0"
 
-    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        preinit=None,
+        init=None,
+        use_replacement_solver: bool = False,
+    ):
         # Initialized bit; tells us if angr state is initialized
         self._initialized: bool = False
 
@@ -71,6 +78,20 @@ class AngrEmulator(
 
         # Linear mode bit; tells us if we're running in forced linear execution
         self._linear: bool = True
+
+        # Use angr's replacement solver instead of the default.
+        #
+        # This binds labeled values via cheap substitutions rather than a giant
+        # conjunction of `symbol == value` constraints (see
+        # _write_memory_label_bulk), which is essential for analyses like
+        # crash-triage that label large regions of initialized memory.
+        #
+        # It is OPT-IN, not the default, because the replacement frontend walks
+        # every constraint through claripy.replace_dict on each add(), even when
+        # no replacements are registered.  That walk is superlinear on the
+        # deeply-shared symbolic expressions ordinary emulation produces, so
+        # enabling it globally regresses workloads that never label anything.
+        self._use_replacement_solver: bool = use_replacement_solver
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
@@ -214,14 +235,23 @@ class AngrEmulator(
             self.preinit(self)
 
         # Create a completely blank entry state
+        add_options = {
+            # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
+            angr.options.KEEP_IP_SYMBOLIC,
+            angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
+            angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
+        }
+        if self._use_replacement_solver:
+            # Bind labeled values via solver replacements rather than a giant
+            # conjunction of `symbol == value` constraints.  See
+            # _write_memory_label_bulk.  Opt-in only: the replacement frontend
+            # runs claripy.replace_dict over every constraint on each add(),
+            # which is superlinear on deeply-shared symbolic expressions, so it
+            # must not be imposed on workloads that never label memory.
+            add_options.add(angr.options.REPLACEMENT_SOLVER)
         self.state = self.proj.factory.blank_state(
             plugin_preset=self._plugin_preset,
-            add_options={
-                # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
-                angr.options.KEEP_IP_SYMBOLIC,
-                angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
-                angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
-            },
+            add_options=add_options,
             remove_options={
                 angr.options.SIMPLIFY_CONSTRAINTS,
                 angr.options.SIMPLIFY_EXIT_GUARD,
@@ -234,6 +264,15 @@ class AngrEmulator(
                 angr.options.SIMPLIFY_REGISTER_WRITES,
             },
         )
+        if self._use_replacement_solver:
+            # Swap angr's stock replacement solver for the memoizing one, whose
+            # replacement walk is linear rather than exponential in expression
+            # sharing depth.  Safe to install here: no constraints or
+            # replacements exist on the fresh state yet.
+            self.state.solver._stored_solver = MemoizingReplacementSolver(
+                auto_replace=False
+            )
+
         # If we're in linear mode,
         # limit the maximum number of results when solving
         # for a symbolic IP.  If the IP has constrained solutions,
@@ -646,6 +685,16 @@ class AngrEmulator(
         # This addresses a performance bottleneck during initialization;
         # it's not really intended for public use,
         # as it lacks some of the safety checks.
+        #
+        # When the replacement solver is enabled, we bind each label to its
+        # concrete value as a solver replacement (a substitution) rather than a
+        # `symbol == value` constraint.  The label symbol still lives in the
+        # stored AST, so provenance is preserved for data-flow analyses, but the
+        # binding never reaches z3.  Otherwise the first solve has to ingest one
+        # giant conjunction covering every initialized byte, which exhausts time
+        # and memory.  If someone has disabled REPLACEMENT_SOLVER, fall back to
+        # the constraint-based binding.
+        use_replacement = angr.options.REPLACEMENT_SOLVER in self.state.options
         cs = list()
         for addr, size, label in labels:
             if label is None:
@@ -653,9 +702,12 @@ class AngrEmulator(
             s = claripy.BVS(label, size * 8, explicit_name=True)
             v = self.state.memory.load(addr, size)
             self.state.memory.store(addr, s)
-            cs.append(s == v)
-        c = claripy.And(*cs)
-        self.state.solver.add(c)
+            if use_replacement:
+                self.state.solver._solver.add_replacement(s, v)
+            else:
+                cs.append(s == v)
+        if cs:
+            self.state.solver.add(claripy.And(*cs))
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:

@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import typing
 import unittest
@@ -73,6 +74,7 @@ from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, Tr
 from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
+from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
 from smallworld.hinting import (
@@ -7097,6 +7099,110 @@ class PEBaseRelocationTests(unittest.TestCase):
             BINARIES_TESTS_DIR / "pe" / "pe.i386.pe", I386_PLATFORM, 0x10000000, 4
         )
         self.assertEqual(loaded, (original + delta) & 0xFFFFFFFF)
+
+
+class MemoizingReplacementSolverTests(unittest.TestCase):
+    """Regression tests for the hardened crash-triage replacement solver.
+
+    angr's stock ``SolverReplacement`` walks ``claripy.replace_dict`` over every
+    constraint and only memoizes subtrees where a replacement fires, so a branch
+    guard built from a deeply-shared *non-replaced* symbol (a register or
+    uninitialized value) costs time exponential in the sharing depth.  That is
+    what hung ``square.msp430x.angr`` once ``REPLACEMENT_SOLVER`` was enabled.
+    ``MemoizingReplacementSolver`` must stay linear while producing identical
+    substitutions.  Each walk below is depth 20, which takes the stock solver
+    minutes; the fix must finish well under a second.
+    """
+
+    # Generous ceiling: the stock solver needs minutes at these depths, the
+    # memoizing one microseconds, so any regression to the old behaviour blows
+    # far past this rather than flirting with it.
+    _BUDGET_SECS = 2.0
+
+    @staticmethod
+    def _deep(base, n):
+        # Each level references the running expression twice: O(n) distinct
+        # nodes, but exponentially many unshared root-to-leaf paths.
+        e = base
+        for _ in range(n):
+            e = (e + (e << 1)) ^ (e >> 1)
+        return e
+
+    def _solver(self):
+        mem = claripy.BVS("memory_403000", 64, explicit_name=True)
+        s = MemoizingReplacementSolver(auto_replace=False)
+        s.add_replacement(mem, claripy.BVV(0xDEAD, 64))
+        return s, mem
+
+    def test_disjoint_guard_is_untouched_and_instant(self):
+        s, _mem = self._solver()
+        reg = claripy.BVS("r15", 64, explicit_name=True)
+        guard = self._deep(reg, 20) == 0  # touches no replacement
+        start = time.perf_counter()
+        result = s._replacement(guard)
+        elapsed = time.perf_counter() - start
+        self.assertIs(result, guard)  # short-circuited to identity
+        self.assertLess(elapsed, self._BUDGET_SECS)
+
+    def test_mixed_guard_substitutes_and_stays_linear(self):
+        s, mem = self._solver()
+        reg = claripy.BVS("r15", 64, explicit_name=True)
+        guard = (self._deep(reg, 20) + mem) == 0  # not disjoint -> forces the walk
+        start = time.perf_counter()
+        result = s._replacement(guard)
+        elapsed = time.perf_counter() - start
+        self.assertLess(elapsed, self._BUDGET_SECS)
+        self.assertNotIn("memory_403000", result.variables)  # label substituted
+        self.assertIn("r15", result.variables)  # register preserved
+
+    def test_result_matches_stock_replacement(self):
+        # On a shallow (correctness-only) expression the memoizing walk must
+        # produce exactly what claripy's own walk does.
+        from claripy.solvers import SolverReplacement
+
+        mem = claripy.BVS("memory_403000", 64, explicit_name=True)
+        reg = claripy.BVS("r15", 64, explicit_name=True)
+        val = claripy.BVV(0xDEAD, 64)
+        expr = ((mem + reg) ^ (mem << 2)) == 0
+
+        mine = MemoizingReplacementSolver(auto_replace=False)
+        mine.add_replacement(mem, val)
+        stock = SolverReplacement(auto_replace=False)
+        stock.add_replacement(mem, val)
+
+        self.assertTrue(
+            mine._replacement(expr).structurally_match(stock._replacement(expr))
+        )
+
+    def test_survives_branch(self):
+        # The replaced-variable set must carry across solver branching, or a
+        # branched state would silently stop substituting (fast but wrong).
+        s, mem = self._solver()
+        branched = s.branch()
+        reg = claripy.BVS("r15", 64, explicit_name=True)
+        guard = (self._deep(reg, 20) + mem) == 0
+        start = time.perf_counter()
+        result = branched._replacement(guard)
+        self.assertLess(time.perf_counter() - start, self._BUDGET_SECS)
+        self.assertNotIn("memory_403000", result.variables)
+
+    def test_emulator_installs_memoizing_solver_only_when_opted_in(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+        opt_in = emulators.AngrEmulator(platform, use_replacement_solver=True)
+        opt_in._code.append((0x400000, b"\x90\x90"))
+        opt_in.initialize()
+        self.assertIsInstance(opt_in.state.solver._solver, MemoizingReplacementSolver)
+
+        # A default emulator must not pay the replacement tax at all.
+        default = emulators.AngrEmulator(platform)
+        default._code.append((0x400000, b"\x90\x90"))
+        default.initialize()
+        self.assertNotIsInstance(
+            default.state.solver._solver, MemoizingReplacementSolver
+        )
 
 
 if __name__ == "__main__":
