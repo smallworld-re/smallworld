@@ -1,0 +1,302 @@
+# Local styx-emulator patch wiring up the MPC866M (MPC860 / PowerQUICC I) event
+# controller, whose `insert_exception`, `latch`, `execute` and `tick` are
+# `todo!()` upstream, so any MPC860 run that completes an instruction stride
+# panics and hangs.
+#
+# Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
+# (the `rev` pinned in ../default.nix). The two modules it declares - `event`
+# and `exception` - are installed from ../mpc860/ by `postUnpack`.
+#
+# This controller registers no code hook of its own. `rfi` has to be
+# intercepted (Unicorn would run it against QEMU's own SRR0/SRR1, which nothing
+# populates), but the PowerQUICC SIU already owns a whole-range per-instruction
+# hook, and `CodeHook::call` is not told which address it was dispatched for -
+# so a second hook would have to find its instruction via `pc()`, which the
+# `rfi` path rewrites. Both hooks cannot coexist; see `mtspr_proxy` in
+# ./powerquicci-mtspr.patch, which owns the opcode and calls back into
+# `return_state` here.
+#
+# The SRRs are modelled as one shadow pair, not a stack: the hardware has one,
+# and both the guest (`mtspr SRR0/SRR1`, mirrored in by that same hook) and
+# exception entry write it. A stack cannot tell "return from exception" from
+# "`rfi` used as an atomic jump", so a handler that leaves by any other route
+# strands a frame that then hijacks the next unrelated `rfi`.
+#
+# Touches no Cargo.toml, so the vendored crate set and `cargoDeps` hash are
+# unchanged; keep it that way or both hashes in ../default.nix must be redone.
+#
+# Remove once styx-emulator implements this controller upstream.
+--- a/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs
++++ b/styx/event-controllers/ppc/styx-mpc866m/src/lib.rs
+@@ -22,13 +22,18 @@
+ //!   the respective rust object
+ //!
+ #![allow(dead_code, unused_variables)]
++mod event;
++mod exception;
++
+ use derive_more::Display;
+ use styx_core::cpu::arch::ppc32::variants::Mpc8xxVariants;
+-use styx_core::errors::StyxMachineError;
++use styx_core::cpu::arch::ppc32::Ppc32Register;
+ use styx_core::errors::UnknownError;
+ use styx_core::event_controller::{ActivateIRQnError, InterruptExecuted, Peripherals};
+ use styx_core::prelude::*;
+ 
++use exception::{ExceptionSet, MSR_EE, MSR_EXCEPTION_CLEARED, MSR_ILE, MSR_IP, MSR_LE, MSR_ME};
++
+ /// IRQs for the MPC866m event controller
+ ///
+ /// ## Notes
+@@ -91,16 +96,6 @@
+     NonmaskableDevelopmentPort,
+ }
+ 
+-impl Mpc866mIRQn {
+-    /// Translates the IRQ into the address of the ISR handler routine offset
+-    /// for the target, note that this is still going to be rebased off of any
+-    /// location written to the memory rebasing immr (TODO: write down which
+-    /// register that is)
+-    const fn isr_address(&self) -> u64 {
+-        (*self as u64) * 0x100
+-    }
+-}
+-
+ /// Event Controller + Peripheral Orchestrator for the Mpc8xx
+ /// Family.
+ ///
+@@ -112,20 +107,84 @@
+ pub struct Mpc866mController {
+     #[allow(dead_code)]
+     family_variant: Mpc8xxVariants,
++    /// Pending/enabled state for every exception.
++    exceptions: ExceptionSet,
++    /// Shadow of the architectural `SRR0`/`SRR1` pair. The MPC8xx save/restore
++    /// SPRs are not reachable through the Unicorn backend (`Ppc32Register::SRR0`
++    /// maps to `UC_PPC::INVALID`), so they are modelled here.
++    ///
++    /// One pair, not a stack: the hardware has exactly one, and a nested
++    /// exception clobbers it - which is why handlers must spill the SRRs before
++    /// re-enabling `MSR[EE]`. A stack would silently rescue firmware that hardware
++    /// would break, and it cannot tell "return from exception" from "`rfi` used as
++    /// a jump", so a handler that leaves by any route other than `rfi` strands a
++    /// frame that then hijacks the next unrelated `rfi`.
++    ///
++    /// `None` until either an exception writes it or the guest does via
++    /// `mtspr SRR0/SRR1`; while it is `None` an `rfi` is left to the backend.
++    srr: Option<(u32, u32)>,
+ }
+ 
+ impl Mpc866mController {
+     pub fn new(variant: Mpc8xxVariants) -> Self {
+         Self {
+             family_variant: variant,
++            exceptions: ExceptionSet::new(),
++            srr: None,
++        }
++    }
++
++    /// The shadow `(SRR0, SRR1)` an `rfi` should restore, or `None` if neither an
++    /// exception nor the guest has ever written them - in which case the `rfi` is
++    /// left to execute natively against the backend's own SRRs.
++    ///
++    /// Reading does not clear the pair, because `rfi` does not clear the real
++    /// registers either. That is what keeps `mtspr SRR0/SRR1; rfi` working as the
++    /// atomic jump-and-set-MSR idiom firmware uses: the guest writes the pair
++    /// (see [`Self::write_srr`]) and this hands that write straight back.
++    ///
++    /// Called from the PowerQUICC SIU's per-instruction hook when it decodes an
++    /// `rfi`; see `mtspr_proxy` for why that hook, and not one registered here,
++    /// owns the `rfi` opcode.
++    pub fn return_state(&self) -> Option<(u32, u32)> {
++        self.srr
++    }
++
++    /// Record a guest `mtspr SRR0`/`mtspr SRR1`.
++    ///
++    /// Without this the write lands only in the backend register that
++    /// [`Self::return_state`] never consults, and `rfi` silently ignores it -
++    /// breaking both the "skip the faulting instruction" idiom
++    /// (`mfspr SRR0; addi 4; mtspr SRR0; rfi`) and any handler that returns
++    /// somewhere other than where the exception was taken.
++    pub fn write_srr(&mut self, srr0: Option<u32>, srr1: Option<u32>) {
++        let (mut cur0, mut cur1) = self.srr.unwrap_or((0, 0));
++        if let Some(v) = srr0 {
++            cur0 = v;
+         }
++        if let Some(v) = srr1 {
++            cur1 = v;
++        }
++        self.srr = Some((cur0, cur1));
++    }
++
++    /// Withdraw a pending exception request.
++    ///
++    /// Used by the SIU when the guest reprograms `DEC`: writing a non-negative
++    /// value to the decrementer negates an undelivered decrementer request, so a
++    /// request latched under the old period must not fire the moment the guest
++    /// re-enables `MSR[EE]`.
++    pub fn withdraw(&mut self, irqn: Mpc866mIRQn) {
++        self.exceptions.unlatch(irqn);
+     }
++
+     /// Top level method of actual exception insertion into the CPU execution flow
+     ///
+     /// In general, this target uses registers `SRR0` and `SRR1` to hold the previous
+-    /// state during exception execution. In the common case the `MSR` bits `IP` do not
+-    /// change, and the `ME` bits are set to zero, and the `LE` bits are copied from the
+-    /// `ILE` setting of the interruped execution (if applicable), and other bits are 0.
++    /// state during exception execution. In the common case the `MSR` bits `IP` and
++    /// `ME` do not change (`ME` is cleared only by a machine check, so that a nested
++    /// one checkstops instead of looping), the `LE` bit is copied from the `ILE`
++    /// setting of the interrupted execution (if applicable), and other bits are 0.
+     /// For specific information see section `6.1.2` and `6.1.3` in the MPC866M family
+     /// reference manual
+     ///
+@@ -134,38 +193,47 @@
+     /// At this point the IRQ should have already
+     /// been translated from an [`ExceptionNumber`] to an [`Mpc866mIRQn`].
+     ///
+-    /// ### New register state
+-    /// See the manual for details on MSR's and `SRR1`, `SRR0` is documented
+-    /// below since our implementation does not necessarily support everything
+-    ///
+-    /// What `SRR0` needs to point to after this method:
+-    ///
+-    /// | Exception | `SRR0 contents` |
+-    /// |-----------|-----------------|
+-    /// | Cold reset [`Mpc866mIRQn::SystemReset`] | `undefined` (implementation 0) |
+-    /// | Warm reset [`Mpc866mIRQn::SystemReset`] | Address of the next insn (Not implemented yet) |
+-    /// | [`Mpc866mIRQn::MachineCheck`] | Faulting instruction |
+-    /// | [`Mpc866mIRQn::DSI`] | Target software defined |
+-    /// | [`Mpc866mIRQn::ISI`] | Target software defined |
+-    /// | [`Mpc866mIRQn::External`]| Insn queue buffer defined, in general -- the address of the next insn |
+-    /// | [`Mpc866mIRQn::Alignment`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::Program`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::FloatingPointUnavailable`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::Decrementer`] | Address of the next instruction |
+-    /// | [`Mpc866mIRQn::SystemCall`] | Address of the next instruction following the respective `syscall` instruction |
+-    /// | [`Mpc866mIRQn::Trace`] | Address of the next instruction |
+-    /// | [`Mpc866mIRQn::FloatingPointAssist`] | N/A - not supported and should emit a software emulation exception |
+-    /// | [`Mpc866mIRQn::SoftwareEmulation`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::InstructionTlbMiss`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::DataTlbMiss`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::InstructionTlbError`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::DataTlbError`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::DataBreakpoint`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::InstructionBreakpoint`] | Address of the instruction that caused the exception |
+-    /// | [`Mpc866mIRQn::PeripheralBreakpoint`] | Address of the next instruction |
+-    /// | [`Mpc866mIRQn::NonmaskableDevelopmentPort`] | Address of the next instruction |
+-    fn insert_exception(&self, irqn: Mpc866mIRQn) -> Result<(), StyxMachineError> {
+-        todo!("Mpc866mController::insert_exception");
++    /// `SRR0`/`SRR1` are written to shadow state (not CPU registers) because the
++    /// Unicorn backend does not expose them; the shadow is restored on `rfi` by
++    /// the PowerQUICC SIU's `mtspr_proxy` hook, via [`Self::return_state`].
++    fn insert_exception(
++        &mut self,
++        cpu: &mut dyn CpuBackend,
++        irqn: Mpc866mIRQn,
++    ) -> Result<InterruptExecuted, UnknownError> {
++        let msr = cpu.read_register::<u32>(Ppc32Register::Msr)?;
++        let pc = cpu.pc()? as u32;
++
++        // SRR0 holds either the next instruction (asynchronous / system call) or
++        // the faulting instruction (synchronous exceptions).
++        let srr0 = if irqn.saved_pc_is_next() {
++            pc
++        } else {
++            pc.wrapping_sub(4)
++        };
++
++        // New MSR (MPC866M reference manual, section 6.1.2): most bits are
++        // cleared, MSR[IP] is unchanged so the vector prefix does not move, and
++        // MSR[LE] is copied from MSR[ILE] - bit 15, so `>> 16` onto bit 31.
++        // MSR[ME] is unchanged except on a machine check, where it is cleared so
++        // that a nested machine check checkstops instead of looping.
++        let mut new_msr = msr & !MSR_EXCEPTION_CLEARED;
++        if irqn == Mpc866mIRQn::MachineCheck {
++            new_msr &= !MSR_ME;
++        }
++        new_msr = (new_msr & !MSR_LE) | ((msr & MSR_ILE) >> 16);
++        cpu.write_register(Ppc32Register::Msr, new_msr)?;
++        // MSR[EE] is in `MSR_EXCEPTION_CLEARED`, so entry always masks the
++        // maskable requests until the handler re-enables them; `next()`
++        // re-samples MSR[EE] from the CPU on the next delivery.
++        self.exceptions.set_maskable_enabled(false);
++
++        let vector = irqn.vector(msr & MSR_IP != 0);
++        cpu.set_pc(vector)?;
++
++        self.exceptions.unlatch(irqn);
++        self.srr = Some((srr0, msr));
++        Ok(InterruptExecuted::Executed)
+     }
+ }
+ 
+@@ -173,34 +241,56 @@
+     fn next(
+         &mut self,
+         cpu: &mut dyn CpuBackend,
+-        mmu: &mut Mmu,
+-        peripherals: &mut Peripherals,
++        _mmu: &mut Mmu,
++        _peripherals: &mut Peripherals,
+     ) -> Result<InterruptExecuted, UnknownError> {
+-        Ok(InterruptExecuted::NotExecuted)
++        // Sample MSR[EE] here rather than from a per-instruction hook: a hook
++        // runs *before* its instruction, so an `mtmsr` closing a critical section
++        // as the last instruction of a stride would otherwise leave the maskable
++        // requests enabled for this delivery.
++        let msr = cpu.read_register::<u32>(Ppc32Register::Msr)?;
++        self.exceptions.set_maskable_enabled(msr & MSR_EE != 0);
++        match self.exceptions.first_latched_and_enabled() {
++            Some(irqn) => self.insert_exception(cpu, irqn),
++            None => Ok(InterruptExecuted::NotExecuted),
++        }
+     }
+ 
+     fn latch(&mut self, event: ExceptionNumber) -> Result<(), ActivateIRQnError> {
+-        todo!("Mpc866mController::latch_event({})", event);
++        let irqn =
++            Mpc866mIRQn::try_from(event).map_err(|_| ActivateIRQnError::InvalidIRQn(event))?;
++        self.exceptions.latch(irqn);
++        Ok(())
+     }
+ 
+     fn execute(
+         &mut self,
+         irq: ExceptionNumber,
+         cpu: &mut dyn CpuBackend,
+-        mmu: &mut Mmu,
++        _mmu: &mut Mmu,
+     ) -> Result<InterruptExecuted, ActivateIRQnError> {
+-        todo!()
++        let irqn = Mpc866mIRQn::try_from(irq).map_err(|_| ActivateIRQnError::InvalidIRQn(irq))?;
++        Ok(self.insert_exception(cpu, irqn)?)
+     }
+ 
+-    fn tick(&mut self, cpu: &mut dyn CpuBackend, mmu: &mut Mmu) -> Result<(), UnknownError> {
+-        todo!()
++    fn tick(&mut self, _cpu: &mut dyn CpuBackend, _mmu: &mut Mmu) -> Result<(), UnknownError> {
++        // Periodic events (the decrementer) are driven by the System Interface
++        // Unit peripheral's tick, which receives the elapsed instruction count.
++        Ok(())
+     }
+ 
+     fn finish_interrupt(
+         &mut self,
+-        cpu: &mut dyn CpuBackend,
+-        mmu: &mut Mmu,
++        _cpu: &mut dyn CpuBackend,
++        _mmu: &mut Mmu,
+     ) -> Option<ExceptionNumber> {
++        // Under the Unicorn backend, return-from-interrupt is handled by the
++        // `rfi` branch of the PowerQUICC SIU's `mtspr_proxy` hook, which reads
++        // the shadow SRRs via `return_state`. Nothing in styx calls this method
++        // for this controller (the only caller of `EventController::finish_
++        // interrupt` is styx-nvic's own ARM hook), so rather than have a second
++        // mutator of the same state that would silently desynchronise the `rfi`
++        // path if it ever were called, report "no interrupt finished here".
+         None
+     }
+ 

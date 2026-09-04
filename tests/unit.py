@@ -3244,6 +3244,164 @@ class StyxPowerPCExecutionTests(unittest.TestCase):
         with self.assertRaises(exceptions.EmulationError):
             self._run_fuzz(b"bad!AAAAAAAA")
 
+    def _run_mpc860_blob(self, name, base, entry_offset=0x20):
+        """Load ``tests/decrementer/<name>.ppc.bin`` at ``base`` and run it.
+
+        The blobs are position-dependent: ``_vector`` is the first instruction,
+        so ``base`` must be the address of the exception vector the fixture is
+        written for, ``_start`` is the ``.balign 32`` block that follows at
+        ``entry_offset``, and the trailing nop is the exit point. Keep those in
+        step with the .s files.
+
+        The fixtures bound their own spin loops, so a regression in exception
+        delivery falls out of the loop with ``r3 == 0`` and fails the caller's
+        assertion. ``StyxEmulator.run()`` has no instruction budget, so an
+        unbounded loop here would hang the suite instead -- the exact failure
+        mode the MPC860 event-controller work exists to remove.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        code = (TESTS_DIR / "decrementer" / f"{name}.ppc.bin").read_bytes()
+        emu.write_code(base, code)
+        emu.write_register_content("pc", base + entry_offset)
+        emu.add_exit_point(base + len(code) - 4)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_mpc860_decrementer_exception_and_rfi(self):
+        """The one end-to-end exercise of the MPC866M exception path.
+
+        Covers the SIU tick advancing DEC, the underflow latching a
+        Decrementer, the controller vectoring to 0x900, and the `rfi` that
+        restores PC/MSR from the controller's shadow SRRs -- the SRRs are not
+        visible to the Unicorn backend, so `rfi` has to be emulated, and this
+        is the only test that runs long enough to reach a stride boundary and
+        actually take the exception.
+        """
+        emu = self._run_mpc860_blob("decrementer", 0x900)
+        self.assertEqual(emu.read_register_content("r3"), 0x5A)
+
+    def test_mpc860_decrementer_vectors_high_when_msr_ip_is_set(self):
+        """The same round trip with MSR[IP] left at its reset value.
+
+        The core comes out of reset with MSR[IP] set (reset MSR is 0x40), which
+        moves the exception table from 0x0 to 0xFFF00000. styx mapped that
+        region READ|WRITE -- the only one in the processor's map without EXEC --
+        so every exception taken before firmware cleared IP died on a
+        fetch-protection fault before its handler ran. Regression test for
+        patches/powerquicci-vectors.patch.
+        """
+        emu = self._run_mpc860_blob("decrementer_ip", 0xFFF00900)
+        self.assertEqual(emu.read_register_content("r3"), 0x5A)
+
+    def test_mpc860_immr_aperture_stays_non_executable(self):
+        """The other half of the vectors patch: only the vector page gets EXEC.
+
+        The IP=1 vector table needed to be fetchable, but the region holding it
+        spans 16 MiB and its lower 15 MiB is the IMMR aperture
+        (``immr::DEFAULT_BASE_ADDRESS`` is 0xFF000000) with no backing data.
+        Granting EXEC across the whole thing would delete the only fetch guard
+        over that range, so a wild branch into MMIO would run on through a
+        mapped page instead of stopping at the jump site -- which is the
+        difference between a crash report that names the jump and one that names
+        somewhere further along. The split is what keeps that guard, and this
+        pins it against being widened back.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        emu.write_register_content("pc", 0xFF000000)
+        emu.add_exit_point(0xFF000010)
+        with self.assertRaises(exceptions.EmulationFetchProtectedFailure):
+            emu.run()
+
+    def test_mpc860_reset_msr_sets_ip(self):
+        """The premise of the high-vector test, checked separately.
+
+        ``decrementer_ip`` only covers the 0xFFF00000 table while the core comes
+        up with MSR[IP] set; if that ever changes it should fail here rather than
+        silently stop testing the high vectors. Note this is Unicorn's power-on
+        default (0x40), not something the MPC8xx builder writes -- the builder's
+        own documented reset word has IP clear -- so it is a premise worth
+        pinning rather than an invariant.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        self.assertEqual(emu.read_register_content("msr") & 0x40, 0x40)
+
+    def test_mpc860_rfi_as_a_mode_switch_honours_the_guests_srr0(self):
+        """`mtspr SRR0/SRR1; rfi` must jump where the guest asked.
+
+        Firmware uses this to jump and set MSR atomically, with no exception
+        involved. The SIU hook owns the `rfi` opcode, so it has to mirror the
+        guest's `mtspr SRR0/SRR1` into the shadow pair it restores from;
+        otherwise the write lands only in a backend register `rfi` never reads.
+        """
+        emu = self._run_mpc860_blob("rfi_switch", 0x1000, entry_offset=0)
+        # 0xBAD would mean the `rfi` was swallowed and control fell through.
+        self.assertEqual(emu.read_register_content("r3"), 0x99)
+
+    def test_mpc860_decrementer_and_timebase_read_back(self):
+        """`mfspr DEC` / `mftb` are served from the SIU shadow, and DEC counts.
+
+        The other fixtures arm DEC with 100 -- under one 1000-instruction stride
+        -- so the first tick underflows and the countdown arithmetic is
+        indistinguishable from a constant. This one arms it with 0x10000 and
+        never underflows, so the subtraction, the timebase accumulation, and the
+        `mfspr`/`mftb` shadow branch all have to be right.
+
+        DEC is armed before the first stride boundary and TB starts at zero, so
+        both shadows move by the same amount every tick and their sum is exactly
+        the armed value.
+        """
+        emu = self._run_mpc860_blob("dec_readback", 0x1000, entry_offset=0)
+        dec = emu.read_register_content("r3")
+        tbl = emu.read_register_content("r4")
+        self.assertGreater(tbl, 0, "timebase never advanced")
+        self.assertGreater(dec, 0, "decrementer underflowed; the fixture is too short")
+        self.assertEqual(dec + tbl, 0x10000)
+
+    def test_mpc860_handler_can_redirect_rfi_by_writing_srr0(self):
+        """A handler's own `mtspr SRR0` must win over the exception-entry value.
+
+        This is the "skip the faulting instruction" / "resume a different task"
+        idiom, and it only works if the shadow SRR pair the SIU's `rfi` branch
+        restores from is *written* by the guest's `mtspr`, not merely saved on
+        entry and replayed.
+        """
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        code = (TESTS_DIR / "decrementer" / "decrementer.ppc.bin").read_bytes()
+        emu.write_code(0x900, code)
+        # Rewrite the handler's three DEC-disarm instructions into
+        # `lis 5,0; ori 5,5,0x914; mtspr SRR0,5`, so it returns to 0x914 -- the
+        # `.balign 32` padding between `_vector` and `_start` -- instead of to
+        # the interrupted spin loop.
+        emu.write_code(0x904, struct.pack(">III", 0x3CA00000, 0x60A50914, 0x7CBA03A6))
+        # 0x914: `li 4,0x77; b _done`. Only reached if the redirect took effect;
+        # if `rfi` ignored it, control resumes in the loop, sees r3 != 0, and
+        # branches to _done with r4 untouched.
+        emu.write_code(0x914, struct.pack(">II", 0x38800077, 0x48000034))
+        emu.write_register_content("pc", 0x920)
+        emu.write_register_content("r4", 0)
+        emu.add_exit_point(0x900 + len(code) - 4)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        self.assertEqual(emu.read_register_content("r3"), 0x5A)
+        self.assertEqual(emu.read_register_content("r4"), 0x77)
+
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxFuzzScenarioTests(unittest.TestCase):
