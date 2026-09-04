@@ -3385,9 +3385,7 @@ class StyxPowerPCExecutionTests(unittest.TestCase):
         # `lis 5,0; ori 5,5,0x914; mtspr SRR0,5`, so it returns to 0x914 -- the
         # `.balign 32` padding between `_vector` and `_start` -- instead of to
         # the interrupted spin loop.
-        emu.write_code(
-            0x904, struct.pack(">III", 0x3CA00000, 0x60A50914, 0x7CBA03A6)
-        )
+        emu.write_code(0x904, struct.pack(">III", 0x3CA00000, 0x60A50914, 0x7CBA03A6))
         # 0x914: `li 4,0x77; b _done`. Only reached if the redirect took effect;
         # if `rfi` ignored it, control resumes in the loop, sees r3 != 0, and
         # branches to _done with r4 untouched.
