@@ -1,10 +1,11 @@
+import itertools
 import logging
 import typing
 
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform
+from ....platforms import Architecture, Byteorder, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
@@ -90,6 +91,7 @@ PT_NOTE = 4  # Points to auxiliary information
 PT_SHLIB = 5  # Reserved value; I think it's unused
 PT_PHDR = 6  # Points to program header table
 PT_TLS = 7  # Indicates need for thread-local storage
+STT_TLS = 6  # Symbol names a thread-local; its value is a TLS-block offset
 PT_LOOS = 0x60000000  # Start of OS-specific types
 PT_GNU_EH_FRAME = 0x6474E550  # GNU-specific: Points to exception handler segment
 PT_GNU_STACK = 0x6474E551  # GNU-specific: Describes stack permissions
@@ -103,6 +105,8 @@ PT_HIPROC = 0x7FFFFFFF  # End of processor-specific types
 SHF_WRITE = 0x1  # Section is writable
 SHF_ALLOC = 0x2  # Section occupies memory durring execution
 SHF_EXECINSTR = 0x4  # Section is executable
+SHF_TLS = 0x400  # Section holds thread-local storage
+SHT_NOBITS = 8  # Section occupies no file space (.bss/.tbss)
 
 # Program header flags
 PF_X = 0x1  # Segment is executable
@@ -179,6 +183,24 @@ class ElfExecutable(Executable):
         self._static_relas: typing.List[ElfRela] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
         self._relocator: typing.Optional[ElfRelocator] = None
+        # Addresses of TLS-descriptor pairs written by the relocator. Their
+        # resolver word is null at load and filled in by
+        # bind_tlsdesc_resolver once a model library is linked.
+        self._tlsdesc_descriptors: typing.List[int] = list()
+        # Synthetic GOT for object files, whose descriptor slots no linker
+        # built. Keyed by symbol so several call sites share one descriptor.
+        self._tlsdesc_got: typing.Dict[int, int] = dict()
+        self._tlsdesc_got_next: typing.Optional[int] = None
+        # PT_TLS: the module's thread-local initialization image, its full
+        # size including .tbss, and its required alignment. Empty when the
+        # image declares no thread-locals.
+        self._tls_image: bytes = b""
+        self._tls_size: int = 0
+        self._tls_align: int = 1
+        # Resolver the descriptors above should carry, remembered so that a
+        # descriptor relocated (or re-relocated) after binding is not written
+        # back to null.
+        self._tlsdesc_resolver: int = 0
 
         # Read the entire image out of the file.
         image = file.read()
@@ -543,9 +565,17 @@ class ElfExecutable(Executable):
                 # Useful for the dynamic linker, but not for us
                 pass
             elif phdr_type == PT_TLS:
-                # TLS Segment
-                # Your analysis is about to get nasty :(
-                log.debug("Program includes thread-local storage")
+                # This module's thread-local initialization image: `filesz`
+                # initialized bytes then `memsz - filesz` zeroes (.tbss). A
+                # TLS symbol's st_value indexes into it, so whoever hands out
+                # thread-local storage can seed it from here.
+                self._tls_image = bytes(phdr.content)[: phdr.physical_size]
+                self._tls_size = int(phdr.virtual_size)
+                self._tls_align = max(1, int(phdr.alignment))
+                log.debug(
+                    f"Program includes thread-local storage: "
+                    f"{len(self._tls_image):#x} init bytes of {self._tls_size:#x}"
+                )
             elif phdr_type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
@@ -624,6 +654,14 @@ class ElfExecutable(Executable):
         section_data_offsets: typing.Dict[int, int] = dict()
         section_rodata_offsets: typing.Dict[int, int] = dict()
 
+        # TLS sections are a template, not process memory: st_value is an
+        # offset within the module's TLS block, not the image, so they get
+        # their own layout, used by the symbol loop below. They still go into
+        # the data blob as before -- dead bytes, but excluding them would
+        # shift every offset in existing images.
+        tls = bytearray()
+        tls_section_offsets: typing.Dict[int, int] = dict()
+
         # Basically every architecture needs a GOT;
         # they will have relocations that reference either the GOT itself,
         # or a symbol's GOT slot
@@ -635,6 +673,23 @@ class ElfExecutable(Executable):
                 # Section is not allocated;
                 # It's metadata that won't get referenced later.
                 continue
+
+            if (section.flags & SHF_TLS) != 0:
+                skew = len(tls) % section.alignment
+                if skew != 0:
+                    tls.extend(b"\0" * (section.alignment - skew))
+                tls_section_offsets[index] = len(tls)
+                self._tls_align = max(self._tls_align, section.alignment)
+                if section.type == SHT_NOBITS:
+                    # .tbss occupies no file space; it contributes zeroes.
+                    tls.extend(b"\0" * section.original_size)
+                else:
+                    tls.extend(
+                        image[
+                            section.file_offset : section.file_offset
+                            + section.original_size
+                        ]
+                    )
 
             if (section.flags & SHF_EXECINSTR) != 0:
                 # Section is executable
@@ -693,8 +748,17 @@ class ElfExecutable(Executable):
         if len(data) > 0:
             self[data_offset] = BytesValue(bytes(data), None)
 
+        if len(tls) > 0:
+            self._tls_image = bytes(tls)
+            self._tls_size = len(tls)
+
         for sym in elf.symbols:
-            if sym.shndx in self._section_offsets:
+            if sym.type.value == STT_TLS:
+                # Relative to the TLS block, not the image: adding the
+                # section's image offset would point outside the block.
+                if sym.shndx in tls_section_offsets:
+                    sym.value += tls_section_offsets[sym.shndx]
+            elif sym.shndx in self._section_offsets:
                 sym.value += self._section_offsets[sym.shndx]
 
     def _extract_dtags(self, elf):
@@ -1000,6 +1064,46 @@ class ElfExecutable(Executable):
                 if SHN_UNDEF < sym.shndx < SHN_LORESERVE:
                     self.update_symbol_value(sym, sym.value, rebase=False)
 
+        self._relocate_undefined_tls_descriptors()
+
+    def _relocate_undefined_tls_descriptors(self) -> None:
+        """Relocate and record TLS descriptors whose thread-local is external.
+
+        The loops above skip undefined symbols, leaving them for `link_elf`.
+        That is fine for a data or function reference -- an unrelocated one
+        reads or calls null and the caller notices -- but a descriptor's first
+        word is a resolver called INDIRECTLY, so a null one jumps to address
+        zero, and an unrecorded descriptor cannot be bound later either.
+
+        Relocating them here enrolls them for binding, so the call reaches the
+        resolver. The real block offset is still unknown and every such access
+        aliases onto one slot, hence the warning. A definer linked later
+        re-relocates through `update_symbol_value` and writes the true offset.
+        """
+        if self._relocator is None:
+            return
+        unresolved: typing.Dict[str, int] = dict()
+        for rela in itertools.chain(self._dynamic_relas, self._static_relas):
+            if rela.symbol.defined:
+                continue
+            if not (
+                self._relocator.is_tls_descriptor(rela)
+                or self._relocator.is_tls_descriptor_reference(rela)
+            ):
+                continue
+            self._relocator.relocate(self, rela)
+            name = rela.symbol.name or f"<symbol {rela.symbol.idx}>"
+            unresolved[name] = unresolved.get(name, 0) + 1
+        if unresolved:
+            listed = ", ".join(sorted(unresolved))
+            log.warning(
+                f"{sum(unresolved.values())} TLS descriptor(s) reference "
+                f"thread-locals no loaded module defines ({listed}). They are "
+                f"bound to the resolver so they no longer call address zero, "
+                f"but their block offsets are unknown and all such accesses "
+                f"share one slot. Load the defining module to resolve them."
+            )
+
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool
     ) -> typing.List[ElfSymbol]:
@@ -1119,6 +1223,79 @@ class ElfExecutable(Executable):
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
+    @property
+    def tlsdesc_descriptors(self) -> typing.List[int]:
+        """Addresses of the TLS descriptors this image carries."""
+        return list(self._tlsdesc_descriptors)
+
+    @property
+    def tls_image(self) -> bytes:
+        """The module's thread-local initialization image, zero-extended to
+        its full size (`memsz`), or empty if it declares no thread-locals."""
+        if not self._tls_size:
+            return b""
+        return self._tls_image.ljust(self._tls_size, b"\x00")
+
+    def tlsdesc_got_slot(self, symbol_index: int) -> int:
+        """Address of the TLS descriptor for a symbol, creating it if needed.
+
+        An object file has no GOT -- building one is the linker's job -- so
+        the missing slots go past the loaded sections, one per symbol, and
+        grow this image's capacity so they are mapped with everything else.
+        Keyed and idempotent, since `update_symbol_value` re-relocates every
+        rela attached to a symbol.
+        """
+        if symbol_index in self._tlsdesc_got:
+            return self._tlsdesc_got[symbol_index]
+        if self.platform is None:
+            raise ConfigurationError(
+                "No platform defined; cannot size a TLS descriptor"
+            )
+        size = 2 * PlatformDef.for_platform(self.platform).address_size
+        if self._tlsdesc_got_next is None:
+            # Start on a page of its own rather than abutting the last
+            # section: a synthetic region overlapping real content would be
+            # far harder to recognise in a memory dump than a gap.
+            self._tlsdesc_got_next = self._page_align(self.size, up=True)
+        offset = self._tlsdesc_got_next
+        self._tlsdesc_got_next += size
+        self.size = max(self.size, offset + size)
+        self[offset] = BytesValue(b"\0" * size, "synthetic TLS descriptor")
+        address = self.address + offset
+        self._tlsdesc_got[symbol_index] = address
+        return address
+
+    def note_tlsdesc_descriptor(self, address: int) -> int:
+        """Record a TLS descriptor and hand back the resolver it should carry.
+
+        Relocation is not one-shot: `update_symbol_value` re-relocates every
+        rela attached to a symbol, so this can be called repeatedly for the
+        same descriptor. Returning the bound resolver (null until a model
+        library is linked) keeps the relocator idempotent -- a re-relocation
+        after binding rewrites the same resolver instead of nulling it.
+        """
+        if address not in self._tlsdesc_descriptors:
+            self._tlsdesc_descriptors.append(address)
+        return self._tlsdesc_resolver
+
+    def bind_tlsdesc_resolver(self, address: int) -> None:
+        """Point every TLS descriptor's resolver word at `address`.
+
+        Called once a model library is linked, which is the first moment a
+        resolver has an address at all: the descriptors are relocated at load,
+        long before that. Without this the resolver word stays null and code
+        built with -mtls-dialect=gnu2 calls address zero.
+        """
+        self._tlsdesc_resolver = address
+        if not self._tlsdesc_descriptors:
+            return
+        if self.platform is None:
+            log.error("No platform defined; cannot bind the TLS descriptor resolver!")
+            return
+        size = PlatformDef.for_platform(self.platform).address_size
+        for descriptor in self._tlsdesc_descriptors:
+            self.write_int(descriptor, address, size, self.platform.byteorder)
+
     def link_elf(
         self, elf: "ElfExecutable", dynamic: bool = True, all_syms: bool = False
     ) -> None:
@@ -1166,7 +1343,15 @@ class ElfExecutable(Executable):
                 continue
 
             o_sym = o_syms[0]
-            self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
+            if o_sym.type == STT_TLS:
+                # A block offset, not an address: rebasing would leave the
+                # delta between the two load addresses, which indexes nothing
+                # -- and goes negative if the definer loaded lower.
+                self.update_symbol_value(my_sym, o_sym.value, rebase=False)
+            else:
+                self.update_symbol_value(
+                    my_sym, o_sym.value + o_sym.baseaddr, rebase=True
+                )
 
     def __getstate__(self):
         # Override the default pickling mechanism.

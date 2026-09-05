@@ -10,6 +10,7 @@ from ..memory.elf import ElfExecutable
 from ..state import BytesValue
 from .cstd import CStdModel
 from .model import Model
+from .tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 
 log = logging.getLogger(__name__)
 
@@ -90,6 +91,8 @@ class ElfModelLibrary(Memory):
                 )
                 data_offset += model.static_space_required
 
+        self._share_tls_arena()
+
     @property
     @abc.abstractmethod
     def variables(self) -> typing.List[typing.Tuple[str, int]]:
@@ -134,6 +137,78 @@ class ElfModelLibrary(Memory):
             if model.unsupported:
                 log.warning(f"Harness requires {model.name}, which is unsupported")
             elf.update_symbol_value(sym, model._address)
+
+        # The models hand out TLS storage but cannot reach the ELF; this is
+        # the one place holding both, and without it every thread-local reads
+        # zero rather than its initializer.
+        self._seed_tls_image(elf)
+
+        # Descriptors carry a resolver address rather than a symbol, so no
+        # relocation reaches them; they load with a null resolver and are
+        # bound here, the first point at which the model has an address.
+        tlsdesc = self.models.get("__tlsdesc_resolve")
+        if tlsdesc is not None:
+            elf.bind_tlsdesc_resolver(tlsdesc._address)
+        elif elf.tlsdesc_descriptors:
+            # Silence here would surface much later as a call to address zero,
+            # with nothing tying it back to TLS.
+            log.warning(
+                f"{len(elf.tlsdesc_descriptors)} TLS descriptors need a resolver, "
+                f"but this library provides no __tlsdesc_resolve model; "
+                f"thread-local accesses will call address zero"
+            )
+
+    def _share_tls_arena(self) -> None:
+        """Hand every borrowing TLS model the owner's storage.
+
+        gcc picks a TLS dialect per translation unit, so one image can reach
+        the same thread-local through both models. Both reduce to an offset
+        within the module the relocator reports, so sharing that module's
+        arena keeps them consistent; separate pools silently disagree.
+
+        Which model owns the storage is a role, not a function name, so it is
+        asked for by role -- see `models/tls.py`.
+        """
+        arena: typing.Optional[int] = None
+        size = 0
+        for model in self.models.values():
+            if isinstance(model, TlsArenaOwner):
+                arena = model.tls_arena_address_for(RELOCATED_TLS_MODULE)
+                size = model.TLS_ARENA_SIZE
+                break
+        if arena is None:
+            # No owner in this library, or the owner reserved no buffer.
+            return
+        for model in self.models.values():
+            if isinstance(model, TlsArenaBorrower):
+                model.tls_arena_address = arena
+                model.tls_arena_size = size
+
+    def _seed_tls_image(self, elf: ElfExecutable) -> None:
+        """Copy the image's PT_TLS initialization data into the storage that
+        serves thread-locals, at the offset its owner says the image belongs."""
+        image = elf.tls_image
+        if not image:
+            return
+        for model in self.models.values():
+            if not isinstance(model, TlsArenaOwner):
+                continue
+            if model.static_buffer_address is None:
+                continue
+            room = min(
+                model.static_space_required - model.tls_image_offset,
+                model.tls_image_capacity,
+            )
+            if room <= 0:
+                continue
+            if len(image) > room:
+                log.warning(
+                    f"{model.name}: TLS image is {len(image):#x} bytes but only "
+                    f"{room:#x} fit; thread-locals past the end read zero"
+                )
+            chunk = image[:room]
+            base = model.static_buffer_address - self.address + model.tls_image_offset
+            self[base] = BytesValue(chunk, None)
 
     def apply(self, emulator: Emulator) -> None:
         super().apply(emulator)

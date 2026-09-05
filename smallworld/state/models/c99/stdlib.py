@@ -9,6 +9,7 @@ from smallworld.state.models.funcptr import FunctionPointer
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
+from ..tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 from .utils import _emu_strlen
 
 logger = logging.getLogger("__name__")
@@ -461,7 +462,40 @@ class Malloc(CStdModel):
         self.set_return_value(emulator, res)
 
 
-class TlsGetAddr(CStdModel):
+#: Bytes kept clear at the end of each half-arena so that a wide access from
+#: the last reachable slot still lands on mapped storage.
+_TLS_HEADROOM = 0x40
+
+
+def _as_signed(value: int, size: int) -> int:
+    """Reinterpret an unsigned word of `size` bytes as two's-complement."""
+    limit = 1 << (size * 8 - 1)
+    return value - 2 * limit if value >= limit else value
+
+
+def _tls_slot_span(arena_size: int) -> int:
+    """How many distinct block offsets one half of an arena can hold."""
+    return max(1, arena_size // 2 - _TLS_HEADROOM)
+
+
+def _tls_arena_slot(offset: int, arena_size: int) -> int:
+    """Map a sign-interpreted block offset onto a bounded slot in its arena.
+
+    Both TLS models go through this, so one thread-local reached through
+    either dialect lands on the same bytes.
+
+    Negative offsets are ordinary -- an addend like `x - 8` produces one --
+    and get their own half of the arena, since folding them in with the
+    positives drops them onto legitimate offsets. Garbage arguments have the
+    top bit set and land there too.
+    """
+    span = _tls_slot_span(arena_size)
+    if offset < 0:
+        return arena_size // 2 + ((-offset - 1) % span)
+    return offset % span
+
+
+class TlsGetAddr(CStdModel, TlsArenaOwner):
     # void *__tls_get_addr(tls_index *ti);  -- the glibc dynamic-TLS resolver.
     #
     # tls_index is { unsigned long ti_module; unsigned long ti_offset; } and the
@@ -485,7 +519,14 @@ class TlsGetAddr(CStdModel):
 
     TLS_ARENA_SIZE = 0x1000  # bytes of scratch per module arena
     TLS_MAX_MODULES = 8  # distinct module arenas (extra modules alias in via %)
-    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
+    #: Where a module's PT_TLS initialization image belongs in the pool. The
+    #: relocator reports every module as id 1 (see R_X86_64_DTPMOD64), so the
+    #: image seeds that module's arena; without it every thread-local reads
+    #: zero rather than its initializer.
+    tls_image_offset = TLS_ARENA_SIZE * (RELOCATED_TLS_MODULE % TLS_MAX_MODULES)
+    #: A thread-local can only ever be read within its own arena (the model
+    #: clamps to one), so that -- not the whole pool -- is the room an image has.
+    tls_image_capacity = _tls_slot_span(TLS_ARENA_SIZE)
     # Reserved once by the library, which sets self.static_buffer_address and maps
     # the (zeroed) region; sized to hold the whole arena pool.
     static_space_required = TLS_ARENA_SIZE * TLS_MAX_MODULES
@@ -495,6 +536,11 @@ class TlsGetAddr(CStdModel):
         # Kept for interface compatibility (the library assigns it, like
         # malloc/calloc), but TLS no longer draws from the heap.
         self.heap: typing.Optional[Heap] = None
+
+    @classmethod
+    def module_arena_offset(cls, module: int) -> int:
+        """Offset within the pool at which ``module``'s arena begins."""
+        return cls.TLS_ARENA_SIZE * (module % cls.TLS_MAX_MODULES)
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
@@ -508,14 +554,124 @@ class TlsGetAddr(CStdModel):
         module = self.read_integer(ti, ptr, emulator)
         offset = self.read_integer(ti + self.platdef.address_size, ptr, emulator)
         # Map (module, offset) into the bounded arena pool: pick a module arena
-        # (garbage/overflow modules alias via %), and index by offset within it,
-        # clamped so even a wide access from a near-end offset stays mapped.
+        # (garbage/overflow modules alias via %), then index by offset within
+        # it through the shared mapping the descriptor model also uses.
         slot = module % self.TLS_MAX_MODULES
-        off = min(
-            offset % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM
+        off = _tls_arena_slot(
+            _as_signed(offset, self.platdef.address_size), self.TLS_ARENA_SIZE
         )
         addr = self.static_buffer_address + slot * self.TLS_ARENA_SIZE + off
         self.set_return_value(emulator, addr)
+
+
+class TlsDescResolve(CStdModel, TlsArenaBorrower):
+    # The TLS-descriptor resolver, for code built with -mtls-dialect=gnu2:
+    #     lea  x@TLSDESC(%rip), %rax
+    #     call *x@TLSCALL(%rax)      # descriptor address in, offset out
+    #     mov  %fs:(%rax), ...       # or: mov %fs:0x0,%rdx; add %rdx,%rax
+    # so this returns a thread-pointer-RELATIVE offset, where TlsGetAddr
+    # returns the address itself. gcc emits both completions, sometimes in one
+    # function; they agree only when [thread_pointer] == thread_pointer, which
+    # apply() arranges.
+    #
+    # Storage is TlsGetAddr's arena for the module the relocator reports. The
+    # descriptor ABI has no module field, which is why sharing works: both
+    # dialects reduce to a block offset within that one module's block, so a
+    # thread-local reached either way lands on the same bytes.
+    name = "__tlsdesc_resolve"
+    # Not a C function: the descriptor ABI passes its argument in a fixed
+    # register rather than the usual argument registers, so there is nothing
+    # for the generic argument machinery to describe.
+    argument_types: typing.List[ArgumentType] = []
+    return_type = ArgumentType.POINTER
+
+    # TlsArenaBorrower: reserves nothing, and reads TlsGetAddr's arena, so
+    # that a thread-local written through one dialect is visible through the
+    # other. The library assigns it, like malloc's heap.
+    static_space_required = 0
+
+    #: Register holding the descriptor address on entry and the offset on exit.
+    descriptor_register: str = ""
+    #: Register holding the thread pointer the returned offset is relative to.
+    thread_pointer_register: str = ""
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        super().apply(emulator)
+        # Install the TCB self-pointer before any code runs: gcc hoists the
+        # `mov %fs:0x0,%rdx` that reads it above the descriptor call, so
+        # writing it during the call would be too late.
+        try:
+            thread_pointer = emulator.read_register(self.thread_pointer_register)
+        except Exception:
+            return
+        if thread_pointer:
+            # A harness that maps its own TCB may not be applied yet, so
+            # make sure the word exists. map_memory only fills gaps, so an
+            # existing or later TCB is undisturbed.
+            emulator.map_memory(thread_pointer, self.platdef.address_size)
+        self._ensure_tcb_self_pointer(emulator, thread_pointer)
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        if self.tls_arena_address is None or self.tls_arena_size <= 0:
+            raise exceptions.ConfigurationError(
+                "__tlsdesc_resolve needs the shared TLS arena; none was assigned"
+            )
+        if not self.descriptor_register or not self.thread_pointer_register:
+            raise exceptions.ConfigurationError(
+                "__tlsdesc_resolve has no descriptor/thread-pointer register "
+                "for this platform"
+            )
+        desc = emulator.read_register(self.descriptor_register)
+        argument = self.read_integer(
+            desc + self.platdef.address_size, ArgumentType.POINTER, emulator
+        )
+        off = _tls_arena_slot(
+            _as_signed(argument, self.platdef.address_size), self.tls_arena_size
+        )
+        addr = self.tls_arena_address + off
+        try:
+            thread_pointer = emulator.read_register(self.thread_pointer_register)
+        except exceptions.UnsupportedRegisterError:
+            # Some backends (ghidra, triton) do not model segment bases at all.
+            # Treating the thread pointer as unset degrades to handing back the
+            # arena address itself, which is what happens on every backend when
+            # nothing has set one.
+            thread_pointer = 0
+        self._ensure_tcb_self_pointer(emulator, thread_pointer)
+        # Wraps for a thread pointer above the arena, which is the normal
+        # variant-II layout: the caller's add wraps back to the same address.
+        emulator.write_register(
+            self.descriptor_register, (addr - thread_pointer) & self._long_inv_mask
+        )
+
+    def _ensure_tcb_self_pointer(
+        self, emulator: emulators.Emulator, thread_pointer: int
+    ) -> None:
+        """Make the word at the thread pointer point at the thread pointer.
+
+        gcc completes a descriptor call either by adding the thread-pointer
+        register or by adding the word AT it, and emits both. glibc's TCB
+        starts with a self-pointer, which is what makes the two agree;
+        nothing else here sets one up, so the second form would otherwise
+        add zero and land the access somewhere unrelated but valid-looking.
+
+        Best effort: an unset or unmapped thread pointer is left alone.
+        """
+        if not thread_pointer:
+            return
+        size = self.platdef.address_size
+        try:
+            if self.read_integer(thread_pointer, ArgumentType.POINTER, emulator) == (
+                thread_pointer
+            ):
+                return
+            emulator.write_memory(
+                thread_pointer,
+                thread_pointer.to_bytes(size, self.platdef.byteorder.value),
+            )
+        except Exception as e:
+            logger.debug(f"could not install a TCB self-pointer: {e!r}")
 
 
 class Mblen(CStdModel):
@@ -818,6 +974,7 @@ __all__ = [
     "Getenv",
     "Malloc",
     "TlsGetAddr",
+    "TlsDescResolve",
     "Mblen",
     "Mbstowcs",
     "Mbtowc",

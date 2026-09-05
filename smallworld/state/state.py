@@ -863,7 +863,22 @@ class Machine(StatefulSet):
             for expr in self._constraints:
                 emulator.add_constraint(expr)
 
-        return super().apply(emulator)
+        # Apply CPUs first. A StatefulSet iterates a set, so member order is
+        # arbitrary and varies between processes; anything whose apply() reads
+        # a register -- the TLS resolver does -- would otherwise succeed or
+        # fail depending on where the CPU landed. Registers depend on nothing
+        # else, so going first is always safe.
+        cpus = self.members(state.cpus.CPU)
+        for cpu in cpus:
+            logger.debug(f"applying CPU state {cpu} to emulator {emulator}")
+            cpu.apply(emulator)
+        for stateful in self:
+            if stateful in cpus:
+                continue
+            logger.debug(
+                f"applying state {stateful} of type {type(stateful)} to emulator {emulator}"
+            )
+            stateful.apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exit_points = emulator.get_exit_points()

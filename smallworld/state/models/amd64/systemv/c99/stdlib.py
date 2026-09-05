@@ -25,6 +25,7 @@ from ....c99 import (
     Realloc,
     Srand,
     System,
+    TlsDescResolve,
     TlsGetAddr,
     Wcstombs,
     Wctomb,
@@ -94,6 +95,14 @@ class AMD64SysVMalloc(Malloc, AMD64SysVModel):
 
 class AMD64SysVTlsGetAddr(TlsGetAddr, AMD64SysVModel):
     pass
+
+
+class AMD64SysVTlsDescResolve(TlsDescResolve, AMD64SysVModel):
+    # The x86-64 TLS-descriptor ABI: %rax carries the descriptor address in and
+    # the thread-pointer-relative offset out; the thread pointer is %fs, whose
+    # base this platform models as the fsbase register.
+    descriptor_register = "rax"
+    thread_pointer_register = "fsbase"
 
 
 class AMD64SysVQSort(QSort, AMD64SysVModel):
