@@ -1764,7 +1764,8 @@ class Ttyname(FDModel):
             try:
                 file = self._fdmgr.get_fd(fd)
                 out = (
-                    file.name.encode("utf-8")[0 : self.static_space_required - 1] + b"\0"
+                    file.name.encode("utf-8")[0 : self.static_space_required - 1]
+                    + b"\0"
                 )
                 emulator.write_memory(self.static_buffer_address, out)
                 self.set_return_value(emulator, self.static_buffer_address)
