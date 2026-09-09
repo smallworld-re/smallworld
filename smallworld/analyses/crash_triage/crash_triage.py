@@ -321,7 +321,10 @@ class CrashTriage(analysis.Analysis):
 
             if "_" in label:
                 addr_str = label.split("_")[1]
-                if addr_str in mem_labels or addr_str in unk_mem_labels:
+                # mem_labels was normalized to "0x"-prefixed hex above, while
+                # unk_mem_labels holds raw hex; match addr_str against both
+                # forms so SmallWorld's memory_XXXX labels resolve too.
+                if ("0x" + addr_str) in mem_labels or addr_str in unk_mem_labels:
                     addr = int(addr_str, 16)
 
             if addr is not None:
