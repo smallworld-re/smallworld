@@ -489,9 +489,9 @@ class Execvp(Execv):
 
 
 class Execve(CStdModel):
-    name = "execv"
+    name = "execve"
 
-    # int execv(const char *, char *const argv[], char *const envp[]);
+    # int execve(const char *, char *const argv[], char *const envp[]);
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
@@ -851,6 +851,8 @@ class Getlogin(ProcInfoModel):
 
 
 class GetloginR(ProcInfoModel):
+    name = "getlogin_r"
+
     # int *getlogin_r(char *, size_t)
     argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.POINTER
@@ -1749,7 +1751,7 @@ class Ttyname(FDModel):
     # We don't model that correctly.
     imprecise = True
 
-    static_space_needed = 16
+    static_space_required = 16
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
@@ -1762,7 +1764,7 @@ class Ttyname(FDModel):
             try:
                 file = self._fdmgr.get_fd(fd)
                 out = (
-                    file.name.encode("utf-8")[0 : self.static_space_needed - 1] + b"\0"
+                    file.name.encode("utf-8")[0 : self.static_space_required - 1] + b"\0"
                 )
                 emulator.write_memory(self.static_buffer_address, out)
                 self.set_return_value(emulator, self.static_buffer_address)

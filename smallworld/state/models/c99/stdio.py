@@ -24,7 +24,7 @@ class StdioModel(CStdModel):
         writable = False
         create = False
         truncate = False
-        append = True
+        append = False
         if mode in ("r", "rb"):
             # - Open for reading
             # - Fails if doesn't exist
@@ -67,6 +67,7 @@ class StdioModel(CStdModel):
             readable = True
             writable = True
             create = True
+            append = True
         else:
             raise FDIOError(f"Unknown mode {mode}")
 
@@ -487,8 +488,8 @@ class Fread(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        i = 0
-        for i in range(0, amt):
+        count = 0
+        for _ in range(0, amt):
             data = file.read(size)
             if len(data) != size:
                 if file.seekable():
@@ -497,8 +498,9 @@ class Fread(StdioModel):
 
             emulator.write_memory(dst, data)
             dst += size
+            count += 1
 
-        self.set_return_value(emulator, i)
+        self.set_return_value(emulator, count)
 
 
 class Fscanf(StdioModel):
