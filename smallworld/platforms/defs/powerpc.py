@@ -94,7 +94,7 @@ class PowerPCPlatformDef(PlatformDef):
 
     # Collect branch to CTR
     _branch_to_ctr_all = (
-        _branch_to_ctr_neutral | _branch_to_ctr_likely | _branch_to_lr_unlikely
+        _branch_to_ctr_neutral | _branch_to_ctr_likely | _branch_to_ctr_unlikely
     )
 
     # Finally, collect all conditional branch mnemonics

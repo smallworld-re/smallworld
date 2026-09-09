@@ -65,6 +65,14 @@ class ARMPlatformDef(PlatformDef):
         "cbnz",
     }
 
+    # cbz/cbnz test a register directly against zero rather than the condition
+    # flags, so they are compare-branches (mirroring AMD64's jrcxz/jecxz/jcxz,
+    # which also appear in both sets).
+    compare_branch_mnemonics = {
+        "cbz",
+        "cbnz",
+    }
+
     pc_register = "pc"
     sp_register = "sp"
 

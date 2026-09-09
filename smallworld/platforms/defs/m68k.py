@@ -30,22 +30,28 @@ class M68K(PlatformDef):
     # For now, SmallWorld is assuming this feature isn't really used.
 
     conditional_branch_mnemonics = {
-        # Conditional branches
-        "bcc",
-        "bcs",
-        "beq",
-        "bge",
-        "bgt",
-        "bhi",
-        "ble",
-        "bls",
-        "blt",
-        "bmi",
-        "bne",
-        "bpl",
-        "bvc",
-        "bvs",
-        # Decrement and Conditional Branch
+        # Conditional branches. capstone emits Bcc with a .b/.w/.l
+        # displacement-size suffix (e.g. "beq.b"); there is no bare form.
+        f"{cc}.{sz}"
+        for cc in (
+            "bcc",
+            "bcs",
+            "beq",
+            "bge",
+            "bgt",
+            "bhi",
+            "ble",
+            "bls",
+            "blt",
+            "bmi",
+            "bne",
+            "bpl",
+            "bvc",
+            "bvs",
+        )
+        for sz in ("b", "w", "l")
+    } | {
+        # Decrement and Conditional Branch; capstone emits these with no suffix.
         "dbcc",
         "dbcs",
         "dbeq",
@@ -63,12 +69,11 @@ class M68K(PlatformDef):
     }
 
     compare_mnemonics = {
-        "cmpb",
-        "cmpw",
-        "cmpl",
-        "tstb",
-        "tstw",
-        "tstl",
+        # capstone spells these with a dotted size suffix (e.g. "cmp.b"), not a
+        # merged size letter.
+        f"{c}.{sz}"
+        for c in ("cmp", "tst")
+        for sz in ("b", "w", "l")
     }
 
     pc_register = "pc"
