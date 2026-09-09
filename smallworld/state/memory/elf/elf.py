@@ -1141,7 +1141,7 @@ class ElfExecutable(Executable):
         syms = self._get_symbols(name, dynamic)
         if len(syms) > 1:
             for sym in syms:
-                if sym.value != syms[0].value and sym.baseaddr != syms[0].baseaddr:
+                if sym.value != syms[0].value or sym.baseaddr != syms[0].baseaddr:
                     raise ConfigurationError(f"Conflicting syms named {name}")
 
         val = syms[0].value

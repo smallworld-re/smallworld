@@ -98,6 +98,16 @@ class PEExecutable(Executable):
             else:
                 self.platform = hdr_platform
             self.platdef = PlatformDef.for_platform(hdr_platform)
+        else:
+            # ignore_platform overrides recovering the platform from the
+            # header, so the caller must supply one explicitly. Without it we
+            # have no byteorder/platdef and cannot, e.g., apply relocations.
+            if self.platform is None:
+                raise ConfigurationError(
+                    "ignore_platform=True requires an explicit platform, "
+                    "but none was provided"
+                )
+            self.platdef = PlatformDef.for_platform(self.platform)
 
         # Determine the file base address
         self._file_base = pe.imagebase
