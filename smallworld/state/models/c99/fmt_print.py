@@ -180,7 +180,7 @@ scifloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]*|\\.[*])?)(L|)(g|G
 # Allowed conversions:
 # - 'a': Hexadecimal floating-point, lowercase
 # - 'A': Hexadecimal floating-point, uppercase
-hexfloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]+|\\.[*])?)(L|)(g|G)")
+hexfloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]+|\\.[*])?)(L|)(a|A)")
 
 # Character conversion
 #

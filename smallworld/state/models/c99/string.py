@@ -570,11 +570,23 @@ class Strtok(CStdModel):
             self.ptr = 0
             return
 
-        # Non-empty string; we will have a token.
-        self.set_return_value(emulator, ptr1)
-
         needles = {x for x in bytes2}
-        for i in range(0, len1):
+
+        # C strtok skips any leading delimiters before the token starts.
+        start = 0
+        while start < len1 and bytes1[start] in needles:
+            start += 1
+
+        if start == len1:
+            # Remaining string is all delimiters; no token left.
+            self.set_return_value(emulator, 0)
+            self.ptr = 0
+            return
+
+        # The token begins at the first non-delimiter character.
+        self.set_return_value(emulator, ptr1 + start)
+
+        for i in range(start, len1):
             if bytes1[i] in needles:
                 emulator.write_memory(ptr1 + i, b"\0")
                 self.ptr = ptr1 + i + 1
