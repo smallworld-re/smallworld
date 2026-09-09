@@ -185,9 +185,15 @@ else:
 try:
     final_machine = machine.emulate(emulator)
     if not args.quiet_exit:
-        final_pc = final_machine.get_cpu().pc.get()
-        if final_pc == fake_return_address:
-            raise Exception("Did not exit as expected")
+        # A non-quiet test signals success by dereferencing the 0xDEAD0
+        # sentinel, which raises SuccessExitException. If emulation instead
+        # returns normally, the program either ran to its fake return address
+        # or bailed out through a modeled exit()/abort() (EmulationStop) on a
+        # failure path. Both mean the test did not reach its success marker,
+        # so treat any normal return here as a failure -- otherwise a wrong
+        # model return value that trips the test's `exit(1)` guard would be
+        # silently reported as a pass.
+        raise Exception("Did not exit as expected")
 except SuccessExitException:
     if args.quiet_exit:
         raise Exception("Did not exit as expected")
