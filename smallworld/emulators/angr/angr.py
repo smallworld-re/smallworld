@@ -280,8 +280,15 @@ class AngrEmulator(
         if self._linear:
             self.state.options.symbolic_ip_max_targets = 1
 
-        # Create a simulation manager for our entry state
-        self.mgr = self.proj.factory.simulation_manager(self.state, save_unsat=True)
+        # Create a simulation manager for our entry state.
+        # save_unsat=False: with it on, angr keeps a full state copy for every
+        # unsatisfiable successor. A guest that loops keeps generating them (the
+        # not-taken side of each concrete branch is unsat), so the stash grows
+        # one heavy state per iteration and a long run climbs to an OOM. No
+        # maintained code reads the stash; the only readers are in
+        # analyses/unstable, and even there angr_nwbt drops it every step, so it
+        # never wanted them to accumulate either.
+        self.mgr = self.proj.factory.simulation_manager(self.state, save_unsat=False)
 
         # Configure default simulation strategy.
         configure_default_strategy(self)
