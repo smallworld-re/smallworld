@@ -167,7 +167,6 @@ class MIPSN64PlatformDef(PlatformDef):
         "t1",
         "t2",
         "t3",
-        "t4",
         "t8",
         "t9",
         "s0",
