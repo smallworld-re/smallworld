@@ -100,7 +100,9 @@ class CheckedBumpAllocator(Heap):
         self._allocations: typing.Dict[int, int] = {}
 
     def get_used(self) -> int:
-        return self._current_free_offset - self.address
+        # _current_free_offset is already a 0-based offset (it starts at 0 and
+        # only grows by allocation sizes); do not subtract the base address.
+        return self._current_free_offset
 
     def _is_safe(self, value: state.Value):
         if (
