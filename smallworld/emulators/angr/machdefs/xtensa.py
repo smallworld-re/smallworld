@@ -17,7 +17,10 @@ def handle_nop(irsb, i):
 
 def handle_sigtrap(irsb, i):
     # This op should terminate this block with SIGTRAP
-    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    # Xtensa has both 2- and 3-byte encodings (e.g. break vs break.n), so the
+    # instruction length is read from the IMARK varnode rather than hardcoded.
+    imark = irsb._ops[i - 1].inputs[0]
+    next_addr = imark.offset + imark.size
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr
@@ -30,7 +33,10 @@ def handle_sigtrap(irsb, i):
 
 def handle_sigill(irsb, i):
     # This op should terminate this block with SIGILL
-    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    # Xtensa has both 2- and 3-byte encodings (e.g. break vs break.n), so the
+    # instruction length is read from the IMARK varnode rather than hardcoded.
+    imark = irsb._ops[i - 1].inputs[0]
+    next_addr = imark.offset + imark.size
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr
@@ -43,7 +49,10 @@ def handle_sigill(irsb, i):
 
 def handle_syscall(irsb, i):
     # This op should terminate this block with a syscall
-    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    # Xtensa has both 2- and 3-byte encodings (e.g. break vs break.n), so the
+    # instruction length is read from the IMARK varnode rather than hardcoded.
+    imark = irsb._ops[i - 1].inputs[0]
+    next_addr = imark.offset + imark.size
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr

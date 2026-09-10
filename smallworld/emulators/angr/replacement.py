@@ -66,6 +66,18 @@ class MemoizingReplacementSolver(SolverReplacement):
         super()._copy(c)
         c._replaced_var_names = set(self._replaced_var_names)
 
+    # The parent frontend rebuilds its replacement cache in __setstate__ without
+    # replaying add_replacement, so _replaced_var_names would be lost across a
+    # pickle round-trip (and the next _replacement() call would AttributeError).
+    # Carry it explicitly alongside the parent state.
+
+    def __getstate__(self):
+        return (self._replaced_var_names, super().__getstate__())
+
+    def __setstate__(self, state):
+        self._replaced_var_names, base_state = state
+        super().__setstate__(base_state)
+
     # -- the hardened replacement --
 
     def _replacement(self, old):
