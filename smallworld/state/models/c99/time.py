@@ -270,18 +270,20 @@ class Strftime(TimeModel):
 class Difftime(TimeModel):
     name = "difftime"
 
-    # double difftime(time_t time0, time_t time1);
+    # double difftime(time_t time1, time_t time0);
     argument_types = [ArgumentType.LONG, ArgumentType.LONG]
     return_type = ArgumentType.DOUBLE
 
     def model(self, emulator: Emulator) -> None:
         super().model(emulator)
 
-        time0 = self.get_arg1(emulator)
-        time1 = self.get_arg2(emulator)
+        # difftime(time1, time0) returns time1 - time0, so the first C
+        # argument is the minuend.
+        time1 = self.get_arg1(emulator)
+        time0 = self.get_arg2(emulator)
 
-        assert isinstance(time0, int)
         assert isinstance(time1, int)
+        assert isinstance(time0, int)
 
         # Times are longs.  Why does this return a double?
         # The world is full of mysteries...

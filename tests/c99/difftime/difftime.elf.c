@@ -3,10 +3,12 @@
 
 int main() {
     int *good = (int *)(size_t)0xdead0;
-    time_t time0 = 42;
+    /* C's difftime(time1, time0) returns time1 - time0, so the first
+       argument is the minuend: difftime(43, 42) == 1.0. */
     time_t time1 = 43;
-    double expected = 1.0l;
-    double actual = difftime(time0, time1);
+    time_t time0 = 42;
+    double expected = 1.0;
+    double actual = difftime(time1, time0);
     if(expected != actual) {
         exit(1);
     }
