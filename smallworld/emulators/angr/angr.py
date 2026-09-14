@@ -900,6 +900,14 @@ class AngrEmulator(
             self.state.scratch.global_syscall_func = syscall_handler
 
     def unhook_syscalls(self) -> None:
+        if not self._initialized:
+            # Before initialization the global hook lives in _gb_syscall_hook
+            # (set by hook_syscalls); self.state does not exist yet. Mirror the
+            # other unhook_* methods and clear the pending hook instead of
+            # dereferencing self.state.scratch.
+            self._gb_syscall_hook = None
+            return
+
         if self._dirty and not self._linear:
             raise NotImplementedError("Cannot unhook syscalls once emulation starts")
 
@@ -1031,6 +1039,14 @@ class AngrEmulator(
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
+                    # Reading an MMIO region before anything wrote it yields an
+                    # unconstrained symbolic value with no single solution. Unlike
+                    # the write wrappers (where the guest supplies the value, so an
+                    # unbound value is a hard error), a read must hand the device
+                    # callback *some* concrete bytes; zeros is the default the
+                    # callback is free to override. Do not raise here -- reading
+                    # uninitialized MMIO is a normal, supported case (see the
+                    # memhook integration scenario).
                     value = b"\x00" * size
             else:
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)

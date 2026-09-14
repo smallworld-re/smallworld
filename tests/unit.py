@@ -1334,6 +1334,18 @@ class AngrMachdefTests(unittest.TestCase):
             msg=f"Angr did not handle the following registers for {platform}: {bad_regs}",
         )
 
+    def test_for_platform_unknown_raises_chained_valueerror(self):
+        # MSP430 is little-endian only, so this combination has no angr machdef.
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430, platforms.Byteorder.BIG
+        )
+        with self.assertRaises(ValueError) as ctx:
+            emulators.angr.machdefs.AngrMachineDef.for_platform(platform)
+        self.assertIn("No machine model", str(ctx.exception))
+        # The bare `except:` used to discard the underlying failure; it must now
+        # be chained so real errors (e.g. a malformed subclass) stay visible.
+        self.assertIsInstance(ctx.exception.__cause__, ValueError)
+
     def test_angr_aarch64(self):
         platform = platforms.Platform(
             platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
@@ -6443,6 +6455,20 @@ class AngrPreInitHookBookkeepingTests(unittest.TestCase):
 
         self.assertIsNone(self.emu._gb_write_hook)
         self.assertIsNotNone(self.emu._gb_read_hook)
+
+    def test_unhook_syscalls_clears_pending_global_hook(self):
+        def syscall_cb(emu, number):
+            pass
+
+        self.emu.hook_syscalls(syscall_cb)
+        self.assertIs(self.emu._gb_syscall_hook, syscall_cb)
+
+        # The old code had no pre-init path and dereferenced self.state (which
+        # does not exist yet), raising AttributeError instead of clearing the
+        # pending hook.
+        self.emu.unhook_syscalls()
+
+        self.assertIsNone(self.emu._gb_syscall_hook)
 
 
 class AngrGlobalReadUnhookTests(unittest.TestCase):
