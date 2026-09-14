@@ -7151,14 +7151,19 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
         machine.add(cpu)
         code = state.memory.code.Executable.from_bytes(b"\x90" * 16, address=0x1000)
         # helpers.fuzz derives fuzzer exit points from the ends of the
-        # Executable's bounds (an iterable of ranges, as loader-backed
-        # Executables provide).
-        code.bounds = list(bounds)
+        # Executable's bounds. Loader-backed Executables expose a
+        # RangeCollection, whose iteration yields (start, end) tuples -- build
+        # one here rather than range objects (which have a .stop the production
+        # shape does not), so this exercises the real path.
+        rc = utils.RangeCollection()
+        for start, end in bounds:
+            rc.add_range((start, end))
+        code.bounds = rc
         machine.add(code)
         return machine
 
     def test_fuzz_reaches_downstream_with_exit_points_from_bounds(self):
-        machine = self._machine_with_bounds([range(0x1000, 0x1010)])
+        machine = self._machine_with_bounds([(0x1000, 0x1010)])
 
         def callback(emulator, input_bytes, persistent_round, data):
             return None
@@ -7182,9 +7187,8 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
         self.assertEqual(args[6], 3)  # iterations
 
     def test_fuzz_collects_exit_points_from_every_bound(self):
-        machine = self._machine_with_bounds(
-            [range(0x1000, 0x1008), range(0x1008, 0x1010)]
-        )
+        # Non-adjacent ranges: a RangeCollection coalesces adjacent ones.
+        machine = self._machine_with_bounds([(0x1000, 0x1008), (0x2000, 0x2010)])
 
         with mock.patch.object(
             state.Machine, "fuzz_with_file", autospec=True
@@ -7194,7 +7198,7 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
 
         fuzz_with_file.assert_called_once()
         emulator = fuzz_with_file.call_args.args[1]
-        self.assertEqual(emulator.get_exit_points(), {0x1008, 0x1010})
+        self.assertEqual(emulator.get_exit_points(), {0x1008, 0x2010})
 
 
 @unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
