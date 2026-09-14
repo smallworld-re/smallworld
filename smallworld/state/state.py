@@ -135,16 +135,15 @@ class Value(metaclass=abc.ABCMeta):
 
         self.set_content(content)
 
-    def to_symbolic(
-        self, byteorder: platforms.Byteorder
-    ) -> typing.Optional[claripy.ast.bv.BV]:
+    def to_symbolic(self) -> typing.Optional[claripy.ast.bv.BV]:
         """Convert this value into a symbolic expression
 
-        For a labeled value, this will be a bit vector symbol named after the label.
-        Otherwise, it will be a concrete bit vector value containing the contents.
-
-        Arguments:
-            byteorder: The byte order to use in the conversion.
+        For a labeled value, this is a bit vector symbol named after the label.
+        Otherwise it is a concrete bit vector of the contents. The conversion is
+        byte-order independent: integer content becomes its numeric value, and
+        bytes content becomes the raw byte sequence (first byte most significant);
+        an invoker that wants to interpret bytes as an integer decodes them with
+        whatever byte order it needs.
 
         Returns:
             Symbolic expression object, or None if both content and label are None
@@ -175,11 +174,10 @@ class Value(metaclass=abc.ABCMeta):
                     raise exceptions.ConfigurationError(
                         "Cannot create a bitvector of size zero"
                     )
-                # Build the bitvector from the integer directly. Round-tripping
-                # through byteorder-specific bytes and claripy.BVV(bytes) -- which
-                # reads bytes big-endian -- byte-reversed the value on
-                # little-endian platforms, disagreeing with the numeric value the
-                # emulator actually stores for the register/memory.
+                # Build the bitvector from the integer directly: the numeric
+                # value, independent of byte order. (Round-tripping through
+                # byteorder-specific bytes and claripy.BVV(bytes), which reads
+                # big-endian, byte-reversed the value on little-endian platforms.)
                 return claripy.BVV(content, size * 8)
 
             if not isinstance(content, bytes) and not isinstance(content, bytearray):
