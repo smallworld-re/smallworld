@@ -55,7 +55,21 @@ class SocketIO(BasicIO):
 
 
 class BytesSocketIO(SocketIO, BytesIO):
-    pass
+    """A socket whose recv/send are backed by an in-memory byte buffer.
+
+    Used for accepted/inbound connections (see add_connection). Without these
+    overrides, recv() would dispatch to SocketIO.on_recv() and raise
+    FDIOUnsupported, leaving the queued connection data unreachable.
+    """
+
+    def on_recv(self) -> typing.Tuple[bytes, Sockaddr]:
+        # peername is populated by add_connection() before the accepted socket
+        # is ever handed to a caller, so it is always set here.
+        assert self.peername is not None
+        return (self.on_read(-1), self.peername)
+
+    def on_send(self, data: bytes, peername: Sockaddr) -> None:
+        self.on_write(data)
 
 
 __all__ = ["SocketIO"]

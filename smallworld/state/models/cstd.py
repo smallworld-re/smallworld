@@ -312,6 +312,23 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
             )
 
+    def _read_return_pointer(self, emulator: emulators.Emulator) -> int:
+        """Read a pointer return value.
+
+        Mirrors ``_return_pointer``: by default a pointer is read from wherever
+        the matching integer width is returned. Arches whose pointer return
+        register differs from the integer one (m68k returns pointers in a0)
+        override this alongside ``_return_pointer`` so the two stay symmetric.
+        """
+        if ArgumentType.POINTER in self._four_byte_types:
+            return self._read_return_4_byte(emulator)
+        elif ArgumentType.POINTER in self._eight_byte_types:
+            return self._read_return_8_byte(emulator)
+        else:
+            raise ConfigurationError(
+                f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
+            )
+
     @abc.abstractmethod
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
@@ -850,6 +867,14 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             # We're a double.
             ret = self._read_return_double(emulator)
             return ret
+
+        if self.return_type == ArgumentType.POINTER:
+            # Read pointers via _read_return_pointer, mirroring set_return_value's
+            # use of _return_pointer. Without this, POINTER would fall through to
+            # the _four_byte_types branch below and read the integer-return
+            # register, which is wrong on arches (m68k) that return pointers in a
+            # different register than integers.
+            return self._read_return_pointer(emulator)
 
         if self.return_type in self._four_byte_types:
             ret = self._read_return_4_byte(emulator)
