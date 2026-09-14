@@ -127,6 +127,7 @@ from smallworld.state.models.model import Model
 from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
+from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
@@ -4364,6 +4365,62 @@ class ReturnConstantModelTests(ModelTestCase):
     def test_unknown_abi_raises(self):
         with self.assertRaises(ValueError):
             ReturnConstant(MODELS_HOOK_ADDR, MODELS_AMD64, platforms.ABI.NONE)
+
+
+class SocketRecvModelTests(ModelTestCase):
+    """recv/recvfrom over BytesSocketIO connections and error handling.
+
+    SW-046: BytesSocketIO must bridge recv() to its byte backing.
+    SW-048/049: Recv/Recvfrom must catch FDIOError (closed / non-readable
+    socket) and return -1 instead of letting it escape the model.
+    """
+
+    DOMAIN, TYPE, PROTO = 2, 1, 0  # AF_INET, SOCK_STREAM
+    BUF = 0x100000
+    ADDR = 0x101000
+    ADDRLEN = 0x102000
+
+    def _install(self, model_name, sock):
+        model = self.lookup(model_name)
+        fd = model._fdmgr._get_free_fd()
+        model._fdmgr._fds[fd] = sock
+        return model, fd
+
+    def _bytes_socket(self, data=b"Hello, world!"):
+        sock = BytesSocketIO(
+            "Socket", self.DOMAIN, self.TYPE, self.PROTO, True, data=io.BytesIO(data)
+        )
+        sock.peername = SockaddrIn()
+        return sock
+
+    def _unreadable_socket(self):
+        # A live (get_fd succeeds) but non-readable socket -- e.g. after
+        # shutdown(SHUT_RD). Its recv() raises FDIOUnsupported, exercising the
+        # model's recv() error handling rather than the get_fd guard.
+        return SocketIO("Socket", self.DOMAIN, self.TYPE, self.PROTO, False)
+
+    def test_recv_reads_backing_of_bytes_socket(self):
+        # SW-046: without the on_recv override this raised FDIOUnsupported.
+        recv, fd = self._install("recv", self._bytes_socket())
+        self.emu.map_memory(self.BUF, 64)
+        n = self.call(recv, fd, self.BUF, 64, 0)
+        self.assertEqual(n, len(b"Hello, world!"))
+        self.assertEqual(self.emu.read_memory(self.BUF, n), b"Hello, world!")
+
+    def test_recv_on_unreadable_socket_returns_minus_one(self):
+        # SW-048: recv() raises FDIOUnsupported; the model must report -1.
+        recv, fd = self._install("recv", self._unreadable_socket())
+        self.emu.map_memory(self.BUF, 64)
+        self.assertEqual(self.call(recv, fd, self.BUF, 64, 0), -1)
+
+    def test_recvfrom_on_unreadable_socket_returns_minus_one(self):
+        # SW-049: same defensive handling for recvfrom.
+        recvfrom, fd = self._install("recvfrom", self._unreadable_socket())
+        self.emu.map_memory(self.BUF, 64)
+        self.emu.map_memory(self.ADDR, 64)
+        self.emu.map_memory(self.ADDRLEN, 8)
+        ret = self.call(recvfrom, fd, self.BUF, 64, 0, self.ADDR, self.ADDRLEN)
+        self.assertEqual(ret, -1)
 
 
 class NullMemoryMappedModelTests(unittest.TestCase):
