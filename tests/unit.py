@@ -7127,6 +7127,8 @@ class UnicornInterruptHookTests(unittest.TestCase):
         self.assertTrue(
             self._run_with_hook(lambda emu, h: emu.hook_interrupts(lambda e, n: h(e)))
         )
+
+
 class AngrReadHookByteOrderTests(unittest.TestCase):
     """Range and all-reads read hooks must agree on byte order (SW-063).
 
