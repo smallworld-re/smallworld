@@ -171,11 +171,16 @@ class Value(metaclass=abc.ABCMeta):
                 return content
 
             if isinstance(content, int):
-                # The content is an int; convert to bytes for universal handling
-                if byteorder == platforms.Byteorder.BIG:
-                    content = content.to_bytes(size, "big")
-                else:
-                    content = content.to_bytes(size, "little")
+                if size == 0:
+                    raise exceptions.ConfigurationError(
+                        "Cannot create a bitvector of size zero"
+                    )
+                # Build the bitvector from the integer directly. Round-tripping
+                # through byteorder-specific bytes and claripy.BVV(bytes) -- which
+                # reads bytes big-endian -- byte-reversed the value on
+                # little-endian platforms, disagreeing with the numeric value the
+                # emulator actually stores for the register/memory.
+                return claripy.BVV(content, size * 8)
 
             if not isinstance(content, bytes) and not isinstance(content, bytearray):
                 # The content is not something I know how to handle.

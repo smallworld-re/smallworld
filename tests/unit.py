@@ -734,6 +734,49 @@ class StateTests(unittest.TestCase):
         )
 
 
+class ToSymbolicByteOrderTests(unittest.TestCase):
+    """Value.to_symbolic must agree with the value the emulator actually holds.
+
+    SW-052: for concrete int content, to_symbolic serialized the int to
+    byteorder-specific bytes and rebuilt via claripy.BVV(bytes) (which reads
+    big-endian), byte-reversing the value on little-endian. These tests pin the
+    fix end-to-end against the real AngrEmulator so a compensating byteswap in
+    the emulator (which there isn't) could not hide the divergence.
+    """
+
+    VAL = 0x0102030405060708
+    SWAPPED = 0x0807060504030201
+
+    def _amd64(self):
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_angr_emulator_stores_numeric_register_value(self):
+        # Ground truth (no collusion): the emulator holds the numeric value,
+        # NOT a byte-reversed one, so to_symbolic must produce the numeric value.
+        emu = emulators.AngrEmulator(self._amd64())
+        emu.write_code(0x1000, b"\x90\x90")
+        emu.write_register("rdi", self.VAL)
+        emu.initialize()
+        self.assertEqual(emu.read_register("rdi"), self.VAL)
+
+    def test_to_symbolic_little_endian_matches_numeric_value(self):
+        # Fails pre-fix: to_symbolic returned SWAPPED on little-endian.
+        reg = state.Register("rdi", 8)
+        reg.set_content(self.VAL)
+        self.assertEqual(
+            reg.to_symbolic(platforms.Byteorder.LITTLE).concrete_value, self.VAL
+        )
+
+    def test_to_symbolic_big_endian_unchanged(self):
+        reg = state.Register("rdi", 8)
+        reg.set_content(self.VAL)
+        self.assertEqual(
+            reg.to_symbolic(platforms.Byteorder.BIG).concrete_value, self.VAL
+        )
+
+
 class UtilsTests(unittest.TestCase):
     def test_range_collection_add(self):
         rc = utils.RangeCollection()
