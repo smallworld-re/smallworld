@@ -26,13 +26,16 @@ _ARCH_MATRIX = (
 
 _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MATRIX}
 
+# difftime returns a double. It runs everywhere the backend can model a
+# double return; the remaining skips are genuine backend/model gaps, not a
+# difftime-specific issue. mips64/mips64el were previously skipped too but now
+# pass (they run under Ghidra, which exposes f0), so they are no longer listed.
 _DIFFTIME_SKIPS = {
-    "i386": "Returning float fails on i386",
-    "m68k": "Returning float fails on m68k",
-    "mips": "Returning float fails on mips",
-    "mips64": "Returning float fails on mips64",
-    "mips64el": "Returning float fails on mips64el",
-    "mipsel": "Returning float fails on mipsel",
+    "i386": "i386 SysV returns doubles in x87 st0, which is not modeled "
+    "(NotImplementedError)",
+    "m68k": "m68k float/double return is not modeled (NotImplementedError)",
+    "mips": "Unicorn does not expose the f0 FP register for MIPS32",
+    "mipsel": "Unicorn does not expose the f0 FP register for MIPS32",
 }
 
 
