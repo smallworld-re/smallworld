@@ -82,6 +82,17 @@ int main() {
         exit(1);
     }
 
+    // Single component with a trailing separator: dirname is ".".
+    // (Previously crashed: the trailing '/' was stripped after the
+    //  "no separator" check, leaving "usr" for rindex to fail on.)
+    strcpy(buf, "usr/");
+    expected = ".";
+    actual = dirname(buf);
+    if(strcmp(actual, expected)) {
+        printf("Expected %s, got %s\n", expected, actual);
+        exit(1);
+    }
+
     return *good;
 
 }
