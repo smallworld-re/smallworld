@@ -1102,12 +1102,11 @@ class AngrEmulator(
 
                 if res is None:
                     res = expr
-                elif self.platform.byteorder == platforms.Byteorder.LITTLE:
-                    # fix byte order if needed.
-                    # i don't know _why_ this is needed,
-                    # but encoding the result as little-endian on a little-endian
-                    # system produces the incorrect value in the machine state.
-                    res = claripy.Reverse(res)
+                # A symbolic callback returns a BV already in platform (numeric)
+                # order, so it is stored as-is -- matching the range API
+                # (hook_memory_read_symbolic). The byte reversal belongs only in
+                # the concrete bytes->BV wrappers, not here; keeping it here made
+                # the two symbolic read APIs disagree on byte order.
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -1153,7 +1152,14 @@ class AngrEmulator(
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             res = function(emu, addr, size, value)
             if res is not None:
-                return claripy.BVV(res)
+                res_expr = claripy.BVV(res)
+                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                    # Fix byte order if needed. The reversal that used to live in
+                    # hook_memory_reads_symbolic's callback belongs here, in the
+                    # concrete bytes->BV wrapper (mirroring hook_memory_read), so
+                    # the concrete all-reads path is unchanged.
+                    res_expr = claripy.Reverse(res_expr)
+                return res_expr
             return res
 
         self.hook_memory_reads_symbolic(sym_callback)

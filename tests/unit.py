@@ -6924,6 +6924,162 @@ class GhidraSymbolicWriteHookByteOrderTests(unittest.TestCase):
         self.assertEqual(value.concrete_value, 0x11223344)
 
 
+class AngrReadHookByteOrderTests(unittest.TestCase):
+    """Range and all-reads read hooks must agree on byte order (SW-063).
+
+    hook_memory_reads_symbolic's callback applied claripy.Reverse to the
+    returned value while hook_memory_read_symbolic's did not, so returning the
+    same replacement for the same address produced opposite byte order
+    depending on which API installed the hook. The reversal belongs only in
+    the concrete bytes->BV wrappers; a symbolic callback returns a BV already
+    in platform order. Each variant here reads an 8-byte value the hook forces
+    to 0x1122334455667788 and asserts the loaded register matches.
+    """
+
+    VALUE = 0x1122334455667788
+
+    def _load_hooked_value(self, install_hook, *, concrete_backing=False):
+        emu = emulators.AngrEmulator(_amd64_platform())
+        # mov rax, [0x2000]; the instruction ends at 0x1008.
+        emu.write_code(0x1000, bytes.fromhex("488B042500200000"))
+        emu.map_memory(0x1000, 0x1000)
+        emu.map_memory(0x2000, 0x1000)
+        if concrete_backing:
+            # A concrete read hook replaces an already-concrete read, so the
+            # backing must be bound (else the load is symbolic before the hook).
+            emu.write_memory_content(0x2000, b"\x00" * 8)
+        install_hook(emu)
+        emu.initialize()
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1008)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return emu.read_register("rax")
+
+    def test_range_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_read_symbolic(
+                0x2000,
+                0x2008,
+                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
+                if a == 0x2000
+                else None,
+            )
+
+        self.assertEqual(self._load_hooked_value(install), self.VALUE)
+
+    def test_all_reads_symbolic_returns_platform_order(self):
+        # This is the variant SW-063 broke: it returned the byte-reversed value.
+        def install(emu):
+            emu.hook_memory_reads_symbolic(
+                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
+                if a == 0x2000
+                else None
+            )
+
+        self.assertEqual(self._load_hooked_value(install), self.VALUE)
+
+    def test_range_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2008, lambda e, a, s, v: le if a == 0x2000 else None
+            )
+
+        self.assertEqual(
+            self._load_hooked_value(install, concrete_backing=True), self.VALUE
+        )
+
+    def test_all_reads_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_reads(lambda e, a, s, v: le if a == 0x2000 else None)
+
+        self.assertEqual(
+            self._load_hooked_value(install, concrete_backing=True), self.VALUE
+        )
+
+
+class GhidraSymbolicReadHookByteOrderTests(unittest.TestCase):
+    """The ghidra symbolic executor's read hooks must match AngrEmulator's.
+
+    Companion to AngrReadHookByteOrderTests. SW-063 aligned angr's two symbolic
+    read APIs to store a returned BV in platform order (no reversal) -- which is
+    exactly what the ghidra symbolic executor already does. These tests pin that
+    parity: every read-hook variant on both backends must load the same
+    platform-order value, so the two implementations cannot silently drift.
+    """
+
+    VALUE = 0x1122334455667788
+
+    def _load_hooked_value(self, install_hook, *, symbolic):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.map_memory(0x1000, 0x1000)
+        emu.map_memory(0x2000, 0x1000)
+        # mov rax, [0x2000]
+        emu.write_memory_content(0x1000, bytes.fromhex("488B042500200000"))
+        if symbolic:
+            # A symbolic read hook replaces a symbolic read; label the target so
+            # the load is not a competing concrete zero (unwritten ghidra memory
+            # reads as concrete 0, which would mask the symbolic replacement).
+            emu.write_memory_label(0x2000, 8, "target")
+        else:
+            emu.write_memory_content(0x2000, b"\x00" * 8)
+        install_hook(emu)
+        emu.write_register("pc", 0x1000)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        if symbolic:
+            return claripy.Solver().eval(emu.read_register_symbolic("rax"), 1)[0]
+        return emu.read_register("rax")
+
+    def test_range_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_read_symbolic(
+                0x2000,
+                0x2008,
+                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
+                if a == 0x2000
+                else None,
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
+
+    def test_all_reads_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_reads_symbolic(
+                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
+                if a == 0x2000
+                else None
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
+
+    def test_range_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2008, lambda e, a, s, v: le if a == 0x2000 else None
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=False), self.VALUE)
+
+    def test_all_reads_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_reads(lambda e, a, s, v: le if a == 0x2000 else None)
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=False), self.VALUE)
+
+
 try:
     from smallworld.emulators.panda.panda import PandaEmulator as _PandaEmulator
 
