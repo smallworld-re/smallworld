@@ -341,26 +341,34 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         reg = self.machdef.pcode_reg(name)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
+        state = self._thread.getState()
+
+        def _concrete_bytes(intval: int) -> bytes:
+            # Mask to handle negative ints via two's-complement wraparound.
+            return (intval & ((1 << size_bits) - 1)).to_bytes(
+                size_bytes, self._byteorder_str()
+            )
 
         if isinstance(value, int):
-            concrete = value
+            concrete_bytes = _concrete_bytes(value)
             sym_value = self._make_sym_value(value, size_bits)
         elif isinstance(value, claripy.ast.bv.BV):
-            if value.symbolic:
-                concrete = 0
-            else:
-                concrete = value.concrete_value
             sym_value = self._make_sym_value(value, size_bits)
+            if value.symbolic:
+                # Preserve the register's current concrete bytes rather than
+                # zeroing them. That concrete side drives linear execution and
+                # is what read_register_content returns, so a register set
+                # concretely (a pointer, return address, sp) and then labeled
+                # would otherwise read back as 0. Mirrors write_memory_content.
+                prev = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+                concrete_bytes = self.bytes_java_to_py(prev.getLeft())
+            else:
+                concrete_bytes = _concrete_bytes(value.concrete_value)
         else:
             raise TypeError(
                 f"write_register_content does not accept {type(value).__name__}"
             )
 
-        # Mask to handle negative ints via two's-complement wraparound.
-        concrete_unsigned = concrete & ((1 << size_bits) - 1)
-        concrete_bytes = concrete_unsigned.to_bytes(size_bytes, self._byteorder_str())
-
-        state = self._thread.getState()
         pair = JPair.of(self.bytes_py_to_java(concrete_bytes), sym_value)
         state.setVar(reg, pair)
 

@@ -7061,6 +7061,74 @@ class GhidraSymbolicWriteHookByteOrderTests(unittest.TestCase):
         self.assertEqual(value.concrete_value, 0x11223344)
 
 
+class GhidraSymbolicRegisterLabelTests(unittest.TestCase):
+    """write_register_label must preserve the register's concrete byte side.
+
+    The concrete side drives linear execution and is what read_register_content
+    returns; zeroing it (SW-013) made a register that was set concretely and
+    then labeled dispatch/read as 0 (e.g. a fake return address to 0).
+    """
+
+    def _concrete_side(self, emu, name):
+        import smallworld.emulators.ghidra.symbolic as ghidra_symbolic
+
+        reg = emu.machdef.pcode_reg(name)
+        pair = emu._thread.getState().getVar(
+            reg, ghidra_symbolic.PcodeExecutorStatePiece.Reason.INSPECT
+        )
+        return emu._int_from_bytes(pair.getLeft())
+
+    def test_label_preserves_concrete_register_value(self):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.write_register("rbx", 0xCAFEBABE)
+        emu.write_register_label("rbx", "rbx_label")
+        # Pre-fix, the symbolic branch of write_register_content set the concrete
+        # side to 0; it must retain the previously written value.
+        self.assertEqual(self._concrete_side(emu, "rbx"), 0xCAFEBABE)
+
+
+class UnicornInterruptHookTests(unittest.TestCase):
+    """Per-interrupt hooks registered with hook_interrupt() must fire.
+
+    The callback checked a private `interrupt_hook` dict that hook_interrupt()
+    never wrote to (it uses the base-class `interrupt_hooks`), so a specific
+    interrupt-number hook was silently ignored (SW-016) -- the machdef's
+    default handler ran instead and raised "Unhandled interrupt".
+    """
+
+    def _run_with_hook(self, register):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_memory(0x1000, b"\xcd\x03\x90\x90")  # int 0x3; nop; nop
+        emu.write_register("rip", 0x1000)
+        emu.add_exit_point(0x1004)
+        fired = {"hit": False}
+
+        def handler(_emu):
+            fired["hit"] = True
+            raise exceptions.EmulationStop()
+
+        register(emu, handler)
+        try:
+            for _ in range(5):
+                emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return fired["hit"]
+
+    def test_specific_interrupt_hook_fires(self):
+        self.assertTrue(self._run_with_hook(lambda emu, h: emu.hook_interrupt(3, h)))
+
+    def test_catch_all_interrupt_hook_fires(self):
+        # The global path always worked; keep it as a control.
+        self.assertTrue(
+            self._run_with_hook(lambda emu, h: emu.hook_interrupts(lambda e, n: h(e)))
+        )
+
+
 class AngrReadHookByteOrderTests(unittest.TestCase):
     """Range and all-reads read hooks must agree on byte order (SW-063).
 
