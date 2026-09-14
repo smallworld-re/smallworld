@@ -63,6 +63,9 @@ class BytesSocketIO(SocketIO, BytesIO):
     """
 
     def on_recv(self) -> typing.Tuple[bytes, Sockaddr]:
+        # peername is populated by add_connection() before the accepted socket
+        # is ever handed to a caller, so it is always set here.
+        assert self.peername is not None
         return (self.on_read(-1), self.peername)
 
     def on_send(self, data: bytes, peername: Sockaddr) -> None:
