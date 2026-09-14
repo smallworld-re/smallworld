@@ -6963,9 +6963,9 @@ class AngrReadHookByteOrderTests(unittest.TestCase):
             emu.hook_memory_read_symbolic(
                 0x2000,
                 0x2008,
-                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
-                if a == 0x2000
-                else None,
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                ),
             )
 
         self.assertEqual(self._load_hooked_value(install), self.VALUE)
@@ -6974,9 +6974,9 @@ class AngrReadHookByteOrderTests(unittest.TestCase):
         # This is the variant SW-063 broke: it returned the byte-reversed value.
         def install(emu):
             emu.hook_memory_reads_symbolic(
-                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
-                if a == 0x2000
-                else None
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                )
             )
 
         self.assertEqual(self._load_hooked_value(install), self.VALUE)
@@ -7044,9 +7044,9 @@ class GhidraSymbolicReadHookByteOrderTests(unittest.TestCase):
             emu.hook_memory_read_symbolic(
                 0x2000,
                 0x2008,
-                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
-                if a == 0x2000
-                else None,
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                ),
             )
 
         self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
@@ -7054,9 +7054,9 @@ class GhidraSymbolicReadHookByteOrderTests(unittest.TestCase):
     def test_all_reads_symbolic_returns_platform_order(self):
         def install(emu):
             emu.hook_memory_reads_symbolic(
-                lambda e, a, s, x: claripy.BVV(self.VALUE, s * 8)
-                if a == 0x2000
-                else None
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                )
             )
 
         self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
