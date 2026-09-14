@@ -87,7 +87,10 @@ class AMD64SysVCallingContext(CStdCallingContext):
 
     def _read_return_float(self, emulator: emulators.Emulator) -> float:
         """Read a float returned value"""
-        intval = emulator.read_register("xmm0")
+        # xmm0 is 128 bits; scalar SSE ops leave the upper lanes dirty, so mask
+        # to the low 32 bits before converting (matching the argument-read path
+        # in cstd.py) or int.to_bytes would OverflowError.
+        intval = emulator.read_register("xmm0") & self._int_inv_mask
         data = int.to_bytes(intval, self._float_stack_size, "little")
         (unpacked,) = struct.unpack("<f", data)
         return unpacked
@@ -100,7 +103,9 @@ class AMD64SysVCallingContext(CStdCallingContext):
 
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
-        intval = emulator.read_register("xmm0")
+        # Mask to the low 64 bits: xmm0's upper lane is not cleared by scalar
+        # SSE, so an unmasked value overflows int.to_bytes(..., 8, ...).
+        intval = emulator.read_register("xmm0") & self._long_inv_mask
         data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked

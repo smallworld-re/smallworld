@@ -102,6 +102,7 @@ from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
 from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
+from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
@@ -116,6 +117,7 @@ from smallworld.state.models.defaultmmio import (
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
+from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
 from smallworld.state.models.mips64el.systemv.systemv import (
     MIPS64ELSysVCallingContext,
@@ -4036,6 +4038,16 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
             MIPS64SysVCallingContext._double_arg_regs,
         )
 
+    def test_armhf_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
+        # AAPCS-VFP passes floats in s0-s15 (16) and doubles in d0-d7 (8); the
+        # lists were truncated to 7 each.
+        self.assertEqual(
+            ArmHFSysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
+        )
+        self.assertEqual(
+            ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+        )
+
 
 class _RegisterDictEmulator:
     """Just enough of an emulator to satisfy calling-context register I/O."""
@@ -4064,6 +4076,48 @@ class MipsReturnDoubleTests(unittest.TestCase):
         emu = _RegisterDictEmulator()
         ctx._return_double(emu, -1234.5678)
         self.assertEqual(ctx._read_return_double(emu), -1234.5678)
+
+
+class SysVReturnValueConversionTests(unittest.TestCase):
+    """Return-value *read* paths (get_return_value / _read_return_*).
+
+    These are reached only when a model reads another function's return value
+    (function-pointer callbacks, qsort/bsearch comparators), so the
+    library-model integration tests never exercise them. Verify them directly.
+    """
+
+    def test_amd64_read_return_float_masks_dirty_xmm0(self):
+        # Scalar SSE leaves xmm0's upper lanes dirty; an unmasked read overflows
+        # int.to_bytes(..., 4, ...).
+        ctx = AMD64SysVCallingContext()
+        dirty = int.from_bytes(struct.pack("<f", 2.5), "little") | (0xCAFE << 32)
+        emu = _RegisterDictEmulator({"xmm0": dirty})
+        self.assertEqual(ctx._read_return_float(emu), 2.5)
+
+    def test_amd64_read_return_double_masks_dirty_xmm0(self):
+        ctx = AMD64SysVCallingContext()
+        dirty = int.from_bytes(struct.pack("<d", 1.5), "little") | (0xDEADBEEF << 64)
+        emu = _RegisterDictEmulator({"xmm0": dirty})
+        self.assertEqual(ctx._read_return_double(emu), 1.5)
+
+    def test_mips64_read_return_double_uses_8_bytes(self):
+        # Previously used _float_stack_size (4), overflowing on any real double.
+        for cls in (MIPS64SysVCallingContext, MIPS64ELSysVCallingContext):
+            ctx = cls()
+            emu = _RegisterDictEmulator(
+                {"f0": int.from_bytes(struct.pack("<d", 42.0), "little")}
+            )
+            self.assertEqual(ctx._read_return_double(emu), 42.0, msg=cls.__name__)
+
+    def test_m68k_pointer_return_uses_a0_symmetrically(self):
+        # m68k SysV returns pointers in a0; set_return_value wrote a0 but
+        # get_return_value read d0 (POINTER fell through to the 4-byte path).
+        ctx = M68KSysVCallingContext()
+        ctx.return_type = ArgumentType.POINTER
+        emu = _RegisterDictEmulator({"a0": 0, "d0": 0})
+        ctx.set_return_value(emu, 0xCAFEBABE)
+        self.assertEqual(emu.regs["a0"], 0xCAFEBABE)
+        self.assertEqual(ctx.get_return_value(emu), 0xCAFEBABE)
 
 
 MODELS_AMD64 = platforms.Platform(
