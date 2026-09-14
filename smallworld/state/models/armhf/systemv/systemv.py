@@ -46,8 +46,13 @@ class ArmHFSysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = True
     _floats_are_doubles = False
-    _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6"]
-    _double_arg_regs = ["d0", "d1", "d2", "d3", "d4", "d5", "d6"]
+    # AAPCS-VFP passes FP arguments in s0-s15 (16 single-precision) and d0-d7
+    # (8 double-precision). The two banks physically alias (d0 == s0:s1); mixed
+    # float/double back-fill allocation is still approximate (the shared
+    # _fp_reg_offset does not model the overlap), but the pure-float and
+    # pure-double cases need the full-length banks to place arguments correctly.
+    _float_arg_regs = [f"s{i}" for i in range(16)]
+    _double_arg_regs = [f"d{i}" for i in range(8)]
 
     _init_stack_offset = 0
     _align_stack = True
