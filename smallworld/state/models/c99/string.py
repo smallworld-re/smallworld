@@ -340,11 +340,14 @@ class Memchr(CStdModel):
         assert isinstance(n, int)
 
         data = emulator.read_memory(ptr, n)
-        if 0 <= val <= 255:
-            idx = data.find(bytes([val]))
-            if idx != -1:
-                self.set_return_value(emulator, ptr + idx)
-                return
+        # C converts value to unsigned char before searching. The INT arg is
+        # sign-extended, so memchr(p, -1, n) arrives as -1 and a value > 255
+        # arrives unmasked; mask to a byte rather than rejecting it (which
+        # wrongly returned NULL for e.g. the common -1 == 0xFF case).
+        idx = data.find(bytes([val & 0xFF]))
+        if idx != -1:
+            self.set_return_value(emulator, ptr + idx)
+            return
 
         self.set_return_value(emulator, 0)
 
@@ -367,11 +370,11 @@ class Strchr(CStdModel):
         n = _emu_strlen(emulator, ptr)
 
         data = emulator.read_memory(ptr, n)
-        if 0 <= val <= 255:
-            idx = data.find(bytes([val]))
-            if idx != -1:
-                self.set_return_value(emulator, ptr + idx)
-                return
+        # C converts value to unsigned char before searching (see Memchr).
+        idx = data.find(bytes([val & 0xFF]))
+        if idx != -1:
+            self.set_return_value(emulator, ptr + idx)
+            return
 
         self.set_return_value(emulator, 0)
 
@@ -458,11 +461,11 @@ class Strrchr(CStdModel):
 
         data = emulator.read_memory(ptr, n)
 
-        if 0 <= val <= 255:
-            idx = data.rfind(bytes([val]))
-            if idx != -1:
-                self.set_return_value(emulator, ptr + idx)
-                return
+        # C converts value to unsigned char before searching (see Memchr).
+        idx = data.rfind(bytes([val & 0xFF]))
+        if idx != -1:
+            self.set_return_value(emulator, ptr + idx)
+            return
 
         self.set_return_value(emulator, 0)
 
