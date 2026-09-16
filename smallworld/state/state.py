@@ -145,6 +145,12 @@ class Value(metaclass=abc.ABCMeta):
         an invoker that wants to interpret bytes as an integer decodes them with
         whatever byte order it needs.
 
+        Because register (integer) values are numeric here, a symbol from a
+        labeled register compares directly against numeric bitvectors when
+        building constraints -- no byte-swapping is required regardless of the
+        platform's byte order. See ``Machine.add_constraint`` for the one place
+        byte order does matter (relating a value to raw memory bytes).
+
         Returns:
             Symbolic expression object, or None if both content and label are None
         """
@@ -773,6 +779,16 @@ class Machine(StatefulSet):
         Note that Values with both a label and content
         already have a constraint binding the label's
         variable to the content.
+
+        Byte order: register and integer values are numeric here -- both
+        ``to_symbolic()`` and ``read_register_symbolic()`` return the numeric
+        value -- so constraints over registers compare directly against numeric
+        bitvectors (e.g. ``claripy.BVV(0x1234, 64)``) with no byte-swapping,
+        regardless of platform byte order. Memory is the exception: it is a byte
+        sequence, so ``read_memory_symbolic()`` returns the bytes in memory
+        order (first byte most significant). To relate a memory range to a
+        numeric value on a little-endian target, byte-reverse the memory side,
+        e.g. ``claripy.Reverse(emu.read_memory_symbolic(addr, size)) == reg``.
 
         Arguments:
             expr: The constraint expression to add
