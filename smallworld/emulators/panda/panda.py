@@ -199,6 +199,12 @@ class PandaEmulator(
                                 address=pc,
                             )
                         )
+                        # Return: this stop event has already been handed to the
+                        # main thread. Falling through issues a second, unpaired
+                        # signal_and_wait() (with no exception) for the same
+                        # event, which breaks the 1:1 main<->panda handshake and
+                        # overwrites manager.exception with None.
+                        return
                     logger.debug(f"Panda: {pc} out of bounds")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()

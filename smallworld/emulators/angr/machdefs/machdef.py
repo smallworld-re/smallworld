@@ -118,8 +118,12 @@ class AngrMachineDef:
                 lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
-        except:
-            raise ValueError(f"No machine model for {platform}")
+        except ValueError as e:
+            # find_subclass raises ValueError when nothing matches; narrow to
+            # that so an unexpected error (e.g. a subclass missing arch/byteorder)
+            # surfaces with its real traceback instead of being masked as
+            # "no machine model".
+            raise ValueError(f"No machine model for {platform}") from e
 
 
 class GhidraMachineDef(AngrMachineDef):

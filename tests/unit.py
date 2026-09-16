@@ -96,12 +96,25 @@ from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
+from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
+from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
+from smallworld.state.memory.elf.rela.mips import (
+    MIPS64ELElfRelocator,
+    MIPS64ElfRelocator,
+    MIPSElfRelocator,
+)
+from smallworld.state.memory.elf.rela.ppc import (
+    PowerPC64ElfRelocator,
+    PowerPCElfRelocator,
+)
+from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
 from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
+from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
@@ -116,6 +129,7 @@ from smallworld.state.models.defaultmmio import (
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
+from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
 from smallworld.state.models.mips64el.systemv.systemv import (
     MIPS64ELSysVCallingContext,
@@ -125,6 +139,7 @@ from smallworld.state.models.model import Model
 from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
+from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
@@ -210,25 +225,25 @@ class StateTests(unittest.TestCase):
         foo.set(foo_c)
         foo.set_label(None)
         self.assertEqual(foo.get(), foo_c)
-        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_v)
+        self.assertClaripyEqual(foo.to_symbolic(), foo_v)
 
         # Integer with label
         foo.set(foo_c)
         foo.set_label("foo")
         self.assertEqual(foo.get(), foo_c)
-        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_s)
+        self.assertClaripyEqual(foo.to_symbolic(), foo_s)
 
         # Symbolic without label
         foo.set(foo_v)
         foo.set_label(None)
         self.assertClaripyEqual(foo.get(), foo_v)
-        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_v)
+        self.assertClaripyEqual(foo.to_symbolic(), foo_v)
 
         # Sybolic with label
         foo.set(foo_v)
         foo.set_label("foo")
         self.assertClaripyEqual(foo.get(), foo_v)
-        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_s)
+        self.assertClaripyEqual(foo.to_symbolic(), foo_s)
 
         # Invalid symbolic value
         with self.assertRaises(ValueError):
@@ -732,6 +747,41 @@ class StateTests(unittest.TestCase):
             memory.get_ranges_concrete(),
             [range(memory.address, memory.address + 7)],
         )
+
+
+class ToSymbolicNumericValueTests(unittest.TestCase):
+    """Value.to_symbolic must agree with the value the emulator actually holds.
+
+    SW-052: for concrete int content, to_symbolic serialized the int to
+    byteorder-specific bytes and rebuilt via claripy.BVV(bytes) (which reads
+    big-endian), byte-reversing the value on little-endian. It now returns the
+    numeric value directly (byte-order independent). These tests pin that
+    end-to-end against the real AngrEmulator so a compensating byteswap in the
+    emulator (which there isn't) could not hide a divergence.
+    """
+
+    VAL = 0x0102030405060708
+
+    def _amd64(self):
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_angr_emulator_stores_numeric_register_value(self):
+        # Ground truth (no collusion): the emulator holds the numeric value on a
+        # little-endian target, NOT a byte-reversed one, so to_symbolic must too.
+        emu = emulators.AngrEmulator(self._amd64())
+        emu.write_code(0x1000, b"\x90\x90")
+        emu.write_register("rdi", self.VAL)
+        emu.initialize()
+        self.assertEqual(emu.read_register("rdi"), self.VAL)
+
+    def test_to_symbolic_returns_numeric_value(self):
+        # Fails pre-fix on little-endian: to_symbolic returned the byte-reversed
+        # value. It is now byte-order independent -- the numeric value.
+        reg = state.Register("rdi", 8)
+        reg.set_content(self.VAL)
+        self.assertEqual(reg.to_symbolic().concrete_value, self.VAL)
 
 
 class UtilsTests(unittest.TestCase):
@@ -1333,6 +1383,18 @@ class AngrMachdefTests(unittest.TestCase):
             0,
             msg=f"Angr did not handle the following registers for {platform}: {bad_regs}",
         )
+
+    def test_for_platform_unknown_raises_chained_valueerror(self):
+        # MSP430 is little-endian only, so this combination has no angr machdef.
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430, platforms.Byteorder.BIG
+        )
+        with self.assertRaises(ValueError) as ctx:
+            emulators.angr.machdefs.AngrMachineDef.for_platform(platform)
+        self.assertIn("No machine model", str(ctx.exception))
+        # The bare `except:` used to discard the underlying failure; it must now
+        # be chained so real errors (e.g. a malformed subclass) stay visible.
+        self.assertIsInstance(ctx.exception.__cause__, ValueError)
 
     def test_angr_aarch64(self):
         platform = platforms.Platform(
@@ -4024,6 +4086,16 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
             MIPS64SysVCallingContext._double_arg_regs,
         )
 
+    def test_armhf_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
+        # AAPCS-VFP passes floats in s0-s15 (16) and doubles in d0-d7 (8); the
+        # lists were truncated to 7 each.
+        self.assertEqual(
+            ArmHFSysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
+        )
+        self.assertEqual(
+            ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+        )
+
 
 class _RegisterDictEmulator:
     """Just enough of an emulator to satisfy calling-context register I/O."""
@@ -4052,6 +4124,48 @@ class MipsReturnDoubleTests(unittest.TestCase):
         emu = _RegisterDictEmulator()
         ctx._return_double(emu, -1234.5678)
         self.assertEqual(ctx._read_return_double(emu), -1234.5678)
+
+
+class SysVReturnValueConversionTests(unittest.TestCase):
+    """Return-value *read* paths (get_return_value / _read_return_*).
+
+    These are reached only when a model reads another function's return value
+    (function-pointer callbacks, qsort/bsearch comparators), so the
+    library-model integration tests never exercise them. Verify them directly.
+    """
+
+    def test_amd64_read_return_float_masks_dirty_xmm0(self):
+        # Scalar SSE leaves xmm0's upper lanes dirty; an unmasked read overflows
+        # int.to_bytes(..., 4, ...).
+        ctx = AMD64SysVCallingContext()
+        dirty = int.from_bytes(struct.pack("<f", 2.5), "little") | (0xCAFE << 32)
+        emu = _RegisterDictEmulator({"xmm0": dirty})
+        self.assertEqual(ctx._read_return_float(emu), 2.5)
+
+    def test_amd64_read_return_double_masks_dirty_xmm0(self):
+        ctx = AMD64SysVCallingContext()
+        dirty = int.from_bytes(struct.pack("<d", 1.5), "little") | (0xDEADBEEF << 64)
+        emu = _RegisterDictEmulator({"xmm0": dirty})
+        self.assertEqual(ctx._read_return_double(emu), 1.5)
+
+    def test_mips64_read_return_double_uses_8_bytes(self):
+        # Previously used _float_stack_size (4), overflowing on any real double.
+        for cls in (MIPS64SysVCallingContext, MIPS64ELSysVCallingContext):
+            ctx = cls()
+            emu = _RegisterDictEmulator(
+                {"f0": int.from_bytes(struct.pack("<d", 42.0), "little")}
+            )
+            self.assertEqual(ctx._read_return_double(emu), 42.0, msg=cls.__name__)
+
+    def test_m68k_pointer_return_uses_a0_symmetrically(self):
+        # m68k SysV returns pointers in a0; set_return_value wrote a0 but
+        # get_return_value read d0 (POINTER fell through to the 4-byte path).
+        ctx = M68KSysVCallingContext()
+        ctx.return_type = ArgumentType.POINTER
+        emu = _RegisterDictEmulator({"a0": 0, "d0": 0})
+        ctx.set_return_value(emu, 0xCAFEBABE)
+        self.assertEqual(emu.regs["a0"], 0xCAFEBABE)
+        self.assertEqual(ctx.get_return_value(emu), 0xCAFEBABE)
 
 
 MODELS_AMD64 = platforms.Platform(
@@ -4298,6 +4412,62 @@ class ReturnConstantModelTests(ModelTestCase):
     def test_unknown_abi_raises(self):
         with self.assertRaises(ValueError):
             ReturnConstant(MODELS_HOOK_ADDR, MODELS_AMD64, platforms.ABI.NONE)
+
+
+class SocketRecvModelTests(ModelTestCase):
+    """recv/recvfrom over BytesSocketIO connections and error handling.
+
+    SW-046: BytesSocketIO must bridge recv() to its byte backing.
+    SW-048/049: Recv/Recvfrom must catch FDIOError (closed / non-readable
+    socket) and return -1 instead of letting it escape the model.
+    """
+
+    DOMAIN, TYPE, PROTO = 2, 1, 0  # AF_INET, SOCK_STREAM
+    BUF = 0x100000
+    ADDR = 0x101000
+    ADDRLEN = 0x102000
+
+    def _install(self, model_name, sock):
+        model = self.lookup(model_name)
+        fd = model._fdmgr._get_free_fd()
+        model._fdmgr._fds[fd] = sock
+        return model, fd
+
+    def _bytes_socket(self, data=b"Hello, world!"):
+        sock = BytesSocketIO(
+            "Socket", self.DOMAIN, self.TYPE, self.PROTO, True, data=io.BytesIO(data)
+        )
+        sock.peername = SockaddrIn()
+        return sock
+
+    def _unreadable_socket(self):
+        # A live (get_fd succeeds) but non-readable socket -- e.g. after
+        # shutdown(SHUT_RD). Its recv() raises FDIOUnsupported, exercising the
+        # model's recv() error handling rather than the get_fd guard.
+        return SocketIO("Socket", self.DOMAIN, self.TYPE, self.PROTO, False)
+
+    def test_recv_reads_backing_of_bytes_socket(self):
+        # SW-046: without the on_recv override this raised FDIOUnsupported.
+        recv, fd = self._install("recv", self._bytes_socket())
+        self.emu.map_memory(self.BUF, 64)
+        n = self.call(recv, fd, self.BUF, 64, 0)
+        self.assertEqual(n, len(b"Hello, world!"))
+        self.assertEqual(self.emu.read_memory(self.BUF, n), b"Hello, world!")
+
+    def test_recv_on_unreadable_socket_returns_minus_one(self):
+        # SW-048: recv() raises FDIOUnsupported; the model must report -1.
+        recv, fd = self._install("recv", self._unreadable_socket())
+        self.emu.map_memory(self.BUF, 64)
+        self.assertEqual(self.call(recv, fd, self.BUF, 64, 0), -1)
+
+    def test_recvfrom_on_unreadable_socket_returns_minus_one(self):
+        # SW-049: same defensive handling for recvfrom.
+        recvfrom, fd = self._install("recvfrom", self._unreadable_socket())
+        self.emu.map_memory(self.BUF, 64)
+        self.emu.map_memory(self.ADDR, 64)
+        self.emu.map_memory(self.ADDRLEN, 8)
+        ret = self.call(recvfrom, fd, self.BUF, 64, 0, self.ADDR, self.ADDRLEN)
+        self.assertEqual(ret, -1)
 
 
 class NullMemoryMappedModelTests(unittest.TestCase):
@@ -6132,6 +6302,70 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
 
 
+class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
+    """RELA addends are signed, so S + B + A can be negative or overflow.
+
+    ``int.to_bytes`` raises ``OverflowError`` on a negative or too-wide int,
+    so every relocator must reduce the sum modulo its output width -- exactly
+    as the hardware does when it stores the field -- before packing. Prior to
+    the fix these paths handed a raw (negative) int straight to ``to_bytes``
+    and aborted the load of any image with a negative addend.
+
+    Each case uses ``S + B == 0`` and ``A == -0x1234`` so the result is
+    ``-0x1234`` mod 2**width. Distinct low bytes pin down width and byteorder
+    as well as the masking itself.
+    """
+
+    ADDEND = -0x1234
+    #: -0x1234 masked to 32/64 bits, packed big/little.
+    BE32 = b"\xff\xff\xed\xcc"
+    LE32 = b"\xcc\xed\xff\xff"
+    BE64 = b"\xff\xff\xff\xff\xff\xff\xed\xcc"
+    LE64 = b"\xcc\xed\xff\xff\xff\xff\xff\xff"
+
+    def _value(self, relocator, type_):
+        rela = ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=0, baseaddr=0),
+            addend=self.ADDEND,
+        )
+        return relocator._compute_value(rela, _FakeElf())
+
+    def test_m68k_r_68k_32(self):
+        # R_68K_32 == 1
+        self.assertEqual(self._value(M68KElfRelocator(), 1), self.BE32)
+
+    def test_loongarch64_r_larch_64(self):
+        # R_LARCH_64 == 2
+        self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
+
+    def test_riscv64_r_riscv_64(self):
+        # R_RISCV_64 == 2
+        self.assertEqual(self._value(RISCV64ElfRelocator(), 2), self.LE64)
+
+    def test_mips32_r_mips_32(self):
+        # R_MIPS_32 == 2, big-endian 32-bit
+        self.assertEqual(self._value(MIPSElfRelocator(), 2), self.BE32)
+
+    def test_mips64_r_mips_64(self):
+        # R_MIPS_64 == 18, big-endian 64-bit
+        self.assertEqual(self._value(MIPS64ElfRelocator(), 18), self.BE64)
+
+    def test_mips64el_r_mips_64(self):
+        # R_MIPS_64 == 18, little-endian 64-bit
+        self.assertEqual(self._value(MIPS64ELElfRelocator(), 18), self.LE64)
+
+    def test_powerpc_r_ppc_abs32(self):
+        # R_PPC_ABS32 == 1
+        self.assertEqual(self._value(PowerPCElfRelocator(), 1), self.BE32)
+
+    def test_powerpc64_r_ppc64_addr64(self):
+        # R_PPC64_ADDR64 == 38
+        self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
+
+
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
     """DTPOFF relocations write a TLS-BLOCK offset, not an address.
 
@@ -6443,6 +6677,20 @@ class AngrPreInitHookBookkeepingTests(unittest.TestCase):
 
         self.assertIsNone(self.emu._gb_write_hook)
         self.assertIsNotNone(self.emu._gb_read_hook)
+
+    def test_unhook_syscalls_clears_pending_global_hook(self):
+        def syscall_cb(emu, number):
+            pass
+
+        self.emu.hook_syscalls(syscall_cb)
+        self.assertIs(self.emu._gb_syscall_hook, syscall_cb)
+
+        # The old code had no pre-init path and dereferenced self.state (which
+        # does not exist yet), raising AttributeError instead of clearing the
+        # pending hook.
+        self.emu.unhook_syscalls()
+
+        self.assertIsNone(self.emu._gb_syscall_hook)
 
 
 class AngrGlobalReadUnhookTests(unittest.TestCase):
@@ -6924,6 +7172,230 @@ class GhidraSymbolicWriteHookByteOrderTests(unittest.TestCase):
         self.assertEqual(value.concrete_value, 0x11223344)
 
 
+class GhidraSymbolicRegisterLabelTests(unittest.TestCase):
+    """write_register_label must preserve the register's concrete byte side.
+
+    The concrete side drives linear execution and is what read_register_content
+    returns; zeroing it (SW-013) made a register that was set concretely and
+    then labeled dispatch/read as 0 (e.g. a fake return address to 0).
+    """
+
+    def _concrete_side(self, emu, name):
+        import smallworld.emulators.ghidra.symbolic as ghidra_symbolic
+
+        reg = emu.machdef.pcode_reg(name)
+        pair = emu._thread.getState().getVar(
+            reg, ghidra_symbolic.PcodeExecutorStatePiece.Reason.INSPECT
+        )
+        return emu._int_from_bytes(pair.getLeft())
+
+    def test_label_preserves_concrete_register_value(self):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.write_register("rbx", 0xCAFEBABE)
+        emu.write_register_label("rbx", "rbx_label")
+        # Pre-fix, the symbolic branch of write_register_content set the concrete
+        # side to 0; it must retain the previously written value.
+        self.assertEqual(self._concrete_side(emu, "rbx"), 0xCAFEBABE)
+
+
+class UnicornInterruptHookTests(unittest.TestCase):
+    """Per-interrupt hooks registered with hook_interrupt() must fire.
+
+    The callback checked a private `interrupt_hook` dict that hook_interrupt()
+    never wrote to (it uses the base-class `interrupt_hooks`), so a specific
+    interrupt-number hook was silently ignored (SW-016) -- the machdef's
+    default handler ran instead and raised "Unhandled interrupt".
+    """
+
+    def _run_with_hook(self, register):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_memory(0x1000, b"\xcd\x03\x90\x90")  # int 0x3; nop; nop
+        emu.write_register("rip", 0x1000)
+        emu.add_exit_point(0x1004)
+        fired = {"hit": False}
+
+        def handler(_emu):
+            fired["hit"] = True
+            raise exceptions.EmulationStop()
+
+        register(emu, handler)
+        try:
+            for _ in range(5):
+                emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return fired["hit"]
+
+    def test_specific_interrupt_hook_fires(self):
+        self.assertTrue(self._run_with_hook(lambda emu, h: emu.hook_interrupt(3, h)))
+
+    def test_catch_all_interrupt_hook_fires(self):
+        # The global path always worked; keep it as a control.
+        self.assertTrue(
+            self._run_with_hook(lambda emu, h: emu.hook_interrupts(lambda e, n: h(e)))
+        )
+
+
+class AngrReadHookByteOrderTests(unittest.TestCase):
+    """Range and all-reads read hooks must agree on byte order (SW-063).
+
+    hook_memory_reads_symbolic's callback applied claripy.Reverse to the
+    returned value while hook_memory_read_symbolic's did not, so returning the
+    same replacement for the same address produced opposite byte order
+    depending on which API installed the hook. The reversal belongs only in
+    the concrete bytes->BV wrappers; a symbolic callback returns a BV already
+    in platform order. Each variant here reads an 8-byte value the hook forces
+    to 0x1122334455667788 and asserts the loaded register matches.
+    """
+
+    VALUE = 0x1122334455667788
+
+    def _load_hooked_value(self, install_hook, *, concrete_backing=False):
+        emu = emulators.AngrEmulator(_amd64_platform())
+        # mov rax, [0x2000]; the instruction ends at 0x1008.
+        emu.write_code(0x1000, bytes.fromhex("488B042500200000"))
+        emu.map_memory(0x1000, 0x1000)
+        emu.map_memory(0x2000, 0x1000)
+        if concrete_backing:
+            # A concrete read hook replaces an already-concrete read, so the
+            # backing must be bound (else the load is symbolic before the hook).
+            emu.write_memory_content(0x2000, b"\x00" * 8)
+        install_hook(emu)
+        emu.initialize()
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1008)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return emu.read_register("rax")
+
+    def test_range_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_read_symbolic(
+                0x2000,
+                0x2008,
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                ),
+            )
+
+        self.assertEqual(self._load_hooked_value(install), self.VALUE)
+
+    def test_all_reads_symbolic_returns_platform_order(self):
+        # This is the variant SW-063 broke: it returned the byte-reversed value.
+        def install(emu):
+            emu.hook_memory_reads_symbolic(
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                )
+            )
+
+        self.assertEqual(self._load_hooked_value(install), self.VALUE)
+
+    def test_range_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2008, lambda e, a, s, v: le if a == 0x2000 else None
+            )
+
+        self.assertEqual(
+            self._load_hooked_value(install, concrete_backing=True), self.VALUE
+        )
+
+    def test_all_reads_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_reads(lambda e, a, s, v: le if a == 0x2000 else None)
+
+        self.assertEqual(
+            self._load_hooked_value(install, concrete_backing=True), self.VALUE
+        )
+
+
+class GhidraSymbolicReadHookByteOrderTests(unittest.TestCase):
+    """The ghidra symbolic executor's read hooks must match AngrEmulator's.
+
+    Companion to AngrReadHookByteOrderTests. SW-063 aligned angr's two symbolic
+    read APIs to store a returned BV in platform order (no reversal) -- which is
+    exactly what the ghidra symbolic executor already does. These tests pin that
+    parity: every read-hook variant on both backends must load the same
+    platform-order value, so the two implementations cannot silently drift.
+    """
+
+    VALUE = 0x1122334455667788
+
+    def _load_hooked_value(self, install_hook, *, symbolic):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.map_memory(0x1000, 0x1000)
+        emu.map_memory(0x2000, 0x1000)
+        # mov rax, [0x2000]
+        emu.write_memory_content(0x1000, bytes.fromhex("488B042500200000"))
+        if symbolic:
+            # A symbolic read hook replaces a symbolic read; label the target so
+            # the load is not a competing concrete zero (unwritten ghidra memory
+            # reads as concrete 0, which would mask the symbolic replacement).
+            emu.write_memory_label(0x2000, 8, "target")
+        else:
+            emu.write_memory_content(0x2000, b"\x00" * 8)
+        install_hook(emu)
+        emu.write_register("pc", 0x1000)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        if symbolic:
+            return claripy.Solver().eval(emu.read_register_symbolic("rax"), 1)[0]
+        return emu.read_register("rax")
+
+    def test_range_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_read_symbolic(
+                0x2000,
+                0x2008,
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                ),
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
+
+    def test_all_reads_symbolic_returns_platform_order(self):
+        def install(emu):
+            emu.hook_memory_reads_symbolic(
+                lambda e, a, s, x: (
+                    claripy.BVV(self.VALUE, s * 8) if a == 0x2000 else None
+                )
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=True), self.VALUE)
+
+    def test_range_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2008, lambda e, a, s, v: le if a == 0x2000 else None
+            )
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=False), self.VALUE)
+
+    def test_all_reads_concrete_returns_platform_order(self):
+        le = self.VALUE.to_bytes(8, "little")
+
+        def install(emu):
+            emu.hook_memory_reads(lambda e, a, s, v: le if a == 0x2000 else None)
+
+        self.assertEqual(self._load_hooked_value(install, symbolic=False), self.VALUE)
+
+
 try:
     from smallworld.emulators.panda.panda import PandaEmulator as _PandaEmulator
 
@@ -7151,14 +7623,19 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
         machine.add(cpu)
         code = state.memory.code.Executable.from_bytes(b"\x90" * 16, address=0x1000)
         # helpers.fuzz derives fuzzer exit points from the ends of the
-        # Executable's bounds (an iterable of ranges, as loader-backed
-        # Executables provide).
-        code.bounds = list(bounds)
+        # Executable's bounds. Loader-backed Executables expose a
+        # RangeCollection, whose iteration yields (start, end) tuples -- build
+        # one here rather than range objects (which have a .stop the production
+        # shape does not), so this exercises the real path.
+        rc = utils.RangeCollection()
+        for start, end in bounds:
+            rc.add_range((start, end))
+        code.bounds = rc
         machine.add(code)
         return machine
 
     def test_fuzz_reaches_downstream_with_exit_points_from_bounds(self):
-        machine = self._machine_with_bounds([range(0x1000, 0x1010)])
+        machine = self._machine_with_bounds([(0x1000, 0x1010)])
 
         def callback(emulator, input_bytes, persistent_round, data):
             return None
@@ -7182,9 +7659,8 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
         self.assertEqual(args[6], 3)  # iterations
 
     def test_fuzz_collects_exit_points_from_every_bound(self):
-        machine = self._machine_with_bounds(
-            [range(0x1000, 0x1008), range(0x1008, 0x1010)]
-        )
+        # Non-adjacent ranges: a RangeCollection coalesces adjacent ones.
+        machine = self._machine_with_bounds([(0x1000, 0x1008), (0x2000, 0x2010)])
 
         with mock.patch.object(
             state.Machine, "fuzz_with_file", autospec=True
@@ -7194,7 +7670,7 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
 
         fuzz_with_file.assert_called_once()
         emulator = fuzz_with_file.call_args.args[1]
-        self.assertEqual(emulator.get_exit_points(), {0x1008, 0x1010})
+        self.assertEqual(emulator.get_exit_points(), {0x1008, 0x2010})
 
 
 @unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")

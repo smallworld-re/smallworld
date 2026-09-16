@@ -30,12 +30,11 @@ _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MA
 # yet supported. Any model whose class is listed in _FLOAT_RETURN_TESTS is
 # skipped on these.
 _FLOAT_RETURN_SKIPS = {
-    "i386": "Returning float fails on i386",
-    "m68k": "Returning float fails on m68k",
-    "mips": "Returning float fails on mips",
-    "mips64": "Returning float fails on mips64",
-    "mips64el": "Returning float fails on mips64el",
-    "mipsel": "Returning float fails on mipsel",
+    "i386": "i386 SysV returns doubles in x87 st0, which is not modeled "
+    "(NotImplementedError)",
+    "m68k": "m68k float/double return is not modeled (NotImplementedError)",
+    "mips": "Unicorn does not expose the f0 FP register for MIPS32",
+    "mipsel": "Unicorn does not expose the f0 FP register for MIPS32",
 }
 
 _FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests"}

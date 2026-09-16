@@ -907,6 +907,14 @@ class AngrEmulator(
             self.state.scratch.global_syscall_func = syscall_handler
 
     def unhook_syscalls(self) -> None:
+        if not self._initialized:
+            # Before initialization the global hook lives in _gb_syscall_hook
+            # (set by hook_syscalls); self.state does not exist yet. Mirror the
+            # other unhook_* methods and clear the pending hook instead of
+            # dereferencing self.state.scratch.
+            self._gb_syscall_hook = None
+            return
+
         if self._dirty and not self._linear:
             raise NotImplementedError("Cannot unhook syscalls once emulation starts")
 
@@ -1038,6 +1046,14 @@ class AngrEmulator(
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
+                    # Reading an MMIO region before anything wrote it yields an
+                    # unconstrained symbolic value with no single solution. Unlike
+                    # the write wrappers (where the guest supplies the value, so an
+                    # unbound value is a hard error), a read must hand the device
+                    # callback *some* concrete bytes; zeros is the default the
+                    # callback is free to override. Do not raise here -- reading
+                    # uninitialized MMIO is a normal, supported case (see the
+                    # memhook integration scenario).
                     value = b"\x00" * size
             else:
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
@@ -1109,12 +1125,11 @@ class AngrEmulator(
 
                 if res is None:
                     res = expr
-                elif self.platform.byteorder == platforms.Byteorder.LITTLE:
-                    # fix byte order if needed.
-                    # i don't know _why_ this is needed,
-                    # but encoding the result as little-endian on a little-endian
-                    # system produces the incorrect value in the machine state.
-                    res = claripy.Reverse(res)
+                # A symbolic callback returns a BV already in platform (numeric)
+                # order, so it is stored as-is -- matching the range API
+                # (hook_memory_read_symbolic). The byte reversal belongs only in
+                # the concrete bytes->BV wrappers, not here; keeping it here made
+                # the two symbolic read APIs disagree on byte order.
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -1160,7 +1175,14 @@ class AngrEmulator(
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             res = function(emu, addr, size, value)
             if res is not None:
-                return claripy.BVV(res)
+                res_expr = claripy.BVV(res)
+                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                    # Fix byte order if needed. The reversal that used to live in
+                    # hook_memory_reads_symbolic's callback belongs here, in the
+                    # concrete bytes->BV wrapper (mirroring hook_memory_read), so
+                    # the concrete all-reads path is unchanged.
+                    res_expr = claripy.Reverse(res_expr)
+                return res_expr
             return res
 
         self.hook_memory_reads_symbolic(sym_callback)
