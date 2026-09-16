@@ -107,9 +107,9 @@ class Atexit(CStdModel):
 class Atof(CStdModel):
     name = "atof"
 
-    # float atof(const char *str);
+    # double atof(const char *str);
     argument_types = [ArgumentType.POINTER]
-    return_type = ArgumentType.FLOAT
+    return_type = ArgumentType.DOUBLE
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
@@ -127,6 +127,10 @@ class Atof(CStdModel):
         text = text.strip()
         found_dot = False
         for i in range(0, len(text)):
+            if i == 0 and (text[i] == "-" or text[i] == "+"):
+                # C accepts an optional leading sign; without this a signed
+                # literal like "-1.5" is truncated to "" and parsed as 0.0.
+                continue
             if text[i].isnumeric():
                 continue
             elif text[i] == ".":
@@ -138,7 +142,9 @@ class Atof(CStdModel):
             else:
                 text = text[0:i]
                 break
-        if len(text) == 0:
+        if not any(c in "0123456789" for c in text):
+            # No digits (empty, or a lone sign/dot): C's strtod yields 0.0,
+            # and float() would raise on e.g. "-" or "-.".
             text = "0"
 
         self.set_return_value(emulator, float(text))
@@ -163,13 +169,21 @@ class Atoi(CStdModel):
         data = emulator.read_memory(ptr, n)
         text = data.decode("utf-8").strip()
 
+        # A sign is only meaningful as the very first character. Accepting '-'
+        # anywhere (the previous behavior) left an interior dash in the string,
+        # e.g. "12-3", and int() then raised ValueError. C stops at the first
+        # non-digit after an optional leading sign, so "12-3" parses as 12.
+        end = len(text)
         for i in range(0, len(text)):
-            if not text[i].isnumeric() and text[i] != "-":
-                text = text[0:i]
+            if i == 0 and (text[i] == "-" or text[i] == "+"):
+                continue
+            if not text[i].isdigit():
+                end = i
                 break
+        text = text[0:end]
 
-        if len(text) == 0:
-            # No valid number
+        if text in ("", "-", "+"):
+            # No valid number (empty or a lone sign)
             self.set_return_value(emulator, 0)
             return
 
@@ -269,12 +283,16 @@ class Bsearch(CStdModel):
             elif ret < 0:
                 self.high = self.mid - 1
 
-            # searched entire array
-            if self.low > self.high:
-                self.set_return_value(emulator, 0)
-                self.set_return_address(emulator, self.return_addr)
-                self.skip_return = False
-                return
+        # An empty search window means the key is absent: return NULL without
+        # a comparison. This guards both the resume path (window narrowed to
+        # nothing) and first entry with nmemb == 0, where high == -1 would
+        # otherwise make mid == -1 and compare base[-1], reading before the
+        # array.
+        if self.low > self.high:
+            self.set_return_value(emulator, 0)
+            self.set_return_address(emulator, self.return_addr)
+            self.skip_return = False
+            return
 
         # call comparison function and return to this model
         self.mid: int = self.low + ((self.high - self.low) // 2)
@@ -763,6 +781,14 @@ class QSort(CStdModel):
                 ArgumentType.INT,
                 self.platform,
             )
+
+            # A run of 0 or 1 elements is already sorted, and C performs no
+            # comparisons. Return before dispatching the comparator, which
+            # would otherwise read element [1] past a 0- or 1-element array.
+            if self.nmemb <= 1:
+                self.set_return_address(emulator, self.return_addr)
+                self.skip_return = False
+                return
 
             # initialize sorting variables and comparison stack frame
             self.i = 1
