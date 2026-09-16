@@ -41,7 +41,7 @@ _SPECS = {
     "amd64": UnmappedSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
@@ -59,7 +59,7 @@ _SPECS = {
     "i386": UnmappedSpec(
         platform=PlatformSpec("X86_32", "LITTLE"),
         pc_register="eip",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
         stack_pointer_register="esp",
     ),
@@ -89,19 +89,19 @@ _SPECS = {
     "mips64": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
     ),
     "mips64el": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "LITTLE"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
     ),
     "ppc": UnmappedSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         stack_padding_bytes=32,
     ),
     "ppc64": UnmappedSpec(
@@ -154,16 +154,16 @@ _SPECS = {
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "aarch64.panda": "Waiting for panda-ng",
-    "amd64.panda": "Waiting for panda-ng",
-    "armel.panda": "Waiting for panda-ng",
-    "armhf.panda": "Waiting for panda-ng",
-    "i386.panda": "Waiting for panda-ng",
-    "mips.panda": "Waiting for panda-ng",
-    "mips64.panda": "Waiting for panda-ng",
-    "mips64el.panda": "Waiting for panda-ng",
-    "mipsel.panda": "Waiting for panda-ng",
-    "ppc.panda": "Waiting for panda-ng",
+    "aarch64.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "armel.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "armhf.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "mips.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (15) instead of EmulationFetchUnmappedFailure",
+    "mipsel.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (15) instead of EmulationFetchUnmappedFailure",
     "ppc64": "Unicorn ppc64 support buggy",
     # Measured: Styx's SuperH2A target maps a flat 4 GiB RWX space, so none of
     # the three accesses can fault.  Single-stepping unmapped.sh2a.elf's
