@@ -91,6 +91,12 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99AtofTests",
+        "function": "atof",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99AtoiTests",
         "function": "atoi",
         "library": "c99",
