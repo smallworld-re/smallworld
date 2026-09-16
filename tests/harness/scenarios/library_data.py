@@ -652,6 +652,24 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXCreatTests",
+        "function": "creat",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXDupTests",
+        "function": "dup",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXOpenTests",
+        "function": "open",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "POSIXSocketTCPServerTests",
         "function": "socket_tcp_server",
         "library": "posix",

@@ -1,5 +1,7 @@
 from .arpa import *  # noqa: F401, F403
 from .arpa import __all__ as __arpa__
+from .fcntl import *  # noqa: F401, F403
+from .fcntl import __all__ as __fcntl__
 from .libgen import *  # noqa: F401, F403
 from .libgen import __all__ as __libgen__
 from .signal import *  # noqa: F401, F403
@@ -9,4 +11,4 @@ from .sys import __all__ as __sys__
 from .unistd import *  # noqa: F401, F403
 from .unistd import __all__ as __unistd__
 
-__all__ = __arpa__ + __libgen__ + __signal__ + __sys__ + __unistd__
+__all__ = __arpa__ + __libgen__ + __signal__ + __sys__ + __unistd__ + __fcntl__
