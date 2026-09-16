@@ -54,21 +54,25 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
     _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = [
+        "f12",
         "f13",
         "f14",
         "f15",
         "f16",
         "f17",
         "f18",
+        "f19",
     ]
 
     _double_arg_regs = [
+        "f12",
         "f13",
         "f14",
         "f15",
         "f16",
         "f17",
         "f18",
+        "f19",
     ]
 
     _init_stack_offset = 0

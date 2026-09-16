@@ -4026,11 +4026,14 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         self.assertEqual(RiscV64SysVCallingContext._float_arg_regs, expected)
         self.assertEqual(RiscV64SysVCallingContext._double_arg_regs, expected)
 
-    def test_mips64el_fp_arg_regs_include_f18(self):
-        expected = ["f13", "f14", "f15", "f16", "f17", "f18"]
-        self.assertEqual(MIPS64ELSysVCallingContext._float_arg_regs, expected)
-        self.assertEqual(MIPS64ELSysVCallingContext._double_arg_regs, expected)
-        # The big-endian variant always had the full list; they should agree.
+    def test_mips64_fp_arg_regs_are_f12_to_f19(self):
+        # n64 passes FP arguments in $f12-$f19 (fa0-fa7). The list previously
+        # started at f13 and stopped at f18 -- missing the first (f12) and last
+        # (f19) -- which the c99 fabs integration test now catches end to end.
+        expected = ["f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19"]
+        self.assertEqual(MIPS64SysVCallingContext._float_arg_regs, expected)
+        self.assertEqual(MIPS64SysVCallingContext._double_arg_regs, expected)
+        # The two endiannesses must agree.
         self.assertEqual(
             MIPS64ELSysVCallingContext._float_arg_regs,
             MIPS64SysVCallingContext._float_arg_regs,

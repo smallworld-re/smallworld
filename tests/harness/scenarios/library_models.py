@@ -35,6 +35,23 @@ _DIFFTIME_SKIPS = {
     "mipsel": "Returning float fails on mipsel",
 }
 
+# fabs passes a double argument and returns one. Unlike the return-only tests,
+# the n64 MIPS variants handle it (Ghidra backend supports the FP registers),
+# so they are NOT skipped -- fabs is what exercises the n64 FP argument
+# registers end to end. Only arches with no FP support at all fail.
+_FABS_SKIPS = {
+    "i386": "Returning a double is unsupported on i386 (x87 return)",
+    "m68k": "Floating point is unsupported on m68k",
+    "mips": "Unicorn does not expose the MIPS32 FP registers",
+    "mipsel": "Unicorn does not expose the MIPS32 FP registers",
+}
+
+#: Per-test-class architecture skip maps.
+_PER_TEST_SKIPS = {
+    "C99DifftimeTests": _DIFFTIME_SKIPS,
+    "C99FabsTests": _FABS_SKIPS,
+}
+
 
 def _library_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
     from .. import manifest
@@ -106,7 +123,7 @@ def _build_scenario_infos() -> tuple[ScenarioInfo, ...]:
         library = item["library"]
         function = item["function"]
         base = item["bases"][0]
-        is_difftime = item["class_name"] == "C99DifftimeTests"
+        skips = _PER_TEST_SKIPS.get(item["class_name"])
         kwargs = {
             "library": library,
             "function": function,
@@ -115,7 +132,7 @@ def _build_scenario_infos() -> tuple[ScenarioInfo, ...]:
             "custom_run": item.get("custom_run_test", ""),
         }
         variants = tuple(
-            (arch, _DIFFTIME_SKIPS.get(arch) if is_difftime else None)
+            (arch, skips.get(arch) if skips else None)
             for arch, _full, _bo in _ARCH_MATRIX
         )
         infos.append(

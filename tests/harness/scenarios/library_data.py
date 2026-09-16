@@ -128,6 +128,12 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99FabsTests",
+        "function": "fabs",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99FreeTests",
         "function": "free",
         "library": "c99",
