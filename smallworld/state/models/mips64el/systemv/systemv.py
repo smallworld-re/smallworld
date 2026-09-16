@@ -107,7 +107,9 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
 
     def _read_return_float(self, emulator: emulators.Emulator) -> float:
         """Read a float returned value"""
-        intval = emulator.read_register("f0")
+        # f0 is 64 bits wide; a single-precision return value sits in the
+        # low 32 bits, so mask before packing or to_bytes overflows.
+        intval = emulator.read_register("f0") & self._int_inv_mask
         data = int.to_bytes(intval, self._float_stack_size, "little")
         (unpacked,) = struct.unpack("<f", data)
         return unpacked
@@ -120,8 +122,11 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
 
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
+        # n64 returns a double in the full 64-bit f0, so pack the double width
+        # (8) -- _float_stack_size (4) truncated it and could not fill the <d
+        # unpack.
         intval = emulator.read_register("f0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 

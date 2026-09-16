@@ -60,7 +60,10 @@ class AArch64SysVCallingContext(CStdCallingContext):
     _align_stack = False
     _eight_byte_reg_size = 1
     _double_reg_size = 1
-    _four_byte_stack_size = 4
+    # AAPCS64 stack slots are 8-byte aligned and at least 8 bytes, so a 4-byte
+    # value on the stack occupies a full 8-byte slot; keeping the following
+    # 8-byte argument aligned (matches riscv64).
+    _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
     _float_stack_size = 4
     _double_stack_size = 8

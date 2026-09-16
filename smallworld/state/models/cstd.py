@@ -401,7 +401,14 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # No room left in registers; use stack
                 self._on_stack.append(True)
                 self._arg_offset.append(self._stack_offset + self._init_stack_offset)
-                self._stack_offset += self._float_stack_size
+                # On ABIs that promote a float to a double (PowerPC),
+                # set_argument writes 8 bytes here, so the slot must be that
+                # wide or it overruns the following argument.
+                self._stack_offset += (
+                    self._double_stack_size
+                    if self._floats_are_doubles
+                    else self._float_stack_size
+                )
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
@@ -666,9 +673,17 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         elif kind == ArgumentType.FLOAT:
             # Four-byte float
             if on_stack:
-                # Stored on the stack
+                # Stored on the stack. When floats are promoted to doubles the
+                # slot holds 8 bytes (see add_argument / set_argument).
                 addr = emulator.read_register(sp) + arg_offset
-                data = emulator.read_memory(addr, self._float_stack_size)
+                data = emulator.read_memory(
+                    addr,
+                    (
+                        self._double_stack_size
+                        if self._floats_are_doubles
+                        else self._float_stack_size
+                    ),
+                )
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
                 else:
