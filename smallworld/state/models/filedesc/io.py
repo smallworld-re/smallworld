@@ -272,11 +272,24 @@ class BytesIO(BasicIO):
         isatty: bool,
         data: typing.Optional[io.BytesIO] = None,
         cursor: int = 0,
+        cursor_holder: typing.Optional[typing.List[int]] = None,
     ):
         super().__init__(name, readable, writable, seekable, truncatable, isatty)
         assert data is not None
         self._parent = data
-        self._cursor = cursor
+        # The offset lives in a one-element list so dup() can share it by
+        # reference: POSIX duplicated fds share one open file description,
+        # including the file offset. A separately-opened handle gets its own
+        # holder and keeps an independent offset.
+        self._cursor_holder = [cursor] if cursor_holder is None else cursor_holder
+
+    @property
+    def _cursor(self) -> int:
+        return self._cursor_holder[0]
+
+    @_cursor.setter
+    def _cursor(self, value: int) -> None:
+        self._cursor_holder[0] = value
 
     def on_read(self, n: int) -> bytes:
         self._parent.seek(self._cursor, 0)
@@ -312,6 +325,8 @@ class BytesIO(BasicIO):
         return out
 
     def dup(self) -> BasicIO:
+        # Share the offset holder so the two handles track one file offset,
+        # as POSIX dup()/dup2() require.
         return BytesIO(
             self._name,
             self._readable,
@@ -320,7 +335,7 @@ class BytesIO(BasicIO):
             self._truncatable,
             self._isatty,
             self._parent,
-            self._cursor,
+            cursor_holder=self._cursor_holder,
         )
 
 
