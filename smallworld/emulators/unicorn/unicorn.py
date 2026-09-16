@@ -318,11 +318,6 @@ class UnicornEmulator(
             typing.Callable[[emulator.Emulator, int], None]
         ] = None
 
-        # function to run on a specific interrupt number
-        self.interrupt_hook: typing.Dict[
-            int, typing.Callable[[emulator.Emulator], None]
-        ] = {}
-
         def interrupt_callback(uc, index, user_data):
             # On some ISAs, Unicorn will already have set PC
             # to the interrupt handler address,
@@ -341,8 +336,8 @@ class UnicornEmulator(
 
             if self.all_interrupts_hook is not None:
                 handled |= self.all_interrupts_hook(self, index)
-            if index in self.interrupt_hook:
-                handled |= self.interrupt_hook[index](self)
+            if self.is_interrupt_hooked(index):
+                handled |= self.interrupt_hooks[index](self)
 
             if not handled:
                 logger.warning(f"Unhandled interrupt {index}")
