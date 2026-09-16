@@ -1,5 +1,3 @@
-import locale
-
 from .... import emulators, exceptions
 from ..cstd import ArgumentType, CStdModel
 from ..errno import ErrnoResolver
@@ -11,7 +9,6 @@ from .utils import (
     _emu_strncat,
     _emu_strncmp,
     _emu_strncpy,
-    _emu_strnlen,
 )
 
 
@@ -204,6 +201,25 @@ class Strcmp(CStdModel):
         self.set_return_value(emulator, res)
 
 
+#: Locale names whose collation is plain bytewise (C/POSIX) order. Only these
+#: are modeled by strcoll/strxfrm.
+_C_LOCALES = frozenset({"", "C", "POSIX", "C.UTF-8"})
+
+
+def _require_c_locale(name: str, loc: str) -> None:
+    """Refuse a non-C locale rather than delegating to the host process.
+
+    strcoll/strxfrm collation outside the C/POSIX locale needs the target's
+    locale data, which we can't observe under emulation. The old models faked
+    it by mutating the host process locale -- both non-deterministic and a
+    global side effect -- so an unsupported locale is now an explicit error.
+    """
+    if loc not in _C_LOCALES:
+        raise exceptions.UnsupportedModelError(
+            f"{name} only models the C/POSIX locale; got {loc!r}"
+        )
+
+
 class Strcoll(CStdModel):
     name = "strcoll"
 
@@ -211,50 +227,27 @@ class Strcoll(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
-    # Won't respond to dynamic changes to the locale.
-    imprecise = True
-
     def __init__(self, address: int):
         super().__init__(address)
-        # NOTE: This requries extra configuration; set `locale` to the preferred locale.
-        # TODO: Think of a way to support dynamically-changing locales.
+        # Only the C/POSIX locale is modeled; see _require_c_locale.
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
+        _require_c_locale(self.name, self.locale)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
         assert isinstance(ptr1, int)
         assert isinstance(ptr2, int)
 
-        # TODO: This might be wrong if CTYPE is different
-        len1 = _emu_strlen(emulator, ptr1)
-        len2 = _emu_strlen(emulator, ptr2)
+        bytes1 = emulator.read_memory(ptr1, _emu_strlen(emulator, ptr1))
+        bytes2 = emulator.read_memory(ptr2, _emu_strlen(emulator, ptr2))
 
-        bytes1 = emulator.read_memory(ptr1, len1)
-        bytes2 = emulator.read_memory(ptr2, len2)
-
-        try:
-            # Risky.  Inside this section, the locale will be different.
-            old_locale = locale.getlocale(category=locale.LC_COLLATE)
-            locale.setlocale(locale.LC_COLLATE, self.locale)
-            locale.setlocale(locale.LC_CTYPE, self.locale)
-
-            encoding = locale.getpreferredencoding()
-
-            str1 = bytes1.decode(encoding)
-            str2 = bytes2.decode(encoding)
-
-            res = locale.strcoll(str1, str2)
-
-            locale.setlocale(locale.LC_COLLATE, old_locale)
-            locale.setlocale(locale.LC_CTYPE, old_locale)
-        except Exception as e:
-            locale.setlocale(locale.LC_COLLATE, old_locale)
-            locale.setlocale(locale.LC_CTYPE, old_locale)
-            raise e
-
+        # In the C/POSIX locale strcoll collates bytewise -- it is strcmp --
+        # and Python's bytes comparison is the same unsigned lexicographic
+        # order, so this needs no host libc and no locale state.
+        res = (bytes1 > bytes2) - (bytes1 < bytes2)
         self.set_return_value(emulator, res)
 
 
@@ -265,17 +258,14 @@ class Strxfrm(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.SIZE_T
 
-    # Won't respond to dynamic changes to the locale.
-    imprecise = True
-
     def __init__(self, address: int):
         super().__init__(address)
-        # NOTE: This requries extra configuration; set `locale` to the preferred locale.
-        # TODO: Think of a way to support dynamically-changing locales.
+        # See Strcoll: only the C/POSIX locale is modeled.
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
+        _require_c_locale(self.name, self.locale)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -284,41 +274,22 @@ class Strxfrm(CStdModel):
         assert isinstance(src, int)
         assert isinstance(n, int)
 
-        # TODO: This might be wrong if CTYPE is different
-        if n == 0:
-            n = _emu_strlen(emulator, src)
-        else:
-            n = _emu_strnlen(emulator, src, n)
+        # In the C/POSIX locale the transform is the identity, so the
+        # transformed length is strlen(src). C returns that length (excluding
+        # the NUL) regardless of n or dst.
+        srclen = _emu_strlen(emulator, src)
+        self.set_return_value(emulator, srclen)
 
-        self.set_return_value(emulator, n)
-
-        if dst == 0:
+        # n bounds the DESTINATION buffer, including the NUL. With n == 0 or a
+        # NULL dst nothing is written; otherwise write at most n bytes, always
+        # NUL-terminated. (C leaves dst indeterminate when srclen + 1 > n, so a
+        # truncated-but-terminated copy is a valid concrete result.)
+        if dst == 0 or n == 0:
             return
 
-        bytes1 = emulator.read_memory(src, n)
-
-        try:
-            # Risky.  Inside this section, the locale will be different.
-            old_locale = locale.getlocale(category=locale.LC_COLLATE)
-            locale.setlocale(locale.LC_COLLATE, self.locale)
-            locale.setlocale(locale.LC_CTYPE, self.locale)
-
-            encoding = locale.getpreferredencoding()
-
-            str1 = bytes1.decode(encoding)
-
-            str2 = locale.strxfrm(str1)
-
-            bytes2 = str2.encode(encoding)
-
-            locale.setlocale(locale.LC_COLLATE, old_locale)
-            locale.setlocale(locale.LC_CTYPE, old_locale)
-        except Exception as e:
-            locale.setlocale(locale.LC_COLLATE, old_locale)
-            locale.setlocale(locale.LC_CTYPE, old_locale)
-            raise e
-
-        emulator.write_memory(dst, bytes2)
+        src_bytes = emulator.read_memory(src, srclen)
+        out = src_bytes[: n - 1] + b"\x00"
+        emulator.write_memory(dst, out)
 
 
 class Memchr(CStdModel):

@@ -76,6 +76,7 @@ from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
 from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
+from smallworld.exceptions import UnsupportedModelError
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
 from smallworld.hinting import (
     DynamicMemoryValueHint,
@@ -113,11 +114,16 @@ from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
 from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
+from smallworld.state.models.amd64.systemv.c99.string import (
+    AMD64SysVStrcoll,
+    AMD64SysVStrxfrm,
+)
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
 from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
+from smallworld.state.models.c99.string import _require_c_locale
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.defaultmmio import (
@@ -8766,6 +8772,40 @@ class MemoizingReplacementSolverTests(unittest.TestCase):
         self.assertNotIsInstance(
             default.state.solver._solver, MemoizingReplacementSolver
         )
+
+
+class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
+    """strcoll/strxfrm model only the C/POSIX locale and refuse anything else.
+
+    A different collation would need the target's locale data, which we can't
+    observe under emulation. The old models faked it by mutating the host
+    process locale; the hardened models raise instead. This path can't be
+    reached from an integration .elf.c (the guest can't set ``self.locale``),
+    so it is covered here.
+    """
+
+    def test_helper_accepts_c_locales(self):
+        # Must not raise for any spelling of the C/POSIX locale.
+        for loc in ("", "C", "POSIX", "C.UTF-8"):
+            _require_c_locale("strxfrm", loc)
+
+    def test_helper_refuses_other_locales(self):
+        for loc in ("de_DE.UTF-8", "en_US", "ja_JP.eucJP"):
+            with self.assertRaises(UnsupportedModelError):
+                _require_c_locale("strxfrm", loc)
+
+    def test_strcoll_model_refuses_non_c_locale(self):
+        model = AMD64SysVStrcoll(0x1000)
+        model.locale = "de_DE.UTF-8"
+        # Refused before any argument is read, so a stub emulator suffices.
+        with self.assertRaises(UnsupportedModelError):
+            model.model(mock.MagicMock())
+
+    def test_strxfrm_model_refuses_non_c_locale(self):
+        model = AMD64SysVStrxfrm(0x1000)
+        model.locale = "de_DE.UTF-8"
+        with self.assertRaises(UnsupportedModelError):
+            model.model(mock.MagicMock())
 
 
 if __name__ == "__main__":

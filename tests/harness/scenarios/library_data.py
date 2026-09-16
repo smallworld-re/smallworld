@@ -237,6 +237,12 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99StrcollTests",
+        "function": "strcoll",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99StrcpyTests",
         "function": "strcpy",
         "library": "c99",
@@ -305,6 +311,12 @@ LIBRARY_MODELS = [
         "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99StrtokTests",
         "function": "strtok",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99StrxfrmTests",
+        "function": "strxfrm",
         "library": "c99",
     },
     {
