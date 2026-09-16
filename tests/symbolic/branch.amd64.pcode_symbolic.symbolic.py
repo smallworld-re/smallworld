@@ -34,7 +34,7 @@ cpu.rip.set(code.address)
 
 # Initialize argument registers
 cpu.rdi.set_label("arg1")
-rdi = cpu.rdi.to_symbolic(platform.byteorder)
+rdi = cpu.rdi.to_symbolic()
 
 # Emulate
 emulator = smallworld.emulators.GhidraSymbolicEmulator(platform)
