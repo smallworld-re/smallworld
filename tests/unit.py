@@ -96,6 +96,18 @@ from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
+from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
+from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
+from smallworld.state.memory.elf.rela.mips import (
+    MIPS64ELElfRelocator,
+    MIPS64ElfRelocator,
+    MIPSElfRelocator,
+)
+from smallworld.state.memory.elf.rela.ppc import (
+    PowerPC64ElfRelocator,
+    PowerPCElfRelocator,
+)
+from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
@@ -6288,6 +6300,70 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         relocator = AMD64ElfRelocator()
         val = relocator._compute_value(self._rela(0x8, 0x4), _FakeElf())
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
+
+
+class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
+    """RELA addends are signed, so S + B + A can be negative or overflow.
+
+    ``int.to_bytes`` raises ``OverflowError`` on a negative or too-wide int,
+    so every relocator must reduce the sum modulo its output width -- exactly
+    as the hardware does when it stores the field -- before packing. Prior to
+    the fix these paths handed a raw (negative) int straight to ``to_bytes``
+    and aborted the load of any image with a negative addend.
+
+    Each case uses ``S + B == 0`` and ``A == -0x1234`` so the result is
+    ``-0x1234`` mod 2**width. Distinct low bytes pin down width and byteorder
+    as well as the masking itself.
+    """
+
+    ADDEND = -0x1234
+    #: -0x1234 masked to 32/64 bits, packed big/little.
+    BE32 = b"\xff\xff\xed\xcc"
+    LE32 = b"\xcc\xed\xff\xff"
+    BE64 = b"\xff\xff\xff\xff\xff\xff\xed\xcc"
+    LE64 = b"\xcc\xed\xff\xff\xff\xff\xff\xff"
+
+    def _value(self, relocator, type_):
+        rela = ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=0, baseaddr=0),
+            addend=self.ADDEND,
+        )
+        return relocator._compute_value(rela, _FakeElf())
+
+    def test_m68k_r_68k_32(self):
+        # R_68K_32 == 1
+        self.assertEqual(self._value(M68KElfRelocator(), 1), self.BE32)
+
+    def test_loongarch64_r_larch_64(self):
+        # R_LARCH_64 == 2
+        self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
+
+    def test_riscv64_r_riscv_64(self):
+        # R_RISCV_64 == 2
+        self.assertEqual(self._value(RISCV64ElfRelocator(), 2), self.LE64)
+
+    def test_mips32_r_mips_32(self):
+        # R_MIPS_32 == 2, big-endian 32-bit
+        self.assertEqual(self._value(MIPSElfRelocator(), 2), self.BE32)
+
+    def test_mips64_r_mips_64(self):
+        # R_MIPS_64 == 18, big-endian 64-bit
+        self.assertEqual(self._value(MIPS64ElfRelocator(), 18), self.BE64)
+
+    def test_mips64el_r_mips_64(self):
+        # R_MIPS_64 == 18, little-endian 64-bit
+        self.assertEqual(self._value(MIPS64ELElfRelocator(), 18), self.LE64)
+
+    def test_powerpc_r_ppc_abs32(self):
+        # R_PPC_ABS32 == 1
+        self.assertEqual(self._value(PowerPCElfRelocator(), 1), self.BE32)
+
+    def test_powerpc64_r_ppc64_addr64(self):
+        # R_PPC64_ADDR64 == 38
+        self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):

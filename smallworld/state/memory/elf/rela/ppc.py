@@ -26,14 +26,16 @@ class PowerPCElfRelocator(ElfRelocator):
 
         if rela.type == R_PPC_ABS32:
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(4, "big")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFF).to_bytes(4, "big")
         elif rela.type == R_PPC_RELATIVE:
             val = elf.address + addend
-            return val.to_bytes(self.addrsz, "big")
+            return (val & ((1 << (self.addrsz * 8)) - 1)).to_bytes(self.addrsz, "big")
         elif rela.type == R_PPC_GLOB_DAT or rela.type == R_PPC_JUMP_SLOT:
             # Different semantics, all behave the same
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(self.addrsz, "big")
+            return (val & ((1 << (self.addrsz * 8)) - 1)).to_bytes(self.addrsz, "big")
         else:
             raise ConfigurationError(
                 f"Invalid relocation type for {rela.symbol.name}: {rela.type}"
@@ -56,7 +58,7 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
 
         if rela.type == R_PPC64_ADDR64:
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(self.addrsz, "big")
+            return (val & ((1 << (self.addrsz * 8)) - 1)).to_bytes(self.addrsz, "big")
         elif rela.type == R_PPC_JUMP_SLOT:
             # The PowerPC64 JUMP_SLOT relocation is much more complicated.
             # It actually fills in three 64-bit values:
