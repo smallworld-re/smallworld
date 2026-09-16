@@ -268,6 +268,10 @@ int main() {
     TEST("%#.2G", "4.2", 4.2);
     // %c: Character
     TEST("%c", "f", 'f');
+    // %c with width/flags. SW-094: the '-' (left-justify) flag was computed
+    // but never applied, so "%-5c" was right-justified like "%5c".
+    TEST("%5c", "    f", 'f');
+    TEST("%-5c", "f    ", 'f');
     // %c: String
     TEST("%s", "foobar", "foobar");
     TEST("%8s", "  foobar", "foobar");
