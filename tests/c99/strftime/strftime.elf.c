@@ -19,11 +19,17 @@ int main() {
         .tm_isdst = 0
     };
     char buf[0x1000];
-    strftime(buf, 0xfff, fmt, &st);
- 
+    size_t n = strftime(buf, 0xfff, fmt, &st);
+
     if(strcmp(expected, buf)) {
         exit(1);
     }
- 
+
+    // strftime returns the number of bytes placed in the array, excluding the
+    // terminating NUL. The model counted the NUL, returning strlen(buf) + 1.
+    if(n != strlen(buf)) {
+        exit(1);
+    }
+
     return *good;
 }
