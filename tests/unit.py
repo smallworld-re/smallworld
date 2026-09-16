@@ -3942,6 +3942,61 @@ class X86ImmediateOperandTests(unittest.TestCase):
         self.assertIn(RegisterOperand("rax"), insn.writes)
 
 
+class CapstoneUseDefMemoryTests(unittest.TestCase):
+    """The Capstone use/def fallback must report the base/index registers of a
+    memory operand as reads (SW-079), and x86 push must record its write at
+    sp - word_size (SW-080)."""
+
+    def _capstone_insn(self, hexbytes, arch, byteorder):
+        plat = platforms.Platform(arch, byteorder)
+        return Instruction.from_bytes(
+            bytes.fromhex(hexbytes), 0x1000, plat, use_def_backend="capstone"
+        )
+
+    def _read_regs(self, insn):
+        return {r.name for r in insn.reads if isinstance(r, RegisterOperand)}
+
+    def test_mips_load_reads_base_register(self):
+        # lw $t0, 4($sp): the base register sp is read to form the address,
+        # but the base fallback only added it inside the memory reference.
+        insn = self._capstone_insn(
+            "8fa80004", platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.assertIn("sp", self._read_regs(insn))
+
+    def test_aarch64_load_reads_base_and_index(self):
+        # ldr x0, [x1, x2]: base x1 and index x2 are both read.
+        insn = self._capstone_insn(
+            "206862f8", platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        regs = self._read_regs(insn)
+        self.assertIn("x1", regs)
+        self.assertIn("x2", regs)
+
+    def test_aarch64_store_reads_base_and_index(self):
+        # str x0, [x1, x2]: base/index are read to form the address even
+        # though the memory access itself is a write.
+        insn = self._capstone_insn(
+            "206822f8", platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        regs = self._read_regs(insn)
+        self.assertIn("x1", regs)
+        self.assertIn("x2", regs)
+
+    def test_x86_push_writes_below_the_stack_pointer(self):
+        # push rax writes to [rsp - 8]: push pre-decrements the stack pointer.
+        insn = self._capstone_insn(
+            "50", platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        emu = mock.MagicMock()
+        emu.read_register.side_effect = lambda name: (
+            0x7000 if name in ("rsp", "sp") else 0
+        )
+        writes = [w for w in insn.writes if isinstance(w, BSIDMemoryReferenceOperand)]
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0].address(emu), 0x7000 - 8)
+
+
 class UnicornAmd64FpuRegisterTests(unittest.TestCase):
     """The unicorn amd64 machdef mapped fstat to the FPU control word."""
 
