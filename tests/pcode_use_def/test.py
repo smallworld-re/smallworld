@@ -1400,11 +1400,12 @@ class UseDefBackendSelectionTests(unittest.TestCase):
             for op in self._insn(use_def_backend="capstone").writes
             if isinstance(op, BSIDMemoryReferenceOperand)
         )
-        # pcode: [rsp-8] resolved pre-execution; Capstone: [rsp] meant
-        # to be read post-decrement. Against the same pre-push rsp they
-        # differ by the push width -- documenting, not asserting equal.
+        # Both backends resolve push rax's write to [rsp - 8] against the
+        # same pre-push rsp: pcode resolves it pre-execution, and Capstone now
+        # accounts for push's pre-decrement (it previously reported [rsp], off
+        # by the push width).
         self.assertEqual(pcode_mem.address(emu), 0x7FFF_0000 - 8)
-        self.assertEqual(cap_mem.address(emu), 0x7FFF_0000)
+        self.assertEqual(cap_mem.address(emu), 0x7FFF_0000 - 8)
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")

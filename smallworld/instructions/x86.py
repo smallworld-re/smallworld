@@ -81,8 +81,12 @@ class x86Instruction(Instruction):
                 self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
             )
         if (not is_read) and self._instruction.mnemonic == "push":
+            # push PRE-decrements the stack pointer and writes to
+            # [sp - word_size], not [sp].
             operands.add(
-                self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
+                self._memory_reference(
+                    None, self.sp, None, 1, -self.word_size, self.word_size
+                )
             )
         return operands
 

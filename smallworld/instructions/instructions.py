@@ -454,11 +454,23 @@ class Instruction(metaclass=abc.ABCMeta):
         access = capstone.CS_AC_READ if kind == "use" else capstone.CS_AC_WRITE
         operands: typing.Set[Operand] = set()
         for operand in self._instruction.operands:
-            if operand.type == capstone.CS_OP_MEM and (
-                not hasattr(operand, "access") or operand.access & access
-            ):
-                # Memory operand; handling is architecture-specific.
-                operands.add(self._memory_reference(operand))
+            if operand.type == capstone.CS_OP_MEM:
+                if not hasattr(operand, "access") or operand.access & access:
+                    # Memory operand; handling is architecture-specific.
+                    operands.add(self._memory_reference(operand))
+                if kind == "use":
+                    # The base and index registers are read to form the
+                    # address -- for a store as well as a load -- so they
+                    # belong in the use set regardless of the access
+                    # direction. The memory reference alone hides them from
+                    # dataflow consumers that look for register reads. (x86
+                    # gets these from regs_access(); the other architectures
+                    # rely on the explicit operand list, so add them here.)
+                    mem = operand.value.mem
+                    for reg in (getattr(mem, "base", 0), getattr(mem, "index", 0)):
+                        name = self._instruction.reg_name(reg)
+                        if name:
+                            operands.add(RegisterOperand(name))
             elif operand.type == capstone.CS_OP_REG and (
                 not hasattr(operand, "access") or operand.access & access
             ):
