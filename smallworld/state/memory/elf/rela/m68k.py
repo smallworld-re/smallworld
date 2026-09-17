@@ -26,7 +26,9 @@ class M68KElfRelocator(ElfRelocator):
                 raise ConfigurationError("Using Rels.  Need to be careful")
             addend = rela.addend
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(4, "big")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFF).to_bytes(4, "big")
         elif rela.type >= 0 and rela.type < R_68K_NUM:
             raise ConfigurationError(
                 f"Valid, but unsupported relocation for {rela.symbol.name}: {rela.type}"

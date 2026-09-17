@@ -26,31 +26,21 @@ _ARCH_MATRIX = (
 
 _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MATRIX}
 
-_DIFFTIME_SKIPS = {
-    "i386": "Returning float fails on i386",
-    "m68k": "Returning float fails on m68k",
-    "mips": "Returning float fails on mips",
-    "mips64": "Returning float fails on mips64",
-    "mips64el": "Returning float fails on mips64el",
-    "mipsel": "Returning float fails on mipsel",
+# Architectures where returning a float/double from a library model is not
+# yet supported. Any model whose class is listed in _FLOAT_RETURN_TESTS is
+# skipped on these.
+_FLOAT_RETURN_SKIPS = {
+    "i386": "i386 SysV returns doubles in x87 st0, which is not modeled "
+    "(NotImplementedError)",
+    "m68k": "m68k float/double return is not modeled (NotImplementedError)",
+    "mips": "Unicorn does not expose the f0 FP register for MIPS32",
+    "mipsel": "Unicorn does not expose the f0 FP register for MIPS32",
 }
 
-# fabs passes a double argument and returns one. Unlike the return-only tests,
-# the n64 MIPS variants handle it (Ghidra backend supports the FP registers),
-# so they are NOT skipped -- fabs is what exercises the n64 FP argument
-# registers end to end. Only arches with no FP support at all fail.
-_FABS_SKIPS = {
-    "i386": "Returning a double is unsupported on i386 (x87 return)",
-    "m68k": "Floating point is unsupported on m68k",
-    "mips": "Unicorn does not expose the MIPS32 FP registers",
-    "mipsel": "Unicorn does not expose the MIPS32 FP registers",
-}
-
-#: Per-test-class architecture skip maps.
-_PER_TEST_SKIPS = {
-    "C99DifftimeTests": _DIFFTIME_SKIPS,
-    "C99FabsTests": _FABS_SKIPS,
-}
+# fabs both takes a double argument and returns one, so it needs exactly the
+# same skips as the return-only tests: the arches above are the ones without FP
+# support, and the n64 MIPS variants (which fabs exercises end to end) stay in.
+_FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests", "C99FabsTests"}
 
 
 def _library_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
@@ -123,7 +113,7 @@ def _build_scenario_infos() -> tuple[ScenarioInfo, ...]:
         library = item["library"]
         function = item["function"]
         base = item["bases"][0]
-        skips = _PER_TEST_SKIPS.get(item["class_name"])
+        returns_float = item["class_name"] in _FLOAT_RETURN_TESTS
         kwargs = {
             "library": library,
             "function": function,
@@ -132,7 +122,7 @@ def _build_scenario_infos() -> tuple[ScenarioInfo, ...]:
             "custom_run": item.get("custom_run_test", ""),
         }
         variants = tuple(
-            (arch, skips.get(arch) if skips else None)
+            (arch, _FLOAT_RETURN_SKIPS.get(arch) if returns_float else None)
             for arch, _full, _bo in _ARCH_MATRIX
         )
         infos.append(

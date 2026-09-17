@@ -562,8 +562,17 @@ class Fseek(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        pos = file.seek(offset, origin)
-        self.set_return_value(emulator, pos)
+        try:
+            file.seek(offset, origin)
+        except FDIOError:
+            # A non-seekable stream (pipe, socket, std stream) reports failure;
+            # it must not escape as an uncaught exception.
+            logger.exception(f"Failed to seek filestar {filestar:x}")
+            self.set_return_value(emulator, -1)
+            return
+
+        # C's fseek returns 0 on success (not the resulting offset).
+        self.set_return_value(emulator, 0)
 
 
 class Ftell(StdioModel):

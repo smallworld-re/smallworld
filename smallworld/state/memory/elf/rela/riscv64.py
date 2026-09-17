@@ -25,7 +25,9 @@ class RISCV64ElfRelocator(ElfRelocator):
 
             # Different semantics, all behave the same
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(8, "little")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")
         elif rela.type == R_RISCV_RELATIVE:
             if rela.is_rela:
                 addend = rela.addend
@@ -33,7 +35,9 @@ class RISCV64ElfRelocator(ElfRelocator):
                 addend = elf.read_int(rela.offset, 8, self.byteorder)
 
             val = elf.address + addend
-            return val.to_bytes(8, "little")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")
         else:
             raise ConfigurationError(
                 f"Unknown relocation type for {rela.symbol.name}: {rela.type}"

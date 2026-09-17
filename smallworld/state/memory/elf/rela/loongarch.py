@@ -27,7 +27,9 @@ class LoongArch64ElfRelocator(ElfRelocator):
                 addend = elf.read_int(rela.offset, 8, self.byteorder)
 
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(8, "little")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")
         elif rela.type == R_LARCH_RELATIVE:
             if rela.is_rela:
                 addend = rela.addend
@@ -35,7 +37,9 @@ class LoongArch64ElfRelocator(ElfRelocator):
                 addend = elf.read_int(rela.offset, 8, self.byteorder)
 
             val = elf.address + addend
-            return val.to_bytes(8, "little")
+            # Mask to the output width: RELA addends are signed and address
+            # sums can wrap, so to_bytes would OverflowError on a raw value.
+            return (val & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")
         elif rela.type >= 0 and rela.type < R_LARCH_NUM:
             raise ConfigurationError(
                 f"Valid, but unsupported relocation for {rela.symbol.name}: {rela.type}"

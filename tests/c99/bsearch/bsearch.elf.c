@@ -33,5 +33,20 @@ int main() {
         return 1;
     }
 
+    // Empty array: C returns NULL without ever calling the comparator. The
+    // previous model instead computed mid == -1 and compared base[-1]. We
+    // search an empty range that starts at sentinel[1], so base[-1] is the
+    // mapped sentinel[0] == 7. The buggy model's compare(key, base[-1])
+    // returns 0 and it hands back &sentinel[0] (non-NULL); the fixed model
+    // returns NULL without a comparison. No comparator-call counter is used
+    // because a global would be addressed GP-relative on MIPS, which the
+    // test harness does not set up.
+    const int sentinel[2] = {7, 999};
+    key = 7;
+    answer = bsearch((const void*)&key, (const void*)&sentinel[1], 0, sizeof(int), compare);
+    if (answer != NULL) {
+        return 1;
+    }
+
     return *good;
 }

@@ -66,7 +66,9 @@ def fuzz(
     exits = []
     code = None
     for code in machine.members(state.memory.code.Executable):
-        exits.extend([b.stop for b in code.bounds])
+        # code.bounds is a RangeCollection; iterating it yields (start, end)
+        # tuples, not objects with a .stop attribute.
+        exits.extend([end for (_start, end) in code.bounds])
 
     if len(exits) == 0:
         if code is None:

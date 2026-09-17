@@ -104,14 +104,19 @@ class Dirname(CStdModel):
             self.set_return_value(emulator, pathptr)
             return
 
+        if path[-1] == self.separator[0]:
+            # Strip the single trailing separator FIRST (like Basename), before
+            # deciding whether a separator remains. Stripping two characters (the
+            # old behavior) corrupted the path, and testing "separator not in
+            # path" before stripping mishandled a trailing separator: "usr/"
+            # kept its '/', skipped the "." case, then rindex crashed on "usr".
+            path = path[:-1]
+
         if self.separator not in path:
-            # Case: No path separator; return '.'
+            # Case: No path separator remains; return '.'
             emulator.write_memory(pathptr, b".\0")
             self.set_return_value(emulator, pathptr)
             return
-
-        if path[-1] == self.separator[0]:
-            path = path[:-2]
 
         idx = path.rindex(self.separator)
         if idx == 0:
