@@ -206,13 +206,15 @@ class Confstr(ProcInfoModel):
         assert isinstance(size, int)
 
         if name in self._procmgr.confstr:
-            if size == 0:
-                size = len(self._procmgr.confstr[name]) + 1
-                self.set_return_value(emulator, size)
-            else:
-                out = self._procmgr.confstr[name][0 : size - 1] + b"\0"
+            value = self._procmgr.confstr[name]
+            # POSIX: confstr always returns the number of bytes required to
+            # hold the full value including its NUL, regardless of truncation,
+            # so callers detect a too-small buffer via (return value > size).
+            required = len(value) + 1
+            if size != 0:
+                out = value[0 : size - 1] + b"\0"
                 emulator.write_memory(dst, out)
-                self.set_return_value(emulator, len(out))
+            self.set_return_value(emulator, required)
         else:
             logger.warning(
                 f"Called confstr with undefined name {name}; defaulting to empty string"
@@ -997,7 +999,8 @@ class Getwd(ProcInfoModel):
         if len(self._procmgr.cwd) >= 4096:
             self.set_return_value(emulator, 0)
         else:
-            emulator.write_memory(ptr, self._procmgr.cwd)
+            # getwd() returns a NUL-terminated pathname, like getcwd() above.
+            emulator.write_memory(ptr, self._procmgr.cwd + b"\0")
             self.set_return_value(emulator, ptr)
 
 
@@ -1319,7 +1322,11 @@ class Read(FDModel):
         try:
             file = self._fdmgr.get_fd(fd)
             data = file.read(size)
-            emulator.write_memory(buf, data)
+            # A read at end-of-file (or a zero-length request) returns no data
+            # and must report 0 without touching the buffer; write_memory
+            # rejects an empty write.
+            if data:
+                emulator.write_memory(buf, data)
             self.set_return_value(emulator, len(data))
         except FDIOError:
             self.set_return_value(emulator, -1)

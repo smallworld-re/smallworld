@@ -179,7 +179,10 @@ class BasicIO:
             raise FDIOUnsupported(f"File {self.name} is not readable")
 
         data = self.on_read(n)
-        if len(data) < n:
+        # A negative n means "read the entire stream", so the stream is at EOF
+        # once on_read returns; a short read (len < n) for a positive n
+        # likewise signals EOF. Either way, latch the flag feof() reports.
+        if n < 0 or len(data) < n:
             self._eof = True
         return data
 
