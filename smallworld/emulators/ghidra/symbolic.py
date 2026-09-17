@@ -27,6 +27,7 @@ from org.apache.commons.lang3.tuple import (
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
+from ..hookable import check_hookable_range, ranges_overlap
 from . import z3bridge
 from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraSymbolicEmulator
@@ -896,6 +897,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         self._mem_read_hooks[(start, end)] = function
 
     def unhook_memory_read(self, start: int, end: int) -> None:
@@ -919,6 +921,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         self._mem_read_symbolic_hooks[(start, end)] = function
 
     def hook_memory_reads_symbolic(
@@ -936,6 +939,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         self._mem_write_hooks[(start, end)] = function
 
     def unhook_memory_write(self, start: int, end: int) -> None:
@@ -956,6 +960,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         self._mem_write_symbolic_hooks[(start, end)] = function
 
     def hook_memory_writes_symbolic(
@@ -1115,8 +1120,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
 
 def _overlap(start: int, end: int, lo: int, hi: int) -> bool:
-    """True if the half-open ranges [start, end) and [lo, hi) overlap."""
-    return start < hi and lo < end
+    """True if the half-open ranges [start, end) and [lo, hi) overlap.
+
+    Delegates to the shared overlap test so every backend agrees, including on
+    empty (zero-size) accesses, which match nothing.
+    """
+    return ranges_overlap(range(lo, hi), range(start, end))
 
 
 def _collapse_to_concrete(bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:

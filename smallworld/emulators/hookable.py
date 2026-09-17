@@ -14,6 +14,28 @@ def range_intersect(r1, r2):
     return range(max(r1.start, r2.start), min(r1.stop, r2.stop)) or None
 
 
+def ranges_overlap(access: range, hook: range) -> bool:
+    """True if the half-open ranges ``access`` and ``hook`` share a value.
+
+    An empty range (start >= stop) contains nothing and overlaps nothing, so a
+    zero-size memory access matches no hook. This is the single overlap test
+    shared by every backend's memory-hook dispatch (see the unicorn/triton/
+    panda mixins, and the angr and ghidra emulators).
+    """
+    return range_intersect(access, hook) is not None
+
+
+def check_hookable_range(start: int, end: int, kind: str) -> None:
+    """Reject an empty or inverted ``[start, end)`` memory-hook range.
+
+    Such a range can never match an access, so registering one would silently
+    create dead state; raise instead of storing it. ``kind`` names the hook
+    ("memory read"/"memory write") for the error message.
+    """
+    if start >= end:
+        raise ValueError(f"can't hook empty/inverted {kind} range [{start:x}..{end:x})")
+
+
 def range_to_hex_str(r):
     return f"[{r.start:x}..{r.stop:x}]"
 
@@ -116,10 +138,7 @@ class QMemoryReadHookable(MemoryReadHookable):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
-        if start >= end:
-            raise ValueError(
-                f"can't hook empty/inverted memory read range [{start:x}..{end:x})"
-            )
+        check_hookable_range(start, end, "memory read")
         new_range = range(start, end)
         for r in self.memory_read_hooks:
             if range_intersect(r, new_range):
@@ -148,7 +167,7 @@ class QMemoryReadHookable(MemoryReadHookable):
         # intersects nothing and matches no hook.
         access_rng = range(address, address + size)
         for rng in self.memory_read_hooks:
-            if range_intersect(access_rng, rng):
+            if ranges_overlap(access_rng, rng):
                 return self.memory_read_hooks[rng]
         return None
 
@@ -179,10 +198,7 @@ class QMemoryWriteHookable(MemoryWriteHookable):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
-        if start >= end:
-            raise ValueError(
-                f"can't hook empty/inverted memory write range [{start:x}..{end:x})"
-            )
+        check_hookable_range(start, end, "memory write")
         new_range = range(start, end)
         for r in self.memory_write_hooks:
             if range_intersect(r, new_range):
@@ -209,7 +225,7 @@ class QMemoryWriteHookable(MemoryWriteHookable):
         # intersects nothing and matches no hook.
         access_rng = range(address, address + size)
         for rng in self.memory_write_hooks:
-            if range_intersect(access_rng, rng):
+            if ranges_overlap(access_rng, rng):
                 return self.memory_write_hooks[rng]
         return None
 

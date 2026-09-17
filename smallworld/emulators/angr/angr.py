@@ -9,6 +9,7 @@ import cle
 
 from ... import exceptions, platforms, utils
 from .. import emulator
+from ..hookable import check_hookable_range, ranges_overlap
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
@@ -931,6 +932,7 @@ class AngrEmulator(
             typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         if not self._initialized:
             self._read_hooks.append((start, end, function))
 
@@ -987,14 +989,7 @@ class AngrEmulator(
                         f"Read of unmapped memory at {hex(read_start)}"
                     )
 
-                rng = range(start, end)
-                access_rng = range(read_start, read_end)
-                return (
-                    read_start in rng
-                    or read_end - 1 in rng
-                    or start in access_rng
-                    or end - 1 in access_rng
-                )
+                return ranges_overlap(range(read_start, read_end), range(start, end))
 
             def read_callback(state):
                 # The breakpoint action.
@@ -1212,6 +1207,7 @@ class AngrEmulator(
             [emulator.Emulator, int, int, claripy.ast.bv.BV], None
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         if not self._initialized:
             self._write_hooks.append((start, end, function))
 
@@ -1269,14 +1265,7 @@ class AngrEmulator(
                         f"Read of unmapped memory at {hex(write_start)}"
                     )
 
-                rng = range(start, end)
-                access_rng = range(write_start, write_end)
-                return (
-                    write_start in rng
-                    or write_end - 1 in rng
-                    or start in access_rng
-                    or end - 1 in access_rng
-                )
+                return ranges_overlap(range(write_start, write_end), range(start, end))
 
             def write_callback(state):
                 addr = state.inspect.mem_write_address
