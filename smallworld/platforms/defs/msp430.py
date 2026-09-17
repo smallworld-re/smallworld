@@ -16,6 +16,8 @@ class MSP430Def(PlatformDef):
     conditional_branch_mnemonics = {
         "jeq",
         "jz",
+        "jne",
+        "jnz",
         "jc",
         "jnc",
         "jn",

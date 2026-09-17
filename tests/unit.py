@@ -1943,6 +1943,40 @@ class GhidraMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class PlatformDefMetadataTests(unittest.TestCase):
+    """PlatformDef metadata that silently degrades disassembly/analysis.
+
+    Each of these is pure config on a platform definition (no backend), so
+    assert the values directly.
+    """
+
+    @staticmethod
+    def _pdef(arch):
+        platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        return platforms.PlatformDef.for_platform(platform)
+
+    def test_armv6m_thumb_uses_thumb_capstone_mode(self):
+        # SW-081: the Thumb platform inherited CS_MODE_ARM, so a disassembler
+        # built from capstone_mode decoded ARM instead of Thumb.
+        pdef = self._pdef(platforms.Architecture.ARM_V6M_THUMB)
+        self.assertEqual(pdef.capstone_mode, capstone.CS_MODE_THUMB)
+
+    def test_armv7r_has_v7_ghidra_language_id(self):
+        # SW-164: v7R inherited None, skipping the p-code use/def analysis.
+        pdef = self._pdef(platforms.Architecture.ARM_V7R)
+        self.assertEqual(pdef.ghidra_language_id, "ARM:LE:32:v7")
+
+    def test_loongarch_conditional_branches_include_bnez(self):
+        # SW-165: bnez was missing next to its beqz counterpart.
+        pdef = self._pdef(platforms.Architecture.LOONGARCH64)
+        self.assertIn("bnez", pdef.conditional_branch_mnemonics)
+
+    def test_msp430_conditional_branches_include_jne_jnz(self):
+        # SW-166: jne/jnz (jump-if-not-equal) were missing.
+        pdef = self._pdef(platforms.Architecture.MSP430)
+        self.assertLessEqual({"jne", "jnz"}, pdef.conditional_branch_mnemonics)
+
+
 class GhidraMachdefLanguageIdTests(unittest.TestCase):
     """The SLEIGH language id belongs to PlatformDef, not the machine defs.
 
