@@ -75,6 +75,7 @@ from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
 from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
+from smallworld.emulators.hookable import QMemoryReadHookable, QMemoryWriteHookable
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.exceptions import UnsupportedModelError
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
@@ -3937,6 +3938,71 @@ class EmulatorInterfaceTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             Incomplete()
+
+
+class MemoryHookRangeTests(unittest.TestCase):
+    """emulators/hookable.py Q*MemoryHookable range bookkeeping.
+
+    Covers registration of empty/inverted ranges (SW-141) and zero-size
+    access matching (SW-144), for both the read and write twins.
+    """
+
+    @staticmethod
+    def _cb(*args):
+        return None
+
+    # SW-141: an empty or inverted range must be rejected at registration,
+    # not stored as un-matchable dead state.
+    def test_hook_read_rejects_empty_and_inverted_ranges(self):
+        h = QMemoryReadHookable()
+        with self.assertRaises(ValueError):
+            h.hook_memory_read(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            h.hook_memory_read(0x2000, 0x1000, self._cb)  # inverted
+        self.assertEqual(len(h.memory_read_hooks), 0)
+
+    def test_hook_write_rejects_empty_and_inverted_ranges(self):
+        h = QMemoryWriteHookable()
+        with self.assertRaises(ValueError):
+            h.hook_memory_write(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            h.hook_memory_write(0x2000, 0x1000, self._cb)  # inverted
+        self.assertEqual(len(h.memory_write_hooks), 0)
+
+    # SW-144: a zero-size access touches no bytes and must match no hook --
+    # in particular it must not false-match via the old `end - 1` boundary.
+    def test_read_zero_size_access_matches_no_hook(self):
+        h = QMemoryReadHookable()
+        h.hook_memory_read(0x10, 0x20, self._cb)
+        # end-1 == 0x10 landed inside the hooked range in the old code.
+        self.assertIsNone(h.is_memory_read_hooked(0x11, 0))
+        self.assertIsNone(h.is_memory_read_hooked(0x10, 0))
+
+    def test_write_zero_size_access_matches_no_hook(self):
+        h = QMemoryWriteHookable()
+        h.hook_memory_write(0x10, 0x20, self._cb)
+        self.assertIsNone(h.is_memory_write_hooked(0x11, 0))
+        self.assertIsNone(h.is_memory_write_hooked(0x10, 0))
+
+    # Regression guard: normal (non-empty) accesses still match correctly.
+    def test_read_normal_accesses_still_matched(self):
+        h = QMemoryReadHookable()
+        h.hook_memory_read(0x10, 0x20, self._cb)
+        self.assertIs(h.is_memory_read_hooked(0x10, 4), self._cb)  # at start
+        self.assertIs(h.is_memory_read_hooked(0x1F, 1), self._cb)  # last byte
+        self.assertIs(h.is_memory_read_hooked(0x0E, 4), self._cb)  # straddles start
+        self.assertIs(h.is_memory_read_hooked(0x08, 0x20), self._cb)  # contains hook
+        self.assertIsNone(h.is_memory_read_hooked(0x20, 4))  # just past end
+        self.assertIsNone(h.is_memory_read_hooked(0x00, 4))  # before start
+
+    def test_write_normal_accesses_still_matched(self):
+        h = QMemoryWriteHookable()
+        h.hook_memory_write(0x10, 0x20, self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x10, 4), self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x1F, 1), self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x0E, 4), self._cb)
+        self.assertIsNone(h.is_memory_write_hooked(0x20, 4))
+        self.assertIsNone(h.is_memory_write_hooked(0x00, 4))
 
 
 class ArmInstructionPlatformTests(unittest.TestCase):
