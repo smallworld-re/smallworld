@@ -53,6 +53,9 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = True
     _floats_are_doubles = False
+    # n64 shares one argument-slot sequence between GP and FP registers: slot i
+    # is a_i or f(12+i), so a leading integer shifts every following FP argument.
+    _fp_shares_int_regs = True
     _float_arg_regs = [
         "f12",
         "f13",

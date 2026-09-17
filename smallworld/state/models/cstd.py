@@ -61,6 +61,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     argument_types: typing.List[ArgumentType] = []
     return_type: ArgumentType = ArgumentType.VOID
 
+    # On most SysV ABIs the general-purpose and floating-point argument
+    # registers are allocated from independent sequences (e.g. AMD64 fills
+    # rdi.. and xmm0.. separately). On MIPS n64 the two share a single slot
+    # sequence: argument slot i is either a_i or f(12+i), so an integer
+    # argument consumes the paired FP register and shifts every following FP
+    # argument. When True, FP arguments draw from -- and advance -- the shared
+    # integer offset instead of a private FP counter.
+    _fp_shares_int_regs: bool = False
+
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
 
@@ -413,8 +422,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 self._arg_offset.append(self._int_reg_offset)
                 self._int_reg_offset += self._eight_byte_reg_size
         elif kind == ArgumentType.FLOAT:
-            # Float type
-            if self._fp_reg_offset == len(self._float_arg_regs):
+            # Float type. On ABIs that share GP/FP slots (MIPS n64), an FP
+            # argument's register is chosen by its overall position, so it
+            # draws from -- and advances -- the shared integer offset.
+            fp_offset = (
+                self._int_reg_offset
+                if self._fp_shares_int_regs
+                else self._fp_reg_offset
+            )
+            if fp_offset == len(self._float_arg_regs):
                 # No room left in registers; use stack
                 self._on_stack.append(True)
                 self._arg_offset.append(self._stack_offset + self._init_stack_offset)
@@ -429,14 +445,24 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
-                self._arg_offset.append(self._fp_reg_offset)
-                self._fp_reg_offset += 1
+                self._arg_offset.append(fp_offset)
+                if self._fp_shares_int_regs:
+                    self._int_reg_offset += 1
+                else:
+                    self._fp_reg_offset += 1
         elif kind == ArgumentType.DOUBLE:
-            # Double type
-            if self._fp_reg_offset % self._double_reg_size != 0:
-                self._fp_reg_offset += 1
+            # Double type. As with FLOAT, a shared-slot ABI selects the FP
+            # register from the overall argument position.
+            if self._fp_shares_int_regs:
+                if self._int_reg_offset % self._double_reg_size != 0:
+                    self._int_reg_offset += 1
+                fp_offset = self._int_reg_offset
+            else:
+                if self._fp_reg_offset % self._double_reg_size != 0:
+                    self._fp_reg_offset += 1
+                fp_offset = self._fp_reg_offset
 
-            if self._fp_reg_offset == len(self._double_arg_regs):
+            if fp_offset == len(self._double_arg_regs):
                 # No room left in registers; use stack
                 if (
                     self._align_stack
@@ -449,8 +475,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
-                self._arg_offset.append(self._fp_reg_offset)
-                self._fp_reg_offset += self._double_reg_size
+                self._arg_offset.append(fp_offset)
+                if self._fp_shares_int_regs:
+                    self._int_reg_offset += self._double_reg_size
+                else:
+                    self._fp_reg_offset += self._double_reg_size
         else:
             raise exceptions.ConfigurationError(f"Argument {i} has unknown type {kind}")
 
@@ -1116,6 +1145,7 @@ class VariadicContext:
         self._four_byte_arg_regs = parent._four_byte_arg_regs
         self._eight_byte_arg_regs = parent._eight_byte_arg_regs
         self._soft_float = parent._soft_float or parent._variadic_soft_float
+        self._fp_shares_int_regs = parent._fp_shares_int_regs
         self._floats_are_doubles = parent._floats_are_doubles
         self._float_arg_regs = parent._float_arg_regs
         self._double_arg_regs = parent._double_arg_regs
