@@ -4260,6 +4260,9 @@ class ModelTestEmulator(emulators.Emulator):
         if not isinstance(content, (bytes, bytearray)):
             raise TypeError(f"mock emulator cannot store {type(content)}")
         data = bytes(content)
+        if len(data) == 0:
+            # Faithful to the unicorn/panda backends, which reject empty writes.
+            raise ValueError("memory write cannot be empty")
         start, buf = self._segment_for(address, len(data))
         offset = address - start
         buf[offset : offset + len(data)] = data
@@ -4839,6 +4842,132 @@ class FDMgrAccessModelTests(ModelTestCase):
         ret = self.call(model, fd, 4, 0)
         self.assertEqual(ret, 4)
         self.assertEqual(fdmgr.get_fd(fd).tell(), 4)
+
+
+class ReadModelTests(ModelTestCase):
+    """posix/unistd.py Read: a zero-byte (EOF) read returns 0 without writing.
+
+    Regression for the crash where an EOF read handed empty bytes to
+    write_memory, which the unicorn/panda backends reject.
+    """
+
+    def test_read_at_eof_returns_zero_and_leaves_buffer_untouched(self):
+        model = self.lookup("read")
+        fdmgr = model._fdmgr
+        fdmgr.add_file("empty.txt", b"")
+        fd = fdmgr.open("empty.txt", True, False, False, False, False)
+        self.map_bytes(0x3000, b"\xff\xff\xff\xff")
+
+        ret = self.call(model, fd, 0x3000, 4)
+
+        self.assertEqual(ret, 0)
+        # No empty write and no partial clobber: the buffer is untouched.
+        self.assertEqual(self.emu.read_memory(0x3000, 4), b"\xff\xff\xff\xff")
+
+    def test_read_returns_data_and_count(self):
+        model = self.lookup("read")
+        fdmgr = model._fdmgr
+        fdmgr.add_file("data.txt", b"abcdef")
+        fd = fdmgr.open("data.txt", True, False, False, False, False)
+        self.map_bytes(0x3000, b"\x00" * 8)
+
+        ret = self.call(model, fd, 0x3000, 4)
+
+        self.assertEqual(ret, 4)
+        self.assertEqual(self.emu.read_memory(0x3000, 4), b"abcd")
+
+
+class GetwdModelTests(ModelTestCase):
+    """posix/unistd.py Getwd: writes a NUL-terminated pathname (like getcwd)."""
+
+    def test_getwd_nul_terminates_the_path(self):
+        model = self.lookup("getwd")
+        model._procmgr.cwd = b"/root"
+        self.map_bytes(0x4000, b"\xff" * 8)
+
+        ret = self.call(model, 0x4000)
+
+        self.assertEqual(ret, 0x4000)
+        self.assertEqual(self.emu.read_memory(0x4000, 6), b"/root\x00")
+
+
+class ConfstrModelTests(ModelTestCase):
+    """posix/unistd.py Confstr: reports the required length even when truncated."""
+
+    def test_truncated_call_returns_full_required_length(self):
+        model = self.lookup("confstr")
+        # 8-byte value needs 9 bytes (with NUL); the buffer only holds 4.
+        model._procmgr.confstr[1] = b"/usr/bin"
+        self.map_bytes(0x5000, b"\xff" * 8)
+
+        ret = self.call(model, 1, 0x5000, 4)
+
+        # POSIX: return the bytes required for the full value, not the 4 written.
+        self.assertEqual(ret, 9)
+        self.assertEqual(self.emu.read_memory(0x5000, 4), b"/us\x00")
+
+    def test_size_zero_returns_required_length_without_writing(self):
+        model = self.lookup("confstr")
+        model._procmgr.confstr[1] = b"/usr/bin"
+
+        ret = self.call(model, 1, 0, 0)
+
+        self.assertEqual(ret, 9)
+
+
+class FdmgrDup2CloseTests(ModelTestCase):
+    """filedesc/fdmgr.py dup(): dup2 onto an open fd closes it first."""
+
+    def _fdmgr(self):
+        return self.lookup("dup2")._fdmgr
+
+    def test_dup2_onto_open_fd_closes_the_replaced_stream(self):
+        fdmgr = self._fdmgr()
+        fdmgr.add_file("old.txt", b"abc")
+        fdmgr.add_file("victim.txt", b"xyz")
+        old = fdmgr.open("old.txt", True, False, False, False, False)
+        victim = fdmgr.open("victim.txt", True, False, False, False, False)
+        victim_stream = fdmgr.get_fd(victim)
+
+        fdmgr.dup(old, victim)
+
+        # The displaced stream must have been closed (its teardown ran)...
+        self.assertTrue(victim_stream.closed)
+        # ...and the fd now aliases old's file.
+        self.assertEqual(fdmgr.get_fd(victim).name, "old.txt")
+
+    def test_dup2_onto_same_fd_keeps_it_open(self):
+        fdmgr = self._fdmgr()
+        fdmgr.add_file("self.txt", b"abc")
+        fd = fdmgr.open("self.txt", True, False, False, False, False)
+
+        fdmgr.dup(fd, fd)
+
+        # get_fd raises if the descriptor was closed; it must remain usable.
+        self.assertFalse(fdmgr.get_fd(fd).closed)
+
+
+class BytesIOReadAllEofTests(unittest.TestCase):
+    """filedesc/io.py BasicIO.read: a read-all (n < 0) latches the EOF flag."""
+
+    @staticmethod
+    def _f(data):
+        return SWBytesIO("f", True, False, True, True, False, data=io.BytesIO(data))
+
+    def test_read_all_of_empty_stream_sets_eof(self):
+        f = self._f(b"")
+        self.assertEqual(f.read(-1), b"")
+        self.assertTrue(f.eof)
+
+    def test_read_all_of_nonempty_stream_sets_eof(self):
+        f = self._f(b"abc")
+        self.assertEqual(f.read(-1), b"abc")
+        self.assertTrue(f.eof)
+
+    def test_short_positive_read_still_sets_eof(self):
+        f = self._f(b"ab")
+        self.assertEqual(f.read(4), b"ab")
+        self.assertTrue(f.eof)
 
 
 class CallocModelTests(ModelTestCase):
