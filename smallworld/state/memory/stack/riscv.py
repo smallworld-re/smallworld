@@ -16,4 +16,4 @@ class RISCV64Stack(stack.DescendingStack):
 
     @classmethod
     def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
-        raise NotImplementedError("Stack initialization not implemented for AArch64")
+        raise NotImplementedError("Stack initialization not implemented for RISCV64")

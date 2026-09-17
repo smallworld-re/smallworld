@@ -14,4 +14,4 @@ class M68KStack(stack.DescendingStack):
 
     @classmethod
     def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
-        raise NotImplementedError("Stack initialization not implemented for MIPS32")
+        raise NotImplementedError("Stack initialization not implemented for M68K")

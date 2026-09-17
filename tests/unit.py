@@ -113,6 +113,10 @@ from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
 from smallworld.state.memory.stack.amd64 import AMD64Stack
+from smallworld.state.memory.stack.loongarch import LoongArch64Stack, LoongArchStack
+from smallworld.state.memory.stack.m68k import M68KStack
+from smallworld.state.memory.stack.msp430 import MSP430Stack
+from smallworld.state.memory.stack.riscv import RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
@@ -6443,6 +6447,46 @@ class AMD64StackInitTests(unittest.TestCase):
         argv = [b"foo\0", b"barbaz\0"]  # 11 string bytes
         s = AMD64Stack.initialize_stack(argv, 0x71000000, 0x1000)
         self.assertEqual(s.get_pointer() % 16, 0)
+
+
+class StackRegionCorrectnessTests(unittest.TestCase):
+    """state/memory/stack correctness fixes (SW-179/180/181/182)."""
+
+    def test_descending_push_returns_absolute_stack_pointer(self):
+        # SW-182: push (and the push_* helpers) return the stack pointer after
+        # the push -- the absolute address of the value -- per the base
+        # Stack.push contract, not the region-relative offset.
+        s = AMD64Stack(0x2000, 0x1000)  # stack_pointer starts at 0x3000
+        ret = s.push_integer(0xAABBCCDD, size=8, label="x")
+        self.assertEqual(ret, s.get_pointer())  # absolute SP
+        self.assertEqual(ret, 0x3000 - 8)  # not the region offset (0xFF8)
+
+    def test_initialize_stack_aligns_argc_over_misaligned_region(self):
+        # SW-179: argc must be 16-aligned even when the region top is not. The
+        # old formula aligned only relative to the region top, so a top of
+        # 0x71001008 (8 mod 16) left argc misaligned.
+        argv = [b"foo\0", b"barbaz\0"]
+        s = AMD64Stack.initialize_stack(argv, 0x71000008, 0x1000)
+        self.assertEqual(s.get_pointer() % 16, 0)
+
+    def test_loongarch_stack_inherits_get_pointer(self):
+        # SW-180: the redundant, divergent get_pointer override is gone; the
+        # stack reports the maintained stack_pointer like every other subclass.
+        self.assertNotIn("get_pointer", LoongArchStack.__dict__)
+        s = LoongArch64Stack(0x2000, 0x1000)
+        s.push_integer(0x1122, size=4, label="x")
+        self.assertEqual(s.get_pointer(), s.stack_pointer)
+
+    def test_unimplemented_stack_messages_name_right_arch(self):
+        # SW-181: the NotImplementedError messages named unrelated arches.
+        for cls, arch in (
+            (M68KStack, "M68K"),
+            (MSP430Stack, "MSP430"),
+            (RISCV64Stack, "RISCV64"),
+            (LoongArchStack, "LoongArch"),
+        ):
+            with self.assertRaisesRegex(NotImplementedError, arch):
+                cls.initialize_stack([])
 
 
 class AMD64TlsDescRelocatorTests(unittest.TestCase):
