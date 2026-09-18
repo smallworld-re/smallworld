@@ -75,6 +75,12 @@ from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
 from smallworld.emulators.angr.replacement import MemoizingReplacementSolver
+from smallworld.emulators.hookable import (
+    QMemoryReadHookable,
+    QMemoryWriteHookable,
+    check_hookable_range,
+    ranges_overlap,
+)
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.exceptions import UnsupportedModelError
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
@@ -3943,6 +3949,89 @@ class EmulatorInterfaceTests(unittest.TestCase):
             Incomplete()
 
 
+class MemoryHookRangeTests(unittest.TestCase):
+    """emulators/hookable.py Q*MemoryHookable range bookkeeping.
+
+    Covers registration of empty/inverted ranges (SW-141) and zero-size
+    access matching (SW-144), for both the read and write twins.
+    """
+
+    @staticmethod
+    def _cb(*args):
+        return None
+
+    # SW-141: an empty or inverted range must be rejected at registration,
+    # not stored as un-matchable dead state.
+    def test_hook_read_rejects_empty_and_inverted_ranges(self):
+        h = QMemoryReadHookable()
+        with self.assertRaises(ValueError):
+            h.hook_memory_read(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            h.hook_memory_read(0x2000, 0x1000, self._cb)  # inverted
+        self.assertEqual(len(h.memory_read_hooks), 0)
+
+    def test_hook_write_rejects_empty_and_inverted_ranges(self):
+        h = QMemoryWriteHookable()
+        with self.assertRaises(ValueError):
+            h.hook_memory_write(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            h.hook_memory_write(0x2000, 0x1000, self._cb)  # inverted
+        self.assertEqual(len(h.memory_write_hooks), 0)
+
+    # SW-144: a zero-size access touches no bytes and must match no hook --
+    # in particular it must not false-match via the old `end - 1` boundary.
+    def test_read_zero_size_access_matches_no_hook(self):
+        h = QMemoryReadHookable()
+        h.hook_memory_read(0x10, 0x20, self._cb)
+        # end-1 == 0x10 landed inside the hooked range in the old code.
+        self.assertIsNone(h.is_memory_read_hooked(0x11, 0))
+        self.assertIsNone(h.is_memory_read_hooked(0x10, 0))
+
+    def test_write_zero_size_access_matches_no_hook(self):
+        h = QMemoryWriteHookable()
+        h.hook_memory_write(0x10, 0x20, self._cb)
+        self.assertIsNone(h.is_memory_write_hooked(0x11, 0))
+        self.assertIsNone(h.is_memory_write_hooked(0x10, 0))
+
+    # Regression guard: normal (non-empty) accesses still match correctly.
+    def test_read_normal_accesses_still_matched(self):
+        h = QMemoryReadHookable()
+        h.hook_memory_read(0x10, 0x20, self._cb)
+        self.assertIs(h.is_memory_read_hooked(0x10, 4), self._cb)  # at start
+        self.assertIs(h.is_memory_read_hooked(0x1F, 1), self._cb)  # last byte
+        self.assertIs(h.is_memory_read_hooked(0x0E, 4), self._cb)  # straddles start
+        self.assertIs(h.is_memory_read_hooked(0x08, 0x20), self._cb)  # contains hook
+        self.assertIsNone(h.is_memory_read_hooked(0x20, 4))  # just past end
+        self.assertIsNone(h.is_memory_read_hooked(0x00, 4))  # before start
+
+    def test_write_normal_accesses_still_matched(self):
+        h = QMemoryWriteHookable()
+        h.hook_memory_write(0x10, 0x20, self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x10, 4), self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x1F, 1), self._cb)
+        self.assertIs(h.is_memory_write_hooked(0x0E, 4), self._cb)
+        self.assertIsNone(h.is_memory_write_hooked(0x20, 4))
+        self.assertIsNone(h.is_memory_write_hooked(0x00, 4))
+
+    # The shared helpers every backend (unicorn/triton/panda mixins, angr,
+    # ghidra) now routes through, so the fix cannot drift between them again.
+    def test_ranges_overlap_helper_semantics(self):
+        self.assertTrue(ranges_overlap(range(2, 10), range(0, 4)))  # partial
+        self.assertTrue(ranges_overlap(range(0, 0x20), range(0x10, 0x18)))  # contains
+        self.assertFalse(ranges_overlap(range(0x20, 0x24), range(0, 0x10)))  # disjoint
+        self.assertFalse(ranges_overlap(range(0x11, 0x11), range(0x10, 0x20)))  # 0-size
+        self.assertFalse(
+            ranges_overlap(range(0x10, 0x10), range(0x10, 0x20))
+        )  # 0 @start
+
+    def test_check_hookable_range_rejects_empty_and_inverted(self):
+        with self.assertRaises(ValueError):
+            check_hookable_range(0x10, 0x10, "memory read")  # empty
+        with self.assertRaises(ValueError):
+            check_hookable_range(0x20, 0x10, "memory write")  # inverted
+        check_hookable_range(0x10, 0x20, "memory read")  # valid -> no raise
+
+
 class ArmInstructionPlatformTests(unittest.TestCase):
     """ARMV5TInstruction claimed ARM_V6M; ARMV6MThumbInstruction was missing."""
 
@@ -6947,6 +7036,22 @@ class AngrPreInitHookBookkeepingTests(unittest.TestCase):
 
         self.assertIsNone(self.emu._gb_syscall_hook)
 
+    # SW-141: angr must reject empty/inverted ranges at registration too; its
+    # own hook mechanism does not use the Q*MemoryHookable mixin.
+    def test_hook_memory_read_rejects_empty_and_inverted_range(self):
+        with self.assertRaises(ValueError):
+            self.emu.hook_memory_read(0x1000, 0x1000, self._read_cb)  # empty
+        with self.assertRaises(ValueError):
+            self.emu.hook_memory_read(0x2000, 0x1000, self._read_cb)  # inverted
+        self.assertEqual(self.emu._read_hooks, [])
+
+    def test_hook_memory_write_rejects_empty_and_inverted_range(self):
+        with self.assertRaises(ValueError):
+            self.emu.hook_memory_write(0x1000, 0x1000, self._read_cb)  # empty
+        with self.assertRaises(ValueError):
+            self.emu.hook_memory_write(0x2000, 0x1000, self._read_cb)  # inverted
+        self.assertEqual(self.emu._write_hooks, [])
+
 
 class AngrGlobalReadUnhookTests(unittest.TestCase):
     """unhook_memory_reads presence check on an initialized AngrEmulator.
@@ -7213,6 +7318,35 @@ def _ghidra_symbolic_amd64_emulator():
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
     return emulators.ghidra.GhidraSymbolicEmulator(platform)
+
+
+class GhidraMemoryHookRangeGuardTests(unittest.TestCase):
+    """ghidra emulators reject empty/inverted memory-hook ranges (SW-141).
+
+    Ghidra manages its own hook dicts rather than the Q*MemoryHookable mixin,
+    so it needs the same guard. Only the raising path is exercised, so the
+    shared, cached concrete emulator is never mutated.
+    """
+
+    @staticmethod
+    def _cb(*args):
+        return None
+
+    def test_concrete_rejects_empty_and_inverted_range(self):
+        emu = _ghidra_concrete_emulator(platforms.Architecture.X86_64)
+        with self.assertRaises(ValueError):
+            emu.hook_memory_read(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            emu.hook_memory_write(0x2000, 0x1000, self._cb)  # inverted
+
+    def test_symbolic_rejects_empty_and_inverted_range(self):
+        emu = _ghidra_symbolic_amd64_emulator()
+        with self.assertRaises(ValueError):
+            emu.hook_memory_read(0x1000, 0x1000, self._cb)  # empty
+        with self.assertRaises(ValueError):
+            emu.hook_memory_read_symbolic(0x2000, 0x1000, self._cb)  # inverted
+        with self.assertRaises(ValueError):
+            emu.hook_memory_write_symbolic(0x3000, 0x3000, self._cb)  # empty
 
 
 class GhidraArmFramePointerAliasTests(unittest.TestCase):

@@ -10,6 +10,7 @@ from ghidra.program.model.pcode import Varnode
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
+from ..hookable import check_hookable_range, ranges_overlap
 from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraEmulator
 
@@ -295,14 +296,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         end_addr = addr + len(data)
 
         for (start, end), hook in self._mem_read_hooks.items():
-            rng = range(start, end)
-            access_rng = range(addr, end_addr)
-            if (
-                addr in rng
-                or end_addr - 1 in rng
-                or start in access_rng
-                or end - 1 in access_rng
-            ):
+            if ranges_overlap(range(addr, end_addr), range(start, end)):
                 new_data = hook(self, addr, len(data), data)
                 if new_data is not None:
                     data = new_data
@@ -322,6 +316,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         self._mem_read_hooks[(start, end)] = function
         self._update_access_breakpoints()
 
@@ -370,14 +365,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         end_addr = addr + len(data)
 
         for (start, end), hook in self._mem_write_hooks.items():
-            rng = range(start, end)
-            access_rng = range(addr, end_addr)
-            if (
-                addr in rng
-                or end_addr - 1 in rng
-                or start in access_rng
-                or end - 1 in access_rng
-            ):
+            if ranges_overlap(range(addr, end_addr), range(start, end)):
                 hook(self, addr, len(data), data)
 
     def hook_memory_write(
@@ -386,6 +374,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         self._mem_write_hooks[(start, end)] = function
         self._update_access_breakpoints()
 
