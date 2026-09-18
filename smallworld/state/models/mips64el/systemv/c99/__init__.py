@@ -1,5 +1,7 @@
 from .ctype import *  # noqa F401,F403
 from .ctype import __all__ as __ctype__
+from .math import *  # noqa F401,F403
+from .math import __all__ as __math__
 from .signal import *  # noqa F401,F403
 from .signal import __all__ as __signal__
 from .stdio import *  # noqa F401,F403
@@ -11,4 +13,6 @@ from .string import __all__ as __string__
 from .time import *  # noqa F401,F403
 from .time import __all__ as __time__
 
-__all__ = __ctype__ + __signal__ + __stdlib__ + __string__ + __stdio__ + __time__
+__all__ = (
+    __ctype__ + __signal__ + __stdlib__ + __string__ + __stdio__ + __time__ + __math__
+)

@@ -6,7 +6,7 @@ from ...memory.heap import Heap
 from ..filedesc import FileDescriptorManager
 from ..library import ElfModelLibrary
 from ..model import Model
-from . import ctype, signal, stdio, stdlib, string, time
+from . import ctype, math, signal, stdio, stdlib, string, time
 
 
 class C99Libc(ElfModelLibrary):
@@ -91,7 +91,7 @@ class C99Libc(ElfModelLibrary):
     @property
     def function_names(self) -> typing.List[str]:
         out: typing.List[str] = list()
-        for module in (ctype, signal, stdio, stdlib, string, time):
+        for module in (ctype, math, signal, stdio, stdlib, string, time):
             for clsname, cls in inspect.getmembers(
                 module,
                 lambda x: inspect.isclass(x)

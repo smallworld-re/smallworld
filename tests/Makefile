@@ -176,6 +176,10 @@ PPC64_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
 XTENSA_ELF_CFLAGS := -pie
 
+# Extra link libraries, per architecture. Most toolchains resolve libm
+# implicitly (or fold fabs and friends inline), but m68k-gcc needs it linked.
+M68K_ELF_LDLIBS := -lm
+
 # ***************************
 # *** Template Parameters ***
 # ***************************
@@ -323,7 +327,7 @@ $(1)_C_GNU_SOS := $$(if $$($(1)_GNU_CFLAGS),$$(patsubst %.gnu.so.c,%.gnu.$$($(1)
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU_CFLAGS) -fPIC -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
-	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$<
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$< $$($(1)_ELF_LDLIBS)
 
 endef
 

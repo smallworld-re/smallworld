@@ -141,12 +141,16 @@ from smallworld.state.models.mips64el.systemv.systemv import (
     MIPS64ELSysVCallingContext,
 )
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
+from smallworld.state.models.mipsel.systemv.systemv import MIPSELSysVCallingContext
 from smallworld.state.models.model import Model
 from smallworld.state.models.posix import POSIXLibc
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
+from smallworld.state.models.powerpc.systemv.systemv import (
+    PowerPCSysVCallingContext,
+)
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 from smallworld.state.models.tls import (
@@ -4133,11 +4137,14 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         self.assertEqual(RiscV64SysVCallingContext._float_arg_regs, expected)
         self.assertEqual(RiscV64SysVCallingContext._double_arg_regs, expected)
 
-    def test_mips64el_fp_arg_regs_include_f18(self):
-        expected = ["f13", "f14", "f15", "f16", "f17", "f18"]
-        self.assertEqual(MIPS64ELSysVCallingContext._float_arg_regs, expected)
-        self.assertEqual(MIPS64ELSysVCallingContext._double_arg_regs, expected)
-        # The big-endian variant always had the full list; they should agree.
+    def test_mips64_fp_arg_regs_are_f12_to_f19(self):
+        # n64 passes FP arguments in $f12-$f19 (fa0-fa7). The list previously
+        # started at f13 and stopped at f18 -- missing the first (f12) and last
+        # (f19) -- which the c99 fabs integration test now catches end to end.
+        expected = ["f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19"]
+        self.assertEqual(MIPS64SysVCallingContext._float_arg_regs, expected)
+        self.assertEqual(MIPS64SysVCallingContext._double_arg_regs, expected)
+        # The two endiannesses must agree.
         self.assertEqual(
             MIPS64ELSysVCallingContext._float_arg_regs,
             MIPS64SysVCallingContext._float_arg_regs,
@@ -4185,6 +4192,64 @@ class MipsReturnDoubleTests(unittest.TestCase):
         emu = _RegisterDictEmulator()
         ctx._return_double(emu, -1234.5678)
         self.assertEqual(ctx._read_return_double(emu), -1234.5678)
+
+    def test_read_return_float_masks_wide_f0(self):
+        # f0 is 64 bits wide; a single-precision return leaves the value in the
+        # low 32 bits. Unmasked, int.to_bytes(..., 4) raised OverflowError.
+        ctx = MIPSELSysVCallingContext()
+        emu = _RegisterDictEmulator({"f0": 0xDEADBEEF_3FC00000})  # 1.5 low, junk high
+        self.assertEqual(ctx._read_return_float(emu), 1.5)
+
+    def test_read_return_double_masks_wide_words(self):
+        # o32 reassembles the double from two 32-bit halves; junk in the high
+        # bits of f0/f1 would overflow the reassembled 64-bit value.
+        ctx = MIPSSysVCallingContext()
+        emu = _RegisterDictEmulator(
+            {"f0": 0xAAAAAAAA_00000000, "f1": 0xBBBBBBBB_3FF00000}
+        )
+        self.assertEqual(ctx._read_return_double(emu), 1.0)
+
+    def test_mips64_read_return_double_reads_full_width(self):
+        # n64 returns a double in the full 64-bit f0. Reading only 4 bytes
+        # raised struct.error (and OverflowError when the high bits were set).
+        ctx = MIPS64SysVCallingContext()
+        emu = _RegisterDictEmulator()
+        ctx._return_double(emu, -1234.5678)
+        self.assertEqual(ctx._read_return_double(emu), -1234.5678)
+
+
+class SysVFloatArgPlacementTests(unittest.TestCase):
+    """FP/stack argument placement in the SysV calling-convention model."""
+
+    def test_powerpc_seventh_eighth_fp_args_use_registers(self):
+        # PowerPC SysV passes FP arguments in f1-f8; the 7th and 8th must land
+        # in registers, not spill to the stack.
+        ctx = PowerPCSysVCallingContext()
+        for i in range(8):
+            ctx.add_argument(i, ArgumentType.DOUBLE)
+        self.assertEqual(ctx._on_stack, [False] * 8)
+
+    def test_aarch64_stack_four_byte_int_keeps_next_arg_eight_aligned(self):
+        # A 4-byte int spilled to the AArch64 stack occupies a full 8-byte
+        # slot, so a following 8-byte argument stays 8-aligned.
+        ctx = AArch64SysVCallingContext()
+        for i in range(8):
+            ctx.add_argument(i, ArgumentType.INT)  # fill x0-x7
+        ctx.add_argument(8, ArgumentType.INT)  # 4-byte int spills to the stack
+        ctx.add_argument(9, ArgumentType.LONG)  # 8-byte value spills after it
+        rel = ctx._arg_offset[9] - ctx._init_stack_offset
+        self.assertEqual(rel % 8, 0)
+        self.assertEqual(rel, 8)
+
+    def test_powerpc_stack_float_reserves_eight_bytes(self):
+        # PowerPC promotes a float to a double, so a stack-passed float occupies
+        # an 8-byte slot -- set_argument writes 8 bytes there.
+        ctx = PowerPCSysVCallingContext()
+        for i in range(8):
+            ctx.add_argument(i, ArgumentType.FLOAT)  # fill f1-f8
+        ctx.add_argument(8, ArgumentType.FLOAT)  # stack slot A
+        ctx.add_argument(9, ArgumentType.FLOAT)  # stack slot B
+        self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
 
 class SysVReturnValueConversionTests(unittest.TestCase):

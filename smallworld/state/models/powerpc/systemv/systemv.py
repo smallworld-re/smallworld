@@ -65,8 +65,9 @@ class PowerPCSysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = False
     _floats_are_doubles = True
-    _float_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6"]
-    _double_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6"]
+    # The PowerPC 32-bit SysV/ELF ABI passes FP arguments in f1 through f8.
+    _float_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"]
+    _double_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8"]
 
     _init_stack_offset = 8
     _align_stack = True

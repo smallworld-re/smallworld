@@ -1,5 +1,19 @@
 from .... import emulators
-from ..cstd import CStdModel
+from ..cstd import ArgumentType, CStdModel
+
+
+class Fabs(CStdModel):
+    name = "fabs"
+
+    # double fabs(double x);
+    argument_types = [ArgumentType.DOUBLE]
+    return_type = ArgumentType.DOUBLE
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        x = self.get_arg1(emulator)
+        assert isinstance(x, float)
+        self.set_return_value(emulator, abs(x))
 
 
 class Acos(CStdModel):

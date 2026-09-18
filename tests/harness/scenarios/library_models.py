@@ -37,7 +37,10 @@ _FLOAT_RETURN_SKIPS = {
     "mipsel": "Unicorn does not expose the f0 FP register for MIPS32",
 }
 
-_FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests"}
+# fabs both takes a double argument and returns one, so it needs exactly the
+# same skips as the return-only tests: the arches above are the ones without FP
+# support, and the n64 MIPS variants (which fabs exercises end to end) stay in.
+_FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests", "C99FabsTests"}
 
 
 def _library_run_factory(info, variant: str, kwargs: Mapping[str, Any]):

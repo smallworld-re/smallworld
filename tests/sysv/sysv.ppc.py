@@ -139,7 +139,7 @@ class Bar(smallworld.state.models.powerpc.systemv.systemv.PowerPCSysVModel):
         smallworld.state.models.cstd.ArgumentType.UINT,
         smallworld.state.models.cstd.ArgumentType.FLOAT,
         smallworld.state.models.cstd.ArgumentType.DOUBLE,
-        smallworld.state.models.cstd.ArgumentType.DOUBLE,
+        smallworld.state.models.cstd.ArgumentType.UINT,
         smallworld.state.models.cstd.ArgumentType.DOUBLE,
         smallworld.state.models.cstd.ArgumentType.DOUBLE,
     ]
@@ -147,6 +147,16 @@ class Bar(smallworld.state.models.powerpc.systemv.systemv.PowerPCSysVModel):
     return_type = smallworld.state.models.cstd.ArgumentType.VOID
 
     def model(self, emulator) -> None:
+        # arg1 (int) fixes the first slot; on MIPS n64 this shifts every
+        # following FP argument by one register.
+        arg1_expected = 0x2468ACE0
+        arg1_actual = self.get_arg1(emulator)
+        assert isinstance(arg1_actual, int)
+        if arg1_actual != arg1_expected:
+            raise Exception(
+                f"arg1: Expected {hex(arg1_expected)}, got {hex(arg1_actual)}"
+            )
+
         arg2_expected = 0.25
         arg2_actual = self.get_arg2(emulator)
         assert isinstance(arg2_actual, float)
@@ -158,6 +168,29 @@ class Bar(smallworld.state.models.powerpc.systemv.systemv.PowerPCSysVModel):
         assert isinstance(arg3_actual, float)
         if arg3_actual != arg3_expected:
             raise Exception(f"arg3: Expected {arg3_expected}, got {arg3_actual}")
+
+        # arg4 (int) lands *after* two FP arguments; on a shared-slot ABI it must
+        # occupy the slot-shifted GP register, not the next one in a private
+        # integer sequence.
+        arg4_expected = 0x13579BDF
+        arg4_actual = self.get_arg4(emulator)
+        assert isinstance(arg4_actual, int)
+        if arg4_actual != arg4_expected:
+            raise Exception(
+                f"arg4: Expected {hex(arg4_expected)}, got {hex(arg4_actual)}"
+            )
+
+        arg5_expected = 2.5
+        arg5_actual = self.get_arg5(emulator)
+        assert isinstance(arg5_actual, float)
+        if arg5_actual != arg5_expected:
+            raise Exception(f"arg5: Expected {arg5_expected}, got {arg5_actual}")
+
+        arg6_expected = 7.5
+        arg6_actual = self.get_arg6(emulator)
+        assert isinstance(arg6_actual, float)
+        if arg6_actual != arg6_expected:
+            raise Exception(f"arg6: Expected {arg6_expected}, got {arg6_actual}")
 
 
 bar_addr = code.get_symbol_value("bar")
