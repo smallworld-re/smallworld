@@ -89,6 +89,17 @@ class PrStatus:
         # Extract the raw bytes
         data = prstatus.description.tobytes()
 
+        # The note must contain the whole pr_regs block; every register coord
+        # lies within [pr_regs_off, pr_regs_off + pr_regs_size). Validating the
+        # block up front means a truncated note fails loudly here rather than
+        # silently slicing short byte strings into wrong register values.
+        required = self.pr_regs_off + self.pr_regs_size
+        if len(data) < required:
+            raise exceptions.ConfigurationError(
+                f"PrStatus note is truncated: need {required} bytes for the "
+                f"register block, got {len(data)}"
+            )
+
         # Extract the registers from the struct
         for name, reg_off, reg_size in self.register_coords:
             if name is None:
