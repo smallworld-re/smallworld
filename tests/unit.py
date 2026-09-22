@@ -101,6 +101,7 @@ from smallworld.instructions import Instruction, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
+from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
@@ -3601,6 +3602,64 @@ class SparseIOReadTests(unittest.TestCase):
         sio = self._make_sparse()
         sio.seek(95)
         self.assertEqual(sio.read(20), b"\x00" * 5 + b"ABCDEFGHIJ" + b"\x00" * 5)
+
+
+class _FakePrStatusNote:
+    """Minimal stand-in for a lief CorePrStatus note (only description.tobytes)."""
+
+    class _Desc:
+        def __init__(self, data):
+            self._data = data
+
+        def tobytes(self):
+            return self._data
+
+    def __init__(self, data):
+        self.description = self._Desc(data)
+
+
+class PrStatusParseTests(unittest.TestCase):
+    """coredump prstatus register extraction (SW-170 seg-reg width, SW-172/171
+    truncation guard wired through pr_regs_size)."""
+
+    @staticmethod
+    def _i386():
+        # Bypass __init__ (which needs a real lief ELF core); _parse_prstatus
+        # needs only these attributes plus the class-level coords/offsets.
+        obj = I386PrStatus.__new__(I386PrStatus)
+        obj._registers = {}
+        obj.platform = platforms.Platform(
+            I386PrStatus.architecture, I386PrStatus.byteorder
+        )
+        obj.platdef = platforms.PlatformDef.for_platform(obj.platform)
+        return obj
+
+    def _full_i386_note(self):
+        # pr_regs_off (72) + pr_regs_size (68) = 140-byte register block.
+        return bytearray(b"\x00" * 140)
+
+    def test_full_note_parses_general_register(self):
+        obj = self._i386()
+        data = self._full_i386_note()
+        data[72 + 0x18 : 72 + 0x18 + 4] = b"\xef\xbe\xad\xde"  # eax = 0xDEADBEEF
+        obj._parse_prstatus(_FakePrStatusNote(bytes(data)))
+        self.assertEqual(obj._registers["eax"], 0xDEADBEEF)
+
+    def test_segment_register_reads_low_two_bytes(self):
+        # SW-170: cs is a 2-byte selector in a 4-byte slot; the high bytes are
+        # padding and must not leak into the (2-byte) CPU register.
+        obj = self._i386()
+        data = self._full_i386_note()
+        data[72 + 0x34 : 72 + 0x34 + 4] = b"\x73\x00\xde\xad"  # selector 0x0073
+        obj._parse_prstatus(_FakePrStatusNote(bytes(data)))
+        self.assertEqual(obj._registers["cs"], 0x0073)
+
+    def test_truncated_note_raises(self):
+        # SW-172: a note shorter than the register block must fail loudly, not
+        # silently slice short byte strings into wrong register values.
+        obj = self._i386()
+        with self.assertRaises(exceptions.ConfigurationError):
+            obj._parse_prstatus(_FakePrStatusNote(b"\x00" * 100))
 
 
 class MemoryToBytesTests(unittest.TestCase):
