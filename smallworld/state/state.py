@@ -832,14 +832,24 @@ class Machine(StatefulSet):
         elif isinstance(value, bytes):
             return value
         elif isinstance(value, int):
-            return value.to_bytes((value.bit_length() + 7) // 8, "big")
+            if value < 0:
+                # A raw negative int has no width here to two's-complement
+                # against; to_bytes(..., signed=False) would raise a cryptic
+                # OverflowError. Callers that need a signed value must supply a
+                # width (e.g. via Register.set_content).
+                raise exceptions.ConfigurationError(
+                    f"cannot concretize negative int {value} without a fixed width"
+                )
+            # bit_length() is 0 for a value of 0, which would yield empty bytes;
+            # use at least one byte, matching concretize_symbols (0 -> b"\x00").
+            return value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big")
         elif isinstance(value, claripy.ast.bv.BV):
             solver = self._build_solver()
             try:
                 (res,) = solver.eval(value, 1)
             except claripy.errors.UnsatError:
                 raise exceptions.UnsatError("No assignment given constraints")
-            return res.to_bytes((res.bit_length() + 7) // 8, "big")
+            return res.to_bytes(max(1, (res.bit_length() + 7) // 8), "big")
         else:
             raise TypeError(f"Unexpected value type {type(value)}")
 
