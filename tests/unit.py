@@ -4406,6 +4406,67 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
 
+class ArmHFVfpBackfillTests(unittest.TestCase):
+    """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
+
+    ARM's d(k) register aliases the s-pair s(2k):s(2k+1). A double takes the
+    lowest free even pair; a float takes the lowest free single register,
+    back-filling any hole an aligned double left -- until an argument spills,
+    after which no VFP register may be back-filled.
+    """
+
+    @staticmethod
+    def _place(types):
+        ctx = ArmHFSysVCallingContext()
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        placed = []
+        for i, t in enumerate(types):
+            if ctx._on_stack[i]:
+                placed.append("stack")
+            elif t == ArgumentType.FLOAT:
+                placed.append(ctx._float_arg_regs[ctx._arg_offset[i]])
+            else:
+                placed.append(ctx._double_arg_regs[ctx._arg_offset[i]])
+        return placed
+
+    def test_float_double_float_backfills_the_alignment_hole(self):
+        # The double takes d1 (s2:s3), leaving s1 free; the trailing float must
+        # back-fill s1, not collide with d1's low half at s2.
+        self.assertEqual(
+            self._place([ArgumentType.FLOAT, ArgumentType.DOUBLE, ArgumentType.FLOAT]),
+            ["s0", "d1", "s1"],
+        )
+
+    def test_double_then_float_skips_the_aliased_pair(self):
+        # d0 occupies s0:s1, so the float takes the next free single, s2.
+        self.assertEqual(
+            self._place([ArgumentType.DOUBLE, ArgumentType.FLOAT]),
+            ["d0", "s2"],
+        )
+
+    def test_run_of_floats_then_double_takes_next_even_pair(self):
+        self.assertEqual(
+            self._place([ArgumentType.FLOAT] * 4 + [ArgumentType.DOUBLE]),
+            ["s0", "s1", "s2", "s3", "d2"],
+        )
+
+    def test_seventeenth_float_spills(self):
+        placed = self._place([ArgumentType.FLOAT] * 17)
+        self.assertEqual(placed[:16], [f"s{i}" for i in range(16)])
+        self.assertEqual(placed[16], "stack")
+
+    def test_no_backfill_past_a_stacked_argument(self):
+        # 15 floats fill s0-s14; the double finds no free even pair (only s15
+        # is free) and spills, which marks every remaining VFP register
+        # unavailable -- so the trailing float cannot back-fill s15.
+        placed = self._place(
+            [ArgumentType.FLOAT] * 15 + [ArgumentType.DOUBLE, ArgumentType.FLOAT]
+        )
+        self.assertEqual(placed[15], "stack")  # the double
+        self.assertEqual(placed[16], "stack")  # float cannot back-fill s15
+
+
 class SysVReturnValueConversionTests(unittest.TestCase):
     """Return-value *read* paths (get_return_value / _read_return_*).
 
