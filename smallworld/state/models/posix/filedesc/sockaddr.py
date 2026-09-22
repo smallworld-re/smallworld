@@ -93,11 +93,13 @@ class SockaddrIn(Sockaddr):
         self, data: bytes, byteorder: typing.Literal["big", "little"]
     ) -> None:
         if len(data) != self.size:
-            raise ValueError(f"Unix socket address must be 110 bytes; got {len(data)}")
+            raise ValueError(
+                f"AF_INET socket address must be {self.size} bytes; got {len(data)}"
+            )
 
         family = int.from_bytes(data[0:2], byteorder)
         if family != self.family:
-            raise ValueError(f"Expected unix socket, got family {family}")
+            raise ValueError(f"Expected AF_INET socket, got family {family}")
 
         self.port = int.from_bytes(data[2:4], "big")
         self.addr = int.from_bytes(data[4:8], "big")
@@ -150,11 +152,13 @@ class SockaddrIn6(Sockaddr):
         self, data: bytes, byteorder: typing.Literal["big", "little"]
     ) -> None:
         if len(data) != self.size:
-            raise ValueError(f"Unix socket address must be 110 bytes; got {len(data)}")
+            raise ValueError(
+                f"AF_INET6 socket address must be {self.size} bytes; got {len(data)}"
+            )
 
         family = int.from_bytes(data[0:2], byteorder)
         if family != self.family:
-            raise ValueError(f"Expected unix socket, got family {family}")
+            raise ValueError(f"Expected AF_INET6 socket, got family {family}")
 
         self.port = int.from_bytes(data[2:4], "big")
         self.flowinfo = int.from_bytes(data[4:8], "big")

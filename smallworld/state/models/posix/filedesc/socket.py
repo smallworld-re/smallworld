@@ -28,7 +28,7 @@ class SocketIO(BasicIO):
         self.peername: typing.Optional[Sockaddr] = None
         self.sockname: typing.Optional[Sockaddr] = None
 
-    def on_recv(self) -> typing.Tuple[bytes, Sockaddr]:
+    def on_recv(self, peek: bool) -> typing.Tuple[bytes, Sockaddr]:
         raise FDIOUnsupported("Socket does not support receiving")
 
     def on_send(self, data: bytes, peername: Sockaddr):
@@ -42,7 +42,7 @@ class SocketIO(BasicIO):
         if not self._readable:
             raise FDIOUnsupported("Socket does not support receiving")
 
-        return self.on_recv()
+        return self.on_recv(peek)
 
     def send(self, data: bytes, peername: Sockaddr) -> None:
         if self._closed:
@@ -62,11 +62,16 @@ class BytesSocketIO(SocketIO, BytesIO):
     FDIOUnsupported, leaving the queued connection data unreachable.
     """
 
-    def on_recv(self) -> typing.Tuple[bytes, Sockaddr]:
+    def on_recv(self, peek: bool) -> typing.Tuple[bytes, Sockaddr]:
         # peername is populated by add_connection() before the accepted socket
         # is ever handed to a caller, so it is always set here.
         assert self.peername is not None
-        return (self.on_read(-1), self.peername)
+        cursor = self._cursor
+        data = self.on_read(-1)
+        if peek:
+            # MSG_PEEK: leave the received data queued by rewinding the cursor.
+            self._cursor = cursor
+        return (data, self.peername)
 
     def on_send(self, data: bytes, peername: Sockaddr) -> None:
         self.on_write(data)
