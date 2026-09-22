@@ -3727,6 +3727,26 @@ class CheckedBumpAllocatorTests(unittest.TestCase):
             heap.check_access(None, heap.address + 0x1000 - 2, 4, b"AAAA")
 
 
+class MachineConcretizeTests(unittest.TestCase):
+    """state.Machine.concretize value encoding (SW-114 zero, SW-206 negative)."""
+
+    def test_concretize_zero_int_is_one_byte(self):
+        # bit_length() of 0 is 0, so the old code returned empty bytes;
+        # concretize_symbols already encodes 0 as b"\x00".
+        self.assertEqual(state.Machine().concretize(0), b"\x00")
+
+    def test_concretize_zero_bitvector_is_one_byte(self):
+        self.assertEqual(state.Machine().concretize(claripy.BVV(0, 32)), b"\x00")
+
+    def test_concretize_positive_int_is_minimal_big_endian(self):
+        self.assertEqual(state.Machine().concretize(0x4142), b"\x41\x42")
+
+    def test_concretize_negative_int_raises_configuration_error(self):
+        # to_bytes(..., signed=False) would raise a cryptic OverflowError.
+        with self.assertRaises(exceptions.ConfigurationError):
+            state.Machine().concretize(-1)
+
+
 class MachineReadMemoryTests(unittest.TestCase):
     """Tests for state.Machine.read_memory."""
 
