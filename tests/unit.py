@@ -8397,6 +8397,43 @@ class CrashTriagePrinterUnsatOperandTests(unittest.TestCase):
         self.assertIs(printed[0], expr_unsat)
 
 
+class CrashTriageMemoryMessageTests(unittest.TestCase):
+    """_get_early_hint labels write/fetch crashes correctly (SW-116).
+
+    The MEM_WRITE and MEM_FETCH branches were copy-pasted from MEM_READ and
+    still emitted the "read" message, mislabeling the crash for the user.
+    """
+
+    def _message_for(self, cause):
+        from smallworld.analyses.crash_triage.crash_triage import (
+            CrashResults,
+            CrashTriage,
+        )
+
+        triage = CrashTriage(hinting.Hinter())
+        crash = CrashResults(trace=[0x1000], cause=cause, mem_operands=None)
+        return triage._get_early_hint(crash, None).message.lower()
+
+    def test_write_crash_message_says_write(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        msg = self._message_for(CrashCause.MEM_WRITE)
+        self.assertIn("write", msg)
+        self.assertNotIn("read", msg)
+
+    def test_fetch_crash_message_says_fetch(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        msg = self._message_for(CrashCause.MEM_FETCH)
+        self.assertIn("fetch", msg)
+        self.assertNotIn("read", msg)
+
+    def test_read_crash_message_still_says_read(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        self.assertIn("read", self._message_for(CrashCause.MEM_READ))
+
+
 class PointerFinderPointerHintTests(unittest.TestCase):
     """find_the_pointer must put the found operand in PointerHint.pointer.
 

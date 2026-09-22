@@ -304,7 +304,9 @@ class CrashTriage(analysis.Analysis):
                 if label.startswith("reg"):
                     label_arr = label.split("_")
                     offset = int(label_arr[1], 16)
-                    size = int(label_arr[3]) / 8
+                    # Byte size; must stay an int -- reg_name_from_offset's
+                    # widening fallback does `size << 1`, which a float breaks.
+                    size = int(label_arr[3]) // 8
                     name = emulators.angr.utils.reg_name_from_offset(
                         emu.machdef.angr_arch, offset, size
                     )
@@ -679,14 +681,14 @@ class CrashTriage(analysis.Analysis):
             )
         elif crash.cause is CrashCause.MEM_WRITE:
             return TriageMemory(
-                message="Crash caused by memory read error",
+                message="Crash caused by memory write error",
                 access=MemoryAccess.WRITE,
                 trace=crash.trace,
                 diagnosis=diagnosis,
             )
         elif crash.cause is CrashCause.MEM_FETCH:
             return TriageMemory(
-                message="Crash caused by memory read error",
+                message="Crash caused by memory fetch error",
                 access=MemoryAccess.FETCH,
                 trace=crash.trace,
                 diagnosis=diagnosis,
@@ -800,7 +802,7 @@ class CrashTriage(analysis.Analysis):
         elif crash.cause is CrashCause.MEM_WRITE:
             diagnosis_mem = self._diagnose_mem(emu, crash)
             hint = TriageMemory(
-                message="Crash caused by read error",
+                message="Crash caused by write error",
                 access=MemoryAccess.WRITE,
                 trace=crash.trace,
                 diagnosis=diagnosis_mem,
@@ -808,7 +810,7 @@ class CrashTriage(analysis.Analysis):
         elif crash.cause is CrashCause.MEM_FETCH:
             diagnosis_mem = self._diagnose_mem(emu, crash)
             hint = TriageMemory(
-                message="Crash caused by read error",
+                message="Crash caused by fetch error",
                 access=MemoryAccess.FETCH,
                 trace=crash.trace,
                 diagnosis=diagnosis_mem,
