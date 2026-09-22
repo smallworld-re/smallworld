@@ -149,7 +149,9 @@ def dvk_info_match(dvk: DvKey, rw: typing.Union[ReadInfo, WriteInfo]):
         if dvk.name == rw.info.register.name and dvk.new == rw.info.is_new:
             return True
     if type(dvk) is MemLvalDvKey and type(rw.info) is MemoryLvalInfo:
-        if dvk.bsid == rw.info.bsid:
+        # Match the new-value flag too, as the register branch does; without it
+        # a memory read and write that differ only in `new` are wrongly merged.
+        if dvk.bsid == rw.info.bsid and dvk.new == rw.info.is_new:
             return True
     return False
 
@@ -432,13 +434,16 @@ class ColorizerReadWrite(analysis.Analysis):
     description = "assemble a write->read graph from colorizer hints"
     version = "0.0.1"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dot_path: typing.Optional[str] = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.hints = {}
         self.hinter.register(DynamicRegisterValueHint, self.collect_hints)
         self.hinter.register(DynamicMemoryValueHint, self.collect_hints)
         self.max_exec_id = 0
         self.graph = WRGraph()
+        # Optional graphviz dump path. When None (the default) run() writes no
+        # file; set it to emit the write->read dot graph there.
+        self._dot_path = dot_path
 
     def collect_hints(self, hint):
         if (
@@ -520,7 +525,11 @@ class ColorizerReadWrite(analysis.Analysis):
                         # ignore.
                         pass
 
-        with open("col.dot", "w") as c:
+        # Emitting the write->read graph is opt-in; without a path, do not
+        # clobber a col.dot in the caller's working directory on every run.
+        if self._dot_path is None:
+            return
+        with open(self._dot_path, "w") as c:
 
             def writeln(x):
                 c.write(x + "\n")

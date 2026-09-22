@@ -64,6 +64,8 @@ from smallworld.analyses.colorizer_read_write import (
     RegDvKey,
     RegisterInfo,
     WRGraph,
+    WriteInfo,
+    dvk_info_match,
 )
 from smallworld.analyses.colorizer_summary import ColorizerSummary
 from smallworld.analyses.crash_triage.printer import CrashTriagePrinter
@@ -8610,6 +8612,29 @@ class ColorizerReadWriteFirstObsGuardTests(unittest.TestCase):
         info = node.reads[0].info
         self.assertIsInstance(info, MemoryLvalInfo)
         self.assertEqual(info.addresses, [(3, 0xBEEF0)])
+
+
+class DvkInfoMatchMemoryTests(unittest.TestCase):
+    """dvk_info_match compares the new-value flag for memory lvals too (SW-054),
+    not just for registers -- otherwise a read and write that differ only in
+    `new` get wrongly deduped."""
+
+    @staticmethod
+    def _mem(new, is_new):
+        bsid = object()  # shared instance so dvk.bsid == rw.info.bsid holds
+        dvk = MemLvalDvKey(
+            pc=0x1000, size=4, read=False, new=new, color=None, bsid=bsid
+        )
+        info = MemoryLvalInfo(color=None, is_new=is_new, bsid=bsid, size=4)
+        return dvk, WriteInfo(info=info)
+
+    def test_matches_when_new_flag_agrees(self):
+        dvk, rw = self._mem(new=True, is_new=True)
+        self.assertTrue(dvk_info_match(dvk, rw))
+
+    def test_does_not_match_when_new_flag_differs(self):
+        dvk, rw = self._mem(new=True, is_new=False)
+        self.assertFalse(dvk_info_match(dvk, rw))
 
 
 class ColorizerBigEndianStoreLoadTests(unittest.TestCase):
