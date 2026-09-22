@@ -180,7 +180,7 @@ scifloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]*|\\.[*])?)(L|)(g|G
 # Allowed conversions:
 # - 'a': Hexadecimal floating-point, lowercase
 # - 'A': Hexadecimal floating-point, uppercase
-hexfloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]+|\\.[*])?)(L|)(g|G)")
+hexfloat_re = re.compile("%([#0 \\-+]*)([0-9]*|[*])((\\.[0-9]+|\\.[*])?)(L|)(a|A)")
 
 # Character conversion
 #
@@ -681,6 +681,7 @@ def handle_char(
     # These mean the same for python as they do for C,
     # with the exception of '-' in C being '<' in Python
     flags = handle_flags(flags)
+    fmt += flags
 
     # Handle width
     width = handle_width(width, varargs, emulator)

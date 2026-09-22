@@ -294,7 +294,12 @@ class Recv(FDModel):
         peek = (flags & 0x2) != 0
         trunc = (flags & 0x20) != 0
 
-        data, peername = socket.recv(peek)
+        try:
+            data, peername = socket.recv(peek)
+        except FDIOError:
+            # Closed or non-readable socket: report failure, like Send/Sendto.
+            self.set_return_value(emulator, -1)
+            return
         emulator.write_memory(buf, data[0:buflen])
 
         if trunc:
@@ -347,7 +352,12 @@ class Recvfrom(FDModel):
         peek = (flags & 0x2) != 0
         trunc = (flags & 0x20) != 0
 
-        data, peername = socket.recv(peek)
+        try:
+            data, peername = socket.recv(peek)
+        except FDIOError:
+            # Closed or non-readable socket: report failure, like Send/Sendto.
+            self.set_return_value(emulator, -1)
+            return
         emulator.write_memory(buf, data[0:buflen])
 
         byteorder: typing.Literal["big", "little"]

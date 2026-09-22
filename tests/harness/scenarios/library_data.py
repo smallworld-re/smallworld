@@ -91,6 +91,12 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99AtofTests",
+        "function": "atof",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99AtoiTests",
         "function": "atoi",
         "library": "c99",
@@ -125,6 +131,12 @@ LIBRARY_MODELS = [
         "function": "exit",
         "library": "c99",
         "quiet": True,
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99FabsTests",
+        "function": "fabs",
+        "library": "c99",
     },
     {
         "bases": ["NoArgLibraryModelTest"],
@@ -231,6 +243,12 @@ LIBRARY_MODELS = [
     },
     {
         "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99StrcollTests",
+        "function": "strcoll",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99StrcpyTests",
         "function": "strcpy",
         "library": "c99",
@@ -299,6 +317,12 @@ LIBRARY_MODELS = [
         "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99StrtokTests",
         "function": "strtok",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99StrxfrmTests",
+        "function": "strxfrm",
         "library": "c99",
     },
     {
@@ -648,6 +672,24 @@ LIBRARY_MODELS = [
         "bases": ["NoArgLibraryModelTest"],
         "class_name": "POSIXDirnameTests",
         "function": "dirname",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXCreatTests",
+        "function": "creat",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXDupTests",
+        "function": "dup",
+        "library": "posix",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "POSIXOpenTests",
+        "function": "open",
         "library": "posix",
     },
     {

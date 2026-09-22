@@ -79,6 +79,7 @@ class AArch64MachineDef(PandaMachineDef):
             "wsp": "sp",
             "wzr": None,
             "xzr": None,
+            "nzcv": None,
             "fpcr": None,
             "fpsr": None,
             "sp_el0": None,

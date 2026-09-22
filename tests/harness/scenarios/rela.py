@@ -7,6 +7,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     StringSource,
+    enroll_triton,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -184,6 +185,9 @@ _SPECS = {
         print_entrypoint=True,
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
     "ppc64": "Relocations not supported",

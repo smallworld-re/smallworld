@@ -135,16 +135,21 @@ class Value(metaclass=abc.ABCMeta):
 
         self.set_content(content)
 
-    def to_symbolic(
-        self, byteorder: platforms.Byteorder
-    ) -> typing.Optional[claripy.ast.bv.BV]:
+    def to_symbolic(self) -> typing.Optional[claripy.ast.bv.BV]:
         """Convert this value into a symbolic expression
 
-        For a labeled value, this will be a bit vector symbol named after the label.
-        Otherwise, it will be a concrete bit vector value containing the contents.
+        For a labeled value, this is a bit vector symbol named after the label.
+        Otherwise it is a concrete bit vector of the contents. The conversion is
+        byte-order independent: integer content becomes its numeric value, and
+        bytes content becomes the raw byte sequence (first byte most significant);
+        an invoker that wants to interpret bytes as an integer decodes them with
+        whatever byte order it needs.
 
-        Arguments:
-            byteorder: The byte order to use in the conversion.
+        Because register (integer) values are numeric here, a symbol from a
+        labeled register compares directly against numeric bitvectors when
+        building constraints -- no byte-swapping is required regardless of the
+        platform's byte order. See ``Machine.add_constraint`` for the one place
+        byte order does matter (relating a value to raw memory bytes).
 
         Returns:
             Symbolic expression object, or None if both content and label are None
@@ -171,11 +176,15 @@ class Value(metaclass=abc.ABCMeta):
                 return content
 
             if isinstance(content, int):
-                # The content is an int; convert to bytes for universal handling
-                if byteorder == platforms.Byteorder.BIG:
-                    content = content.to_bytes(size, "big")
-                else:
-                    content = content.to_bytes(size, "little")
+                if size == 0:
+                    raise exceptions.ConfigurationError(
+                        "Cannot create a bitvector of size zero"
+                    )
+                # Build the bitvector from the integer directly: the numeric
+                # value, independent of byte order. (Round-tripping through
+                # byteorder-specific bytes and claripy.BVV(bytes), which reads
+                # big-endian, byte-reversed the value on little-endian platforms.)
+                return claripy.BVV(content, size * 8)
 
             if not isinstance(content, bytes) and not isinstance(content, bytearray):
                 # The content is not something I know how to handle.
@@ -771,6 +780,16 @@ class Machine(StatefulSet):
         already have a constraint binding the label's
         variable to the content.
 
+        Byte order: register and integer values are numeric here -- both
+        ``to_symbolic()`` and ``read_register_symbolic()`` return the numeric
+        value -- so constraints over registers compare directly against numeric
+        bitvectors (e.g. ``claripy.BVV(0x1234, 64)``) with no byte-swapping,
+        regardless of platform byte order. Memory is the exception: it is a byte
+        sequence, so ``read_memory_symbolic()`` returns the bytes in memory
+        order (first byte most significant). To relate a memory range to a
+        numeric value on a little-endian target, byte-reverse the memory side,
+        e.g. ``claripy.Reverse(emu.read_memory_symbolic(addr, size)) == reg``.
+
         Arguments:
             expr: The constraint expression to add
         """
@@ -863,7 +882,22 @@ class Machine(StatefulSet):
             for expr in self._constraints:
                 emulator.add_constraint(expr)
 
-        return super().apply(emulator)
+        # Apply CPUs first. A StatefulSet iterates a set, so member order is
+        # arbitrary and varies between processes; anything whose apply() reads
+        # a register -- the TLS resolver does -- would otherwise succeed or
+        # fail depending on where the CPU landed. Registers depend on nothing
+        # else, so going first is always safe.
+        cpus = self.members(state.cpus.CPU)
+        for cpu in cpus:
+            logger.debug(f"applying CPU state {cpu} to emulator {emulator}")
+            cpu.apply(emulator)
+        for stateful in self:
+            if stateful in cpus:
+                continue
+            logger.debug(
+                f"applying state {stateful} of type {type(stateful)} to emulator {emulator}"
+            )
+            stateful.apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exit_points = emulator.get_exit_points()

@@ -35,6 +35,12 @@ class ARMV6MInstruction(ARMInstruction):
 
 class ARMV6MThumbInstruction(ARMInstruction):
     cs_mode = capstone.CS_MODE_THUMB
+    # This platform's language id is the ARM-mode one: Ghidra reaches Thumb
+    # through the TMode context register, which the analysis does not set,
+    # so Thumb bytes decode as a valid but unrelated ARM instruction.
+    # _pcode_use_def's length check catches 16-bit Thumb; a 32-bit Thumb-2
+    # instruction is four bytes either way, so refuse outright.
+    supports_pcode_use_def = False
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
     )

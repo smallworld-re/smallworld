@@ -24,7 +24,7 @@ class StdioModel(CStdModel):
         writable = False
         create = False
         truncate = False
-        append = True
+        append = False
         if mode in ("r", "rb"):
             # - Open for reading
             # - Fails if doesn't exist
@@ -67,6 +67,7 @@ class StdioModel(CStdModel):
             readable = True
             writable = True
             create = True
+            append = True
         else:
             raise FDIOError(f"Unknown mode {mode}")
 
@@ -487,8 +488,8 @@ class Fread(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        i = 0
-        for i in range(0, amt):
+        count = 0
+        for _ in range(0, amt):
             data = file.read(size)
             if len(data) != size:
                 if file.seekable():
@@ -497,8 +498,9 @@ class Fread(StdioModel):
 
             emulator.write_memory(dst, data)
             dst += size
+            count += 1
 
-        self.set_return_value(emulator, i)
+        self.set_return_value(emulator, count)
 
 
 class Fscanf(StdioModel):
@@ -560,8 +562,17 @@ class Fseek(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        pos = file.seek(offset, origin)
-        self.set_return_value(emulator, pos)
+        try:
+            file.seek(offset, origin)
+        except FDIOError:
+            # A non-seekable stream (pipe, socket, std stream) reports failure;
+            # it must not escape as an uncaught exception.
+            logger.exception(f"Failed to seek filestar {filestar:x}")
+            self.set_return_value(emulator, -1)
+            return
+
+        # C's fseek returns 0 on success (not the resulting offset).
+        self.set_return_value(emulator, 0)
 
 
 class Ftell(StdioModel):

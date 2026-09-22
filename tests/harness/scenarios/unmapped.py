@@ -7,6 +7,7 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    enroll_triton,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -40,7 +41,7 @@ _SPECS = {
     "amd64": UnmappedSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
@@ -58,7 +59,7 @@ _SPECS = {
     "i386": UnmappedSpec(
         platform=PlatformSpec("X86_32", "LITTLE"),
         pc_register="eip",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
         stack_pointer_register="esp",
     ),
@@ -88,19 +89,19 @@ _SPECS = {
     "mips64": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
     ),
     "mips64el": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "LITTLE"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
     ),
     "ppc": UnmappedSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
         stack_padding_bytes=32,
     ),
     "ppc64": UnmappedSpec(
@@ -149,17 +150,20 @@ _SPECS = {
     ),
 }
 
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
+
 _SKIP_REASONS = {
-    "aarch64.panda": "Waiting for panda-ng",
-    "amd64.panda": "Waiting for panda-ng",
-    "armel.panda": "Waiting for panda-ng",
-    "armhf.panda": "Waiting for panda-ng",
-    "i386.panda": "Waiting for panda-ng",
-    "mips.panda": "Waiting for panda-ng",
-    "mips64.panda": "Waiting for panda-ng",
-    "mips64el.panda": "Waiting for panda-ng",
-    "mipsel.panda": "Waiting for panda-ng",
-    "ppc.panda": "Waiting for panda-ng",
+    "aarch64.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "armel.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "armhf.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (prefetch abort, 3) instead of EmulationFetchUnmappedFailure",
+    "mips.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (15) instead of EmulationFetchUnmappedFailure",
+    "mipsel.panda": "panda-ng surfaces the unmapped instruction fetch as a raw CPU "
+    "exception (15) instead of EmulationFetchUnmappedFailure",
     "ppc64": "Unicorn ppc64 support buggy",
     # Measured: Styx's SuperH2A target maps a flat 4 GiB RWX space, so none of
     # the three accesses can fault.  Single-stepping unmapped.sh2a.elf's
@@ -220,7 +224,13 @@ def _build_machine(smallworld, arch: str, engine: str, spec: UnmappedSpec):
         stack.push_bytes(b"\0" * spec.stack_padding_bytes, None)
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
-    if engine == "unicorn":
+    if engine in ("unicorn", "triton"):
+        # Neither backend will start without somewhere to stop: Unicorn needs an
+        # exit sentinel and Triton's run loop refuses to run with no exit point
+        # or bound. Address 0 is the right sentinel because no return address is
+        # pushed, so the function under test returns into the zero-filled stack
+        # and lands there; the faults this scenario is about happen earlier, at
+        # the unmapped target (0x8000).
         machine.add_exit_point(0)
 
     return machine, cpu, platform, code

@@ -20,6 +20,19 @@ dependencies = [
     "pycparser>=2.18,<3.0",
     "networkx>=3.2.1",
     "claripy>=9.2.102",
+    # SLEIGH translator behind the default p-code use/def backend. A plain
+    # native wheel with no dependencies of its own -- unlike pyghidra, which
+    # needs a JVM and stays in the optional emu-ghidra extra for the Ghidra
+    # emulator.
+    #
+    # Marked for 3.10+ because pypcode is: on 3.9 there is no wheel, the
+    # availability probe in instructions.py finds no module, and use/def
+    # falls back to Capstone with one log line -- the same degradation a
+    # platform without a ghidra_language_id already gets.
+    #
+    # Upper bound tracks angr, which pins pypcode<4.0; without it, installing
+    # the emu-angr extra alongside would be unresolvable.
+    "pypcode>=3.2,<4.0; python_version >= '3.10'",
 ]
 
 [build-system]
@@ -60,8 +73,16 @@ emu-styx = [
     "styx-emulator>=0.1.0",
     "styxafl>=0.1.0",
 ]
+emu-triton = [
+    # JonathanSalwan's Triton. The PyPI distribution is named "triton-library"
+    # but imports as "triton"; do NOT confuse it with OpenAI's "triton". The
+    # newest PyPI release is a pre-release (1.0.0rc4), so the floor names it
+    # explicitly, otherwise a plain ">=1.0.0" would exclude every published
+    # wheel.
+    "triton-library>=1.0.0rc4",
+]
 emu-all = [
-    "smallworld-re[emu-angr,emu-ghidra,emu-panda,emu-unicorn,emu-styx]",
+    "smallworld-re[emu-angr,emu-ghidra,emu-panda,emu-unicorn,emu-styx,emu-triton]",
 ]
 
 [tool.setuptools]
@@ -74,11 +95,12 @@ include = ["smallworld*"]
 
 [tool.mypy]
 disable_error_code = ["annotation-unchecked"]
-exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
+exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|nix/triton-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
 
 [tool.uv]
 exclude-dependencies = [
     "pandare2",
     "styx-emulator",
     "styxafl",
+    "triton-library",
 ]

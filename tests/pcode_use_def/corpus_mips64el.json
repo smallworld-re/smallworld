@@ -1,0 +1,2423 @@
+{
+ "isa": "mips64el",
+ "ghidra_lang": "MIPS:LE:64:default",
+ "llvm_triple": "mips64el-unknown-linux-gnu",
+ "base_address": 4096,
+ "entries": [
+  {
+   "asm": "lui $t0, 0x1234",
+   "bytes": "3412083c",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addiu $t0, $zero, 42",
+   "bytes": "2a000824",
+   "categories": [
+    "mov",
+    "imm",
+    "li-form"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "li via addiu: reads hardwired zero"
+  },
+  {
+   "asm": "ori $t0, $zero, 0xbeef",
+   "bytes": "efbe0834",
+   "categories": [
+    "mov",
+    "imm",
+    "li-form"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "li via ori: reads hardwired zero"
+  },
+  {
+   "asm": "addu $t2, $t3, $zero",
+   "bytes": "21506001",
+   "categories": [
+    "mov",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "t3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t2"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "canonical move; capstone may alias to move"
+  },
+  {
+   "asm": "mfhi $t0",
+   "bytes": "10400000",
+   "categories": [
+    "mov",
+    "hilo"
+   ],
+   "uses": [
+    {
+     "reg": "hi"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mflo $t1",
+   "bytes": "12480000",
+   "categories": [
+    "mov",
+    "hilo"
+   ],
+   "uses": [
+    {
+     "reg": "lo"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mthi $t0",
+   "bytes": "11000001",
+   "categories": [
+    "mov",
+    "hilo"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mtlo $t1",
+   "bytes": "13002001",
+   "categories": [
+    "mov",
+    "hilo"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addu $t0, $t1, $t2",
+   "bytes": "21402a01",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addiu $sp, $sp, -32",
+   "bytes": "e0ffbd27",
+   "categories": [
+    "arith",
+    "imm",
+    "stack"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "subu $v0, $a0, $a1",
+   "bytes": "23108500",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "v0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add $t0, $t1, $t2",
+   "bytes": "20402a01",
+   "categories": [
+    "arith",
+    "trapping"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "trapping add: overflow raises exception, no flag regs on MIPS"
+  },
+  {
+   "asm": "addi $t0, $t1, 100",
+   "bytes": "64002821",
+   "categories": [
+    "arith",
+    "imm",
+    "trapping"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "trapping addi (removed in r6)"
+  },
+  {
+   "asm": "sub $t0, $t1, $t2",
+   "bytes": "22402a01",
+   "categories": [
+    "arith",
+    "trapping"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "trapping sub"
+  },
+  {
+   "asm": "and $t0, $t1, $t2",
+   "bytes": "24402a01",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "andi $t0, $t1, 0xff",
+   "bytes": "ff002831",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "or $s0, $s1, $s2",
+   "bytes": "25803202",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "s1"
+    },
+    {
+     "reg": "s2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "s0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ori $t0, $t1, 0x1234",
+   "bytes": "34122835",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "xor $t0, $t1, $t2",
+   "bytes": "26402a01",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "xori $t0, $t1, 0xff",
+   "bytes": "ff002839",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "nor $t0, $t1, $t2",
+   "bytes": "27402a01",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "slt $t0, $t1, $t2",
+   "bytes": "2a402a01",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "slti $t0, $t1, 10",
+   "bytes": "0a002829",
+   "categories": [
+    "cmp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sltu $t0, $t1, $t2",
+   "bytes": "2b402a01",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sltiu $t0, $t1, -5",
+   "bytes": "fbff282d",
+   "categories": [
+    "cmp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "imm sign-extended then compared unsigned"
+  },
+  {
+   "asm": "sll $t0, $t1, 4",
+   "bytes": "00410900",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "srl $t0, $t1, 4",
+   "bytes": "02410900",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sra $t0, $t1, 4",
+   "bytes": "03410900",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sllv $t0, $t1, $t2",
+   "bytes": "04404901",
+   "categories": [
+    "shift",
+    "reg-count"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "count reg $t2 is read"
+  },
+  {
+   "asm": "srlv $t0, $t1, $t2",
+   "bytes": "06404901",
+   "categories": [
+    "shift",
+    "reg-count"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "count reg $t2 is read"
+  },
+  {
+   "asm": "srav $t0, $t1, $t2",
+   "bytes": "07404901",
+   "categories": [
+    "shift",
+    "reg-count"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "count reg $t2 is read"
+  },
+  {
+   "asm": "rotr $t0, $t1, 8",
+   "bytes": "02422900",
+   "categories": [
+    "shift",
+    "rotate",
+    "mips32r2"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "assembled with -mcpu=mips32r2"
+  },
+  {
+   "asm": "mult $t0, $t1",
+   "bytes": "18000901",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "multu $t0, $t1",
+   "bytes": "19000901",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "div $zero, $t0, $t1",
+   "bytes": "1a000901",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "raw div form ($zero dest marker) to avoid llvm-mc trap-check pseudo expansion"
+  },
+  {
+   "asm": "divu $zero, $t2, $t3",
+   "bytes": "1b004b01",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "t2"
+    },
+    {
+     "reg": "t3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "raw divu form ($zero dest marker)"
+  },
+  {
+   "asm": "madd $t0, $t1",
+   "bytes": "00000971",
+   "categories": [
+    "muldiv",
+    "accumulate"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "multiply-add: reads AND writes hi/lo"
+  },
+  {
+   "asm": "msub $t0, $t1",
+   "bytes": "04000971",
+   "categories": [
+    "muldiv",
+    "accumulate"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "multiply-subtract: reads AND writes hi/lo"
+  },
+  {
+   "asm": "lw $t0, 8($sp)",
+   "bytes": "0800a88f",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lh $t0, 4($a0)",
+   "bytes": "04008884",
+   "categories": [
+    "load",
+    "base+disp",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lhu $t0, 6($a0)",
+   "bytes": "06008894",
+   "categories": [
+    "load",
+    "base+disp",
+    "zero-extend"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 6,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lb $t0, 1($a0)",
+   "bytes": "01008880",
+   "categories": [
+    "load",
+    "base+disp",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lbu $t0, -1($a0)",
+   "bytes": "ffff8890",
+   "categories": [
+    "load",
+    "base+disp",
+    "zero-extend"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": -1,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lw $s0, -4($fp)",
+   "bytes": "fcffd08f",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "fp"
+    },
+    {
+     "mem": {
+      "base": "fp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "s0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "capstone calls reg 30 fp"
+  },
+  {
+   "asm": "lwl $t0, 3($a0)",
+   "bytes": "03008888",
+   "categories": [
+    "load",
+    "unaligned",
+    "partial"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "t0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 3,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "unaligned load-left: merges into dest, so $t0 is read AND written; actual bytes accessed depend on alignment, size 4 is the max/nominal word"
+  },
+  {
+   "asm": "lwr $t0, 0($a0)",
+   "bytes": "00008898",
+   "categories": [
+    "load",
+    "unaligned",
+    "partial"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "t0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "unaligned load-right: merges into dest, $t0 read AND written; size 4 nominal"
+  },
+  {
+   "asm": "ll $t0, 0($a0)",
+   "bytes": "000088c0",
+   "categories": [
+    "load",
+    "atomic"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "load-linked; LLbit side effect not modeled"
+  },
+  {
+   "asm": "sw $t0, 8($sp)",
+   "bytes": "0800a8af",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sh $t0, 2($a0)",
+   "bytes": "020088a4",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 2,
+      "size": 2
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sb $t0, 0($a0)",
+   "bytes": "000088a0",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sc $t0, 0($a0)",
+   "bytes": "000088e0",
+   "categories": [
+    "store",
+    "atomic",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "store-conditional: writes success flag into source reg $t0; memory write is conditional on LLbit"
+  },
+  {
+   "asm": "beq $t0, $t1, 16",
+   "bytes": "04000911",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bne $a0, $zero, 8",
+   "bytes": "02008014",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "compare against hardwired zero"
+  },
+  {
+   "asm": "bgez $t0, 16",
+   "bytes": "04000105",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bltz $t0, 16",
+   "bytes": "04000005",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "blez $t0, 16",
+   "bytes": "04000019",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bgtz $t0, 16",
+   "bytes": "0400001d",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "j 4096",
+   "bytes": "00040008",
+   "categories": [
+    "branch",
+    "unconditional",
+    "absolute"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "PC excluded per conventions; no data effects"
+  },
+  {
+   "asm": "jr $t9",
+   "bytes": "08002003",
+   "categories": [
+    "branch",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jal 4096",
+   "bytes": "0004000c",
+   "categories": [
+    "call",
+    "absolute"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jalr $t9",
+   "bytes": "09f82003",
+   "categories": [
+    "call",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jalr $s0, $t9",
+   "bytes": "09802003",
+   "categories": [
+    "call",
+    "indirect",
+    "named-dest"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "s0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "jalr with explicit link register $s0 instead of $ra"
+  },
+  {
+   "asm": "bal 8",
+   "bytes": "02001104",
+   "categories": [
+    "call",
+    "pc-relative"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "bal encodes as bgezal $zero: reads hardwired zero"
+  },
+  {
+   "asm": "bgezal $t0, 16",
+   "bytes": "04001105",
+   "categories": [
+    "call",
+    "conditional",
+    "pc-relative"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "conditional call: defs ra unconditionally per arch (link happens regardless of branch taken)"
+  },
+  {
+   "asm": "jr $ra",
+   "bytes": "0800e003",
+   "categories": [
+    "ret"
+   ],
+   "uses": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "seb $t0, $t1",
+   "bytes": "2044097c",
+   "categories": [
+    "ext",
+    "sign-extend",
+    "mips32r2"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "assembled with -mcpu=mips32r2"
+  },
+  {
+   "asm": "seh $t0, $t1",
+   "bytes": "2046097c",
+   "categories": [
+    "ext",
+    "sign-extend",
+    "mips32r2"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "assembled with -mcpu=mips32r2"
+  },
+  {
+   "asm": "wsbh $t0, $t1",
+   "bytes": "a040097c",
+   "categories": [
+    "misc",
+    "byteswap",
+    "mips32r2"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "assembled with -mcpu=mips32r2"
+  },
+  {
+   "asm": "clo $t0, $t1",
+   "bytes": "21402871",
+   "categories": [
+    "misc",
+    "bitcount"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "clz $t0, $t1",
+   "bytes": "20402871",
+   "categories": [
+    "misc",
+    "bitcount"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movn $t0, $t1, $t2",
+   "bytes": "0b402a01",
+   "categories": [
+    "misc",
+    "cmov"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "conditional move: writes $t0 only if $t2 != 0; dest is architecturally read-or-preserved, so $t0 also in uses_optional"
+  },
+  {
+   "asm": "movz $t0, $t1, $t2",
+   "bytes": "0a402a01",
+   "categories": [
+    "misc",
+    "cmov"
+   ],
+   "uses": [
+    {
+     "reg": "t1"
+    },
+    {
+     "reg": "t2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "conditional move: writes $t0 only if $t2 == 0; dest also in uses_optional"
+  },
+  {
+   "asm": "lwc1 $f0, 8($sp)",
+   "bytes": "0800a0c7",
+   "categories": [
+    "fp",
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "f0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "swc1 $f2, 4($sp)",
+   "bytes": "0400a2e7",
+   "categories": [
+    "fp",
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "f2"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add.s $f0, $f1, $f2",
+   "bytes": "00080246",
+   "categories": [
+    "fp",
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "f1"
+    },
+    {
+     "reg": "f2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "f0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "FCSR flag/cause side effects not modeled (no MIPS flag regs per conventions)"
+  },
+  {
+   "asm": "mfc1 $t0, $f0",
+   "bytes": "00000844",
+   "categories": [
+    "fp",
+    "mov"
+   ],
+   "uses": [
+    {
+     "reg": "f0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mtc1 $t0, $f0",
+   "bytes": "00008844",
+   "categories": [
+    "fp",
+    "mov"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "f0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "daddu $a0, $a1, $a2",
+   "bytes": "2d20a600",
+   "categories": [
+    "arith",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    },
+    {
+     "reg": "a2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "daddiu $a0, $a1, 16",
+   "bytes": "1000a464",
+   "categories": [
+    "arith",
+    "imm",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsubu $a0, $a1, $a2",
+   "bytes": "2f20a600",
+   "categories": [
+    "arith",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    },
+    {
+     "reg": "a2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsll $a0, $a1, 4",
+   "bytes": "38210500",
+   "categories": [
+    "shift",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsrl $a0, $a1, 4",
+   "bytes": "3a210500",
+   "categories": [
+    "shift",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsra $a0, $a1, 4",
+   "bytes": "3b210500",
+   "categories": [
+    "shift",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsll32 $a0, $a1, 4",
+   "bytes": "3c210500",
+   "categories": [
+    "shift",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "shift amount is +32"
+  },
+  {
+   "asm": "dsllv $a0, $a1, $a2",
+   "bytes": "1420c500",
+   "categories": [
+    "shift",
+    "64bit",
+    "variable"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    },
+    {
+     "reg": "a2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dsrlv $a0, $a1, $a2",
+   "bytes": "1620c500",
+   "categories": [
+    "shift",
+    "64bit",
+    "variable"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    },
+    {
+     "reg": "a2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ld $a0, 8($sp)",
+   "bytes": "0800a4df",
+   "categories": [
+    "load",
+    "64bit",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "address_only_uses": ["sp"],
+   "notes": ""
+  },
+  {
+   "asm": "sd $a0, 8($sp)",
+   "bytes": "0800a4ff",
+   "categories": [
+    "store",
+    "64bit",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "address_only_uses": ["sp"],
+   "notes": ""
+  },
+  {
+   "asm": "ldl $a0, 7($s0)",
+   "bytes": "0700046a",
+   "categories": [
+    "load",
+    "unaligned",
+    "partial",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "s0"
+    },
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "s0",
+      "index": null,
+      "scale": 1,
+      "offset": 7,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "unaligned load-left merges into dest, so $a0 is read and written"
+  },
+  {
+   "asm": "ldr $a0, 0($s0)",
+   "bytes": "0000046e",
+   "categories": [
+    "load",
+    "unaligned",
+    "partial",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "s0"
+    },
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "s0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "unaligned load-right merges into dest"
+  },
+  {
+   "asm": "lwu $a0, 4($s0)",
+   "bytes": "0400049e",
+   "categories": [
+    "load",
+    "zeroext",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "s0"
+    },
+    {
+     "mem": {
+      "base": "s0",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "load word unsigned: zero-extends a 32-bit word into the 64-bit reg"
+  },
+  {
+   "asm": "dmult $a0, $a1",
+   "bytes": "1c008500",
+   "categories": [
+    "muldiv",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dmultu $a0, $a1",
+   "bytes": "1d008500",
+   "categories": [
+    "muldiv",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ddiv $zero, $a0, $a1",
+   "bytes": "1e008500",
+   "categories": [
+    "muldiv",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "raw ddiv form ($zero dest marker) to avoid llvm-mc trap-check expansion"
+  },
+  {
+   "asm": "ddivu $zero, $a0, $a1",
+   "bytes": "1f008500",
+   "categories": [
+    "muldiv",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "hi"
+    },
+    {
+     "reg": "lo"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "raw ddivu form"
+  },
+  {
+   "asm": "dclz $a0, $a1",
+   "bytes": "2420a470",
+   "categories": [
+    "bit",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "drotr $a0, $a1, 8",
+   "bytes": "3a222500",
+   "categories": [
+    "rotate",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dext $a0, $a1, 4, 8",
+   "bytes": "0339a47c",
+   "categories": [
+    "bitfield",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "dins $a0, $a1, 4, 8",
+   "bytes": "0759a47c",
+   "categories": [
+    "bitfield",
+    "64bit"
+   ],
+   "uses": [
+    {
+     "reg": "a1"
+    },
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "insert merges into dest, so $a0 is read and written"
+  }
+ ]
+}

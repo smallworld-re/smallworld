@@ -90,7 +90,10 @@ class LoopDetection(Analysis):
                     continue
         for pc in heads:
             the_strands = []
-            for h, strand in strands[pc].items():
+            # A head detected via a back-edge may never have a strand closed
+            # for it in the second pass (e.g. a truncated or faulting trace);
+            # guard the lookup so that does not raise KeyError.
+            for h, strand in strands.get(pc, {}).items():
                 the_strands.append(strand)
             self.hinter.send(
                 LoopHint(

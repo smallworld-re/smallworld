@@ -87,11 +87,26 @@ class AMD64ElfRelocator(ElfRelocator):
         mask = (1 << (size * 8)) - 1
         return (value & mask).to_bytes(size, self.byteorder.value)
 
+    def _tls_block_offset(self, rela: ElfRela, elf, size: int) -> int:
+        """A TLS symbol's offset within its module's TLS block.
+
+        Deliberately not `_symbol_value`: a TLS symbol's st_value is already an
+        offset into the block, so adding the load base would turn it into an
+        address and collapse the distinction between adjacent thread-locals.
+        """
+        return rela.symbol.value + self._get_addend(rela, elf, size)
+
     def _missing_context(self, rela: ElfRela, detail: str) -> None:
         raise ConfigurationError(
             f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
             f"{detail}, which is not available to AMD64ElfRelocator._compute_value()"
         )
+
+    def is_tls_descriptor(self, rela: ElfRela) -> bool:
+        return rela.type == R_X86_64_TLSDESC
+
+    def is_tls_descriptor_reference(self, rela: ElfRela) -> bool:
+        return rela.type == R_X86_64_GOTPC32_TLSDESC
 
     def _compute_value(self, rela: ElfRela, elf):
         symval = self._symbol_value(rela)
@@ -139,13 +154,12 @@ class AMD64ElfRelocator(ElfRelocator):
             # TLS module relocations need the runtime-assigned TLS module ID.
             # SmallWorld emulates a single module in isolation, so there is
             # exactly one TLS module; assign it the conventional module ID 1.
-            # (DTPOFF64/TPOFF64 below still require real TLS-block layout and
-            # remain unsupported, but DTPMOD64 alone is what blocks loading
-            # otherwise-ordinary TLS-using shared objects.)
+            # DTPOFF64 below completes the pair with the symbol's offset
+            # within that module's block. (The initial-exec forms, TPOFF*,
+            # still need a real thread-pointer layout and remain unsupported.)
             return self._pack(1, 8)
         elif rela.type == R_X86_64_DTPOFF64:
-            # Dynamic TLS offsets depend on the module's TLS block layout.
-            self._missing_context(rela, "the symbol's offset within its TLS block")
+            return self._pack(self._tls_block_offset(rela, elf, 8), 8)
         elif rela.type == R_X86_64_TPOFF64:
             # Initial-exec/local-exec TLS offsets are relative to the thread pointer.
             self._missing_context(
@@ -158,8 +172,7 @@ class AMD64ElfRelocator(ElfRelocator):
             # Local-dynamic TLS uses a two-entry GOT descriptor for the module.
             self._missing_context(rela, "the TLS LD descriptor's GOT entry addresses")
         elif rela.type == R_X86_64_DTPOFF32:
-            # Dynamic TLS offsets depend on the module's TLS block layout.
-            self._missing_context(rela, "the symbol's offset within its TLS block")
+            return self._pack(self._tls_block_offset(rela, elf, 4), 4)
         elif rela.type == R_X86_64_GOTTPOFF:
             # Initial-exec TLS references a GOT slot holding the thread offset.
             self._missing_context(
@@ -200,16 +213,34 @@ class AMD64ElfRelocator(ElfRelocator):
         elif rela.type == R_X86_64_SIZE64:
             return self._pack(rela.symbol.size + self._get_addend(rela, elf, 8), 8)
         elif rela.type == R_X86_64_GOTPC32_TLSDESC:
-            # TLS descriptors live in the GOT and require a descriptor slot address.
-            self._missing_context(rela, "the GOT base and TLS descriptor entry address")
+            # The unlinked form of R_X86_64_TLSDESC: an object file has only
+            # `lea x@tlsdesc(%rip)`, naming a GOT slot no linker built, so
+            # synthesize one.
+            slot = elf.tlsdesc_got_slot(rela.symbol.idx)
+            # The addend belongs to the PC-relative computation (gcc emits -4
+            # for the displacement), not to the argument, which is the
+            # symbol's block offset alone.
+            elf.write_bytes(
+                slot,
+                self._pack(elf.note_tlsdesc_descriptor(slot), 8)
+                + self._pack(rela.symbol.value, 8),
+            )
+            # G + GOT + A - P: where the slot sits relative to this `lea`.
+            return self._pack(slot + self._get_addend(rela, elf, 4) - rela.offset, 4)
         elif rela.type == R_X86_64_TLSDESC_CALL:
             # This is a marker relocation used to tag a TLS descriptor call sequence.
             return b""
         elif rela.type == R_X86_64_TLSDESC:
-            # TLS descriptors require descriptor contents and runtime resolver state.
-            self._missing_context(
-                rela, "the TLS descriptor contents and resolver state"
-            )
+            # A two-word descriptor { resolver, argument } that gnu2-dialect
+            # TLS code calls indirectly. The resolver comes from the ELF --
+            # null until a model library is linked, bound afterwards -- rather
+            # than being hardcoded, so that re-relocating a symbol does not
+            # unbind descriptors Library.link already bound.
+            resolver = elf.note_tlsdesc_descriptor(rela.offset)
+            # Not `symval`: a TLS symbol's st_value is a block offset, and
+            # rebasing it would turn it into a load address.
+            argument = rela.symbol.value + self._get_addend(rela, elf, 8)
+            return self._pack(resolver, 8) + self._pack(argument, 8)
         elif rela.type == R_X86_64_IRELATIVE:
             # Indirect relative relocations require executing an IFUNC resolver
             # at load time and using its return value.

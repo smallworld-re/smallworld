@@ -63,8 +63,11 @@ class MIPSElfRelocator(ElfRelocator):
                     f"Invalid relocation type {i} for {rela.symbol.name}: {rela_type}"
                 )
 
-        return val.to_bytes(
-            8 if is_64 else 4,
+        # Mask to the output width: RELA addends are signed and address sums
+        # can wrap, so to_bytes would OverflowError on a raw value.
+        width = 8 if is_64 else 4
+        return (val & ((1 << (width * 8)) - 1)).to_bytes(
+            width,
             "big" if self.byteorder == platforms.Byteorder.BIG else "little",
         )
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from .common import build_specs
+from .common import build_specs, enroll_triton
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
 from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
@@ -44,6 +44,9 @@ _SPECS = build_specs(
     # branch prints the 32-bit view on aarch64 so the boolean fits.
     per_arch={"aarch64": {"result_register": "w0"}},
 )
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 SCENARIO_PREFIXES = (("branch", "branch"),)
 

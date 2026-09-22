@@ -100,7 +100,7 @@ class BinjaDatabase(Executable):
                 f"Binary Ninja could not open {path!r} – BinaryView is None"
             )
 
-        self.entry_point = bv.entry_point
+        self.entrypoint = bv.entry_point
 
         # --- Platform / architecture detection ---
         if not ignore_platform:

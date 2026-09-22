@@ -1,7 +1,7 @@
 from trace_test import test
 
 import smallworld
-from smallworld.instructions.bsid import x86BSIDMemoryReferenceOperand
+from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 
 if __name__ == "__main__":
     # this trace should trigger a memory error since there's no heap
@@ -63,7 +63,11 @@ if __name__ == "__main__":
     )
 
     expected(
-        hints[0].exception.operands == [(x86BSIDMemoryReferenceOperand(base="rax"), 0)],
+        # size=1: the faulting instruction is `movzx edx, byte ptr [rax]`.
+        # MemoryReferenceOperand equality includes the access width, so the
+        # expected operand has to state it (the default is 4).
+        hints[0].exception.operands
+        == [(BSIDMemoryReferenceOperand(base="rax", size=1), 0)],
         f"exception operands are correct -- {hints[0].exception.operands}",
         f"exception operands are incorrect -- {hints[0].exception.operands}",
     )

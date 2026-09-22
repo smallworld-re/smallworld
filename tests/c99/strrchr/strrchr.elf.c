@@ -19,5 +19,13 @@ int main() {
     if(res != NULL) {
         exit(0);
     }
+    // C masks the value to unsigned char before searching, so 0x100 | 'f'
+    // searches for 'f'; in "foofoo" the last 'f' is at index 3. The previous
+    // model rejected any value > 255 and returned NULL.
+    test = "foofoo";
+    res = strrchr(test, 0x100 + 'f');
+    if(res != test + 3) {
+        exit(0);
+    }
     return *good;
 }

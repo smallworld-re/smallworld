@@ -37,7 +37,7 @@ class LoongArchPlatformDef(PlatformDef):
         # r2: TLS pointer
         # r3: Stack pointer
         # r21: Per-CPU pointer
-        return ["r{i}" for i in range(4, 32) if i != 21]
+        return [f"r{i}" for i in range(4, 32) if i != 21]
 
     @property
     def registers(self) -> typing.Dict[str, RegisterDef]:

@@ -8,6 +8,7 @@ class AArch64(PlatformDef):
     architecture = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
     ghidra_language_id = "AARCH64:LE:64:v8A"
+    status_register = "nzcv"
 
     address_size = 8
     capstone_arch = capstone.CS_ARCH_ARM64
@@ -114,6 +115,15 @@ class AArch64(PlatformDef):
         "cbhlo",
         "cbhls",
         "cbhlt",
+    }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "cbz",
+        "cbnz",
+        "tbz",
+        "tbnz",
     }
 
     # TODO: Should arithmetic operations that impact flags be compares?
@@ -240,6 +250,10 @@ class AArch64(PlatformDef):
         # *** System Control Registers ***
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
+        # Condition flags (N, Z, C, V), the PSTATE field addressed as a
+        # system register by mrs/msr. Ghidra reports the four bits
+        # individually; they alias here.
+        "nzcv": RegisterDef(name="nzcv", size=4),
         # Condition Code Register
         "fpcr": RegisterDef(name="fpcr", size=8),
         # Floating Point Status Register

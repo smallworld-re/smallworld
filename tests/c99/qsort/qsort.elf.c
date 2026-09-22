@@ -17,5 +17,21 @@ int main() {
         }
     }
 
+    // A run of 0 or 1 elements is already sorted: C performs no comparisons.
+    // The previous model unconditionally compared element [1] against [0],
+    // reading past a 0- or 1-element array (which the model surfaced as a
+    // hard error). The fixed model returns without touching the comparator.
+    int one[1] = {42};
+
+    qsort((void*)one, 1, sizeof(int), compare);
+    if (one[0] != 42) {
+        return 1;
+    }
+
+    qsort((void*)one, 0, sizeof(int), compare);
+    if (one[0] != 42) {
+        return 1;
+    }
+
     return *good;
 }

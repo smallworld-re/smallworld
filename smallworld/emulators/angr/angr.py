@@ -9,9 +9,11 @@ import cle
 
 from ... import exceptions, platforms, utils
 from .. import emulator
+from ..hookable import check_hookable_range, ranges_overlap
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
+from .replacement import MemoizingReplacementSolver
 from .simos import HookableSimOS
 
 log = logging.getLogger(__name__)
@@ -62,7 +64,13 @@ class AngrEmulator(
     description = "an emulator using angr as its backend"
     version = "0.0"
 
-    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        preinit=None,
+        init=None,
+        use_replacement_solver: bool = False,
+    ):
         # Initialized bit; tells us if angr state is initialized
         self._initialized: bool = False
 
@@ -71,6 +79,20 @@ class AngrEmulator(
 
         # Linear mode bit; tells us if we're running in forced linear execution
         self._linear: bool = True
+
+        # Use angr's replacement solver instead of the default.
+        #
+        # This binds labeled values via cheap substitutions rather than a giant
+        # conjunction of `symbol == value` constraints (see
+        # _write_memory_label_bulk), which is essential for analyses like
+        # crash-triage that label large regions of initialized memory.
+        #
+        # It is OPT-IN, not the default, because the replacement frontend walks
+        # every constraint through claripy.replace_dict on each add(), even when
+        # no replacements are registered.  That walk is superlinear on the
+        # deeply-shared symbolic expressions ordinary emulation produces, so
+        # enabling it globally regresses workloads that never label anything.
+        self._use_replacement_solver: bool = use_replacement_solver
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
@@ -214,14 +236,23 @@ class AngrEmulator(
             self.preinit(self)
 
         # Create a completely blank entry state
+        add_options = {
+            # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
+            angr.options.KEEP_IP_SYMBOLIC,
+            angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
+            angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
+        }
+        if self._use_replacement_solver:
+            # Bind labeled values via solver replacements rather than a giant
+            # conjunction of `symbol == value` constraints.  See
+            # _write_memory_label_bulk.  Opt-in only: the replacement frontend
+            # runs claripy.replace_dict over every constraint on each add(),
+            # which is superlinear on deeply-shared symbolic expressions, so it
+            # must not be imposed on workloads that never label memory.
+            add_options.add(angr.options.REPLACEMENT_SOLVER)
         self.state = self.proj.factory.blank_state(
             plugin_preset=self._plugin_preset,
-            add_options={
-                # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
-                angr.options.KEEP_IP_SYMBOLIC,
-                angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
-                angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
-            },
+            add_options=add_options,
             remove_options={
                 angr.options.SIMPLIFY_CONSTRAINTS,
                 angr.options.SIMPLIFY_EXIT_GUARD,
@@ -234,6 +265,15 @@ class AngrEmulator(
                 angr.options.SIMPLIFY_REGISTER_WRITES,
             },
         )
+        if self._use_replacement_solver:
+            # Swap angr's stock replacement solver for the memoizing one, whose
+            # replacement walk is linear rather than exponential in expression
+            # sharing depth.  Safe to install here: no constraints or
+            # replacements exist on the fresh state yet.
+            self.state.solver._stored_solver = MemoizingReplacementSolver(
+                auto_replace=False
+            )
+
         # If we're in linear mode,
         # limit the maximum number of results when solving
         # for a symbolic IP.  If the IP has constrained solutions,
@@ -241,8 +281,15 @@ class AngrEmulator(
         if self._linear:
             self.state.options.symbolic_ip_max_targets = 1
 
-        # Create a simulation manager for our entry state
-        self.mgr = self.proj.factory.simulation_manager(self.state, save_unsat=True)
+        # Create a simulation manager for our entry state.
+        # save_unsat=False: with it on, angr keeps a full state copy for every
+        # unsatisfiable successor. A guest that loops keeps generating them (the
+        # not-taken side of each concrete branch is unsat), so the stash grows
+        # one heavy state per iteration and a long run climbs to an OOM. No
+        # maintained code reads the stash; the only readers are in
+        # analyses/unstable, and even there angr_nwbt drops it every step, so it
+        # never wanted them to accumulate either.
+        self.mgr = self.proj.factory.simulation_manager(self.state, save_unsat=False)
 
         # Configure default simulation strategy.
         configure_default_strategy(self)
@@ -646,6 +693,16 @@ class AngrEmulator(
         # This addresses a performance bottleneck during initialization;
         # it's not really intended for public use,
         # as it lacks some of the safety checks.
+        #
+        # When the replacement solver is enabled, we bind each label to its
+        # concrete value as a solver replacement (a substitution) rather than a
+        # `symbol == value` constraint.  The label symbol still lives in the
+        # stored AST, so provenance is preserved for data-flow analyses, but the
+        # binding never reaches z3.  Otherwise the first solve has to ingest one
+        # giant conjunction covering every initialized byte, which exhausts time
+        # and memory.  If someone has disabled REPLACEMENT_SOLVER, fall back to
+        # the constraint-based binding.
+        use_replacement = angr.options.REPLACEMENT_SOLVER in self.state.options
         cs = list()
         for addr, size, label in labels:
             if label is None:
@@ -653,9 +710,12 @@ class AngrEmulator(
             s = claripy.BVS(label, size * 8, explicit_name=True)
             v = self.state.memory.load(addr, size)
             self.state.memory.store(addr, s)
-            cs.append(s == v)
-        c = claripy.And(*cs)
-        self.state.solver.add(c)
+            if use_replacement:
+                self.state.solver._solver.add_replacement(s, v)
+            else:
+                cs.append(s == v)
+        if cs:
+            self.state.solver.add(claripy.And(*cs))
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
@@ -848,6 +908,14 @@ class AngrEmulator(
             self.state.scratch.global_syscall_func = syscall_handler
 
     def unhook_syscalls(self) -> None:
+        if not self._initialized:
+            # Before initialization the global hook lives in _gb_syscall_hook
+            # (set by hook_syscalls); self.state does not exist yet. Mirror the
+            # other unhook_* methods and clear the pending hook instead of
+            # dereferencing self.state.scratch.
+            self._gb_syscall_hook = None
+            return
+
         if self._dirty and not self._linear:
             raise NotImplementedError("Cannot unhook syscalls once emulation starts")
 
@@ -864,6 +932,7 @@ class AngrEmulator(
             typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         if not self._initialized:
             self._read_hooks.append((start, end, function))
 
@@ -920,14 +989,7 @@ class AngrEmulator(
                         f"Read of unmapped memory at {hex(read_start)}"
                     )
 
-                rng = range(start, end)
-                access_rng = range(read_start, read_end)
-                return (
-                    read_start in rng
-                    or read_end - 1 in rng
-                    or start in access_rng
-                    or end - 1 in access_rng
-                )
+                return ranges_overlap(range(read_start, read_end), range(start, end))
 
             def read_callback(state):
                 # The breakpoint action.
@@ -979,6 +1041,14 @@ class AngrEmulator(
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
+                    # Reading an MMIO region before anything wrote it yields an
+                    # unconstrained symbolic value with no single solution. Unlike
+                    # the write wrappers (where the guest supplies the value, so an
+                    # unbound value is a hard error), a read must hand the device
+                    # callback *some* concrete bytes; zeros is the default the
+                    # callback is free to override. Do not raise here -- reading
+                    # uninitialized MMIO is a normal, supported case (see the
+                    # memhook integration scenario).
                     value = b"\x00" * size
             else:
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
@@ -1050,12 +1120,11 @@ class AngrEmulator(
 
                 if res is None:
                     res = expr
-                elif self.platform.byteorder == platforms.Byteorder.LITTLE:
-                    # fix byte order if needed.
-                    # i don't know _why_ this is needed,
-                    # but encoding the result as little-endian on a little-endian
-                    # system produces the incorrect value in the machine state.
-                    res = claripy.Reverse(res)
+                # A symbolic callback returns a BV already in platform (numeric)
+                # order, so it is stored as-is -- matching the range API
+                # (hook_memory_read_symbolic). The byte reversal belongs only in
+                # the concrete bytes->BV wrappers, not here; keeping it here made
+                # the two symbolic read APIs disagree on byte order.
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -1101,7 +1170,14 @@ class AngrEmulator(
                 value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             res = function(emu, addr, size, value)
             if res is not None:
-                return claripy.BVV(res)
+                res_expr = claripy.BVV(res)
+                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                    # Fix byte order if needed. The reversal that used to live in
+                    # hook_memory_reads_symbolic's callback belongs here, in the
+                    # concrete bytes->BV wrapper (mirroring hook_memory_read), so
+                    # the concrete all-reads path is unchanged.
+                    res_expr = claripy.Reverse(res_expr)
+                return res_expr
             return res
 
         self.hook_memory_reads_symbolic(sym_callback)
@@ -1131,6 +1207,7 @@ class AngrEmulator(
             [emulator.Emulator, int, int, claripy.ast.bv.BV], None
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         if not self._initialized:
             self._write_hooks.append((start, end, function))
 
@@ -1188,14 +1265,7 @@ class AngrEmulator(
                         f"Read of unmapped memory at {hex(write_start)}"
                     )
 
-                rng = range(start, end)
-                access_rng = range(write_start, write_end)
-                return (
-                    write_start in rng
-                    or write_end - 1 in rng
-                    or start in access_rng
-                    or end - 1 in access_rng
-                )
+                return ranges_overlap(range(write_start, write_end), range(start, end))
 
             def write_callback(state):
                 addr = state.inspect.mem_write_address

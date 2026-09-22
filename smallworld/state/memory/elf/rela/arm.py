@@ -546,7 +546,16 @@ class ArmElfRelocator(ElfRelocator):
         return patched
 
     def _patch_thumb_adr(self, orig: int, value: int) -> int:
-        patched = self._patch_thumb_mov(orig, abs(value) & 0xFFF)
+        # ADR.W uses the Thumb ADD/SUB(imm,T4) encoding: a 12-bit immediate
+        # split as i(bit26):imm3(bits14:12):imm8(bits7:0), with Rn (bits19:16)
+        # fixed at 0b1111 (PC). Encode the immediate directly and leave
+        # bits19:16 untouched -- routing through _patch_thumb_mov would rewrite
+        # them (it owns bits19:16 for MOVW/MOVT) and zero out Rn.
+        imm = abs(value) & 0xFFF
+        patched = orig
+        patched = (patched & ~(1 << 26)) | (((imm >> 11) & 1) << 26)
+        patched = (patched & ~(0x7 << 12)) | (((imm >> 8) & 0x7) << 12)
+        patched = (patched & ~0xFF) | (imm & 0xFF)
         patched &= ~(1 << 23)
         if value >= 0:
             patched |= 1 << 23

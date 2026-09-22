@@ -61,6 +61,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     argument_types: typing.List[ArgumentType] = []
     return_type: ArgumentType = ArgumentType.VOID
 
+    # On most SysV ABIs the general-purpose and floating-point argument
+    # registers are allocated from independent sequences (e.g. AMD64 fills
+    # rdi.. and xmm0.. separately). On MIPS n64 the two share a single slot
+    # sequence: argument slot i is either a_i or f(12+i), so an integer
+    # argument consumes the paired FP register and shifts every following FP
+    # argument. When True, FP arguments draw from -- and advance -- the shared
+    # integer offset instead of a private FP counter.
+    _fp_shares_int_regs: bool = False
+
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
 
@@ -312,6 +321,23 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
             )
 
+    def _read_return_pointer(self, emulator: emulators.Emulator) -> int:
+        """Read a pointer return value.
+
+        Mirrors ``_return_pointer``: by default a pointer is read from wherever
+        the matching integer width is returned. Arches whose pointer return
+        register differs from the integer one (m68k returns pointers in a0)
+        override this alongside ``_return_pointer`` so the two stay symmetric.
+        """
+        if ArgumentType.POINTER in self._four_byte_types:
+            return self._read_return_4_byte(emulator)
+        elif ArgumentType.POINTER in self._eight_byte_types:
+            return self._read_return_8_byte(emulator)
+        else:
+            raise ConfigurationError(
+                f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
+            )
+
     @abc.abstractmethod
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
@@ -396,23 +422,47 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 self._arg_offset.append(self._int_reg_offset)
                 self._int_reg_offset += self._eight_byte_reg_size
         elif kind == ArgumentType.FLOAT:
-            # Float type
-            if self._fp_reg_offset == len(self._float_arg_regs):
+            # Float type. On ABIs that share GP/FP slots (MIPS n64), an FP
+            # argument's register is chosen by its overall position, so it
+            # draws from -- and advances -- the shared integer offset.
+            fp_offset = (
+                self._int_reg_offset
+                if self._fp_shares_int_regs
+                else self._fp_reg_offset
+            )
+            if fp_offset == len(self._float_arg_regs):
                 # No room left in registers; use stack
                 self._on_stack.append(True)
                 self._arg_offset.append(self._stack_offset + self._init_stack_offset)
-                self._stack_offset += self._float_stack_size
+                # On ABIs that promote a float to a double (PowerPC),
+                # set_argument writes 8 bytes here, so the slot must be that
+                # wide or it overruns the following argument.
+                self._stack_offset += (
+                    self._double_stack_size
+                    if self._floats_are_doubles
+                    else self._float_stack_size
+                )
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
-                self._arg_offset.append(self._fp_reg_offset)
-                self._fp_reg_offset += 1
+                self._arg_offset.append(fp_offset)
+                if self._fp_shares_int_regs:
+                    self._int_reg_offset += 1
+                else:
+                    self._fp_reg_offset += 1
         elif kind == ArgumentType.DOUBLE:
-            # Double type
-            if self._fp_reg_offset % self._double_reg_size != 0:
-                self._fp_reg_offset += 1
+            # Double type. As with FLOAT, a shared-slot ABI selects the FP
+            # register from the overall argument position.
+            if self._fp_shares_int_regs:
+                if self._int_reg_offset % self._double_reg_size != 0:
+                    self._int_reg_offset += 1
+                fp_offset = self._int_reg_offset
+            else:
+                if self._fp_reg_offset % self._double_reg_size != 0:
+                    self._fp_reg_offset += 1
+                fp_offset = self._fp_reg_offset
 
-            if self._fp_reg_offset == len(self._double_arg_regs):
+            if fp_offset == len(self._double_arg_regs):
                 # No room left in registers; use stack
                 if (
                     self._align_stack
@@ -425,8 +475,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
-                self._arg_offset.append(self._fp_reg_offset)
-                self._fp_reg_offset += self._double_reg_size
+                self._arg_offset.append(fp_offset)
+                if self._fp_shares_int_regs:
+                    self._int_reg_offset += self._double_reg_size
+                else:
+                    self._fp_reg_offset += self._double_reg_size
         else:
             raise exceptions.ConfigurationError(f"Argument {i} has unknown type {kind}")
 
@@ -666,9 +719,17 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         elif kind == ArgumentType.FLOAT:
             # Four-byte float
             if on_stack:
-                # Stored on the stack
+                # Stored on the stack. When floats are promoted to doubles the
+                # slot holds 8 bytes (see add_argument / set_argument).
                 addr = emulator.read_register(sp) + arg_offset
-                data = emulator.read_memory(addr, self._float_stack_size)
+                data = emulator.read_memory(
+                    addr,
+                    (
+                        self._double_stack_size
+                        if self._floats_are_doubles
+                        else self._float_stack_size
+                    ),
+                )
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
                 else:
@@ -850,6 +911,14 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             # We're a double.
             ret = self._read_return_double(emulator)
             return ret
+
+        if self.return_type == ArgumentType.POINTER:
+            # Read pointers via _read_return_pointer, mirroring set_return_value's
+            # use of _return_pointer. Without this, POINTER would fall through to
+            # the _four_byte_types branch below and read the integer-return
+            # register, which is wrong on arches (m68k) that return pointers in a
+            # different register than integers.
+            return self._read_return_pointer(emulator)
 
         if self.return_type in self._four_byte_types:
             ret = self._read_return_4_byte(emulator)
@@ -1076,6 +1145,7 @@ class VariadicContext:
         self._four_byte_arg_regs = parent._four_byte_arg_regs
         self._eight_byte_arg_regs = parent._eight_byte_arg_regs
         self._soft_float = parent._soft_float or parent._variadic_soft_float
+        self._fp_shares_int_regs = parent._fp_shares_int_regs
         self._floats_are_doubles = parent._floats_are_doubles
         self._float_arg_regs = parent._float_arg_regs
         self._double_arg_regs = parent._double_arg_regs

@@ -8,6 +8,27 @@ from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 CmpInfo = typing.Union[RegisterOperand, BSIDMemoryReferenceOperand, int]
 
 
+@dataclass(frozen=True)
+class CmpEntry:
+    """One thing a comparison compares, with its observed value.
+
+    `source` is a register or memory Operand for a location, or the int
+    itself for an immediate. `value` is the concrete value read from the
+    live emulator at the moment the compare was about to execute -- an
+    immediate maps to itself; None means the location could not be read.
+
+    Self-contained on purpose: the previous contract returned parallel
+    lists ("cmp_values is index-aligned with cmp_info"), pushing the
+    bookkeeping onto every consumer. The entries carry no lhs/rhs order
+    -- they come from the use/def read SET, deduplicated (test al, al
+    reports al once) and repr-sorted for run-to-run stability -- so no
+    order is promised.
+    """
+
+    source: CmpInfo
+    value: typing.Optional[int]
+
+
 class TraceRes(Enum):
     ER_NONE = 0
     ER_BOUNDS = 1

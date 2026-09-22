@@ -20,8 +20,18 @@ _SPECS = {
         pc_register="rip",
         result_register="rax",
         arg_register="rdi",
-        engines=("angr", "pcode_symbolic"),
+        engines=("angr", "pcode_symbolic", "triton_symbolic"),
     )
+}
+
+# This scenario asserts that the run ends with two states, one per side of the
+# symbolic branch. Triton is a concolic engine that follows the branch its
+# concrete state selects, so TritonSymbolicEmulator always yields exactly one.
+_SKIP_REASONS = {
+    "amd64.triton_symbolic": (
+        "TritonSymbolicEmulator only supports linear symbolic execution; this "
+        "scenario requires exploring multiple symbolic paths."
+    ),
 }
 
 
@@ -33,7 +43,7 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="symbolic_state",
     scenario="symbolic_state",
     tags=("scenario", "symbolic_state"),
-    variants_source=from_arch_table(_SPECS),
+    variants_source=from_arch_table(_SPECS, skip_reasons=_SKIP_REASONS),
     run_factory=just_run(),
 )
 
@@ -41,11 +51,16 @@ SCENARIO_INFO = ScenarioInfo(
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "symbolic_state":
         return False
+    if variant in _SKIP_REASONS:
+        return True
     arch, engine = split_variant(variant)
     return arch in _SPECS and engine in _SPECS[arch].engines
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
+    if variant in _SKIP_REASONS:
+        raise SystemExit(_SKIP_REASONS[variant])
+
     import smallworld
 
     arch, engine = split_variant(variant)

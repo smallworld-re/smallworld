@@ -725,7 +725,10 @@ def handle_pointer(
 def handle_length(
     intake: Intake, varargs: VariadicContext, m: re.Match, emulator: Emulator
 ) -> bool:
-    length = m.group(3)
+    # Group 2 is the length specifier (hh/h/l/ll/...); group 3 is the numeric
+    # field width. length_re orders them (length, width), unlike the other
+    # scanf regexes, so read the length modifier from group 2.
+    length = m.group(2)
 
     intval = intake.cursor
 

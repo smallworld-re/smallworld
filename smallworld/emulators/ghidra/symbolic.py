@@ -27,6 +27,7 @@ from org.apache.commons.lang3.tuple import (
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
+from ..hookable import check_hookable_range, ranges_overlap
 from . import z3bridge
 from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraSymbolicEmulator
@@ -341,26 +342,34 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         reg = self.machdef.pcode_reg(name)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
+        state = self._thread.getState()
+
+        def _concrete_bytes(intval: int) -> bytes:
+            # Mask to handle negative ints via two's-complement wraparound.
+            return (intval & ((1 << size_bits) - 1)).to_bytes(
+                size_bytes, self._byteorder_str()
+            )
 
         if isinstance(value, int):
-            concrete = value
+            concrete_bytes = _concrete_bytes(value)
             sym_value = self._make_sym_value(value, size_bits)
         elif isinstance(value, claripy.ast.bv.BV):
-            if value.symbolic:
-                concrete = 0
-            else:
-                concrete = value.concrete_value
             sym_value = self._make_sym_value(value, size_bits)
+            if value.symbolic:
+                # Preserve the register's current concrete bytes rather than
+                # zeroing them. That concrete side drives linear execution and
+                # is what read_register_content returns, so a register set
+                # concretely (a pointer, return address, sp) and then labeled
+                # would otherwise read back as 0. Mirrors write_memory_content.
+                prev = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+                concrete_bytes = self.bytes_java_to_py(prev.getLeft())
+            else:
+                concrete_bytes = _concrete_bytes(value.concrete_value)
         else:
             raise TypeError(
                 f"write_register_content does not accept {type(value).__name__}"
             )
 
-        # Mask to handle negative ints via two's-complement wraparound.
-        concrete_unsigned = concrete & ((1 << size_bits) - 1)
-        concrete_bytes = concrete_unsigned.to_bytes(size_bytes, self._byteorder_str())
-
-        state = self._thread.getState()
         pair = JPair.of(self.bytes_py_to_java(concrete_bytes), sym_value)
         state.setVar(reg, pair)
 
@@ -888,6 +897,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         self._mem_read_hooks[(start, end)] = function
 
     def unhook_memory_read(self, start: int, end: int) -> None:
@@ -911,6 +921,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
+        check_hookable_range(start, end, "memory read")
         self._mem_read_symbolic_hooks[(start, end)] = function
 
     def hook_memory_reads_symbolic(
@@ -928,6 +939,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         self._mem_write_hooks[(start, end)] = function
 
     def unhook_memory_write(self, start: int, end: int) -> None:
@@ -948,6 +960,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         end: int,
         function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
+        check_hookable_range(start, end, "memory write")
         self._mem_write_symbolic_hooks[(start, end)] = function
 
     def hook_memory_writes_symbolic(
@@ -1107,8 +1120,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
 
 def _overlap(start: int, end: int, lo: int, hi: int) -> bool:
-    """True if the half-open ranges [start, end) and [lo, hi) overlap."""
-    return start < hi and lo < end
+    """True if the half-open ranges [start, end) and [lo, hi) overlap.
+
+    Delegates to the shared overlap test so every backend agrees, including on
+    empty (zero-size) accesses, which match nothing.
+    """
+    return ranges_overlap(range(lo, hi), range(start, end))
 
 
 def _collapse_to_concrete(bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:

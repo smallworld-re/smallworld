@@ -91,6 +91,7 @@ class AArch64MachineDef(UnicornMachineDef):
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
         # Condition Code Register
+        "nzcv": unicorn.arm64_const.UC_ARM64_REG_NZCV,
         "fpcr": unicorn.arm64_const.UC_ARM64_REG_FPCR,
         # Floating Point Status Register
         "fpsr": unicorn.arm64_const.UC_ARM64_REG_FPSR,

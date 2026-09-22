@@ -248,6 +248,13 @@ class FileDescriptorManager(abc.ABC):
 
         stream = self.get_fd(old_fd).dup()
 
+        # dup2(): if new_fd names a different, currently-open descriptor, it is
+        # closed first (running its close side effects, e.g. socket teardown)
+        # before being reused. When new_fd == old_fd, get_fd(old_fd) above
+        # already validated it and POSIX leaves it open, so it must not close.
+        if new_fd != old_fd and new_fd in self._fds and not self._fds[new_fd].closed:
+            self._fds[new_fd].close()
+
         self._fds[new_fd] = stream
 
         return new_fd

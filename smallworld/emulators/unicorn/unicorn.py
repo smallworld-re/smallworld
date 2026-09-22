@@ -318,11 +318,6 @@ class UnicornEmulator(
             typing.Callable[[emulator.Emulator, int], None]
         ] = None
 
-        # function to run on a specific interrupt number
-        self.interrupt_hook: typing.Dict[
-            int, typing.Callable[[emulator.Emulator], None]
-        ] = {}
-
         def interrupt_callback(uc, index, user_data):
             # On some ISAs, Unicorn will already have set PC
             # to the interrupt handler address,
@@ -341,8 +336,8 @@ class UnicornEmulator(
 
             if self.all_interrupts_hook is not None:
                 handled |= self.all_interrupts_hook(self, index)
-            if index in self.interrupt_hook:
-                handled |= self.interrupt_hook[index](self)
+            if self.is_interrupt_hooked(index):
+                handled |= self.interrupt_hooks[index](self)
 
             if not handled:
                 logger.warning(f"Unhandled interrupt {index}")
@@ -876,18 +871,12 @@ class UnicornEmulator(
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
-                    # This operation accesses memory
+                    # This operation accesses memory. Indirect-branch
+                    # targets ([t9] for jr $t9) arrive as memory operands
+                    # too, via Instruction.fetches() -- never as
+                    # RegisterOperands, whose consumers expect
+                    # symbolic_address().
                     a = rw.address(self)
-                    if not (self._is_address_mapped(a)):
-                        out.append((rw, a))
-                elif (
-                    insn._instruction.mnemonic
-                    in self.platdef.implicit_dereference_mnemonics
-                    and isinstance(rw, instructions.RegisterOperand)
-                ):
-                    # This operand is a register that's implicitly derferenced
-                    # by this ISA
-                    a = rw.concretize(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
@@ -940,7 +929,10 @@ class UnicornEmulator(
 
                     prev_mnem = insn.mnemonic
                     prev_i = instructions.Instruction.from_capstone(insn)
-                    prev_operands = get_unavailable_rw(prev_i, prev_i.reads)
+                    # A fetch fault's responsible operand is where the branch
+                    # sends the next instruction fetch -- [t9] for jr $t9 --
+                    # which is a fetch, not one of the branch's data reads.
+                    prev_operands = get_unavailable_rw(prev_i, prev_i.fetches())
                 except Exception:
                     prev_mnem = None
                     prev_i = None

@@ -17,9 +17,9 @@ void bar(
     unsigned int x,
     float y,
     double z,
+    unsigned int w,
     double a,
-    double b,
-    double c
+    double b
     ) {
     return;
 }
@@ -37,12 +37,12 @@ int main() {
         0,
         0x1337beefll);
     bar(
-        0x0,
+        0x2468ace0,
         0.25,
         0.21l,
-        1.0l,
-        10.0l,
-        100.0l
+        0x13579bdf,
+        2.5l,
+        7.5l
     );
     return *good;
 }

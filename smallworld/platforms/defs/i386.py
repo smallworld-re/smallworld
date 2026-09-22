@@ -8,6 +8,7 @@ class I386(PlatformDef):
     architecture = Architecture.X86_32
     byteorder = Byteorder.LITTLE
     ghidra_language_id = "x86:LE:32:default"
+    status_register = "eflags"
 
     address_size = 4
 
@@ -51,6 +52,13 @@ class I386(PlatformDef):
         # it's mentioned tangentially in the docs for Jcc
         # (and it's accepted by the assembler.)
         "jrcxz",
+        "jecxz",
+        "jcxz",
+    }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
         "jecxz",
         "jcxz",
     }

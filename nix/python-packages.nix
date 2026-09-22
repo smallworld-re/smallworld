@@ -62,6 +62,7 @@ let
     "unicorn"
     "styx-emulator"
     "styxafl"
+    "triton-library"
   ];
 
   addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
@@ -91,6 +92,7 @@ let
       };
       mkStyxEmulator = pkgs.callPackage ./styx-emulator-build { };
       mkStyxafl = pkgs.callPackage ./styxafl-build { };
+      mkTriton = pkgs.callPackage ./triton-build { };
     in
     {
       unicorn = unicornPy.override { unicorn = patchedUnicorn; };
@@ -103,6 +105,9 @@ let
       # the same pinned styx-emulator revision.
       styx-emulator = mkStyxEmulator pythonPkgs;
       styxafl = mkStyxafl pythonPkgs;
+      # Triton's CPython bindings are compiled from a pinned upstream revision
+      # via CMake (see `nix/triton-build/`); the PyPI wheel predates RISC-V.
+      "triton-library" = mkTriton pythonPkgs;
     };
 
   # Build one locked Python package set for one platform/interpreter pair.
@@ -134,6 +139,9 @@ let
         pypanda = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.pypanda; };
         styx-emulator = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styx-emulator; };
         styxafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styxafl; };
+        "triton-library" = pyprojectHacks.nixpkgsPrebuilt {
+          from = nativeAddons."triton-library";
+        };
       };
     in
     pyprojectPackages.overrideScope (

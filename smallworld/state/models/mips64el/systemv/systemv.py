@@ -53,22 +53,29 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = True
     _floats_are_doubles = False
+    # n64 shares one argument-slot sequence between GP and FP registers: slot i
+    # is a_i or f(12+i), so a leading integer shifts every following FP argument.
+    _fp_shares_int_regs = True
     _float_arg_regs = [
+        "f12",
         "f13",
         "f14",
         "f15",
         "f16",
         "f17",
         "f18",
+        "f19",
     ]
 
     _double_arg_regs = [
+        "f12",
         "f13",
         "f14",
         "f15",
         "f16",
         "f17",
         "f18",
+        "f19",
     ]
 
     _init_stack_offset = 0
@@ -107,7 +114,9 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
 
     def _read_return_float(self, emulator: emulators.Emulator) -> float:
         """Read a float returned value"""
-        intval = emulator.read_register("f0")
+        # f0 is 64 bits wide; a single-precision return value sits in the
+        # low 32 bits, so mask before packing or to_bytes overflows.
+        intval = emulator.read_register("f0") & self._int_inv_mask
         data = int.to_bytes(intval, self._float_stack_size, "little")
         (unpacked,) = struct.unpack("<f", data)
         return unpacked
@@ -120,8 +129,11 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
 
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
+        # n64 returns a double in the full 64-bit f0, so pack the double width
+        # (8) -- _float_stack_size (4) truncated it and could not fill the <d
+        # unpack.
         intval = emulator.read_register("f0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 

@@ -155,23 +155,6 @@ class MIPSMachineDef(AngrMachineDef):
         "lo3": "lo3",
     }
 
-    _delay_slot_opcodes = {
-        "j",
-        "jal",
-        "jalx",
-        "jalr",
-        "jr",
-        "beq",
-        "beqz",
-        "bne" "bnez",
-        "bgez",
-        "bgezal",
-        "bgtz",
-        "blez",
-        "bltz",
-        "bltzal",
-    }
-
     supports_single_step = False
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
@@ -191,6 +174,9 @@ class MIPSMachineDef(AngrMachineDef):
                 return super().successors(
                     state, extra_stop_points=exit_points, **kwargs
                 )
+            # Not a single-step decode; this is a genuine decode failure.
+            # Re-raise so the engine sees it instead of returning None.
+            raise
 
 
 class MIPSELMachineDef(MIPSMachineDef):

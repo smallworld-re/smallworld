@@ -94,13 +94,21 @@ class PowerPCPlatformDef(PlatformDef):
 
     # Collect branch to CTR
     _branch_to_ctr_all = (
-        _branch_to_ctr_neutral | _branch_to_ctr_likely | _branch_to_lr_unlikely
+        _branch_to_ctr_neutral | _branch_to_ctr_likely | _branch_to_ctr_unlikely
     )
 
     # Finally, collect all conditional branch mnemonics
     conditional_branch_mnemonics = (
         _branch_to_label_all | _branch_to_lr_all | _branch_to_ctr_all
     )
+
+    # Branches that compare a register directly instead of reading a
+    # condition-register field set by an earlier compare: the
+    # decrement-ctr-and-branch family tests ctr against zero.
+    compare_branch_mnemonics = {
+        "bdnz",
+        "bdz",
+    }
 
     compare_mnemonics = {
         # Compare registers

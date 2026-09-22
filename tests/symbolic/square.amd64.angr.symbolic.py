@@ -36,7 +36,7 @@ cpu.rip.set(code.address)
 cpu.edi.set_label("arg1")
 
 # Add constraints
-rdi = cpu.rdi.to_symbolic(platform.byteorder)
+rdi = cpu.rdi.to_symbolic()
 lo = claripy.BVV(1, 64)
 hi = claripy.BVV(4, 64)
 

@@ -17,6 +17,11 @@ class UpdatedEnumMeta(enum.EnumMeta):
         return enum.EnumMeta.__contains__(enum.EnumMeta, obj)
 
 
+# LoongArch is a fixed-width RISC ISA: every instruction, including `break`
+# and `syscall`, is exactly 4 bytes.
+LOONGARCH_INSN_SIZE = 4
+
+
 def handle_nop(irsb, i):
     # This op has no impact on user-facing machine state.
     irsb._ops.pop(i)
@@ -25,7 +30,7 @@ def handle_nop(irsb, i):
 
 def handle_sigtrap(irsb, i):
     # This op should terminate this block with SIGTRAP
-    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    next_addr = irsb._ops[i - 1].inputs[0].offset + LOONGARCH_INSN_SIZE
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr
@@ -38,7 +43,7 @@ def handle_sigtrap(irsb, i):
 
 def handle_syscall(irsb, i):
     # This op should terminate this block with a syscall
-    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    next_addr = irsb._ops[i - 1].inputs[0].offset + LOONGARCH_INSN_SIZE
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr
