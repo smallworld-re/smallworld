@@ -199,7 +199,10 @@ constrained_re = re.compile(r"%([*]?)([0-9]*)(l|)\[([\^]?[\]]?[^\]]*)\]")
 #
 # Allowed Conversions:
 # - 'p': Pointer
-pointer_re = re.compile(r"%([*]?)()([0-9]*)(p)")
+# Field width lives in group 2 (like every other conversion regex), the length
+# slot (group 3) is empty since %p takes no length modifier, and the conversion
+# is group 4 (which the dispatch loop reads for every regex).
+pointer_re = re.compile(r"%([*]?)([0-9]*)()(p)")
 
 # Length of current input
 #

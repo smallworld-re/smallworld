@@ -635,6 +635,12 @@ int main() {
     TEST("%p", "abcd42", ptrval, (void *)0xabcd42, "%p\n");
     TEST("%p", "0xabcd42", ptrval, (void *)0xabcd42, "%p\n");
 
+    // A field width must cap how many characters %p consumes (SW-186); the
+    // model previously read the width from an always-empty regex group and
+    // ignored it, consuming the whole input.
+    TEST("%4p", "abcd42", ptrval, (void *)0xabcd, "%p\n");
+    TEST("%3p", "abcd42", ptrval, (void *)0xabc, "%p\n");
+
     TEST_STR("%10c", "foo", strval, "foo");
     TEST_STR("%3c", "foobar", strval, "foo");
 
