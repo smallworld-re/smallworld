@@ -3718,6 +3718,33 @@ class MachineReadMemoryTests(unittest.TestCase):
         self.assertEqual(machine.read_memory(0x2001, 2), b"\xbe\xad")
 
 
+class FuzzHelperTests(unittest.TestCase):
+    """helpers.py fuzz(): exit-point derivation and public export.
+
+    Covers the raw-bytes exit fallback (SW-075/076) and the missing __all__
+    entry (SW-077).
+    """
+
+    def test_raw_bytes_executable_exit_is_whole_span(self):
+        machine = state.Machine()
+        code = state.memory.code.Executable.from_bytes(b"\x90" * 16, 0x1000)
+        machine.add(code)
+        # Raw-bytes code has no `bounds`; the exit is address + capacity. The
+        # old code raised AttributeError on `code.bounds` here.
+        self.assertEqual(helpers._fuzz_exit_points(machine), [0x1000 + 16])
+
+    def test_no_code_raises_configuration_error(self):
+        machine = state.Machine()
+        with self.assertRaises(exceptions.ConfigurationError):
+            helpers._fuzz_exit_points(machine)
+
+    def test_fuzz_is_exported_from_package(self):
+        import smallworld
+
+        self.assertIn("fuzz", helpers.__all__)
+        self.assertIs(smallworld.fuzz, helpers.fuzz)
+
+
 AARCH64_LE_PLATFORM = platforms.Platform(
     platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
 )

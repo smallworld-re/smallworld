@@ -25,6 +25,33 @@ def analyze(
         a.run(copy.deepcopy(machine))
 
 
+def _fuzz_exit_points(machine: state.Machine) -> typing.List[int]:
+    """Derive the exit addresses for a fuzzing run from a machine's code.
+
+    Each Executable contributes its end address(es): loader-built code (elf/pe/
+    vxworks/...) exposes a ``bounds`` RangeCollection of its loaded segments,
+    while code added from raw bytes has no ``bounds``, so its single
+    ``[address, address + capacity)`` span is used instead.
+
+    Raises:
+        ConfigurationError: if the machine contains no code.
+    """
+    exits: typing.List[int] = []
+    saw_code = False
+    for code in machine.members(state.memory.code.Executable):
+        saw_code = True
+        bounds = getattr(code, "bounds", None)
+        code_exits = [end for (_start, end) in bounds] if bounds is not None else []
+        if not code_exits:
+            # Raw-bytes code has no bounds; a loaded image whose bounds happen
+            # to be empty likewise falls back to its whole span.
+            code_exits = [code.address + code.get_capacity()]
+        exits.extend(code_exits)
+    if not saw_code:
+        raise exceptions.ConfigurationError("Cannot fuzz a machine with no code")
+    return exits
+
+
 def fuzz(
     machine: state.Machine,
     input_callback: typing.Callable,
@@ -63,17 +90,7 @@ def fuzz(
     if cpu is None:
         raise exceptions.ConfigurationError("cannot fuzz a zero-core machine")
 
-    exits = []
-    code = None
-    for code in machine.members(state.memory.code.Executable):
-        # code.bounds is a RangeCollection; iterating it yields (start, end)
-        # tuples, not objects with a .stop attribute.
-        exits.extend([end for (_start, end) in code.bounds])
-
-    if len(exits) == 0:
-        if code is None:
-            raise exceptions.ConfigurationError("Cannot fuzz a machine with no code")
-        exits.append(code.base + len(code.image))
+    exits = _fuzz_exit_points(machine)
 
     if engine == "unicorn":
         emu: emulators.Emulator = emulators.UnicornEmulator(cpu.platform)
@@ -97,4 +114,4 @@ def fuzz(
     )
 
 
-__all__ = ["analyze"]
+__all__ = ["analyze", "fuzz"]
