@@ -378,7 +378,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Return a double"""
         raise NotImplementedError()
 
-    def _next_fp_register(self, kind: ArgumentType) -> typing.Optional[int]:
+    def _next_fp_register(
+        self: typing.Union["CStdCallingContext", "VariadicContext"],
+        kind: ArgumentType,
+    ) -> typing.Optional[int]:
         """Allocate the next hardware FP argument register for ``kind``.
 
         Returns the index into ``_float_arg_regs`` (FLOAT) or ``_double_arg_regs``
