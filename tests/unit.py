@@ -7207,6 +7207,45 @@ class AngrNWBTAnalysisInitTests(unittest.TestCase):
         self.assertEqual(analysis.steps_left, 10)
 
 
+class HinterSendTests(unittest.TestCase):
+    """hinting.Hinter.send(): hot-path serialization guard (SW-078) and
+    exception safety (SW-162)."""
+
+    @staticmethod
+    def _hint():
+        return hinting.Hint(message="hello")
+
+    def test_no_serialization_when_debug_disabled(self):
+        # SW-078: with DEBUG output off, send() must not serialize the hint.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=False
+        ):
+            with mock.patch("smallworld.hinting.hinting.json.dumps") as dumps:
+                hinting.Hinter().send(self._hint())
+        dumps.assert_not_called()
+
+    def test_serializes_when_debug_enabled(self):
+        # Regression: DEBUG on still serializes the hint for the log line.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=True
+        ):
+            with mock.patch("smallworld.hinting.hinting.json.dumps") as dumps:
+                hinting.Hinter().send(self._hint())
+        dumps.assert_called_once()
+
+    def test_keyboard_interrupt_propagates(self):
+        # SW-162: a KeyboardInterrupt raised mid-serialization must propagate,
+        # not be swallowed by the (previously bare) except.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=True
+        ):
+            with mock.patch(
+                "smallworld.hinting.hinting.json.dumps", side_effect=KeyboardInterrupt
+            ):
+                with self.assertRaises(KeyboardInterrupt):
+                    hinting.Hinter().send(self._hint())
+
+
 class FieldDetectionFilterTests(unittest.TestCase):
     """FieldDetectionFilter must accept a hinter and register with it.
 

@@ -30,10 +30,16 @@ class Hinter:
         self.callbacks[clazz].append(callback)
 
     def send(self, hint: Hint) -> None:
-        try:
-            logger.debug(json.dumps(asdict(hint)))
-        except:
-            logger.debug(hint.to_json())  # type: ignore
+        # send() is on the emulation/analysis hot path. Serializing the hint is
+        # only needed for the DEBUG log line, so skip the asdict()/json.dumps()
+        # work entirely unless DEBUG output is enabled.
+        if logger.isEnabledFor(logging.DEBUG):
+            try:
+                logger.debug(json.dumps(asdict(hint)))
+            except Exception:
+                # Narrow to Exception so a KeyboardInterrupt/SystemExit raised
+                # mid-serialization is not swallowed.
+                logger.debug(hint.to_json())  # type: ignore
 
         clazz = hint.__class__
         if clazz in self.callbacks:
