@@ -32,6 +32,14 @@ stdenv.mkDerivation {
 
   dontUseCmakeConfigure = true;
 
+  # Zephyr's FindZephyr-sdk.cmake tests the toolchain variant with an unquoted
+  # `if((${ZEPHYR_TOOLCHAIN_VARIANT} STREQUAL ...))`. When the variable is unset
+  # that expands to zero arguments, which CMake >= 4.4 rejects outright
+  # ("Unknown arguments specified") instead of quietly treating it as empty.
+  # The SDK setup hook only exports ZEPHYR_SDK_INSTALL_DIR, so name the variant
+  # we actually want explicitly and sidestep the unset-variable path.
+  ZEPHYR_TOOLCHAIN_VARIANT = "zephyr";
+
   src = pkgs.fetchgit {
     name = "zephyr";
     url = "https://github.com/zephyrproject-rtos/zephyr";
