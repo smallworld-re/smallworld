@@ -269,6 +269,12 @@ class Fgets(StdioModel):
             return
 
         data = read_string(file, size)
+        # fgets returns NULL if end-of-file is reached before any characters are
+        # read (read_string then yields only the NUL terminator). Callers rely
+        # on this so that `while (fgets(...))` terminates at EOF.
+        if len(data) <= 1 and file.eof:
+            self.set_return_value(emulator, 0)
+            return
         emulator.write_memory(dst, data)
         self.set_return_value(emulator, dst)
 

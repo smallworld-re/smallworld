@@ -141,6 +141,10 @@ int main() {
     TEST("%08o", "00000052", 42);
     TEST("%#8o", "     052", 42);
     TEST("%#08o", "00000052", 42);
+    // SW-185: '#' octal left-justify put the padding on the wrong side, and
+    // '#o' of zero produced "00" instead of a bare "0".
+    TEST("%-#8o", "052     ", 42);
+    TEST("%#o", "0", 0);
     TEST("%*o", "      52", 8, 42);
     TEST("%hho", "102", 0x42);
     TEST("%ho", "41102", 0x4242);
