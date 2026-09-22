@@ -378,6 +378,54 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Return a double"""
         raise NotImplementedError()
 
+    def _next_fp_register(
+        self: typing.Union["CStdCallingContext", "VariadicContext"],
+        kind: ArgumentType,
+    ) -> typing.Optional[int]:
+        """Allocate the next hardware FP argument register for ``kind``.
+
+        Returns the index into ``_float_arg_regs`` (FLOAT) or ``_double_arg_regs``
+        (DOUBLE), or ``None`` when the FP argument registers are exhausted and
+        the argument must be passed on the stack.
+
+        On ABIs that share GP/FP argument slots (MIPS n64) the FP register is
+        chosen by overall argument position, drawing from -- and advancing --
+        the shared integer offset; otherwise a dedicated FP offset is used.
+        This models the common case where single- and double-precision
+        arguments consume one register-file entry apiece. Architectures whose
+        single- and double-precision registers physically overlap (ARM
+        AAPCS-VFP) override this to model back-filling; see
+        ArmHFSysVCallingContext.
+        """
+        if kind == ArgumentType.FLOAT:
+            if self._fp_shares_int_regs:
+                if self._int_reg_offset == len(self._float_arg_regs):
+                    return None
+                fp_offset = self._int_reg_offset
+                self._int_reg_offset += 1
+                return fp_offset
+            if self._fp_reg_offset == len(self._float_arg_regs):
+                return None
+            fp_offset = self._fp_reg_offset
+            self._fp_reg_offset += 1
+            return fp_offset
+        else:  # ArgumentType.DOUBLE
+            if self._fp_shares_int_regs:
+                if self._int_reg_offset % self._double_reg_size != 0:
+                    self._int_reg_offset += 1
+                if self._int_reg_offset == len(self._double_arg_regs):
+                    return None
+                fp_offset = self._int_reg_offset
+                self._int_reg_offset += self._double_reg_size
+                return fp_offset
+            if self._fp_reg_offset % self._double_reg_size != 0:
+                self._fp_reg_offset += 1
+            if self._fp_reg_offset == len(self._double_arg_regs):
+                return None
+            fp_offset = self._fp_reg_offset
+            self._fp_reg_offset += self._double_reg_size
+            return fp_offset
+
     def add_argument(
         self: typing.Union["CStdCallingContext", "VariadicContext"],
         i: int,
@@ -422,15 +470,8 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 self._arg_offset.append(self._int_reg_offset)
                 self._int_reg_offset += self._eight_byte_reg_size
         elif kind == ArgumentType.FLOAT:
-            # Float type. On ABIs that share GP/FP slots (MIPS n64), an FP
-            # argument's register is chosen by its overall position, so it
-            # draws from -- and advances -- the shared integer offset.
-            fp_offset = (
-                self._int_reg_offset
-                if self._fp_shares_int_regs
-                else self._fp_reg_offset
-            )
-            if fp_offset == len(self._float_arg_regs):
+            fp_offset = self._next_fp_register(ArgumentType.FLOAT)
+            if fp_offset is None:
                 # No room left in registers; use stack
                 self._on_stack.append(True)
                 self._arg_offset.append(self._stack_offset + self._init_stack_offset)
@@ -446,23 +487,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # Registers left; use them
                 self._on_stack.append(False)
                 self._arg_offset.append(fp_offset)
-                if self._fp_shares_int_regs:
-                    self._int_reg_offset += 1
-                else:
-                    self._fp_reg_offset += 1
         elif kind == ArgumentType.DOUBLE:
-            # Double type. As with FLOAT, a shared-slot ABI selects the FP
-            # register from the overall argument position.
-            if self._fp_shares_int_regs:
-                if self._int_reg_offset % self._double_reg_size != 0:
-                    self._int_reg_offset += 1
-                fp_offset = self._int_reg_offset
-            else:
-                if self._fp_reg_offset % self._double_reg_size != 0:
-                    self._fp_reg_offset += 1
-                fp_offset = self._fp_reg_offset
-
-            if fp_offset == len(self._double_arg_regs):
+            fp_offset = self._next_fp_register(ArgumentType.DOUBLE)
+            if fp_offset is None:
                 # No room left in registers; use stack
                 if (
                     self._align_stack
@@ -476,10 +503,6 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # Registers left; use them
                 self._on_stack.append(False)
                 self._arg_offset.append(fp_offset)
-                if self._fp_shares_int_regs:
-                    self._int_reg_offset += self._double_reg_size
-                else:
-                    self._fp_reg_offset += self._double_reg_size
         else:
             raise exceptions.ConfigurationError(f"Argument {i} has unknown type {kind}")
 
@@ -1165,6 +1188,12 @@ class VariadicContext:
 
         self._on_stack = parent._on_stack.copy()
         self._arg_offset = parent._arg_offset.copy()
+
+    def _next_fp_register(self, kind: ArgumentType) -> typing.Optional[int]:
+        # Variadic FP arguments never use AAPCS-VFP back-filling (they either go
+        # soft-float or use the generic register file), so delegate to the base
+        # allocator regardless of the underlying architecture.
+        return CStdCallingContext._next_fp_register(self, kind)
 
     def get_next_argument(
         self, kind: ArgumentType, emulator: emulators.Emulator
