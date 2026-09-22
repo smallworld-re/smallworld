@@ -3755,6 +3755,26 @@ class MachineReadMemoryTests(unittest.TestCase):
         self.assertEqual(machine.read_memory(0x2000, 4), b"\xef\xbe\xad\xde")
         self.assertEqual(machine.read_memory(0x2001, 2), b"\xbe\xad")
 
+    def test_read_memory_assembles_across_adjacent_values(self):
+        # SW-207: a read spanning two adjacent values must assemble the full
+        # result, not truncate to the first value.
+        machine = state.Machine()
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\xaa\xbb\xcc\xdd", None)  # [0x1000, 0x1004)
+        memory[4] = state.BytesValue(b"\xee\xff\x11\x22", None)  # [0x1004, 0x1008)
+        machine.add(memory)
+        self.assertEqual(machine.read_memory(0x1002, 4), b"\xcc\xdd\xee\xff")
+
+    def test_read_memory_raises_on_hole_after_mapped_start(self):
+        # SW-207: a read that starts inside a value but runs into an unbacked
+        # hole must signal clearly, never return a silent short read.
+        machine = state.Machine()
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\x01\x02\x03\x04", None)  # only [0x1000, 0x1004)
+        machine.add(memory)
+        with self.assertRaises(exceptions.ConfigurationError):
+            machine.read_memory(0x1002, 4)  # 0x1004 is an unbacked hole
+
 
 class FuzzHelperTests(unittest.TestCase):
     """helpers.py fuzz(): exit-point derivation and public export.
