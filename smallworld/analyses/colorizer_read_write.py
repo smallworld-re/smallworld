@@ -3,7 +3,11 @@ import logging
 import typing
 from dataclasses import dataclass, field
 
-from ..hinting import DynamicMemoryValueHint, DynamicRegisterValueHint
+from ..hinting import (
+    DynamicMemoryValueHint,
+    DynamicRegisterValueHint,
+    DynamicValueHint,
+)
 from ..instructions.bsid import BSIDMemoryReferenceOperand
 from ..platforms.defs.platformdef import RegisterAliasDef, RegisterDef
 from . import analysis
@@ -436,7 +440,7 @@ class ColorizerReadWrite(analysis.Analysis):
 
     def __init__(self, *args, dot_path: typing.Optional[str] = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.hints = {}
+        self.hints: typing.Dict[int, typing.List[DynamicValueHint]] = {}
         self.hinter.register(DynamicRegisterValueHint, self.collect_hints)
         self.hinter.register(DynamicMemoryValueHint, self.collect_hints)
         self.max_exec_id = 0
