@@ -7204,6 +7204,64 @@ class FindSubclassCacheTests(unittest.TestCase):
         self.assertEqual(one._address, 0x1000)
         self.assertEqual(two._address, 0x2000)
 
+    def test_cached_miss_skips_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "none", cache_key="marker-none"
+            )
+        # A repeated miss must not call check() again: it answers from the cache.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check, cache_key="marker-none")
+        check.assert_not_called()
+
+    def test_uncached_miss_still_traverses(self):
+        # Without a cache_key nothing is memoized: every call walks the whole tree.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        per_call = check.call_count
+        self.assertGreater(per_call, 0)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        self.assertEqual(check.call_count, 2 * per_call)
+
+    def test_forget_subclass_misses_reenables_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "c", cache_key="marker-c"
+            )
+
+        class _ImplC(self._Base):
+            marker = "c"
+
+        utils.forget_subclass_misses()
+        found = utils.find_subclass(
+            self._Base, lambda x: x.marker == "c", 0, cache_key="marker-c"
+        )
+        self.assertIsInstance(found, _ImplC)
+
+    def test_model_defined_after_a_miss_is_found(self):
+        late_platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        late_name = "__find_subclass_late_model"
+        with self.assertRaises(ValueError):
+            Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+
+        # Defining the class is all it takes: Model.__init_subclass__ drops the
+        # memoized miss, with no explicit call from the test.
+        class _LateModel(Model):
+            name = late_name
+            platform = late_platform
+            abi = platforms.ABI.SYSTEMV
+
+            def model(self, emulator):
+                pass
+
+        found = Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+        self.assertIsInstance(found, _LateModel)
+
 
 def _amd64_platform():
     return platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
@@ -7782,6 +7840,129 @@ class GhidraDefaultSpaceCacheTests(unittest.TestCase):
             int(emu._default_space.getSpaceID()), int(expected.getSpaceID())
         )
         self.assertTrue(emu._default_space.equals(expected))
+
+
+class GhidraMultiByteBoundsCheckTests(unittest.TestCase):
+    """Read/write guards must validate every byte of a multi-byte access.
+
+    The old guard called ``contains_value(addr)``, which only checks the
+    starting byte, so an access beginning inside a region but running off its
+    end straddled into unmapped memory without raising. ``_require_mapped``
+    validates the whole span and reports the first unmapped byte.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.emu = _ghidra_concrete_emulator(platforms.Architecture.X86_64)
+
+    @staticmethod
+    def _map(*ranges):
+        mm = utils.RangeCollection()
+        for r in ranges:
+            mm.add_range(r)
+        return mm
+
+    def _run_with_map(self, mm, fn):
+        # Swap in a private memory map so the shared cached emulator is never
+        # polluted, then restore it.
+        saved = self.emu._memory_map
+        self.emu._memory_map = mm
+        try:
+            return fn(self.emu)
+        finally:
+            self.emu._memory_map = saved
+
+    def test_multibyte_read_straddling_region_end_is_rejected(self):
+        def check(emu):
+            # Fully inside the region: must not raise.
+            emu._require_mapped(
+                0x1000, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+            )
+            # Last mapped byte is 0x1FFF; a 4-byte read from 0x1FFE runs to
+            # 0x2002, off the end of the region.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            # Reports the first unmapped byte, not the (mapped) start address.
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_multibyte_write_straddling_region_end_is_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationWriteUnmappedFailure, "Write"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_access_spanning_a_hole_between_regions_is_rejected(self):
+        def check(emu):
+            # Two regions with a one-page gap; an 8-byte read at the end of the
+            # first region crosses the hole.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x4000)), check)
+
+    def test_single_unmapped_byte_still_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+                emu._require_mapped(
+                    0x3000, 1, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_wide_access_into_narrow_hooked_region_is_allowed(self):
+        # An MMIO model registers its region both in the memory map (at its
+        # true, possibly sub-word size) and as a ranged access hook. The model
+        # owns the access, so a wider-than-region load/store beginning inside
+        # the hook must NOT raise -- even though the trailing bytes fall outside
+        # the mapped region. (Regression: the integration corpus signals success
+        # by reading a 1-byte sentinel with a word-sized load.)
+        def check(emu):
+            hook = (0x3000, 0x3001)
+            # 4-byte read starting on the 1-byte hooked region: allowed.
+            emu._require_mapped(
+                0x3000,
+                4,
+                exceptions.EmulationReadUnmappedFailure,
+                "Read",
+                [hook],
+            )
+            # Same for a write.
+            emu._require_mapped(
+                0x3000,
+                8,
+                exceptions.EmulationWriteUnmappedFailure,
+                "Write",
+                [hook],
+            )
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+    def test_wide_access_outside_hooked_region_still_rejected(self):
+        # The exemption keys off the access's starting byte. A read that begins
+        # in plain RAM and runs off its end is rejected even when an unrelated
+        # hooked region exists elsewhere.
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE,
+                    4,
+                    exceptions.EmulationReadUnmappedFailure,
+                    "Read",
+                    [(0x3000, 0x3001)],
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
 
 
 class GhidraMips64DelaySlotMnemonicTests(unittest.TestCase):
@@ -8379,6 +8560,91 @@ class PandaWriteMemoryContentTests(unittest.TestCase):
 
         chunks = _panda_write_chunks(self.emu)
         self.assertEqual(chunks, [(address, content)])
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaMips64MmioBoundsTests(unittest.TestCase):
+    """The MIPS64 MMIO guard rejects writes into the reserved [2**32, ...)
+    space, but a write whose exclusive end lands exactly on 2**32 (last byte
+    at 2**32 - 1) stays in normal memory and must be allowed (SW-147)."""
+
+    def setUp(self):
+        self.emu = _PandaEmulator.__new__(_PandaEmulator)
+        self.emu.PAGE_SIZE = _PANDA_PAGE
+        self.emu.platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.emu.mapped_pages = utils.RangeCollection()
+        self.emu.panda_thread = mock.Mock()
+
+    def test_write_ending_exactly_at_2_32_is_allowed(self):
+        address = 2**32 - 4
+        self.emu.write_memory_content(address, b"\x00\x00\x00\x00")
+        self.assertEqual(
+            _panda_write_chunks(self.emu), [(address, b"\x00\x00\x00\x00")]
+        )
+
+    def test_write_ending_past_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32 - 4, b"\x00" * 5)
+
+    def test_write_starting_at_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32, b"\x00\x00\x00\x00")
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaRegisterAccessExceptionTests(unittest.TestCase):
+    """read/write_register_content must not swallow BaseException via a bare
+    ``except:`` (SW-146). KeyboardInterrupt/SystemExit propagate; only ordinary
+    errors are wrapped as AnalysisError."""
+
+    def setUp(self):
+        self.emu = _make_bare_panda_emulator()
+        self.emu.cpu = mock.Mock()
+        md = self.emu.panda_thread.machdef
+        md.check_panda_reg.return_value = True
+        # "pc" maps to a distinct reg so a plain register name isn't mistaken
+        # for the program counter and short-circuited.
+        md.panda_reg.side_effect = lambda reg, *a, **k: (
+            "PC_REG" if reg == "pc" else "r1"
+        )
+
+    def test_read_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.read_register_content("r1")
+
+    def test_read_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.read_register_content("r1")
+
+    def test_write_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.write_register_content("r1", 0x1234)
+
+    def test_write_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.write_register_content("r1", 0x1234)
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaCurrentInstructionUndecodableTests(unittest.TestCase):
+    """current_instruction returns None (not raises) when the bytes at pc don't
+    decode (SW-148). The on_insn callback relies on the falsy return to skip
+    undecodable instructions gracefully, so this pins that contract; the fix
+    only makes the Optional return type honest."""
+
+    def test_undecodable_bytes_return_none(self):
+        emu = _make_bare_panda_emulator()
+        emu.pc = 0x400000
+        emu.read_memory = mock.Mock(return_value=b"\x00" * 15)
+        emu.disassembler = mock.Mock()
+        emu.disassembler.disasm.return_value = []
+        self.assertIsNone(emu.current_instruction())
 
 
 _FUZZFIX_UNICORNAFL_AVAILABLE = importlib.util.find_spec("unicornafl") is not None
@@ -9707,6 +9973,85 @@ class LoopDetectionStrandSplitTests(unittest.TestCase):
         H, A, B = 0x10, 0x14, 0x18
         hinter = self._run([H, A, B, H, A, B, H])
         self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
+        
+        
+class BinjaDatabaseBvCleanupTests(unittest.TestCase):
+    """BinjaDatabase.__init__ must close the BinaryView on every error path
+    (SW-082) and surface a missing platform definition as ConfigurationError
+    (SW-168).
+
+    binaryninja is unavailable, so the module is imported under a stub and
+    load() is patched to return a fake BinaryView whose file.close we observe.
+    """
+
+    def _binja_module(self):
+        # The package __init__ re-exports the BinjaDatabase *class* under the
+        # same dotted name as the submodule, so `import ... as m` would bind the
+        # class. import_module returns the actual module object.
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            return importlib.import_module(
+                "smallworld.state.memory.binjadatabase.BinjaDatabase"
+            )
+
+    @staticmethod
+    def _fake_bv():
+        bv = mock.Mock()
+        bv.entry_point = 0x1000
+        return bv
+
+    def test_bv_closed_when_platform_mismatch_raises(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        wanted = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb", platform=wanted)
+        bv.file.close.assert_called_once()
+
+    def test_bv_closed_when_later_step_raises(self):
+        # A failure after platform detection (here _determine_base) must still
+        # close the BinaryView.
+        m = self._binja_module()
+        bv = self._fake_bv()
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_determine_base", side_effect=ValueError("boom")
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                m.BinjaDatabase("dummy.bndb", ignore_platform=True)
+        bv.file.close.assert_called_once()
+
+    def test_missing_platform_def_becomes_configuration_error(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+            mock.patch.object(
+                m.PlatformDef, "for_platform", side_effect=ValueError("no def")
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb")
+        # The BinaryView is still closed on this path too.
+        bv.file.close.assert_called_once()
 
 
 class VxWorksFunctionEndLookupTests(unittest.TestCase):

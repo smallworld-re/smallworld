@@ -374,14 +374,19 @@ class PandaEmulator(
                 )
                 handled = False
                 try:
-                    # First if all interrupts are hooked, run that function
+                    # First if all interrupts are hooked, run that function.
+                    # Hooks may return None (no explicit return); coerce to bool
+                    # so `handled |= ...` can't raise TypeError. A None/False
+                    # return leaves the interrupt unhandled, as before.
                     if self.manager.all_interrupts_hook:
-                        handled |= self.manager.all_interrupts_hook(
-                            self.manager, exception_index
+                        handled |= bool(
+                            self.manager.all_interrupts_hook(
+                                self.manager, exception_index
+                            )
                         )
                     # Then run interrupt specific function
                     if cb := self.manager.is_interrupt_hooked(exception_index):
-                        handled |= cb(self.manager)
+                        handled |= bool(cb(self.manager))
                 except exceptions.EmulationStop:
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
@@ -496,10 +501,10 @@ class PandaEmulator(
                 return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
             else:
                 raise exceptions.EmulationError("PANDA not started")
-        except:
+        except Exception as e:
             raise exceptions.AnalysisError(
                 f"Failed reading {panda_reg_name} (id: {name})"
-            )
+            ) from e
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -545,10 +550,10 @@ class PandaEmulator(
                 self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
             else:
                 raise exceptions.EmulationError("PANDA not started")
-        except:
+        except Exception as e:
             raise exceptions.AnalysisError(
                 f"Failed writing {panda_reg_name} (id: {name})"
-            )
+            ) from e
 
         logger.debug(f"set register {panda_reg_name} (id: {name}) = {content}")
 
@@ -617,7 +622,10 @@ class PandaEmulator(
         # attempting to store stuff there will almost certainly not do what you want.
         # This would go away if we figured out how to emulate virtual memory.
         if self.platform.architecture == platforms.Architecture.MIPS64:
-            if address >= 2**32 or (address + len(content)) >= 2**32:
+            # The write spans [address, address + len(content)); its exclusive
+            # end may legitimately equal 2**32 (last byte at 2**32 - 1), so only
+            # reject when the end exceeds 2**32.
+            if address >= 2**32 or (address + len(content)) > 2**32:
                 logger.error(
                     f"Attempting to write to {hex(address)} - {hex(address + len(content))} on MIPS64"
                 )
@@ -691,13 +699,18 @@ class PandaEmulator(
 
         return (insns, "\n".join(disassembly))
 
-    def current_instruction(self) -> capstone.CsInsn:
+    def current_instruction(self) -> typing.Optional[capstone.CsInsn]:
         pc = self.pc
         code = self.read_memory(pc, 15)
         if code is None:
             raise AssertionError("invalid state")
         for i in self.disassembler.disasm(code, pc):
             return i
+        # disasm yielded nothing: the bytes at pc don't decode. Return None
+        # explicitly, and declare it in the signature. The on_insn callback
+        # relies on this to skip undecodable instructions gracefully rather
+        # than crash the run.
+        return None
 
     def check(self) -> None:
         if len(self._exit_points) == 0 and self._bounds.is_empty():
