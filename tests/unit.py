@@ -9971,8 +9971,8 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
-        
-        
+
+
 class VxWorksFunctionEndLookupTests(unittest.TestCase):
     """get_function_end must find the function even when a same-named
     non-function symbol (e.g. a data label) precedes it in the table.
