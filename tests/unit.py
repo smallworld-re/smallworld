@@ -118,6 +118,7 @@ from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
+from smallworld.state.memory.pe.pe import PEExecutable
 from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.memory.stack.loongarch import LoongArch64Stack, LoongArchStack
 from smallworld.state.memory.stack.m68k import M68KStack
@@ -9156,6 +9157,46 @@ class PEBaseRelocationTests(unittest.TestCase):
             BINARIES_TESTS_DIR / "pe" / "pe.i386.pe", I386_PLATFORM, 0x10000000, 4
         )
         self.assertEqual(loaded, (original + delta) & 0xFFFFFFFF)
+
+
+class PEMapSectionTests(unittest.TestCase):
+    """PEExecutable._map_section maps the virtual size even when a section's raw
+    (file) size exceeds its page-aligned virtual size (SW-089)."""
+
+    class _Section:
+        def __init__(self, offset, size, virtual_address, virtual_size):
+            self.offset = offset
+            self.size = size
+            self.virtual_address = virtual_address
+            self.virtual_size = virtual_size
+            self.characteristics = 0
+
+    @staticmethod
+    def _pe():
+        pe = PEExecutable.__new__(PEExecutable)
+        state.memory.Memory.__init__(pe, 0x400000, 0x100000)
+        pe._page_size = 0x1000
+        pe.bounds = utils.RangeCollection()
+        return pe
+
+    def test_raw_larger_than_virtual_maps_virtual_size(self):
+        pe = self._pe()
+        # virtual_size 0x10 -> page-aligned 0x1000; raw size 0x2000 exceeds it.
+        # The old code required exact equality and raised ConfigurationError.
+        sect = self._Section(
+            offset=0, size=0x2000, virtual_address=0x1000, virtual_size=0x10
+        )
+        pe._map_section(sect, b"\xaa" * 0x2000)
+        self.assertEqual(len(pe[0x1000].to_bytes()), 0x1000)
+
+    def test_raw_shorter_than_virtual_zero_pads(self):
+        pe = self._pe()
+        # Regression: a section shorter than its virtual size is still padded.
+        sect = self._Section(
+            offset=0, size=0x40, virtual_address=0x2000, virtual_size=0x800
+        )
+        pe._map_section(sect, b"\xbb" * 0x40)
+        self.assertEqual(len(pe[0x2000].to_bytes()), 0x1000)
 
 
 class MemoizingReplacementSolverTests(unittest.TestCase):
