@@ -3672,6 +3672,18 @@ class MemoryRangeMergeTests(unittest.TestCase):
             [range(0x1000, 0x1005)],
         )
 
+    def test_ranges_uninitialized_skips_overlapping_segments(self):
+        # SW-177: overlapping segments (a 4-byte value at 0 and a 3-byte value
+        # at 2) have no gap between them; the old code emitted a backwards
+        # range(0x1004, 0x1001) here.
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\xaa" * 4, None)  # [0x1000, 0x1003]
+        memory[2] = state.BytesValue(b"\xbb" * 3, None)  # [0x1002, 0x1004]
+        ranges = memory.get_ranges_uninitialized()
+        self.assertTrue(all(r.start <= r.stop for r in ranges))
+        # Only the tail past the union of the two segments is uninitialized.
+        self.assertEqual(ranges, [range(0x1005, 0x100F)])
+
 
 class CheckedBumpAllocatorTests(unittest.TestCase):
     """Tests for state.memory.heap.CheckedBumpAllocator."""

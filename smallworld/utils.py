@@ -740,9 +740,9 @@ class RangeCollection(Iterable):
         if lo is not None:
             # We are not the lowest range
             lo_start, lo_end = lo
-            if lo_start == start and lo_end == lo:
+            if lo_start == start and lo_end == end:
                 # We exactly match an existing range
-                self._ranges.remove(arange)
+                self._ranges.remove(lo)
                 return
             if start >= lo_start and start < lo_end:
                 # We collide with lo.
