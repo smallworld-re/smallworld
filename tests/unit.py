@@ -9611,5 +9611,50 @@ class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
             model.model(mock.MagicMock())
 
 
+class EmulatorHygieneTests(unittest.TestCase):
+    """Base-class hygiene in smallworld/emulators/emulator.py.
+
+    SW-136: _exit_points must be an instance attribute only, never a misleading
+    class-level shared set. SW-137: satisfiable() must not carry a mutable list
+    default -- the None default holds across the base contract and all three
+    concrete overrides that copy the signature.
+    """
+
+    @staticmethod
+    def _satisfiable_default(cls):
+        import inspect
+
+        return (
+            inspect.signature(cls.satisfiable).parameters["extra_constraints"].default
+        )
+
+    def test_exit_points_not_class_level(self):
+        from smallworld.emulators.emulator import Emulator
+
+        self.assertNotIn("_exit_points", vars(Emulator))
+
+    def test_base_satisfiable_default_is_none(self):
+        from smallworld.emulators.emulator import ConstrainedEmulator
+
+        self.assertIsNone(self._satisfiable_default(ConstrainedEmulator))
+
+    def test_angr_satisfiable_default_is_none(self):
+        from smallworld.emulators.angr.angr import AngrEmulator
+
+        self.assertIsNone(self._satisfiable_default(AngrEmulator))
+
+    def test_triton_satisfiable_default_is_none(self):
+        from smallworld.emulators.triton.symbolic import TritonSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(TritonSymbolicEmulator))
+
+    def test_ghidra_satisfiable_default_is_none(self):
+        # The ghidra symbolic module imports a JVM-bridged z3 binding at load.
+        _ensure_pyghidra_started()
+        from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+
+
 if __name__ == "__main__":
     unittest.main()

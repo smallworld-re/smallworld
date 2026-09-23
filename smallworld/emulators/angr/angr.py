@@ -1694,8 +1694,10 @@ class AngrEmulator(
 
     def satisfiable(
         self,
-        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
     ) -> bool:
+        if extra_constraints is None:
+            extra_constraints = []
         if not self._initialized:
             raise exceptions.ConfigurationError(
                 "Solver not available before initialization"
