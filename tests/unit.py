@@ -9971,6 +9971,72 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+        
+        
+class _FakeReadMemEmulator:
+    """Minimal emulator with the real read_memory contract for the c99 helpers.
+
+    read_memory returns bytes or *raises* on an unmapped/oversized read (never
+    None), and get_memory_map reports the mapped ranges. Records every read
+    size so a test can assert the speculative bulk read was clamped.
+    """
+
+    def __init__(self, ranges, data):
+        self._ranges = list(ranges)  # [(start, end), ...]
+        self._data = dict(data)  # {addr: byte value}
+        self.read_sizes = []
+
+    def get_memory_map(self):
+        return list(self._ranges)
+
+    def _fully_mapped(self, addr, size):
+        return any(s <= addr and addr + size <= e for s, e in self._ranges)
+
+    def read_memory(self, addr, size):
+        self.read_sizes.append(size)
+        if size and not self._fully_mapped(addr, size):
+            raise Exception("unmapped read")
+        return bytes(self._data.get(addr + i, 0) for i in range(size))
+
+
+class C99StrncmpClampReadTests(unittest.TestCase):
+    """strcmp/strncmp clamp their speculative bulk read to the mapped extent so
+    a string near a segment boundary is not read MAX_STRLEN (64 KB) past its
+    region (NEW-002). Results are unchanged; only the wasted, faulting
+    over-read is removed. Asserted on read sizes, not on log output.
+    """
+
+    def test_strcmp_clamps_bulk_read_and_returns_equal(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        # One mapped page with "hi\0" at the start; a MAX_STRLEN read from here
+        # would run 64 KB past the page end.
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {0x1000: ord("h"), 0x1001: ord("i"), 0x1002: 0},
+        )
+        # strcmp routes through _emu_strncmp with n == MAX_STRLEN.
+        self.assertEqual(_emu_strncmp(emu, 0x1000, 0x1000, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+        self.assertLessEqual(max(emu.read_sizes), 0x1000)
+
+    def test_strncmp_mismatch_result_correct_when_clamped(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {
+                0x1000: ord("h"),
+                0x1001: ord("i"),
+                0x1002: 0,
+                0x1800: ord("h"),
+                0x1801: ord("o"),
+                0x1802: 0,
+            },
+        )
+        # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
+        self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
 
 
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
