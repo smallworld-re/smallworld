@@ -66,5 +66,8 @@ class ElfRelocator:
                 lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
-        except:
-            raise ValueError(f"No relocator for {platform}")
+        except ValueError as e:
+            # find_subclass raises ValueError only for the no-match case;
+            # narrow to it so genuine internal errors (and
+            # KeyboardInterrupt/SystemExit) are not masked as "No relocator".
+            raise ValueError(f"No relocator for {platform}") from e
