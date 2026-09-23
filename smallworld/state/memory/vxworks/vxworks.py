@@ -198,7 +198,9 @@ class VXWorksImage(Executable):
         for section in sdl:
             sect_start = section["start"]
             sect_end = section["start"] + section["length"]
-            sect_addr = section["start"] + self.address  # self.address = file_base
+            # Absolute address this section will be mapped at (used for logging
+            # below). self.address is the file base, or user_base when overridden.
+            sect_addr = section["start"] + self.address
             sect_size = section["length"]
 
             sect_data = image[sect_start:sect_end]
@@ -218,8 +220,9 @@ class VXWorksImage(Executable):
                 f"\x1b[34m{section['name']} section ({hex(sect_addr)}-{hex(sect_addr + sect_size)}) first 8 bytes : {sect_data[:4].hex().lower()} {sect_data[4:8].hex().lower()}\x1b[0m"
             )
 
-            # This seems unintuitive, but SMWO later self adjusts for base address
-            self[sect_addr - self.address] = sect_value
+            # Keyed by the file-relative offset; apply() re-adds self.address
+            # when mapping, landing the section at sect_addr.
+            self[section["start"]] = sect_value
 
     def _map_bounds(self, bv: BinaryView):
         """Populate executable bounds from the BinaryView's segment flags.
@@ -324,12 +327,16 @@ class VXWorksImage(Executable):
             KeyError: If no symbol with that name exists in the database, or if the
                     symbol exists but is not a function (e.g. a data label).
         """
+        # A name can be shared by several symbols (e.g. a data label and the
+        # function). Keep scanning for the entry that actually has an end
+        # rather than failing on the first (possibly non-function) match.
+        found = False
         for sym in self._symbols:
             if name in (sym["name"], sym["full_name"], sym["short_name"]):
+                found = True
                 end = sym.get("func_end")
-                if end is None:
-                    raise KeyError(
-                        f"Symbol {name!r} is not a function or has no known end"
-                    )
-                return end
+                if end is not None:
+                    return end
+        if found:
+            raise KeyError(f"Symbol {name!r} is not a function or has no known end")
         raise KeyError(f"Symbol {name!r} not found in database")
