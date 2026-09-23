@@ -9971,8 +9971,8 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
-        
-        
+
+
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
     """BinjaDatabase.__init__ must close the BinaryView on every error path
     (SW-082) and surface a missing platform definition as ConfigurationError
