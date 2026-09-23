@@ -260,6 +260,25 @@ class GhidraEmulator(AbstractGhidraEmulator):
             addr_range = AddressRangeImpl(start_addr, end_addr)
             self._emu.addAccessBreakpoint(addr_range, self._emu.AccessKind.W)
 
+    def _require_mapped(
+        self,
+        addr: int,
+        size: int,
+        exc: typing.Type[exceptions.EmulationMemoryFailure],
+        verb: str,
+    ) -> None:
+        # contains_value() only checks the starting byte; a multi-byte access
+        # can begin inside a mapped region and run off its end into unmapped
+        # memory. Validate every byte of [addr, addr + size) and report the
+        # first unmapped one.
+        missing = self._memory_map.get_missing_ranges((addr, addr + size))
+        if missing:
+            raise exc(
+                f"{verb} of unmapped data",
+                self.read_register("pc"),
+                address=missing[0][0],
+            )
+
     def _process_read_breakpoint(
         self, addr_var: Varnode, out_var: Varnode, direct=False
     ) -> None:
@@ -277,10 +296,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
                 addr = int.from_bytes(addr_bytes, "little")
 
-        if not self._memory_map.contains_value(addr):
-            raise exceptions.EmulationReadUnmappedFailure(
-                "Read of unmapped data", self.read_register("pc"), address=addr
-            )
+        self._require_mapped(
+            addr,
+            out_var.getSize(),
+            exceptions.EmulationReadUnmappedFailure,
+            "Read",
+        )
 
         # Dereference the address to get the original data
         addr_space = self._default_space
@@ -354,10 +375,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
                 addr = int.from_bytes(addr_bytes, "little")
 
-        if not self._memory_map.contains_value(addr):
-            raise exceptions.EmulationWriteUnmappedFailure(
-                "Write of unmapped data", self.read_register("pc"), address=addr
-            )
+        self._require_mapped(
+            addr,
+            len(data),
+            exceptions.EmulationWriteUnmappedFailure,
+            "Write",
+        )
 
         if self._mem_writes_hook is not None:
             self._mem_writes_hook(self, addr, len(data), data)
