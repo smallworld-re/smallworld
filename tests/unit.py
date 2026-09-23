@@ -7520,10 +7520,19 @@ class FieldDetectionFilterTests(unittest.TestCase):
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxInterruptDispatcherTests(unittest.TestCase):
-    """Exactly one processor-level InterruptHook dispatcher is registered.
+    """Exactly one processor-level InterruptHook dispatcher is registered, and
+    it fires BOTH the global and per-number handlers.
 
-    The old code registered a second InterruptHook when hook_interrupt()
-    was followed by hook_interrupts(), double-firing handlers.
+    Two properties are checked:
+
+    - Only one InterruptHook is registered no matter which order hook_interrupt
+      / hook_interrupts are called in (the old code registered a second one,
+      double-firing every handler).
+    - A hooked interrupt number runs the global handler AND the per-number
+      handler (global first), matching the InterruptHookable contract as
+      implemented by the Unicorn and Panda backends. The old dispatcher ran the
+      per-number handler *instead of* the global one (SW-072), so a specific
+      hook silently suppressed the catch-all.
     """
 
     def setUp(self):
@@ -7533,13 +7542,16 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.emu = emulators.StyxEmulator(self.platform)
         self.per_calls = []
         self.glob_calls = []
+        self.order = []
 
     def _per_handler(self, emu):
         self.per_calls.append(emu)
+        self.order.append(("per",))
         return True
 
     def _glob_handler(self, emu, intno):
         self.glob_calls.append(intno)
+        self.order.append(("glob", intno))
         return True
 
     def _capture_dispatchers(self, *hook_calls):
@@ -7574,24 +7586,28 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.assertEqual(len(captured), len(interrupt_registrations))
         return captured
 
+    def _assert_both_fire(self, dispatcher):
+        # A hooked interrupt number fires the global handler AND the per-number
+        # handler, global first.
+        dispatcher(object(), 3)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3])
+        self.assertEqual(self.order, [("glob", 3), ("per",)])
+
+        # An unhooked number fires only the global handler (no per-number hook
+        # for it), and does not re-fire the per-number handler.
+        dispatcher(object(), 5)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3, 5])
+        self.assertEqual(self.order, [("glob", 3), ("per",), ("glob", 5)])
+
     def test_per_number_then_global_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
             lambda: self.emu.hook_interrupt(3, self._per_handler),
             lambda: self.emu.hook_interrupts(self._glob_handler),
         )
         self.assertEqual(len(dispatchers), 1)
-
-        dispatcher = dispatchers[0]
-
-        # A hooked interrupt number fires ONLY the per-number handler, once.
-        dispatcher(object(), 3)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [])
-
-        # An unhooked number falls through to the global handler, once.
-        dispatcher(object(), 5)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [5])
+        self._assert_both_fire(dispatchers[0])
 
     def test_global_then_per_number_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
@@ -7599,13 +7615,36 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
             lambda: self.emu.hook_interrupt(3, self._per_handler),
         )
         self.assertEqual(len(dispatchers), 1)
+        self._assert_both_fire(dispatchers[0])
 
-        dispatcher = dispatchers[0]
-        dispatcher(object(), 3)
+    def test_per_number_only_still_fires_without_global(self):
+        # With no global hook registered, a hooked number still fires its
+        # per-number handler (and nothing else).
+        dispatchers = self._capture_dispatchers(
+            lambda: self.emu.hook_interrupt(3, self._per_handler),
+        )
+        self.assertEqual(len(dispatchers), 1)
+        dispatchers[0](object(), 3)
         self.assertEqual(self.per_calls, [self.emu])
         self.assertEqual(self.glob_calls, [])
-        dispatcher(object(), 5)
-        self.assertEqual(self.glob_calls, [5])
+
+
+class StyxStubProgramFdTests(unittest.TestCase):
+    """The RawLoader stub tempfile handle is closed once its path is captured.
+
+    Only the path is needed after target_program is set; leaving the handle
+    open leaked a file descriptor until GC (SW-149).
+    """
+
+    def test_stub_handle_closed_but_file_retained(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # Handle is closed (no leaked fd)...
+        self.assertTrue(emu._stub_program.closed)
+        # ...but the file is retained on disk for the loader (delete=False).
+        self.assertTrue(os.path.exists(emu._stub_program.name))
 
 
 class RangeCollectionMissingRangesSignatureTests(unittest.TestCase):
