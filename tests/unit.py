@@ -9973,5 +9973,30 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
             img.get_function_end("label")
 
 
+class TrackerMemoryPpInspectTests(unittest.TestCase):
+    """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
+    defaulting/tracking mid-print -- the recursion the class warns about and
+    that create_hint() already guards against (SW-135)."""
+
+    def test_pp_load_passes_inspect_false(self):
+        from smallworld.emulators.angr.memory.memtrack import TrackerMemoryMixin
+
+        mixin = TrackerMemoryMixin.__new__(TrackerMemoryMixin)
+        mixin.dirty = {0x1000: 4}
+        mixin.id = "mem"  # non-reg -> name via hex(addr), so self.state is unused
+        calls = []
+
+        def fake_load(addr, size, **kwargs):
+            calls.append((addr, size, kwargs))
+            return 0
+
+        mixin.load = fake_load
+        mixin.pp(lambda line: None)
+
+        self.assertEqual(len(calls), 1)
+        self.assertIs(calls[0][2].get("inspect"), False)
+        self.assertIs(calls[0][2].get("disable_actions"), True)
+
+
 if __name__ == "__main__":
     unittest.main()
