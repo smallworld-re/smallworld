@@ -9973,5 +9973,51 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
             img.get_function_end("label")
 
 
+class FieldDetectionDescribeFieldTests(unittest.TestCase):
+    """_describe_field always labels a tracked field with its declared label,
+    so concrete or composite loaded values are labelled correctly instead of
+    raising or reusing a prior field's label (SW-056). A single bound symbol is
+    substituted with its binding for readability.
+    """
+
+    @staticmethod
+    def _fda(bindings=None):
+        return SimpleNamespace(fda_bindings=bindings or {})
+
+    def _describe(self, fda, label, val):
+        from smallworld.analyses.field_detection.field_analysis import (
+            _describe_field,
+        )
+
+        return _describe_field(fda, label, val)
+
+    def test_concrete_value_keeps_declared_label(self):
+        val = claripy.BVV(0, 64)  # zero variables
+        label, out = self._describe(self._fda(), "msg.a", val)
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, val)
+
+    def test_composite_value_keeps_declared_label(self):
+        val = claripy.BVS("x", 64) + claripy.BVS("y", 64)  # two variables
+        label, out = self._describe(self._fda(), "msg.b", val)
+        self.assertEqual(label, "msg.b")
+        self.assertIs(out, val)
+
+    def test_single_bound_symbol_uses_declared_label_and_substitutes(self):
+        var = claripy.BVS("msg.a_18_64", 64, explicit_name=True)
+        binding = claripy.BVS("bound", 64, explicit_name=True)
+        fda = self._fda({"msg.a_18_64": binding})
+        label, out = self._describe(fda, "msg.a", var)
+        # Declared label, not the variable name; value substituted with binding.
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, binding)
+
+    def test_unknown_single_variable_keeps_value(self):
+        var = claripy.BVS("mystery", 64, explicit_name=True)
+        label, out = self._describe(self._fda(), "msg.c", var)
+        self.assertEqual(label, "msg.c")
+        self.assertIs(out, var)
+
+
 if __name__ == "__main__":
     unittest.main()
