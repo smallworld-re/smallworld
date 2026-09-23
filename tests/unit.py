@@ -9992,8 +9992,8 @@ class C99StrncmpClampReadTests(unittest.TestCase):
         # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
         self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
         self.assertNotIn(MAX_STRLEN, emu.read_sizes)
-        
-        
+
+
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
     """BinjaDatabase.__init__ must close the BinaryView on every error path
     (SW-082) and surface a missing platform definition as ConfigurationError
