@@ -9296,5 +9296,50 @@ class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
             model.model(mock.MagicMock())
 
 
+class VxWorksFunctionEndLookupTests(unittest.TestCase):
+    """get_function_end must find the function even when a same-named
+    non-function symbol (e.g. a data label) precedes it in the table.
+
+    A single name can be shared by several symbols; the old lookup acted on the
+    first match and raised if it happened to be a non-function, hiding the real
+    function that appeared later. VXWorksImage's module imports the commercial
+    ``binaryninja`` package at import time, so it is stubbed here; the method
+    under test is pure Python over ``self._symbols``.
+    """
+
+    @staticmethod
+    def _image(symbols):
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            from smallworld.state.memory.vxworks.vxworks import VXWorksImage
+        img = VXWorksImage.__new__(VXWorksImage)
+        img._symbols = symbols
+        return img
+
+    @staticmethod
+    def _sym(name, func_end):
+        return {
+            "name": name,
+            "full_name": name,
+            "short_name": name,
+            "func_end": func_end,
+        }
+
+    def test_returns_function_end_past_leading_data_label(self):
+        # Data label (func_end=None) shares the name and comes first; the real
+        # function follows. The end must still be found.
+        img = self._image([self._sym("handler", None), self._sym("handler", 0x4020)])
+        self.assertEqual(img.get_function_end("handler"), 0x4020)
+
+    def test_unknown_name_raises(self):
+        img = self._image([self._sym("handler", 0x4020)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("nope")
+
+    def test_only_non_function_matches_raises(self):
+        img = self._image([self._sym("label", None)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("label")
+
+
 if __name__ == "__main__":
     unittest.main()
