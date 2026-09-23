@@ -10096,8 +10096,8 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         label, out = self._describe(self._fda(), "msg.c", var)
         self.assertEqual(label, "msg.c")
         self.assertIs(out, var)
-        
-        
+
+
 class TrackerMemoryPpInspectTests(unittest.TestCase):
     """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
     defaulting/tracking mid-print -- the recursion the class warns about and
