@@ -10095,8 +10095,8 @@ class ForcedExecutionEarlyStopTests(unittest.TestCase):
     def test_no_stop_completes(self):
         analysis = self._make([{"pc": 1}, {"pc": 2}], stop_index=None)
         analysis.execute()  # must not raise
-        
-        
+
+
 class TrackerMemoryPpInspectTests(unittest.TestCase):
     """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
     defaulting/tracking mid-print -- the recursion the class warns about and
