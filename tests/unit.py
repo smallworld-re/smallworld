@@ -9971,6 +9971,85 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+        
+        
+class BinjaDatabaseBvCleanupTests(unittest.TestCase):
+    """BinjaDatabase.__init__ must close the BinaryView on every error path
+    (SW-082) and surface a missing platform definition as ConfigurationError
+    (SW-168).
+
+    binaryninja is unavailable, so the module is imported under a stub and
+    load() is patched to return a fake BinaryView whose file.close we observe.
+    """
+
+    def _binja_module(self):
+        # The package __init__ re-exports the BinjaDatabase *class* under the
+        # same dotted name as the submodule, so `import ... as m` would bind the
+        # class. import_module returns the actual module object.
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            return importlib.import_module(
+                "smallworld.state.memory.binjadatabase.BinjaDatabase"
+            )
+
+    @staticmethod
+    def _fake_bv():
+        bv = mock.Mock()
+        bv.entry_point = 0x1000
+        return bv
+
+    def test_bv_closed_when_platform_mismatch_raises(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        wanted = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb", platform=wanted)
+        bv.file.close.assert_called_once()
+
+    def test_bv_closed_when_later_step_raises(self):
+        # A failure after platform detection (here _determine_base) must still
+        # close the BinaryView.
+        m = self._binja_module()
+        bv = self._fake_bv()
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_determine_base", side_effect=ValueError("boom")
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                m.BinjaDatabase("dummy.bndb", ignore_platform=True)
+        bv.file.close.assert_called_once()
+
+    def test_missing_platform_def_becomes_configuration_error(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+            mock.patch.object(
+                m.PlatformDef, "for_platform", side_effect=ValueError("no def")
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb")
+        # The BinaryView is still closed on this path too.
+        bv.file.close.assert_called_once()
 
 
 class VxWorksFunctionEndLookupTests(unittest.TestCase):
@@ -10016,6 +10095,31 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
         img = self._image([self._sym("label", None)])
         with self.assertRaises(KeyError):
             img.get_function_end("label")
+
+
+class TrackerMemoryPpInspectTests(unittest.TestCase):
+    """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
+    defaulting/tracking mid-print -- the recursion the class warns about and
+    that create_hint() already guards against (SW-135)."""
+
+    def test_pp_load_passes_inspect_false(self):
+        from smallworld.emulators.angr.memory.memtrack import TrackerMemoryMixin
+
+        mixin = TrackerMemoryMixin.__new__(TrackerMemoryMixin)
+        mixin.dirty = {0x1000: 4}
+        mixin.id = "mem"  # non-reg -> name via hex(addr), so self.state is unused
+        calls = []
+
+        def fake_load(addr, size, **kwargs):
+            calls.append((addr, size, kwargs))
+            return 0
+
+        mixin.load = fake_load
+        mixin.pp(lambda line: None)
+
+        self.assertEqual(len(calls), 1)
+        self.assertIs(calls[0][2].get("inspect"), False)
+        self.assertIs(calls[0][2].get("disable_actions"), True)
 
 
 if __name__ == "__main__":
