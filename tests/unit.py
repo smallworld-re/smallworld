@@ -7204,6 +7204,64 @@ class FindSubclassCacheTests(unittest.TestCase):
         self.assertEqual(one._address, 0x1000)
         self.assertEqual(two._address, 0x2000)
 
+    def test_cached_miss_skips_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "none", cache_key="marker-none"
+            )
+        # A repeated miss must not call check() again: it answers from the cache.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check, cache_key="marker-none")
+        check.assert_not_called()
+
+    def test_uncached_miss_still_traverses(self):
+        # Without a cache_key nothing is memoized: every call walks the whole tree.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        per_call = check.call_count
+        self.assertGreater(per_call, 0)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        self.assertEqual(check.call_count, 2 * per_call)
+
+    def test_forget_subclass_misses_reenables_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "c", cache_key="marker-c"
+            )
+
+        class _ImplC(self._Base):
+            marker = "c"
+
+        utils.forget_subclass_misses()
+        found = utils.find_subclass(
+            self._Base, lambda x: x.marker == "c", 0, cache_key="marker-c"
+        )
+        self.assertIsInstance(found, _ImplC)
+
+    def test_model_defined_after_a_miss_is_found(self):
+        late_platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        late_name = "__find_subclass_late_model"
+        with self.assertRaises(ValueError):
+            Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+
+        # Defining the class is all it takes: Model.__init_subclass__ drops the
+        # memoized miss, with no explicit call from the test.
+        class _LateModel(Model):
+            name = late_name
+            platform = late_platform
+            abi = platforms.ABI.SYSTEMV
+
+            def model(self, emulator):
+                pass
+
+        found = Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+        self.assertIsInstance(found, _LateModel)
+
 
 def _amd64_platform():
     return platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
