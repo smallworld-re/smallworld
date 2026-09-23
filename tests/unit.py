@@ -9973,6 +9973,72 @@ class LoopDetectionStrandSplitTests(unittest.TestCase):
         H, A, B = 0x10, 0x14, 0x18
         hinter = self._run([H, A, B, H, A, B, H])
         self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
+        
+        
+class _FakeReadMemEmulator:
+    """Minimal emulator with the real read_memory contract for the c99 helpers.
+
+    read_memory returns bytes or *raises* on an unmapped/oversized read (never
+    None), and get_memory_map reports the mapped ranges. Records every read
+    size so a test can assert the speculative bulk read was clamped.
+    """
+
+    def __init__(self, ranges, data):
+        self._ranges = list(ranges)  # [(start, end), ...]
+        self._data = dict(data)  # {addr: byte value}
+        self.read_sizes = []
+
+    def get_memory_map(self):
+        return list(self._ranges)
+
+    def _fully_mapped(self, addr, size):
+        return any(s <= addr and addr + size <= e for s, e in self._ranges)
+
+    def read_memory(self, addr, size):
+        self.read_sizes.append(size)
+        if size and not self._fully_mapped(addr, size):
+            raise Exception("unmapped read")
+        return bytes(self._data.get(addr + i, 0) for i in range(size))
+
+
+class C99StrncmpClampReadTests(unittest.TestCase):
+    """strcmp/strncmp clamp their speculative bulk read to the mapped extent so
+    a string near a segment boundary is not read MAX_STRLEN (64 KB) past its
+    region (NEW-002). Results are unchanged; only the wasted, faulting
+    over-read is removed. Asserted on read sizes, not on log output.
+    """
+
+    def test_strcmp_clamps_bulk_read_and_returns_equal(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        # One mapped page with "hi\0" at the start; a MAX_STRLEN read from here
+        # would run 64 KB past the page end.
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {0x1000: ord("h"), 0x1001: ord("i"), 0x1002: 0},
+        )
+        # strcmp routes through _emu_strncmp with n == MAX_STRLEN.
+        self.assertEqual(_emu_strncmp(emu, 0x1000, 0x1000, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+        self.assertLessEqual(max(emu.read_sizes), 0x1000)
+
+    def test_strncmp_mismatch_result_correct_when_clamped(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {
+                0x1000: ord("h"),
+                0x1001: ord("i"),
+                0x1002: 0,
+                0x1800: ord("h"),
+                0x1801: ord("o"),
+                0x1802: 0,
+            },
+        )
+        # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
+        self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
 
 
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
@@ -10097,6 +10163,31 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
         img = self._image([self._sym("label", None)])
         with self.assertRaises(KeyError):
             img.get_function_end("label")
+
+
+class TrackerMemoryPpInspectTests(unittest.TestCase):
+    """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
+    defaulting/tracking mid-print -- the recursion the class warns about and
+    that create_hint() already guards against (SW-135)."""
+
+    def test_pp_load_passes_inspect_false(self):
+        from smallworld.emulators.angr.memory.memtrack import TrackerMemoryMixin
+
+        mixin = TrackerMemoryMixin.__new__(TrackerMemoryMixin)
+        mixin.dirty = {0x1000: 4}
+        mixin.id = "mem"  # non-reg -> name via hex(addr), so self.state is unused
+        calls = []
+
+        def fake_load(addr, size, **kwargs):
+            calls.append((addr, size, kwargs))
+            return 0
+
+        mixin.load = fake_load
+        mixin.pp(lambda line: None)
+
+        self.assertEqual(len(calls), 1)
+        self.assertIs(calls[0][2].get("inspect"), False)
+        self.assertIs(calls[0][2].get("disable_actions"), True)
 
 
 if __name__ == "__main__":
