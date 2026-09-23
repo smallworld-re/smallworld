@@ -3732,6 +3732,18 @@ class MemoryRangeMergeTests(unittest.TestCase):
             [range(0x1000, 0x1005)],
         )
 
+    def test_ranges_uninitialized_skips_overlapping_segments(self):
+        # SW-177: overlapping segments (a 4-byte value at 0 and a 3-byte value
+        # at 2) have no gap between them; the old code emitted a backwards
+        # range(0x1004, 0x1001) here.
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\xaa" * 4, None)  # [0x1000, 0x1003]
+        memory[2] = state.BytesValue(b"\xbb" * 3, None)  # [0x1002, 0x1004]
+        ranges = memory.get_ranges_uninitialized()
+        self.assertTrue(all(r.start <= r.stop for r in ranges))
+        # Only the tail past the union of the two segments is uninitialized.
+        self.assertEqual(ranges, [range(0x1005, 0x100F)])
+
 
 class CheckedBumpAllocatorTests(unittest.TestCase):
     """Tests for state.memory.heap.CheckedBumpAllocator."""
@@ -7192,6 +7204,64 @@ class FindSubclassCacheTests(unittest.TestCase):
         self.assertEqual(one._address, 0x1000)
         self.assertEqual(two._address, 0x2000)
 
+    def test_cached_miss_skips_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "none", cache_key="marker-none"
+            )
+        # A repeated miss must not call check() again: it answers from the cache.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check, cache_key="marker-none")
+        check.assert_not_called()
+
+    def test_uncached_miss_still_traverses(self):
+        # Without a cache_key nothing is memoized: every call walks the whole tree.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        per_call = check.call_count
+        self.assertGreater(per_call, 0)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        self.assertEqual(check.call_count, 2 * per_call)
+
+    def test_forget_subclass_misses_reenables_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "c", cache_key="marker-c"
+            )
+
+        class _ImplC(self._Base):
+            marker = "c"
+
+        utils.forget_subclass_misses()
+        found = utils.find_subclass(
+            self._Base, lambda x: x.marker == "c", 0, cache_key="marker-c"
+        )
+        self.assertIsInstance(found, _ImplC)
+
+    def test_model_defined_after_a_miss_is_found(self):
+        late_platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        late_name = "__find_subclass_late_model"
+        with self.assertRaises(ValueError):
+            Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+
+        # Defining the class is all it takes: Model.__init_subclass__ drops the
+        # memoized miss, with no explicit call from the test.
+        class _LateModel(Model):
+            name = late_name
+            platform = late_platform
+            abi = platforms.ABI.SYSTEMV
+
+            def model(self, emulator):
+                pass
+
+        found = Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+        self.assertIsInstance(found, _LateModel)
+
 
 def _amd64_platform():
     return platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
@@ -7508,10 +7578,19 @@ class FieldDetectionFilterTests(unittest.TestCase):
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxInterruptDispatcherTests(unittest.TestCase):
-    """Exactly one processor-level InterruptHook dispatcher is registered.
+    """Exactly one processor-level InterruptHook dispatcher is registered, and
+    it fires BOTH the global and per-number handlers.
 
-    The old code registered a second InterruptHook when hook_interrupt()
-    was followed by hook_interrupts(), double-firing handlers.
+    Two properties are checked:
+
+    - Only one InterruptHook is registered no matter which order hook_interrupt
+      / hook_interrupts are called in (the old code registered a second one,
+      double-firing every handler).
+    - A hooked interrupt number runs the global handler AND the per-number
+      handler (global first), matching the InterruptHookable contract as
+      implemented by the Unicorn and Panda backends. The old dispatcher ran the
+      per-number handler *instead of* the global one (SW-072), so a specific
+      hook silently suppressed the catch-all.
     """
 
     def setUp(self):
@@ -7521,13 +7600,16 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.emu = emulators.StyxEmulator(self.platform)
         self.per_calls = []
         self.glob_calls = []
+        self.order = []
 
     def _per_handler(self, emu):
         self.per_calls.append(emu)
+        self.order.append(("per",))
         return True
 
     def _glob_handler(self, emu, intno):
         self.glob_calls.append(intno)
+        self.order.append(("glob", intno))
         return True
 
     def _capture_dispatchers(self, *hook_calls):
@@ -7562,24 +7644,28 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.assertEqual(len(captured), len(interrupt_registrations))
         return captured
 
+    def _assert_both_fire(self, dispatcher):
+        # A hooked interrupt number fires the global handler AND the per-number
+        # handler, global first.
+        dispatcher(object(), 3)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3])
+        self.assertEqual(self.order, [("glob", 3), ("per",)])
+
+        # An unhooked number fires only the global handler (no per-number hook
+        # for it), and does not re-fire the per-number handler.
+        dispatcher(object(), 5)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3, 5])
+        self.assertEqual(self.order, [("glob", 3), ("per",), ("glob", 5)])
+
     def test_per_number_then_global_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
             lambda: self.emu.hook_interrupt(3, self._per_handler),
             lambda: self.emu.hook_interrupts(self._glob_handler),
         )
         self.assertEqual(len(dispatchers), 1)
-
-        dispatcher = dispatchers[0]
-
-        # A hooked interrupt number fires ONLY the per-number handler, once.
-        dispatcher(object(), 3)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [])
-
-        # An unhooked number falls through to the global handler, once.
-        dispatcher(object(), 5)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [5])
+        self._assert_both_fire(dispatchers[0])
 
     def test_global_then_per_number_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
@@ -7587,13 +7673,36 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
             lambda: self.emu.hook_interrupt(3, self._per_handler),
         )
         self.assertEqual(len(dispatchers), 1)
+        self._assert_both_fire(dispatchers[0])
 
-        dispatcher = dispatchers[0]
-        dispatcher(object(), 3)
+    def test_per_number_only_still_fires_without_global(self):
+        # With no global hook registered, a hooked number still fires its
+        # per-number handler (and nothing else).
+        dispatchers = self._capture_dispatchers(
+            lambda: self.emu.hook_interrupt(3, self._per_handler),
+        )
+        self.assertEqual(len(dispatchers), 1)
+        dispatchers[0](object(), 3)
         self.assertEqual(self.per_calls, [self.emu])
         self.assertEqual(self.glob_calls, [])
-        dispatcher(object(), 5)
-        self.assertEqual(self.glob_calls, [5])
+
+
+class StyxStubProgramFdTests(unittest.TestCase):
+    """The RawLoader stub tempfile handle is closed once its path is captured.
+
+    Only the path is needed after target_program is set; leaving the handle
+    open leaked a file descriptor until GC (SW-149).
+    """
+
+    def test_stub_handle_closed_but_file_retained(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # Handle is closed (no leaked fd)...
+        self.assertTrue(emu._stub_program.closed)
+        # ...but the file is retained on disk for the loader (delete=False).
+        self.assertTrue(os.path.exists(emu._stub_program.name))
 
 
 class RangeCollectionMissingRangesSignatureTests(unittest.TestCase):
@@ -7731,6 +7840,129 @@ class GhidraDefaultSpaceCacheTests(unittest.TestCase):
             int(emu._default_space.getSpaceID()), int(expected.getSpaceID())
         )
         self.assertTrue(emu._default_space.equals(expected))
+
+
+class GhidraMultiByteBoundsCheckTests(unittest.TestCase):
+    """Read/write guards must validate every byte of a multi-byte access.
+
+    The old guard called ``contains_value(addr)``, which only checks the
+    starting byte, so an access beginning inside a region but running off its
+    end straddled into unmapped memory without raising. ``_require_mapped``
+    validates the whole span and reports the first unmapped byte.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.emu = _ghidra_concrete_emulator(platforms.Architecture.X86_64)
+
+    @staticmethod
+    def _map(*ranges):
+        mm = utils.RangeCollection()
+        for r in ranges:
+            mm.add_range(r)
+        return mm
+
+    def _run_with_map(self, mm, fn):
+        # Swap in a private memory map so the shared cached emulator is never
+        # polluted, then restore it.
+        saved = self.emu._memory_map
+        self.emu._memory_map = mm
+        try:
+            return fn(self.emu)
+        finally:
+            self.emu._memory_map = saved
+
+    def test_multibyte_read_straddling_region_end_is_rejected(self):
+        def check(emu):
+            # Fully inside the region: must not raise.
+            emu._require_mapped(
+                0x1000, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+            )
+            # Last mapped byte is 0x1FFF; a 4-byte read from 0x1FFE runs to
+            # 0x2002, off the end of the region.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            # Reports the first unmapped byte, not the (mapped) start address.
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_multibyte_write_straddling_region_end_is_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationWriteUnmappedFailure, "Write"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_access_spanning_a_hole_between_regions_is_rejected(self):
+        def check(emu):
+            # Two regions with a one-page gap; an 8-byte read at the end of the
+            # first region crosses the hole.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x4000)), check)
+
+    def test_single_unmapped_byte_still_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+                emu._require_mapped(
+                    0x3000, 1, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_wide_access_into_narrow_hooked_region_is_allowed(self):
+        # An MMIO model registers its region both in the memory map (at its
+        # true, possibly sub-word size) and as a ranged access hook. The model
+        # owns the access, so a wider-than-region load/store beginning inside
+        # the hook must NOT raise -- even though the trailing bytes fall outside
+        # the mapped region. (Regression: the integration corpus signals success
+        # by reading a 1-byte sentinel with a word-sized load.)
+        def check(emu):
+            hook = (0x3000, 0x3001)
+            # 4-byte read starting on the 1-byte hooked region: allowed.
+            emu._require_mapped(
+                0x3000,
+                4,
+                exceptions.EmulationReadUnmappedFailure,
+                "Read",
+                [hook],
+            )
+            # Same for a write.
+            emu._require_mapped(
+                0x3000,
+                8,
+                exceptions.EmulationWriteUnmappedFailure,
+                "Write",
+                [hook],
+            )
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+    def test_wide_access_outside_hooked_region_still_rejected(self):
+        # The exemption keys off the access's starting byte. A read that begins
+        # in plain RAM and runs off its end is rejected even when an unrelated
+        # hooked region exists elsewhere.
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE,
+                    4,
+                    exceptions.EmulationReadUnmappedFailure,
+                    "Read",
+                    [(0x3000, 0x3001)],
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
 
 
 class GhidraMips64DelaySlotMnemonicTests(unittest.TestCase):
@@ -8328,6 +8560,91 @@ class PandaWriteMemoryContentTests(unittest.TestCase):
 
         chunks = _panda_write_chunks(self.emu)
         self.assertEqual(chunks, [(address, content)])
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaMips64MmioBoundsTests(unittest.TestCase):
+    """The MIPS64 MMIO guard rejects writes into the reserved [2**32, ...)
+    space, but a write whose exclusive end lands exactly on 2**32 (last byte
+    at 2**32 - 1) stays in normal memory and must be allowed (SW-147)."""
+
+    def setUp(self):
+        self.emu = _PandaEmulator.__new__(_PandaEmulator)
+        self.emu.PAGE_SIZE = _PANDA_PAGE
+        self.emu.platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.emu.mapped_pages = utils.RangeCollection()
+        self.emu.panda_thread = mock.Mock()
+
+    def test_write_ending_exactly_at_2_32_is_allowed(self):
+        address = 2**32 - 4
+        self.emu.write_memory_content(address, b"\x00\x00\x00\x00")
+        self.assertEqual(
+            _panda_write_chunks(self.emu), [(address, b"\x00\x00\x00\x00")]
+        )
+
+    def test_write_ending_past_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32 - 4, b"\x00" * 5)
+
+    def test_write_starting_at_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32, b"\x00\x00\x00\x00")
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaRegisterAccessExceptionTests(unittest.TestCase):
+    """read/write_register_content must not swallow BaseException via a bare
+    ``except:`` (SW-146). KeyboardInterrupt/SystemExit propagate; only ordinary
+    errors are wrapped as AnalysisError."""
+
+    def setUp(self):
+        self.emu = _make_bare_panda_emulator()
+        self.emu.cpu = mock.Mock()
+        md = self.emu.panda_thread.machdef
+        md.check_panda_reg.return_value = True
+        # "pc" maps to a distinct reg so a plain register name isn't mistaken
+        # for the program counter and short-circuited.
+        md.panda_reg.side_effect = lambda reg, *a, **k: (
+            "PC_REG" if reg == "pc" else "r1"
+        )
+
+    def test_read_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.read_register_content("r1")
+
+    def test_read_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.read_register_content("r1")
+
+    def test_write_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.write_register_content("r1", 0x1234)
+
+    def test_write_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.write_register_content("r1", 0x1234)
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaCurrentInstructionUndecodableTests(unittest.TestCase):
+    """current_instruction returns None (not raises) when the bytes at pc don't
+    decode (SW-148). The on_insn callback relies on the falsy return to skip
+    undecodable instructions gracefully, so this pins that contract; the fix
+    only makes the Optional return type honest."""
+
+    def test_undecodable_bytes_return_none(self):
+        emu = _make_bare_panda_emulator()
+        emu.pc = 0x400000
+        emu.read_memory = mock.Mock(return_value=b"\x00" * 15)
+        emu.disassembler = mock.Mock()
+        emu.disassembler.disasm.return_value = []
+        self.assertIsNone(emu.current_instruction())
 
 
 _FUZZFIX_UNICORNAFL_AVAILABLE = importlib.util.find_spec("unicornafl") is not None
@@ -9675,6 +9992,51 @@ class C99StrncmpClampReadTests(unittest.TestCase):
         # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
         self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
         self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+        
+        
+class VxWorksFunctionEndLookupTests(unittest.TestCase):
+    """get_function_end must find the function even when a same-named
+    non-function symbol (e.g. a data label) precedes it in the table.
+
+    A single name can be shared by several symbols; the old lookup acted on the
+    first match and raised if it happened to be a non-function, hiding the real
+    function that appeared later. VXWorksImage's module imports the commercial
+    ``binaryninja`` package at import time, so it is stubbed here; the method
+    under test is pure Python over ``self._symbols``.
+    """
+
+    @staticmethod
+    def _image(symbols):
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            from smallworld.state.memory.vxworks.vxworks import VXWorksImage
+        img = VXWorksImage.__new__(VXWorksImage)
+        img._symbols = symbols
+        return img
+
+    @staticmethod
+    def _sym(name, func_end):
+        return {
+            "name": name,
+            "full_name": name,
+            "short_name": name,
+            "func_end": func_end,
+        }
+
+    def test_returns_function_end_past_leading_data_label(self):
+        # Data label (func_end=None) shares the name and comes first; the real
+        # function follows. The end must still be found.
+        img = self._image([self._sym("handler", None), self._sym("handler", 0x4020)])
+        self.assertEqual(img.get_function_end("handler"), 0x4020)
+
+    def test_unknown_name_raises(self):
+        img = self._image([self._sym("handler", 0x4020)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("nope")
+
+    def test_only_non_function_matches_raises(self):
+        img = self._image([self._sym("label", None)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("label")
 
 
 if __name__ == "__main__":
