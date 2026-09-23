@@ -4897,6 +4897,21 @@ class SocketRecvModelTests(ModelTestCase):
         self.assertEqual(n, len(b"Hello, world!"))
         self.assertEqual(self.emu.read_memory(self.BUF, n), b"Hello, world!")
 
+    def test_recv_peek_leaves_data_queued(self):
+        # SW-203: MSG_PEEK (peek=True) must not consume; a following recv sees
+        # the same bytes.
+        sock = self._bytes_socket(b"payload")
+        peeked, _ = sock.recv(True)
+        consumed, _ = sock.recv(False)
+        self.assertEqual(peeked, b"payload")
+        self.assertEqual(consumed, b"payload")
+
+    def test_recv_without_peek_consumes(self):
+        # Regression: a normal recv consumes, so a second recv sees nothing.
+        sock = self._bytes_socket(b"payload")
+        self.assertEqual(sock.recv(False)[0], b"payload")
+        self.assertEqual(sock.recv(False)[0], b"")
+
     def test_recv_on_unreadable_socket_returns_minus_one(self):
         # SW-048: recv() raises FDIOUnsupported; the model must report -1.
         recv, fd = self._install("recv", self._unreadable_socket())
@@ -6722,7 +6737,7 @@ class _ModelsRecvSocket(SocketIO):
         self._data = data
         self._peer = peer
 
-    def on_recv(self):
+    def on_recv(self, peek):
         return (self._data, self._peer)
 
 
