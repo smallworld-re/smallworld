@@ -10095,8 +10095,8 @@ class FieldDetectionHinterPlumbingTests(unittest.TestCase):
         h = hinting.Hinter()
         f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
         self.assertIs(f.hinter, h)
-        
-        
+
+
 class TrackerMemoryPpInspectTests(unittest.TestCase):
     """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
     defaulting/tracking mid-print -- the recursion the class warns about and
