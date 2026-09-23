@@ -9971,8 +9971,8 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
-        
-        
+
+
 class _FakeReadMemEmulator:
     """Minimal emulator with the real read_memory contract for the c99 helpers.
 
