@@ -7842,6 +7842,129 @@ class GhidraDefaultSpaceCacheTests(unittest.TestCase):
         self.assertTrue(emu._default_space.equals(expected))
 
 
+class GhidraMultiByteBoundsCheckTests(unittest.TestCase):
+    """Read/write guards must validate every byte of a multi-byte access.
+
+    The old guard called ``contains_value(addr)``, which only checks the
+    starting byte, so an access beginning inside a region but running off its
+    end straddled into unmapped memory without raising. ``_require_mapped``
+    validates the whole span and reports the first unmapped byte.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.emu = _ghidra_concrete_emulator(platforms.Architecture.X86_64)
+
+    @staticmethod
+    def _map(*ranges):
+        mm = utils.RangeCollection()
+        for r in ranges:
+            mm.add_range(r)
+        return mm
+
+    def _run_with_map(self, mm, fn):
+        # Swap in a private memory map so the shared cached emulator is never
+        # polluted, then restore it.
+        saved = self.emu._memory_map
+        self.emu._memory_map = mm
+        try:
+            return fn(self.emu)
+        finally:
+            self.emu._memory_map = saved
+
+    def test_multibyte_read_straddling_region_end_is_rejected(self):
+        def check(emu):
+            # Fully inside the region: must not raise.
+            emu._require_mapped(
+                0x1000, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+            )
+            # Last mapped byte is 0x1FFF; a 4-byte read from 0x1FFE runs to
+            # 0x2002, off the end of the region.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            # Reports the first unmapped byte, not the (mapped) start address.
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_multibyte_write_straddling_region_end_is_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationWriteUnmappedFailure, "Write"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_access_spanning_a_hole_between_regions_is_rejected(self):
+        def check(emu):
+            # Two regions with a one-page gap; an 8-byte read at the end of the
+            # first region crosses the hole.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x4000)), check)
+
+    def test_single_unmapped_byte_still_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+                emu._require_mapped(
+                    0x3000, 1, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_wide_access_into_narrow_hooked_region_is_allowed(self):
+        # An MMIO model registers its region both in the memory map (at its
+        # true, possibly sub-word size) and as a ranged access hook. The model
+        # owns the access, so a wider-than-region load/store beginning inside
+        # the hook must NOT raise -- even though the trailing bytes fall outside
+        # the mapped region. (Regression: the integration corpus signals success
+        # by reading a 1-byte sentinel with a word-sized load.)
+        def check(emu):
+            hook = (0x3000, 0x3001)
+            # 4-byte read starting on the 1-byte hooked region: allowed.
+            emu._require_mapped(
+                0x3000,
+                4,
+                exceptions.EmulationReadUnmappedFailure,
+                "Read",
+                [hook],
+            )
+            # Same for a write.
+            emu._require_mapped(
+                0x3000,
+                8,
+                exceptions.EmulationWriteUnmappedFailure,
+                "Write",
+                [hook],
+            )
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+    def test_wide_access_outside_hooked_region_still_rejected(self):
+        # The exemption keys off the access's starting byte. A read that begins
+        # in plain RAM and runs off its end is rejected even when an unrelated
+        # hooked region exists elsewhere.
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE,
+                    4,
+                    exceptions.EmulationReadUnmappedFailure,
+                    "Read",
+                    [(0x3000, 0x3001)],
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+
 class GhidraMips64DelaySlotMnemonicTests(unittest.TestCase):
     """A missing comma fused "bne", "bnez" into one "bnebnez" entry."""
 
