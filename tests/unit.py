@@ -9707,8 +9707,8 @@ class LoopDetectionStrandSplitTests(unittest.TestCase):
         H, A, B = 0x10, 0x14, 0x18
         hinter = self._run([H, A, B, H, A, B, H])
         self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
-        
-        
+
+
 class VxWorksFunctionEndLookupTests(unittest.TestCase):
     """get_function_end must find the function even when a same-named
     non-function symbol (e.g. a data label) precedes it in the table.
