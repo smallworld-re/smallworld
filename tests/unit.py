@@ -9992,8 +9992,8 @@ class C99StrncmpClampReadTests(unittest.TestCase):
         # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
         self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
         self.assertNotIn(MAX_STRLEN, emu.read_sizes)
-        
-        
+
+
 class VxWorksFunctionEndLookupTests(unittest.TestCase):
     """get_function_end must find the function even when a same-named
     non-function symbol (e.g. a data label) precedes it in the table.
