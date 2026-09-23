@@ -9882,8 +9882,8 @@ class BinjaDatabaseBvCleanupTests(unittest.TestCase):
                 m.BinjaDatabase("dummy.bndb")
         # The BinaryView is still closed on this path too.
         bv.file.close.assert_called_once()
-        
-        
+
+
 class VxWorksFunctionEndLookupTests(unittest.TestCase):
     """get_function_end must find the function even when a same-named
     non-function symbol (e.g. a data label) precedes it in the table.
