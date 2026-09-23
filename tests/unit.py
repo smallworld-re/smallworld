@@ -7810,6 +7810,51 @@ class GhidraMultiByteBoundsCheckTests(unittest.TestCase):
 
         self._run_with_map(self._map((0x1000, 0x2000)), check)
 
+    def test_wide_access_into_narrow_hooked_region_is_allowed(self):
+        # An MMIO model registers its region both in the memory map (at its
+        # true, possibly sub-word size) and as a ranged access hook. The model
+        # owns the access, so a wider-than-region load/store beginning inside
+        # the hook must NOT raise -- even though the trailing bytes fall outside
+        # the mapped region. (Regression: the integration corpus signals success
+        # by reading a 1-byte sentinel with a word-sized load.)
+        def check(emu):
+            hook = (0x3000, 0x3001)
+            # 4-byte read starting on the 1-byte hooked region: allowed.
+            emu._require_mapped(
+                0x3000,
+                4,
+                exceptions.EmulationReadUnmappedFailure,
+                "Read",
+                [hook],
+            )
+            # Same for a write.
+            emu._require_mapped(
+                0x3000,
+                8,
+                exceptions.EmulationWriteUnmappedFailure,
+                "Write",
+                [hook],
+            )
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+    def test_wide_access_outside_hooked_region_still_rejected(self):
+        # The exemption keys off the access's starting byte. A read that begins
+        # in plain RAM and runs off its end is rejected even when an unrelated
+        # hooked region exists elsewhere.
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE,
+                    4,
+                    exceptions.EmulationReadUnmappedFailure,
+                    "Read",
+                    [(0x3000, 0x3001)],
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
 
 class GhidraMips64DelaySlotMnemonicTests(unittest.TestCase):
     """A missing comma fused "bne", "bnez" into one "bnebnez" entry."""

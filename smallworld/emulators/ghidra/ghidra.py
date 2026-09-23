@@ -266,11 +266,25 @@ class GhidraEmulator(AbstractGhidraEmulator):
         size: int,
         exc: typing.Type[exceptions.EmulationMemoryFailure],
         verb: str,
+        hooks: typing.Iterable[typing.Tuple[int, int]] = (),
     ) -> None:
         # contains_value() only checks the starting byte; a multi-byte access
         # can begin inside a mapped region and run off its end into unmapped
         # memory. Validate every byte of [addr, addr + size) and report the
         # first unmapped one.
+        #
+        # An access directed at a hooked (MMIO) region is a special case: the
+        # region's model owns the access semantics and may legitimately be
+        # declared narrower than the instruction that reads/writes it (e.g. a
+        # 1-byte device polled with a word-sized load). The model, not the
+        # backing store, supplies the value, so skip the span check when the
+        # access begins inside a hooked range. This keeps ordinary RAM strict
+        # -- a read/write that starts in plain memory and runs off the end into
+        # unmapped space is still rejected.
+        for start, end in hooks:
+            if start <= addr < end:
+                return
+
         missing = self._memory_map.get_missing_ranges((addr, addr + size))
         if missing:
             raise exc(
@@ -301,6 +315,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             out_var.getSize(),
             exceptions.EmulationReadUnmappedFailure,
             "Read",
+            self._mem_read_hooks,
         )
 
         # Dereference the address to get the original data
@@ -380,6 +395,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             len(data),
             exceptions.EmulationWriteUnmappedFailure,
             "Write",
+            self._mem_write_hooks,
         )
 
         if self._mem_writes_hook is not None:
