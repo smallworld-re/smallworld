@@ -5951,6 +5951,29 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
 
+class ElfIgnorePlatformTests(unittest.TestCase):
+    """ElfExecutable(ignore_platform=True, platform=None) must load without
+    dereferencing a None platform in _extract_symbols (SW-083)."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "c99",
+        "fabs",
+        "fabs.amd64.elf",
+    )
+
+    def test_load_without_platform_does_not_crash(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            # ignore_platform=True + platform=None leaves self.platform None; the
+            # MIPS symbol-fixup block used to dereference it unconditionally.
+            elf = ElfExecutable(
+                f, platform=None, ignore_platform=True, user_base=0x100000
+            )
+        self.assertIsNone(elf.platform)
+
+
 class TlsDescObjectFileTests(unittest.TestCase):
     """An unlinked object reaches thread-locals through a GOT that has no GOT.
 

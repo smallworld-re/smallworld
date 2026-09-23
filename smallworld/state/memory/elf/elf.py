@@ -532,7 +532,7 @@ class ElfExecutable(Executable):
         if ehdr.program_header_offset >= len(image):
             # Obviously-invalid program headers
             raise ConfigurationError(
-                f"Invalid section header offset {hex(ehdr.section_header_offset)}"
+                f"Invalid program header offset {hex(ehdr.program_header_offset)}"
             )
 
         for phdr in elf.segments:
@@ -816,7 +816,9 @@ class ElfExecutable(Executable):
 
             idx += 1
 
-        if (
+        # self.platform is None when constructed with ignore_platform=True and
+        # no explicit platform; guard the access as the header-block paths do.
+        if self.platform is not None and (
             self.platform.architecture == Architecture.MIPS32
             or self.platform.architecture == Architecture.MIPS64
         ):
