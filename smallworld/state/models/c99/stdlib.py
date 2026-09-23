@@ -12,7 +12,7 @@ from ..cstd import ArgumentType, CStdModel
 from ..tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 from .utils import _emu_strlen
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class Abort(CStdModel):
@@ -888,7 +888,7 @@ class Realloc(CStdModel):
         assert isinstance(ptr, int)
         assert isinstance(size, int)
 
-        logger.warning(f"REALLOC {hex(ptr)}, {size}")
+        logger.debug(f"realloc({hex(ptr)}, {size})")
 
         if ptr == 0:
             res = self.heap.allocate_bytes(b"\0" * size, None)
