@@ -350,11 +350,16 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for segment_offset, segment in sorted(self.items()):
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size()
-            if next_segment_start != segment_start:
+            # Only a genuine gap before this segment is uninitialized. When
+            # segments overlap (segment_start < next_segment_start) there is no
+            # gap, so emitting a range here would produce a backwards/empty one.
+            if segment_start > next_segment_start:
                 out.append(range(next_segment_start, segment_start - 1))
-            next_segment_start = segment_end
+            # Keep the furthest end reached so an overlapping segment does not
+            # rewind the cursor.
+            next_segment_start = max(next_segment_start, segment_end)
 
-        if next_segment_start != self.address + self.get_capacity():
+        if next_segment_start < self.address + self.get_capacity():
             out.append(
                 range(next_segment_start, self.address + self.get_capacity() - 1)
             )
