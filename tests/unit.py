@@ -9973,8 +9973,8 @@ class LoopDetectionStrandSplitTests(unittest.TestCase):
         H, A, B = 0x10, 0x14, 0x18
         hinter = self._run([H, A, B, H, A, B, H])
         self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
-        
-        
+
+
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
     """BinjaDatabase.__init__ must close the BinaryView on every error path
     (SW-082) and surface a missing platform definition as ConfigurationError
