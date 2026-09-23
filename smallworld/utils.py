@@ -54,6 +54,24 @@ T = typing.TypeVar("T")
 # __subclasses__ traversal after the first miss.
 _SUBCLASS_CACHE: typing.Dict[typing.Tuple[type, typing.Hashable], type] = {}
 
+# The (cls, cache_key) pairs for which a full traversal found NO subclass.  A
+# miss is the expensive case -- it walks every subclass of `cls` -- and a hot
+# caller can repeat the same miss constantly (e.g. a library advertising a
+# model name that has no implementation on this platform, looked up again on
+# every populate_machine).  Unlike a hit, a miss can go stale when a matching
+# subclass is defined later, so a base class that passes cache_key must call
+# forget_subclass_misses() from its __init_subclass__ (see Model).
+_SUBCLASS_MISSES: typing.Set[typing.Tuple[type, typing.Hashable]] = set()
+
+
+def forget_subclass_misses() -> None:
+    """Drop every memoized find_subclass miss.
+
+    Call this whenever a new subclass that a cached lookup could select comes
+    into existence, so a lookup that previously found nothing searches again.
+    """
+    _SUBCLASS_MISSES.clear()
+
 
 def find_subclass(
     cls: typing.Type[T],
@@ -76,8 +94,9 @@ def find_subclass(
         args: Any positional/variadic args to pass to the initializer
         cache_key: Optional hashable that, together with `cls`, uniquely
             determines which subclass `check` selects.  When given, the resolved
-            class is memoized under it so later lookups skip the traversal.  Pass
-            it ONLY when the selection is a pure function of the key.
+            class is memoized under it so later lookups skip the traversal; so
+            is the absence of one, until forget_subclass_misses() is called.
+            Pass it ONLY when the selection is a pure function of the key.
         kwargs: Any keyword arguments to pass to the initializer
 
     Returns: An instance of a subclass of cls matching the criteria from check
@@ -89,6 +108,8 @@ def find_subclass(
         cached = _SUBCLASS_CACHE.get((cls, cache_key))
         if cached is not None:
             return cached(*args, **kwargs)
+        if (cls, cache_key) in _SUBCLASS_MISSES:
+            raise ValueError(f"No instance of {cls} matching criteria")
 
     class_stack: typing.List[typing.Type[T]] = [cls]
     while len(class_stack) > 0:
@@ -102,6 +123,8 @@ def find_subclass(
         # need to call this on each sublclass to do a full traversal.
         class_stack.extend(impl.__subclasses__())
 
+    if cache_key is not None:
+        _SUBCLASS_MISSES.add((cls, cache_key))
     raise ValueError(f"No instance of {cls} matching criteria")
 
 
@@ -740,9 +763,9 @@ class RangeCollection(Iterable):
         if lo is not None:
             # We are not the lowest range
             lo_start, lo_end = lo
-            if lo_start == start and lo_end == lo:
+            if lo_start == start and lo_end == end:
                 # We exactly match an existing range
-                self._ranges.remove(arange)
+                self._ranges.remove(lo)
                 return
             if start >= lo_start and start < lo_end:
                 # We collide with lo.
