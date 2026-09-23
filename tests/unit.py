@@ -8439,6 +8439,91 @@ class PandaWriteMemoryContentTests(unittest.TestCase):
         self.assertEqual(chunks, [(address, content)])
 
 
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaMips64MmioBoundsTests(unittest.TestCase):
+    """The MIPS64 MMIO guard rejects writes into the reserved [2**32, ...)
+    space, but a write whose exclusive end lands exactly on 2**32 (last byte
+    at 2**32 - 1) stays in normal memory and must be allowed (SW-147)."""
+
+    def setUp(self):
+        self.emu = _PandaEmulator.__new__(_PandaEmulator)
+        self.emu.PAGE_SIZE = _PANDA_PAGE
+        self.emu.platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.emu.mapped_pages = utils.RangeCollection()
+        self.emu.panda_thread = mock.Mock()
+
+    def test_write_ending_exactly_at_2_32_is_allowed(self):
+        address = 2**32 - 4
+        self.emu.write_memory_content(address, b"\x00\x00\x00\x00")
+        self.assertEqual(
+            _panda_write_chunks(self.emu), [(address, b"\x00\x00\x00\x00")]
+        )
+
+    def test_write_ending_past_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32 - 4, b"\x00" * 5)
+
+    def test_write_starting_at_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32, b"\x00\x00\x00\x00")
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaRegisterAccessExceptionTests(unittest.TestCase):
+    """read/write_register_content must not swallow BaseException via a bare
+    ``except:`` (SW-146). KeyboardInterrupt/SystemExit propagate; only ordinary
+    errors are wrapped as AnalysisError."""
+
+    def setUp(self):
+        self.emu = _make_bare_panda_emulator()
+        self.emu.cpu = mock.Mock()
+        md = self.emu.panda_thread.machdef
+        md.check_panda_reg.return_value = True
+        # "pc" maps to a distinct reg so a plain register name isn't mistaken
+        # for the program counter and short-circuited.
+        md.panda_reg.side_effect = lambda reg, *a, **k: (
+            "PC_REG" if reg == "pc" else "r1"
+        )
+
+    def test_read_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.read_register_content("r1")
+
+    def test_read_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.read_register_content("r1")
+
+    def test_write_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.write_register_content("r1", 0x1234)
+
+    def test_write_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.write_register_content("r1", 0x1234)
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaCurrentInstructionUndecodableTests(unittest.TestCase):
+    """current_instruction returns None (not raises) when the bytes at pc don't
+    decode (SW-148). The on_insn callback relies on the falsy return to skip
+    undecodable instructions gracefully, so this pins that contract; the fix
+    only makes the Optional return type honest."""
+
+    def test_undecodable_bytes_return_none(self):
+        emu = _make_bare_panda_emulator()
+        emu.pc = 0x400000
+        emu.read_memory = mock.Mock(return_value=b"\x00" * 15)
+        emu.disassembler = mock.Mock()
+        emu.disassembler.disasm.return_value = []
+        self.assertIsNone(emu.current_instruction())
+
+
 _FUZZFIX_UNICORNAFL_AVAILABLE = importlib.util.find_spec("unicornafl") is not None
 
 
