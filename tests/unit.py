@@ -8022,18 +8022,19 @@ class _GhidraFakeConcretePair:
 
 
 class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
-    """read_memory_symbolic must build concrete BVs in platform byte order.
+    """read_memory_symbolic returns a full-width BV holding the byte sequence.
 
-    The old fallback used claripy.BVV(bytes), which always interprets the
-    buffer big-endian, disagreeing with the little-endian interpretation
-    used everywhere else in the ghidra symbolic emulator.
+    Per the documented contract (state.py) it returns the bytes in memory
+    order -- first byte most significant -- so it agrees with angr (the
+    oracle) and the triton emulator, rather than the platform-endianness
+    integer SymZ3 stores internally.
     """
 
     @classmethod
     def setUpClass(cls):
         cls.emu = _ghidra_symbolic_amd64_emulator()
 
-    def test_concrete_fallback_uses_platform_byte_order(self):
+    def test_concrete_fallback_returns_byte_sequence(self):
         emu = self.emu
         data = bytes(range(0x11, 0x19))
         emu.map_memory(0x4000, 0x1000)
@@ -8045,9 +8046,9 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
             emu._read_memory_pair = original
         self.assertFalse(bv.symbolic)
         self.assertEqual(bv.size(), len(data) * 8)
-        self.assertEqual(bv.concrete_value, int.from_bytes(data, "little"))
+        self.assertEqual(bv.concrete_value, int.from_bytes(data, "big"))
 
-    def test_written_memory_reads_back_in_platform_byte_order(self):
+    def test_written_memory_reads_back_as_byte_sequence(self):
         emu = self.emu
         data = b"\x99\x88\x77\x66\x55\x44\x33\x22"
         emu.map_memory(0x5000, 0x1000)
@@ -8055,10 +8056,12 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
         bv = emu.read_memory_symbolic(0x5000, len(data))
         self.assertFalse(bv.symbolic)
         self.assertEqual(bv.size(), len(data) * 8)
-        self.assertEqual(bv.concrete_value, int.from_bytes(data, "little"))
+        self.assertEqual(bv.concrete_value, int.from_bytes(data, "big"))
+        # read_memory_content returns the raw bytes; read_memory_symbolic is
+        # the same bytes in memory order (first byte most significant).
         self.assertEqual(
             bv.concrete_value,
-            int.from_bytes(emu.read_memory_content(0x5000, len(data)), "little"),
+            int.from_bytes(emu.read_memory_content(0x5000, len(data)), "big"),
         )
 
 
@@ -10189,7 +10192,6 @@ class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
         self.assertEqual(self._read_n(self._mk_angr, data), oracle)
         self.assertEqual(self._read_n(self._mk_triton, data), oracle)
 
-    @unittest.skip("ghidra symbolic read byte-order is corrected separately")
     def test_read_ghidra_matches_oracle(self):
         self.assertEqual(
             self._read_concrete(self._mk_ghidra), int.from_bytes(self.DATA, "big")
@@ -10213,7 +10215,6 @@ class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
         self._assert_labelled_read(self._mk_angr)
         self._assert_labelled_read(self._mk_triton)
 
-    @unittest.skip("ghidra symbolic read byte-order is corrected separately")
     def test_labelled_read_ghidra_matches_oracle(self):
         self._assert_labelled_read(self._mk_ghidra)
 

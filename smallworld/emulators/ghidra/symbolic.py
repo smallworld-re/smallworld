@@ -455,8 +455,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         pair = self._read_memory_pair(address, size)
         sym = pair.getRight()
         if sym is not None:
-            return self._sym_to_claripy(sym)
-        return claripy.BVV(self._int_from_bytes(pair.getLeft()), size * 8)
+            value = self._sym_to_claripy(sym)
+        else:
+            value = claripy.BVV(self._int_from_bytes(pair.getLeft()), size * 8)
+        # Contract (see state.py): read_memory_symbolic returns the byte
+        # SEQUENCE -- first byte most significant -- not the loaded integer, so
+        # it agrees across emulators (angr is the oracle). SymZ3 stores and
+        # reconstructs values in platform byte order, so byte-reverse on a
+        # little-endian platform to recover memory order (mirrors triton).
+        if self._byteorder_str() == "little":
+            value = claripy.Reverse(value)
+        return value
 
     def _sym_to_claripy(self, sym) -> claripy.ast.bv.BV:
         """Lift a Java ``SymValueZ3`` into a claripy bitvector via SMT-LIB."""
@@ -582,7 +591,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self._labeled_memory_ranges.append((address, address + size))
-        self.write_memory_content(address, bv)
+        # ``bv`` is the byte sequence read_memory_symbolic returns (first byte
+        # most significant). write_memory_content stores it in platform byte
+        # order, so byte-reverse on little-endian to keep the memory bytes --
+        # and thus the round-trip -- in order (mirrors the triton emulator).
+        stored = claripy.Reverse(bv) if self._byteorder_str() == "little" else bv
+        self.write_memory_content(address, stored)
 
     # ------------------------------------------------------------------
     # Stepping / running (per-pcode-op pattern from concrete GhidraEmulator)
