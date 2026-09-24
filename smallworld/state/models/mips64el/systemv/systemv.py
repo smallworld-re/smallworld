@@ -88,6 +88,9 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
     _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
     _float_stack_size = 4
+    # A spilled float value is 4 bytes but occupies a full 8-byte stack slot
+    # (verified against mips64el-linux-gnuabi64 output). See cstd.add_argument.
+    _float_stack_slot_size = 8
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:

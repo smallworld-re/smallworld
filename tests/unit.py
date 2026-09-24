@@ -4520,6 +4520,83 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         ctx.add_argument(9, ArgumentType.FLOAT)  # stack slot B
         self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
+    def test_lp64_stack_floats_reserve_eight_bytes(self):
+        # NEW-009: LoongArch64 LP64D, MIPS64 n64, and RISC-V LP64D pass a
+        # spilled float in a full 8-byte stack slot (verified against the
+        # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu
+        # toolchains). Eight float args fill the FP registers; the 9th and 10th
+        # spill and must be 8 bytes apart, not 4.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+            RiscV64SysVCallingContext,
+        ):
+            ctx = cls()
+            for i in range(10):
+                ctx.add_argument(i, ArgumentType.FLOAT)
+            self.assertTrue(ctx._on_stack[8] and ctx._on_stack[9], msg=cls.__name__)
+            self.assertEqual(
+                ctx._arg_offset[9] - ctx._arg_offset[8], 8, msg=cls.__name__
+            )
+
+
+class _RegMemEmulator:
+    """Minimal register+memory mock for set_argument/get_argument tests.
+
+    Unwritten memory reads back as zeroes, so a set/get round-trip only
+    succeeds when both sides agree on the byte position within a stack slot.
+    """
+
+    def __init__(self):
+        self.regs: typing.Dict[str, int] = {}
+        self.mem: typing.Dict[int, int] = {}
+
+    def read_register(self, name):
+        return self.regs.get(name, 0)
+
+    def write_register(self, name, value):
+        self.regs[name] = value
+
+    def read_memory(self, addr, size):
+        return bytes(self.mem.get(addr + i, 0) for i in range(size))
+
+    def write_memory(self, addr, data):
+        for i, b in enumerate(data):
+            self.mem[addr + i] = b
+
+
+class SysVBigEndianStackIntTests(unittest.TestCase):
+    """NEW-010: a 4-byte int spilled to a big-endian n64 stack is the low word
+    of its 8-byte slot, so set_argument must place it at the high-addressed end
+    -- where get_argument (whole-slot read then mask) and the guest read it."""
+
+    SP = 0x7000
+
+    def _roundtrip(self, cls, value):
+        ctx = cls()
+        ctx.set_argument_types([ArgumentType.INT] * 10)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        # arg 8 is the first stack int (eight ints fill a0-a7).
+        self.assertTrue(ctx._on_stack[8], msg=cls.__name__)
+        ctx.set_argument(8, emu, value)
+        return ctx.get_argument(8, ArgumentType.INT, emu)
+
+    def test_mips64_big_endian_stack_int_roundtrips(self):
+        # Discriminating: before the fix set_argument writes the value to the
+        # low-addressed half of the slot while get_argument and the guest read
+        # the high-addressed low word, so the value is silently lost.
+        self.assertEqual(
+            self._roundtrip(MIPS64SysVCallingContext, 0x12345678), 0x12345678
+        )
+
+    def test_mips64el_little_endian_stack_int_roundtrips(self):
+        # Little-endian is unaffected (the value already sits at slot+0).
+        self.assertEqual(
+            self._roundtrip(MIPS64ELSysVCallingContext, 0x12345678), 0x12345678
+        )
+
 
 class ArmHFVfpBackfillTests(unittest.TestCase):
     """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
