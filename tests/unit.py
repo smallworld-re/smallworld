@@ -10118,6 +10118,51 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
             img.get_function_end("label")
 
 
+class ForcedExecutionEarlyStopTests(unittest.TestCase):
+    """execute() raises AnalysisError when the slice diverges before the trace
+    is fully consumed, instead of silently dropping the rest (SW-117). A stop
+    on the final entry is normal completion and must not raise.
+    """
+
+    class _FakeEmu:
+        def __init__(self, stop_index):
+            self.stop_index = stop_index  # entry whose step() stops, or None
+            self._step = 0
+            self.writes = []
+
+        def write_register_content(self, reg, val):
+            self.writes.append((reg, val))
+
+        def step(self):
+            i = self._step
+            self._step += 1
+            if self.stop_index is not None and i == self.stop_index:
+                raise exceptions.EmulationStop()
+
+    def _make(self, trace, stop_index):
+        # ForcedExecution is the concrete subclass; bypass __init__ (which would
+        # build a real AngrEmulator) and drive the inherited execute() directly.
+        from smallworld.analyses.forced_exec.forced_exec import ForcedExecution
+
+        analysis = ForcedExecution.__new__(ForcedExecution)
+        analysis.trace = trace
+        analysis.emulator = self._FakeEmu(stop_index)
+        return analysis
+
+    def test_early_divergence_raises(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=1)
+        with self.assertRaises(exceptions.AnalysisError):
+            analysis.execute()
+
+    def test_stop_on_final_entry_is_completion(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=2)
+        analysis.execute()  # must not raise
+
+    def test_no_stop_completes(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}], stop_index=None)
+        analysis.execute()  # must not raise
+
+
 class TrackerMemoryPpInspectTests(unittest.TestCase):
     """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
     defaulting/tracking mid-print -- the recursion the class warns about and
