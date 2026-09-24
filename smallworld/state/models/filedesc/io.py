@@ -59,7 +59,7 @@ class BasicIO:
         Returns:
             The bytes read from the model
         """
-        raise FDIOUnsupported("File {self.name} does not support reading")
+        raise FDIOUnsupported(f"File {self.name} does not support reading")
 
     def on_seek(self, offset: int, whence: int) -> int:
         """Callback for handling seek operations.

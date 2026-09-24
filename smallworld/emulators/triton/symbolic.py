@@ -308,8 +308,10 @@ class TritonSymbolicEmulator(
 
     def satisfiable(
         self,
-        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
     ) -> bool:
+        if extra_constraints is None:
+            extra_constraints = []
         return self._solver(extra_constraints).satisfiable()
 
     def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:

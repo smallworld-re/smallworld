@@ -76,6 +76,11 @@ def _memhook_expectations(
         f"bar: read {width} bytes at 0x1010",
         f"baz: read {width} bytes at 0x1020",
         f"qux: read {width} bytes at {qux_addr}",
+        # A single access at 0x1040 straddles the two adjacent span hooks; both
+        # must fire (SW-143). Both sit in the first 4-byte chunk, so the access
+        # is reported at 0x1040 on 32-bit (4B) and 64-bit (8B) alike.
+        f"span_lo: read {width} bytes at 0x1040",
+        f"span_hi: read {width} bytes at 0x1040",
     )
     return tuple(((), line) for line in lines)
 

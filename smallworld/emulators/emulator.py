@@ -389,8 +389,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def remove_bound(self, start: int, end: int) -> None:
         self._bounds.remove_range((start, end))
 
-    _exit_points: typing.Set[int] = set()
-
     def get_exit_points(self) -> typing.Set[int]:
         """Get a list of all registered exit points.
 
@@ -1010,7 +1008,7 @@ class ConstrainedEmulator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def satisfiable(
         self,
-        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
     ) -> bool:
         """Check if the current set of constraints is satisfiable
 
