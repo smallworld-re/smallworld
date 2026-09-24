@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tracemalloc
 import types
 import typing
 import unittest
@@ -5562,6 +5563,104 @@ class CallocModelTests(ModelTestCase):
         model = self._calloc()
         ret = self.call(model, 1 << 32, 1 << 32)
         self.assertEqual(ret, 0)
+
+
+class HeapRoomCheckTests(ModelTestCase):
+    """c99/stdlib.py allocator models return NULL when the heap cannot fit the
+    request, and decide that before building the buffer.
+
+    ``b"\\0" * size`` is an argument expression, so it is charged to host RAM
+    before ``allocate()`` can reject it.  A garbage size therefore took the
+    process out rather than failing the allocation.
+    """
+
+    HEAP_ADDR = 0x60000
+    HEAP_SIZE = 0x1000
+    OVERSIZE = 0x10000  # > HEAP_SIZE, but cheap to materialize if we regress
+    HUGE = 1 << 29
+
+    def _model(self, name: str):
+        model = self.lookup(name)
+        model.heap = BumpAllocator(self.HEAP_ADDR, self.HEAP_SIZE)
+        self.emu.map_memory(self.HEAP_ADDR, self.HEAP_SIZE)
+        return model
+
+    def _assert_null_without_allocating(self, name: str, *args) -> None:
+        """NULL, without ever reaching allocate_bytes -- whose argument is the
+        buffer we are trying not to build."""
+        model = self._model(name)
+        reached: typing.List[tuple] = []
+
+        def spy(*args, **kwargs) -> int:
+            reached.append(args)
+            return 0
+
+        model.heap.allocate_bytes = spy
+        self.assertEqual(self.call(model, *args), 0)
+        self.assertEqual(reached, [], "allocate_bytes reached; buffer already built")
+
+    def test_malloc_returns_null(self):
+        self._assert_null_without_allocating("malloc", self.OVERSIZE)
+
+    def test_calloc_returns_null(self):
+        self._assert_null_without_allocating("calloc", 2, self.OVERSIZE // 2)
+
+    def test_realloc_of_null_returns_null(self):
+        self._assert_null_without_allocating("realloc", 0, self.OVERSIZE)
+
+    def test_allocators_still_succeed_when_there_is_room(self):
+        """The NULL path must not swallow allocations that do fit."""
+        model = self._model("malloc")
+        self.assertEqual(self.call(model, 0x10), self.HEAP_ADDR)
+
+    def test_oversized_malloc_does_not_materialize_the_buffer(self):
+        model = self._model("malloc")
+        tracemalloc.start()
+        try:
+            tracemalloc.reset_peak()
+            self.assertEqual(self.call(model, self.HUGE), 0)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 1 << 20, f"allocated {peak} bytes to refuse {self.HUGE}")
+
+    def test_failed_realloc_keeps_the_old_block(self):
+        """C leaves the original allocation untouched when realloc fails."""
+        model = self._model("realloc")
+        ptr = model.heap.allocate_bytes(b"ABCD", "old")
+        self.emu.write_memory(ptr, b"ABCD")
+        self.assertEqual(self.call(model, ptr, self.OVERSIZE), 0)
+        self.assertIn(ptr - model.heap.address, model.heap)
+        self.assertEqual(self.emu.read_memory(ptr, 4), b"ABCD")
+
+    def test_heap_itself_still_raises_when_full(self):
+        """Only the models return NULL; allocate() keeps its contract for the
+        stack and every other Memory user."""
+        heap = BumpAllocator(self.HEAP_ADDR, self.HEAP_SIZE)
+        with self.assertRaisesRegex(ValueError, "Memory is full"):
+            heap.allocate_bytes(b"\0" * self.OVERSIZE, None)
+
+    def test_has_room_agrees_with_allocate(self):
+        """has_room must refuse exactly what allocate() would have."""
+        cases = [(BumpAllocator, ()), (state.memory.heap.CheckedBumpAllocator, (16,))]
+        for cls, extra in cases:
+            for used in (0, 0x100, 0xF00):
+                for size in (0, 1, 0xFF, 0x100, 0xF00, 0xFFF, 0x1000, 0x1001, 0x10000):
+
+                    def fresh():
+                        h = cls(self.HEAP_ADDR, self.HEAP_SIZE, *extra)
+                        if used:
+                            h.allocate_bytes(b"\0" * used, None)
+                        return h
+
+                    with self.subTest(cls=cls.__name__, used=used, size=size):
+                        predicted = fresh().has_room(size)
+                        try:
+                            fresh().allocate_bytes(b"\0" * size, None)
+                            actual = True
+                        except ValueError:
+                            actual = False
+                        self.assertEqual(predicted, actual)
 
 
 class SnprintfModelTests(ModelTestCase):
