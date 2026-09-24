@@ -221,12 +221,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if address in self._function_hooks:
             del self._function_hooks[address]
 
-    def _update_access_breakpoints(self) -> None:
-        # Refresh all access breakpoints
-        # There's no way to clear a single access breakpoint;
-        # you need to clear them all and re-apply.
-        return
-
         # Wipe out all access breakpoints
         self._emu.clearAccessBreakpoints()
 
@@ -354,24 +348,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
     ) -> None:
         check_hookable_range(start, end, "memory read")
         self._mem_read_hooks[(start, end)] = function
-        self._update_access_breakpoints()
 
     def unhook_memory_read(self, start: int, end: int) -> None:
         if (start, end) in self._mem_read_hooks:
             del self._mem_read_hooks[(start, end)]
-            self._update_access_breakpoints()
 
     def hook_memory_reads(
         self,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         self._mem_reads_hook = function
-        self._update_access_breakpoints()
 
     def unhook_memory_reads(self) -> None:
         if self._mem_reads_hook is not None:
             self._mem_reads_hook = None
-            self._update_access_breakpoints()
 
     def _process_write_breakpoint(
         self, addr_var: Varnode, data_var: Varnode, direct=False
@@ -415,24 +405,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
     ) -> None:
         check_hookable_range(start, end, "memory write")
         self._mem_write_hooks[(start, end)] = function
-        self._update_access_breakpoints()
 
     def unhook_memory_write(self, start: int, end: int) -> None:
         if (start, end) in self._mem_write_hooks:
             del self._mem_write_hooks[(start, end)]
-            self._update_access_breakpoints()
 
     def hook_memory_writes(
         self,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
         self._mem_writes_hook = function
-        self._update_access_breakpoints()
 
     def unhook_memory_writes(self) -> None:
         if self._mem_writes_hook is not None:
             self._mem_writes_hook = None
-            self._update_access_breakpoints()
 
     def step_instruction(self) -> None:
         if not self.machdef.supports_single_step:

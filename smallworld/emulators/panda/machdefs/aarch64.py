@@ -265,5 +265,3 @@ class AArch64MachineDef(PandaMachineDef):
             "h31": None,
             "b31": None,
         }
-
-        self._registers = {i: j for i, j in self._registers.items()}

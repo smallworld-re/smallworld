@@ -9931,6 +9931,164 @@ class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
             model.model(mock.MagicMock())
 
 
+class EmulatorHygieneTests(unittest.TestCase):
+    """Base-class hygiene in smallworld/emulators/emulator.py.
+
+    SW-136: _exit_points must be an instance attribute only, never a misleading
+    class-level shared set. SW-137: satisfiable() must not carry a mutable list
+    default -- the None default holds across the base contract and all three
+    concrete overrides that copy the signature.
+    """
+
+    @staticmethod
+    def _satisfiable_default(cls):
+        import inspect
+
+        return (
+            inspect.signature(cls.satisfiable).parameters["extra_constraints"].default
+        )
+
+    def test_exit_points_not_class_level(self):
+        from smallworld.emulators.emulator import Emulator
+
+        self.assertNotIn("_exit_points", vars(Emulator))
+
+    def test_base_satisfiable_default_is_none(self):
+        from smallworld.emulators.emulator import ConstrainedEmulator
+
+        self.assertIsNone(self._satisfiable_default(ConstrainedEmulator))
+
+    def test_angr_satisfiable_default_is_none(self):
+        from smallworld.emulators.angr.angr import AngrEmulator
+
+        self.assertIsNone(self._satisfiable_default(AngrEmulator))
+
+    def test_triton_satisfiable_default_is_none(self):
+        from smallworld.emulators.triton.symbolic import TritonSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(TritonSymbolicEmulator))
+
+    def test_ghidra_satisfiable_default_is_none(self):
+        # The ghidra symbolic module imports a JVM-bridged z3 binding at load.
+        _ensure_pyghidra_started()
+        from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+
+
+class LoopDetectionStrandSplitTests(unittest.TestCase):
+    """Every loop iteration's strand is captured, including consecutive and
+    distinct iterations (SW-058).
+
+    The loop head executes at the start of every iteration, so the back-edge
+    occurrence that closes one strand is also the start of the next. The old
+    code discarded that occurrence, so alternating/consecutive iterations were
+    dropped. run() only reads self.traces (it ignores the machine), so the
+    algorithm is driven directly with synthetic pc sequences.
+    """
+
+    def _run(self, *pc_sequences):
+        from smallworld.analyses.loop_detection import LoopDetection
+
+        hinter = _RecordingHinter()
+        analysis = LoopDetection(hinter)
+        analysis.traces = [
+            SimpleNamespace(trace=[SimpleNamespace(pc=pc) for pc in seq])
+            for seq in pc_sequences
+        ]
+        analysis.run(None)
+        return hinter
+
+    def _strands_for(self, hinter, head):
+        from smallworld.hinting.hints import LoopHint
+
+        hints = [h for h in hinter.sent if isinstance(h, LoopHint) and h.head == head]
+        self.assertEqual(len(hints), 1)
+        # Strand order and duplicate-collapsing are not significant; compare as
+        # a set of tuples.
+        return {tuple(s) for s in hints[0].strands}
+
+    def test_distinct_iterations_are_all_captured(self):
+        # head=0x10; two different iteration bodies (0x14, then 0x18). The old
+        # code kept only the first and lost the [0x10, 0x18, 0x10] iteration.
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, H, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, H), (H, B, H)})
+
+    def test_repeated_identical_iterations_dedupe_to_one(self):
+        # Identical iterations still collapse to a single unique strand (the
+        # fix must not over-produce).
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, B, H, A, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
+
+
+class _FakeReadMemEmulator:
+    """Minimal emulator with the real read_memory contract for the c99 helpers.
+
+    read_memory returns bytes or *raises* on an unmapped/oversized read (never
+    None), and get_memory_map reports the mapped ranges. Records every read
+    size so a test can assert the speculative bulk read was clamped.
+    """
+
+    def __init__(self, ranges, data):
+        self._ranges = list(ranges)  # [(start, end), ...]
+        self._data = dict(data)  # {addr: byte value}
+        self.read_sizes = []
+
+    def get_memory_map(self):
+        return list(self._ranges)
+
+    def _fully_mapped(self, addr, size):
+        return any(s <= addr and addr + size <= e for s, e in self._ranges)
+
+    def read_memory(self, addr, size):
+        self.read_sizes.append(size)
+        if size and not self._fully_mapped(addr, size):
+            raise Exception("unmapped read")
+        return bytes(self._data.get(addr + i, 0) for i in range(size))
+
+
+class C99StrncmpClampReadTests(unittest.TestCase):
+    """strcmp/strncmp clamp their speculative bulk read to the mapped extent so
+    a string near a segment boundary is not read MAX_STRLEN (64 KB) past its
+    region (NEW-002). Results are unchanged; only the wasted, faulting
+    over-read is removed. Asserted on read sizes, not on log output.
+    """
+
+    def test_strcmp_clamps_bulk_read_and_returns_equal(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        # One mapped page with "hi\0" at the start; a MAX_STRLEN read from here
+        # would run 64 KB past the page end.
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {0x1000: ord("h"), 0x1001: ord("i"), 0x1002: 0},
+        )
+        # strcmp routes through _emu_strncmp with n == MAX_STRLEN.
+        self.assertEqual(_emu_strncmp(emu, 0x1000, 0x1000, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+        self.assertLessEqual(max(emu.read_sizes), 0x1000)
+
+    def test_strncmp_mismatch_result_correct_when_clamped(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {
+                0x1000: ord("h"),
+                0x1001: ord("i"),
+                0x1002: 0,
+                0x1800: ord("h"),
+                0x1801: ord("o"),
+                0x1802: 0,
+            },
+        )
+        # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
+        self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+
+
 class BinjaDatabaseBvCleanupTests(unittest.TestCase):
     """BinjaDatabase.__init__ must close the BinaryView on every error path
     (SW-082) and surface a missing platform definition as ConfigurationError
@@ -10053,6 +10211,142 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
         img = self._image([self._sym("label", None)])
         with self.assertRaises(KeyError):
             img.get_function_end("label")
+
+
+class FieldDetectionDescribeFieldTests(unittest.TestCase):
+    """_describe_field always labels a tracked field with its declared label,
+    so concrete or composite loaded values are labelled correctly instead of
+    raising or reusing a prior field's label (SW-056). A single bound symbol is
+    substituted with its binding for readability.
+    """
+
+    @staticmethod
+    def _fda(bindings=None):
+        return SimpleNamespace(fda_bindings=bindings or {})
+
+    def _describe(self, fda, label, val):
+        from smallworld.analyses.field_detection.field_analysis import (
+            _describe_field,
+        )
+
+        return _describe_field(fda, label, val)
+
+    def test_concrete_value_keeps_declared_label(self):
+        val = claripy.BVV(0, 64)  # zero variables
+        label, out = self._describe(self._fda(), "msg.a", val)
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, val)
+
+    def test_composite_value_keeps_declared_label(self):
+        val = claripy.BVS("x", 64) + claripy.BVS("y", 64)  # two variables
+        label, out = self._describe(self._fda(), "msg.b", val)
+        self.assertEqual(label, "msg.b")
+        self.assertIs(out, val)
+
+    def test_single_bound_symbol_uses_declared_label_and_substitutes(self):
+        var = claripy.BVS("msg.a_18_64", 64, explicit_name=True)
+        binding = claripy.BVS("bound", 64, explicit_name=True)
+        fda = self._fda({"msg.a_18_64": binding})
+        label, out = self._describe(fda, "msg.a", var)
+        # Declared label, not the variable name; value substituted with binding.
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, binding)
+
+    def test_unknown_single_variable_keeps_value(self):
+        var = claripy.BVS("mystery", 64, explicit_name=True)
+        label, out = self._describe(self._fda(), "msg.c", var)
+        self.assertEqual(label, "msg.c")
+        self.assertIs(out, var)
+
+
+class FieldDetectionHinterPlumbingTests(unittest.TestCase):
+    """The field-detection analysis family must bind self.hinter through the
+    MRO, and FieldDetectionFilter must be instantiable -- the plumbing SW-057
+    left broken and that the DNS use cases depend on.
+    """
+
+    @staticmethod
+    def _platform():
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_field_detection_analysis_binds_hinter(self):
+        from smallworld.analyses.field_detection import FieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        a = FieldDetectionAnalysis(self._platform(), h)
+        self.assertIs(a.hinter, h)
+
+    def test_forced_field_detection_binds_hinter_and_trace(self):
+        from smallworld.analyses.field_detection import ForcedFieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        trace = [{"pc": 0x1000}]
+        a = ForcedFieldDetectionAnalysis(self._platform(), trace, h)
+        self.assertIs(a.hinter, h)
+        self.assertEqual(a.trace, trace)
+
+    def test_forced_execution_binds_hinter(self):
+        from smallworld.analyses.forced_exec import ForcedExecution
+
+        h = hinting.Hinter()
+        a = ForcedExecution(self._platform(), [{"pc": 1}], h)
+        self.assertIs(a.hinter, h)
+
+    def test_field_detection_filter_is_instantiable(self):
+        from smallworld.analyses.field_detection.field_analysis import (
+            FieldDetectionFilter,
+        )
+
+        h = hinting.Hinter()
+        f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
+        self.assertIs(f.hinter, h)
+
+
+class ForcedExecutionEarlyStopTests(unittest.TestCase):
+    """execute() raises AnalysisError when the slice diverges before the trace
+    is fully consumed, instead of silently dropping the rest (SW-117). A stop
+    on the final entry is normal completion and must not raise.
+    """
+
+    class _FakeEmu:
+        def __init__(self, stop_index):
+            self.stop_index = stop_index  # entry whose step() stops, or None
+            self._step = 0
+            self.writes = []
+
+        def write_register_content(self, reg, val):
+            self.writes.append((reg, val))
+
+        def step(self):
+            i = self._step
+            self._step += 1
+            if self.stop_index is not None and i == self.stop_index:
+                raise exceptions.EmulationStop()
+
+    def _make(self, trace, stop_index):
+        # ForcedExecution is the concrete subclass; bypass __init__ (which would
+        # build a real AngrEmulator) and drive the inherited execute() directly.
+        from smallworld.analyses.forced_exec.forced_exec import ForcedExecution
+
+        analysis = ForcedExecution.__new__(ForcedExecution)
+        analysis.trace = trace
+        analysis.emulator = self._FakeEmu(stop_index)
+        return analysis
+
+    def test_early_divergence_raises(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=1)
+        with self.assertRaises(exceptions.AnalysisError):
+            analysis.execute()
+
+    def test_stop_on_final_entry_is_completion(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=2)
+        analysis.execute()  # must not raise
+
+    def test_no_stop_completes(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}], stop_index=None)
+        analysis.execute()  # must not raise
 
 
 class TrackerMemoryPpInspectTests(unittest.TestCase):
@@ -10217,6 +10511,31 @@ class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
 
     def test_labelled_read_ghidra_matches_oracle(self):
         self._assert_labelled_read(self._mk_ghidra)
+class HookableChainOverlappingTests(unittest.TestCase):
+    """A memory access spanning several disjoint hooks yields every overlapping
+    hook, so the Q* backends run (chain) all of them, matching ghidra/angr
+    (SW-143). The old single-result path returned only the first."""
+
+    @staticmethod
+    def _noop(emu, addr, size, data):
+        return None
+
+    def test_iter_returns_all_overlapping_read_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_read(0x1000, 0x1004, self._noop)
+        emu.hook_memory_read(0x1008, 0x100C, self._noop)  # disjoint from first
+        # [0x1002, 0x100A) straddles both hooked ranges -> both returned.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1002, 8)), 2)
+        # An access inside only the first hook yields just that one.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1000, 2)), 1)
+        # is_memory_read_hooked still returns a single (truthy) result.
+        self.assertIsNotNone(emu.is_memory_read_hooked(0x1002, 8))
+
+    def test_iter_returns_all_overlapping_write_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_write(0x2000, 0x2004, self._noop)
+        emu.hook_memory_write(0x2008, 0x200C, self._noop)  # disjoint from first
+        self.assertEqual(len(emu.iter_memory_write_hooks(0x2002, 8)), 2)
 
 
 if __name__ == "__main__":

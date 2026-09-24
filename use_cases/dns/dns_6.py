@@ -39,7 +39,8 @@ for bound in code.bounds:
 platform = code.platform
 
 # Create the analysis; we'll need it later.
-analysis = FieldDetectionAnalysis(platform)
+hinter = smallworld.hinting.Hinter()
+analysis = FieldDetectionAnalysis(platform, hinter)
 
 # Create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
