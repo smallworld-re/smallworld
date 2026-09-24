@@ -229,7 +229,16 @@ class TritonEmulator(
 
     def read_register_content(self, name: str) -> int:
         reg = self._reg(name)
-        return int(self.ctx.getConcreteRegisterValue(reg))
+        value = int(self.ctx.getConcreteRegisterValue(reg))
+        # Triton exposes a single wide flags register (eflags is 64-bit in
+        # x86-64 mode), so flags/eflags reads come back over-wide. Mask to the
+        # requested register's declared width. Every collapsing alias is
+        # offset 0, and identity-mapped registers already have the right width,
+        # so this is a no-op for everything but the flags aliases.
+        regdef = self.platdef.registers.get(name)
+        if regdef is not None:
+            value &= (1 << (regdef.size * 8)) - 1
+        return value
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
