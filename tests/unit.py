@@ -10162,8 +10162,8 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         label, out = self._describe(self._fda(), "msg.c", var)
         self.assertEqual(label, "msg.c")
         self.assertIs(out, var)
-        
-        
+
+
 class ForcedExecutionEarlyStopTests(unittest.TestCase):
     """execute() raises AnalysisError when the slice diverges before the trace
     is fully consumed, instead of silently dropping the rest (SW-117). A stop
