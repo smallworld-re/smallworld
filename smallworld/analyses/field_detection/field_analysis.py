@@ -35,6 +35,25 @@ class FDAState:
         self.fda_addr_to_unk_label = dict()
 
 
+def _describe_field(fda, label, val):
+    """Return the (label, value) to display for a tracked field.
+
+    ``label`` is the field's declared label (from ``fda_addr_to_label``); it is
+    always used, so concrete or composite loaded values are labelled correctly
+    instead of raising or reusing a previous iteration's label. When the loaded
+    value is a single bound symbol, its binding is substituted for readability;
+    an unknown single variable is reported.
+    """
+    if len(val.variables) == 1:
+        # Very likely a bound symbol; fetch its binding for a readable value.
+        (var,) = val.variables
+        if var in fda.fda_bindings:
+            val = fda.fda_bindings[var]
+        else:
+            log.error(f"  Unknown variable {var}")
+    return label, val
+
+
 class FieldDetectionMixin(underlays.AnalysisUnderlay):
     """Analysis comparing state labels to field accesses.
 
@@ -404,15 +423,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             log.warning("  Fields:")
             for r in fda.fda_addr_to_label:
                 val = emu.state.memory.load(r.start, r.stop - r.start)
-                if len(val.variables) == 1:
-                    # val is extremely likely a bound symbol.
-                    # Fetch the binding
-                    (label,) = val.variables
-                    if label in fda.fda_bindings:
-                        val = fda.fda_bindings[label]
-                    else:
-                        log.error(f"  Unknown variable {label}")
-
+                label, val = _describe_field(fda, fda.fda_addr_to_label[r], val)
                 log.warning(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
 
         self.emulator.visit_states(state_visitor, stash="deadended")
