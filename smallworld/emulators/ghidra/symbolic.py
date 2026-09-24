@@ -89,6 +89,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._thread.overrideContextWithDefault()
 
         self._memory_map = utils.RangeCollection()
+        # Byte ranges the harness has explicitly written. write_memory_label
+        # must not pin a label to SymZ3's default 0 for memory that was never
+        # written (mirrors the register-label discipline).
+        self._written_memory = utils.RangeCollection()
 
         # Maps a label name (passed to write_register_label /
         # write_memory_label) to the claripy BVS we minted for it. Used by
@@ -491,8 +495,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 )
             sym_value = self._make_sym_value(content, size_bits)
             self._setvar_memory(address, size, concrete_bytes, sym_value)
+            nbytes = size
         else:
-            self._write_concrete_bytes(address, bytes(content))
+            content = bytes(content)
+            self._write_concrete_bytes(address, content)
+            nbytes = len(content)
+        if nbytes:
+            self._written_memory.add_range((address, address + nbytes))
 
     def _read_concrete_bytes_at(self, address: int, size: int) -> bytes:
         """Read ``size`` bytes at ``address`` from the concrete byte side only.
@@ -556,17 +565,21 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     ) -> None:
         if label is None:
             return
-        prev = _collapse_to_concrete(self.read_memory_symbolic(address, size))
         bv = claripy.BVS(label, size * 8, explicit_name=True)
         # Same binding contract as write_register_label: the new label takes
         # on the value previously held at this address, so labelling memory
-        # that was just written concretely pins the label to those bytes.
+        # that was just written concretely pins the label to those bytes. But
+        # only bind if the harness actually wrote it -- never-written memory
+        # reads as SymZ3's default 0, which must stay a free symbol, not get
+        # pinned to 0.
         # We collapse ``prev`` first because SymZ3 returns memory as a
         # byte-level ``Concat`` of ``Extract`` slices; passing that raw to
         # the solver makes Z3 enumerate the structure instead of using the
         # cheap underlying value.
-        if not (prev.symbolic and prev.op == "BVS"):
-            self._user_constraints.append(prev == bv)
+        if not self._written_memory.get_missing_ranges((address, address + size)):
+            prev = _collapse_to_concrete(self.read_memory_symbolic(address, size))
+            if not (prev.symbolic and prev.op == "BVS"):
+                self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self._labeled_memory_ranges.append((address, address + size))
         self.write_memory_content(address, bv)
