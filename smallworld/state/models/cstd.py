@@ -477,12 +477,16 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 self._arg_offset.append(self._stack_offset + self._init_stack_offset)
                 # On ABIs that promote a float to a double (PowerPC),
                 # set_argument writes 8 bytes here, so the slot must be that
-                # wide or it overruns the following argument.
-                self._stack_offset += (
-                    self._double_stack_size
-                    if self._floats_are_doubles
-                    else self._float_stack_size
-                )
+                # wide or it overruns the following argument. On LP64/n64 the
+                # 4-byte float value still occupies a full register-width slot;
+                # _float_stack_slot_size (>= _float_stack_size) captures that,
+                # defaulting to the float width on ABIs that pack floats tightly.
+                if self._floats_are_doubles:
+                    self._stack_offset += self._double_stack_size
+                else:
+                    self._stack_offset += getattr(
+                        self, "_float_stack_slot_size", self._float_stack_size
+                    )
             else:
                 # Registers left; use them
                 self._on_stack.append(False)
@@ -561,10 +565,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 )
             # Four byte integer
             if on_stack:
-                # Stored on the stack; write to memory
+                # Stored on the stack; write to memory. The integer occupies a
+                # full _four_byte_stack_size slot (8 bytes under LP64/n64). On
+                # big-endian it is the low word of that slot, so it sits at the
+                # high-addressed end -- where get_argument (whole-slot read then
+                # mask) and the guest (doubleword load, low word) look for it.
                 addr = emulator.read_register(sp) + arg_offset
                 if self.platform.byteorder == Byteorder.BIG:
                     as_bytes = int.to_bytes(value, 4, "big")
+                    addr += self._four_byte_stack_size - 4
                 else:
                     as_bytes = int.to_bytes(value, 4, "little")
                 emulator.write_memory(addr, as_bytes)
