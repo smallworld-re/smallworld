@@ -147,6 +147,9 @@ from smallworld.state.models.defaultmmio import (
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
+from smallworld.state.models.loongarch64.systemv.systemv import (
+    LoongArch64SysVCallingContext,
+)
 from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
 from smallworld.state.models.mips64el.systemv.systemv import (
@@ -4609,6 +4612,30 @@ class SysVReturnValueConversionTests(unittest.TestCase):
                 {"f0": int.from_bytes(struct.pack("<d", 42.0), "little")}
             )
             self.assertEqual(ctx._read_return_double(emu), 42.0, msg=cls.__name__)
+
+    def test_lp64_int_stack_args_use_8_byte_slots(self):
+        # SW-197 / NEW-008: LoongArch64 LP64D and MIPS64 n64 pass on-stack
+        # integer arguments in 8-byte slots (verified against
+        # loongarch64-linux-gnu / mips64-linux-gnuabi64 compiler output: the
+        # 9th..11th int args land at sp+0, sp+8, sp+16). A _four_byte_stack_size
+        # of 4 would place them at sp+0, sp+4, sp+8 and misalign every stack int
+        # after the first. Eight ints fill a0-a7; the rest spill.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+        ):
+            ctx = cls()
+            types = [ArgumentType.INT] * 11
+            for i, t in enumerate(types):
+                ctx.add_argument(i, t)
+            # a0-a7 in registers, not on the stack.
+            for i in range(8):
+                self.assertFalse(ctx._on_stack[i], msg=f"{cls.__name__} arg{i}")
+            # The three spilled ints occupy consecutive 8-byte slots.
+            spilled_offsets = [ctx._arg_offset[i] for i in range(8, 11)]
+            self.assertTrue(all(ctx._on_stack[i] for i in range(8, 11)))
+            self.assertEqual(spilled_offsets, [0, 8, 16], msg=cls.__name__)
 
     def test_m68k_pointer_return_uses_a0_symmetrically(self):
         # m68k SysV returns pointers in a0; set_return_value wrote a0 but

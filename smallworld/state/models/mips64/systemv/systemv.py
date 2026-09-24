@@ -82,7 +82,10 @@ class MIPS64SysVCallingContext(CStdCallingContext):
     _align_stack = True
     _eight_byte_reg_size = 1
     _double_reg_size = 1
-    _four_byte_stack_size = 4
+    # The n64 ABI passes on-stack integer arguments in 8-byte slots, so a
+    # 4-byte int consumes a full 8-byte slot; consecutive spilled ints must
+    # advance by 8, not 4. Confirmed against mips64-linux-gnuabi64 output.
+    _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
     _float_stack_size = 4
     _double_stack_size = 8
