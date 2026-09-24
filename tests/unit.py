@@ -10161,8 +10161,8 @@ class FieldDetectionHinterPlumbingTests(unittest.TestCase):
         h = hinting.Hinter()
         f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
         self.assertIs(f.hinter, h)
-        
-        
+
+
 class ForcedExecutionEarlyStopTests(unittest.TestCase):
     """execute() raises AnalysisError when the slice diverges before the trace
     is fully consumed, instead of silently dropping the rest (SW-117). A stop
