@@ -10165,6 +10165,51 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
             img.get_function_end("label")
 
 
+class FieldDetectionHinterPlumbingTests(unittest.TestCase):
+    """The field-detection analysis family must bind self.hinter through the
+    MRO, and FieldDetectionFilter must be instantiable -- the plumbing SW-057
+    left broken and that the DNS use cases depend on.
+    """
+
+    @staticmethod
+    def _platform():
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_field_detection_analysis_binds_hinter(self):
+        from smallworld.analyses.field_detection import FieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        a = FieldDetectionAnalysis(self._platform(), h)
+        self.assertIs(a.hinter, h)
+
+    def test_forced_field_detection_binds_hinter_and_trace(self):
+        from smallworld.analyses.field_detection import ForcedFieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        trace = [{"pc": 0x1000}]
+        a = ForcedFieldDetectionAnalysis(self._platform(), trace, h)
+        self.assertIs(a.hinter, h)
+        self.assertEqual(a.trace, trace)
+
+    def test_forced_execution_binds_hinter(self):
+        from smallworld.analyses.forced_exec import ForcedExecution
+
+        h = hinting.Hinter()
+        a = ForcedExecution(self._platform(), [{"pc": 1}], h)
+        self.assertIs(a.hinter, h)
+
+    def test_field_detection_filter_is_instantiable(self):
+        from smallworld.analyses.field_detection.field_analysis import (
+            FieldDetectionFilter,
+        )
+
+        h = hinting.Hinter()
+        f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
+        self.assertIs(f.hinter, h)
+
+
 class ForcedExecutionEarlyStopTests(unittest.TestCase):
     """execute() raises AnalysisError when the slice diverges before the trace
     is fully consumed, instead of silently dropping the rest (SW-117). A stop

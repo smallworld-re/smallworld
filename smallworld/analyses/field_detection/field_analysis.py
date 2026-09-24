@@ -435,6 +435,13 @@ class FieldDetectionFilter(analyses.Analysis):
         self.active = True
         self.partial_ranges: dict = dict()
 
+    def run(self, machine):
+        # Passive filter: it is driven by activate()/analyze()/deactivate() and
+        # the FieldEventHints it subscribes to, not by a standalone run(). The
+        # abstract Analysis.run only needs a concrete implementation so the
+        # class can be instantiated.
+        pass
+
     def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.
         # The raw hint logging is unreadable.
@@ -511,7 +518,9 @@ class FieldDetectionAnalysis(FieldDetectionMixin, underlays.BasicAnalysisUnderla
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(self, platform: platforms.Platform, hinter: hinting.Hinter):
+        # Bind self.hinter through the MRO; run() sends field hints through it.
+        super().__init__(hinter)
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
 
@@ -526,8 +535,13 @@ class ForcedFieldDetectionAnalysis(
     halt_on_hint = False
 
     def __init__(
-        self, platform: platforms.Platform, trace: typing.List[typing.Dict[str, int]]
+        self,
+        platform: platforms.Platform,
+        trace: typing.List[typing.Dict[str, int]],
+        hinter: hinting.Hinter,
     ):
+        # trace is consumed by ForcedExecutionUnderlay; hinter flows on to
+        # Analysis.__init__ to bind self.hinter.
+        super().__init__(trace, hinter)
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
-        super().__init__(trace)
