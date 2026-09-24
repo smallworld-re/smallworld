@@ -4521,16 +4521,19 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
     def test_lp64_stack_floats_reserve_eight_bytes(self):
-        # NEW-009: LoongArch64 LP64D, MIPS64 n64, and RISC-V LP64D pass a
-        # spilled float in a full 8-byte stack slot (verified against the
-        # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu
-        # toolchains). Eight float args fill the FP registers; the 9th and 10th
-        # spill and must be 8 bytes apart, not 4.
+        # NEW-009 / NEW-011: every SysV model with 8-byte stack slots passes a
+        # spilled float in a full 8-byte slot (verified against the
+        # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu /
+        # aarch64-linux-gnu / x86_64-linux-gnu toolchains). Eight float args fill
+        # the FP registers; the 9th and 10th spill and must be 8 bytes apart,
+        # not 4.
         for cls in (
             LoongArch64SysVCallingContext,
             MIPS64SysVCallingContext,
             MIPS64ELSysVCallingContext,
             RiscV64SysVCallingContext,
+            AArch64SysVCallingContext,
+            AMD64SysVCallingContext,
         ):
             ctx = cls()
             for i in range(10):
