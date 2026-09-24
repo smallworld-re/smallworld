@@ -10382,8 +10382,8 @@ class TritonFlagsWidthMaskTests(unittest.TestCase):
         self.assertEqual(emu.read_register("rflags"), 0x0000000100000202)
         self.assertEqual(emu.read_register("eflags"), 0x00000202)  # low 32 bits
         self.assertEqual(emu.read_register("flags"), 0x0202)  # low 16 bits
-        
-        
+
+
 class HookableChainOverlappingTests(unittest.TestCase):
     """A memory access spanning several disjoint hooks yields every overlapping
     hook, so the Q* backends run (chain) all of them, matching ghidra/angr
