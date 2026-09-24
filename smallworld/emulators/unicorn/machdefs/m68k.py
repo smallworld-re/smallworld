@@ -197,7 +197,7 @@ class M68KMachineDef(UnicornMachineDef):
             level = intno - M68KExcp.EXCP_INT_0
             logger.error(f"External interrupt level {level}")
             raise EmulationExecExceptionFailure(
-                "M68K External interrupt level {level}", pc
+                f"M68K External interrupt level {level}", pc
             )
 
         elif intno in (
@@ -254,7 +254,7 @@ class M68KMachineDef(UnicornMachineDef):
                 f"Sketchy m68k exception; is this real, or a QEMUism: {M68KExcp(intno).name}"
             )
             raise EmulationExecExceptionFailure(
-                "Sketchy M68K exception: {M68KExcp(intno).name}", pc
+                f"Sketchy M68K exception: {M68KExcp(intno).name}", pc
             )
 
         else:
@@ -262,4 +262,4 @@ class M68KMachineDef(UnicornMachineDef):
             # Some of these are allowed to be user-defined,
             # so theoretically it's possible for a system to raise them
             logger.error(f"Unknown m68k exception: {intno}")
-            raise EmulationExecExceptionFailure("Unknown M68K exception: {intno}", pc)
+            raise EmulationExecExceptionFailure(f"Unknown M68K exception: {intno}", pc)
