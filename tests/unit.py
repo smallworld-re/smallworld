@@ -10209,8 +10209,8 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         label, out = self._describe(self._fda(), "msg.c", var)
         self.assertEqual(label, "msg.c")
         self.assertIs(out, var)
-        
-        
+
+
 class FieldDetectionHinterPlumbingTests(unittest.TestCase):
     """The field-detection analysis family must bind self.hinter through the
     MRO, and FieldDetectionFilter must be instantiable -- the plumbing SW-057
