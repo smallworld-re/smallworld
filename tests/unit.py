@@ -9971,6 +9971,53 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+        
+        
+class LoopDetectionStrandSplitTests(unittest.TestCase):
+    """Every loop iteration's strand is captured, including consecutive and
+    distinct iterations (SW-058).
+
+    The loop head executes at the start of every iteration, so the back-edge
+    occurrence that closes one strand is also the start of the next. The old
+    code discarded that occurrence, so alternating/consecutive iterations were
+    dropped. run() only reads self.traces (it ignores the machine), so the
+    algorithm is driven directly with synthetic pc sequences.
+    """
+
+    def _run(self, *pc_sequences):
+        from smallworld.analyses.loop_detection import LoopDetection
+
+        hinter = _RecordingHinter()
+        analysis = LoopDetection(hinter)
+        analysis.traces = [
+            SimpleNamespace(trace=[SimpleNamespace(pc=pc) for pc in seq])
+            for seq in pc_sequences
+        ]
+        analysis.run(None)
+        return hinter
+
+    def _strands_for(self, hinter, head):
+        from smallworld.hinting.hints import LoopHint
+
+        hints = [h for h in hinter.sent if isinstance(h, LoopHint) and h.head == head]
+        self.assertEqual(len(hints), 1)
+        # Strand order and duplicate-collapsing are not significant; compare as
+        # a set of tuples.
+        return {tuple(s) for s in hints[0].strands}
+
+    def test_distinct_iterations_are_all_captured(self):
+        # head=0x10; two different iteration bodies (0x14, then 0x18). The old
+        # code kept only the first and lost the [0x10, 0x18, 0x10] iteration.
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, H, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, H), (H, B, H)})
+
+    def test_repeated_identical_iterations_dedupe_to_one(self):
+        # Identical iterations still collapse to a single unique strand (the
+        # fix must not over-produce).
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, B, H, A, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
 
 
 class _FakeReadMemEmulator:
@@ -10161,6 +10208,51 @@ class VxWorksFunctionEndLookupTests(unittest.TestCase):
         img = self._image([self._sym("label", None)])
         with self.assertRaises(KeyError):
             img.get_function_end("label")
+
+
+class ForcedExecutionEarlyStopTests(unittest.TestCase):
+    """execute() raises AnalysisError when the slice diverges before the trace
+    is fully consumed, instead of silently dropping the rest (SW-117). A stop
+    on the final entry is normal completion and must not raise.
+    """
+
+    class _FakeEmu:
+        def __init__(self, stop_index):
+            self.stop_index = stop_index  # entry whose step() stops, or None
+            self._step = 0
+            self.writes = []
+
+        def write_register_content(self, reg, val):
+            self.writes.append((reg, val))
+
+        def step(self):
+            i = self._step
+            self._step += 1
+            if self.stop_index is not None and i == self.stop_index:
+                raise exceptions.EmulationStop()
+
+    def _make(self, trace, stop_index):
+        # ForcedExecution is the concrete subclass; bypass __init__ (which would
+        # build a real AngrEmulator) and drive the inherited execute() directly.
+        from smallworld.analyses.forced_exec.forced_exec import ForcedExecution
+
+        analysis = ForcedExecution.__new__(ForcedExecution)
+        analysis.trace = trace
+        analysis.emulator = self._FakeEmu(stop_index)
+        return analysis
+
+    def test_early_divergence_raises(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=1)
+        with self.assertRaises(exceptions.AnalysisError):
+            analysis.execute()
+
+    def test_stop_on_final_entry_is_completion(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=2)
+        analysis.execute()  # must not raise
+
+    def test_no_stop_completes(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}], stop_index=None)
+        analysis.execute()  # must not raise
 
 
 class TrackerMemoryPpInspectTests(unittest.TestCase):
