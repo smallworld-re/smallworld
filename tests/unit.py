@@ -101,6 +101,7 @@ from smallworld.instructions import Instruction, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
+from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
@@ -5985,6 +5986,26 @@ class ElfIgnorePlatformTests(unittest.TestCase):
                 f, platform=None, ignore_platform=True, user_base=0x100000
             )
         self.assertIsNone(elf.platform)
+
+
+class ElfCoreFileMissingPlatformTests(unittest.TestCase):
+    """ElfCoreFile with no resolvable platform must fail with a
+    ConfigurationError, not an assert (SW-169). ignore_platform=True skips the
+    header-derived platform block, so self.platform stays None and the parse
+    needs a real platform to build the PrStatus."""
+
+    CORE = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "elf_core",
+        "elf_core.amd64.elf.core",
+    )
+
+    def test_missing_platform_raises_configuration_error(self):
+        if not os.path.exists(self.CORE):
+            self.skipTest(f"{self.CORE} not built (run `make amd64` in tests/)")
+        with open(self.CORE, "rb") as f:
+            with self.assertRaises(exceptions.ConfigurationError):
+                ElfCoreFile(f, platform=None, ignore_platform=True)
 
 
 class TlsDescObjectFileTests(unittest.TestCase):
