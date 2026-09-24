@@ -10134,5 +10134,89 @@ class SymbolicMemoryLabelInvariantTests(unittest.TestCase):
         self._assert_invariant(make)
 
 
+class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
+    """read_memory_symbolic returns the byte SEQUENCE (first byte most
+    significant) per the documented contract (state.py), not the platform-
+    endianness integer. All symbolic emulators must agree; angr is the oracle.
+    """
+
+    ADDR = 0x6000
+    DATA = b"\x11\x22\x33\x44\x55\x66\x77\x88"  # non-palindromic
+
+    def _read_concrete(self, make):
+        emu = make()
+        emu.write_memory_content(self.ADDR, self.DATA)
+        bv = emu.read_memory_symbolic(self.ADDR, len(self.DATA))
+        self.assertFalse(bv.symbolic)
+        self.assertEqual(bv.size(), len(self.DATA) * 8)
+        return bv.concrete_value
+
+    def _mk_angr(self):
+        emu = emulators.AngrEmulator(AMD64_PLATFORM)
+        emu.map_memory(self.ADDR, 0x100)
+        emu._code.append((0x400000, b"\x90\x90"))
+        emu.initialize()
+        return emu
+
+    def _mk_triton(self):
+        emu = emulators.TritonSymbolicEmulator(AMD64_PLATFORM)
+        emu.map_memory(self.ADDR, 0x100)
+        return emu
+
+    def _mk_ghidra(self):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.map_memory(self.ADDR, 0x100)
+        return emu
+
+    def test_read_matches_angr_oracle(self):
+        oracle = self._read_concrete(self._mk_angr)
+        # Documented contract: bytes in memory order, first byte most significant.
+        self.assertEqual(oracle, int.from_bytes(self.DATA, "big"))
+        self.assertEqual(self._read_concrete(self._mk_triton), oracle)
+
+    def _read_n(self, make, data):
+        emu = make()
+        emu.write_memory_content(self.ADDR, data)
+        bv = emu.read_memory_symbolic(self.ADDR, len(data))
+        self.assertFalse(bv.symbolic)
+        return bv.concrete_value
+
+    def test_read_chunked_size_matches_angr_oracle(self):
+        # A 3-byte read is not a native Triton access size, so it exercises the
+        # chunked (power-of-two) read path rather than getMemoryAst directly.
+        data = b"\xaa\xbb\xcc"
+        oracle = int.from_bytes(data, "big")
+        self.assertEqual(self._read_n(self._mk_angr, data), oracle)
+        self.assertEqual(self._read_n(self._mk_triton, data), oracle)
+
+    @unittest.skip("ghidra symbolic read byte-order is corrected separately")
+    def test_read_ghidra_matches_oracle(self):
+        self.assertEqual(
+            self._read_concrete(self._mk_ghidra), int.from_bytes(self.DATA, "big")
+        )
+
+    def _assert_labelled_read(self, make):
+        # Writing content then labelling it must leave read_memory_symbolic
+        # returning that same byte sequence -- the label pins to it, and the
+        # write/read round-trip preserves byte order (not just the palindrome
+        # case SymbolicMemoryLabelInvariantTests exercises).
+        oracle = int.from_bytes(self.DATA, "big")
+        emu = make()
+        emu.write_memory_content(self.ADDR, self.DATA)
+        emu.write_memory_label(self.ADDR, len(self.DATA), "buf")
+        buf = emu.read_memory_symbolic(self.ADDR, len(self.DATA))
+        self.assertTrue(buf.symbolic)
+        self.assertTrue(emu.satisfiable([buf == oracle]))
+        self.assertFalse(emu.satisfiable([buf != oracle]))
+
+    def test_labelled_read_matches_angr_oracle(self):
+        self._assert_labelled_read(self._mk_angr)
+        self._assert_labelled_read(self._mk_triton)
+
+    @unittest.skip("ghidra symbolic read byte-order is corrected separately")
+    def test_labelled_read_ghidra_matches_oracle(self):
+        self._assert_labelled_read(self._mk_ghidra)
+
+
 if __name__ == "__main__":
     unittest.main()
