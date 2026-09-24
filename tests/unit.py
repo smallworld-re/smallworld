@@ -10280,5 +10280,32 @@ class TrackerMemoryPpInspectTests(unittest.TestCase):
         self.assertIs(calls[0][2].get("disable_actions"), True)
 
 
+class HookableChainOverlappingTests(unittest.TestCase):
+    """A memory access spanning several disjoint hooks yields every overlapping
+    hook, so the Q* backends run (chain) all of them, matching ghidra/angr
+    (SW-143). The old single-result path returned only the first."""
+
+    @staticmethod
+    def _noop(emu, addr, size, data):
+        return None
+
+    def test_iter_returns_all_overlapping_read_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_read(0x1000, 0x1004, self._noop)
+        emu.hook_memory_read(0x1008, 0x100C, self._noop)  # disjoint from first
+        # [0x1002, 0x100A) straddles both hooked ranges -> both returned.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1002, 8)), 2)
+        # An access inside only the first hook yields just that one.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1000, 2)), 1)
+        # is_memory_read_hooked still returns a single (truthy) result.
+        self.assertIsNotNone(emu.is_memory_read_hooked(0x1002, 8))
+
+    def test_iter_returns_all_overlapping_write_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_write(0x2000, 0x2004, self._noop)
+        emu.hook_memory_write(0x2008, 0x200C, self._noop)  # disjoint from first
+        self.assertEqual(len(emu.iter_memory_write_hooks(0x2002, 8)), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

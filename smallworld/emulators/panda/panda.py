@@ -296,10 +296,13 @@ class PandaEmulator(
                         if val:
                             self.manager.write_memory(addr, val)
                             orig_data = val
-                    if cb := self.manager.is_memory_read_hooked(addr, size):
+                    # An access can straddle several disjoint hooks; run every
+                    # overlapping one, chaining each hook's output.
+                    for cb in self.manager.iter_memory_read_hooks(addr, size):
                         val = cb(self.manager, addr, size, orig_data)
                         if val:
                             self.manager.write_memory(addr, val)
+                            orig_data = val
                 except exceptions.EmulationStop:
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
@@ -333,7 +336,7 @@ class PandaEmulator(
                     if self.manager.all_writes_hook:
                         self.manager.all_writes_hook(self.manager, addr, size, byte_val)
 
-                    if cb := self.manager.is_memory_write_hooked(addr, size):
+                    for cb in self.manager.iter_memory_write_hooks(addr, size):
                         cb(self.manager, addr, size, byte_val)
                 except exceptions.EmulationStop:
                     self.state = PandaEmulator.ThreadState.EXIT
