@@ -339,6 +339,12 @@ class Calloc(CStdModel):
             self.set_return_value(emulator, 0)
             return
 
+        if not self.heap.has_room(total):
+            # Asked before materializing: b"\0" * total is host memory whether
+            # or not the heap can take it.
+            self.set_return_value(emulator, 0)
+            return
+
         data = b"\0" * total
 
         res = self.heap.allocate_bytes(data, None)
@@ -474,6 +480,10 @@ class Malloc(CStdModel):
         size = self.get_arg1(emulator)
 
         assert isinstance(size, int)
+
+        if not self.heap.has_room(size):
+            self.set_return_value(emulator, 0)
+            return
 
         res = self.heap.allocate_bytes(b"\0" * size, None)
 
@@ -889,6 +899,11 @@ class Realloc(CStdModel):
         assert isinstance(size, int)
 
         logger.debug(f"realloc({hex(ptr)}, {size})")
+
+        # Ahead of the free() below, so a failed grow keeps the old block.
+        if not self.heap.has_room(size):
+            self.set_return_value(emulator, 0)
+            return
 
         if ptr == 0:
             res = self.heap.allocate_bytes(b"\0" * size, None)

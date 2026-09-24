@@ -66,8 +66,17 @@ class Memory(state.Stateful, dict[int, state.Value]):
     def get_size(self) -> int:
         raise NotImplementedError("You probably want get_capacity()")
 
+    def has_room(self, size: int) -> bool:
+        """Whether ``size`` more bytes will fit in this region.
+
+        Separate from :meth:`_is_safe` so a caller can ask before building the
+        buffer it is about to hand over; see the allocator models in
+        ``state/models/c99/stdlib.py``.
+        """
+        return (self.get_used() + size) <= self.get_capacity()
+
     def _is_safe(self, value: state.Value):
-        if (self.get_used() + value.get_size()) > self.get_capacity():
+        if not self.has_room(value.get_size()):
             raise ValueError("Memory is full")
 
     def _write_content(
