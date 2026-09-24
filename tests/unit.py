@@ -149,6 +149,9 @@ from smallworld.state.models.defaultmmio import (
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
+from smallworld.state.models.loongarch64.systemv.systemv import (
+    LoongArch64SysVCallingContext,
+)
 from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
 from smallworld.state.models.mips64el.systemv.systemv import (
@@ -4519,6 +4522,86 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         ctx.add_argument(9, ArgumentType.FLOAT)  # stack slot B
         self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
+    def test_lp64_stack_floats_reserve_eight_bytes(self):
+        # NEW-009 / NEW-011: every SysV model with 8-byte stack slots passes a
+        # spilled float in a full 8-byte slot (verified against the
+        # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu /
+        # aarch64-linux-gnu / x86_64-linux-gnu toolchains). Eight float args fill
+        # the FP registers; the 9th and 10th spill and must be 8 bytes apart,
+        # not 4.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+            RiscV64SysVCallingContext,
+            AArch64SysVCallingContext,
+            AMD64SysVCallingContext,
+        ):
+            ctx = cls()
+            for i in range(10):
+                ctx.add_argument(i, ArgumentType.FLOAT)
+            self.assertTrue(ctx._on_stack[8] and ctx._on_stack[9], msg=cls.__name__)
+            self.assertEqual(
+                ctx._arg_offset[9] - ctx._arg_offset[8], 8, msg=cls.__name__
+            )
+
+
+class _RegMemEmulator:
+    """Minimal register+memory mock for set_argument/get_argument tests.
+
+    Unwritten memory reads back as zeroes, so a set/get round-trip only
+    succeeds when both sides agree on the byte position within a stack slot.
+    """
+
+    def __init__(self):
+        self.regs: typing.Dict[str, int] = {}
+        self.mem: typing.Dict[int, int] = {}
+
+    def read_register(self, name):
+        return self.regs.get(name, 0)
+
+    def write_register(self, name, value):
+        self.regs[name] = value
+
+    def read_memory(self, addr, size):
+        return bytes(self.mem.get(addr + i, 0) for i in range(size))
+
+    def write_memory(self, addr, data):
+        for i, b in enumerate(data):
+            self.mem[addr + i] = b
+
+
+class SysVBigEndianStackIntTests(unittest.TestCase):
+    """NEW-010: a 4-byte int spilled to a big-endian n64 stack is the low word
+    of its 8-byte slot, so set_argument must place it at the high-addressed end
+    -- where get_argument (whole-slot read then mask) and the guest read it."""
+
+    SP = 0x7000
+
+    def _roundtrip(self, cls, value):
+        ctx = cls()
+        ctx.set_argument_types([ArgumentType.INT] * 10)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        # arg 8 is the first stack int (eight ints fill a0-a7).
+        self.assertTrue(ctx._on_stack[8], msg=cls.__name__)
+        ctx.set_argument(8, emu, value)
+        return ctx.get_argument(8, ArgumentType.INT, emu)
+
+    def test_mips64_big_endian_stack_int_roundtrips(self):
+        # Discriminating: before the fix set_argument writes the value to the
+        # low-addressed half of the slot while get_argument and the guest read
+        # the high-addressed low word, so the value is silently lost.
+        self.assertEqual(
+            self._roundtrip(MIPS64SysVCallingContext, 0x12345678), 0x12345678
+        )
+
+    def test_mips64el_little_endian_stack_int_roundtrips(self):
+        # Little-endian is unaffected (the value already sits at slot+0).
+        self.assertEqual(
+            self._roundtrip(MIPS64ELSysVCallingContext, 0x12345678), 0x12345678
+        )
+
 
 class ArmHFVfpBackfillTests(unittest.TestCase):
     """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
@@ -4611,6 +4694,30 @@ class SysVReturnValueConversionTests(unittest.TestCase):
                 {"f0": int.from_bytes(struct.pack("<d", 42.0), "little")}
             )
             self.assertEqual(ctx._read_return_double(emu), 42.0, msg=cls.__name__)
+
+    def test_lp64_int_stack_args_use_8_byte_slots(self):
+        # SW-197 / NEW-008: LoongArch64 LP64D and MIPS64 n64 pass on-stack
+        # integer arguments in 8-byte slots (verified against
+        # loongarch64-linux-gnu / mips64-linux-gnuabi64 compiler output: the
+        # 9th..11th int args land at sp+0, sp+8, sp+16). A _four_byte_stack_size
+        # of 4 would place them at sp+0, sp+4, sp+8 and misalign every stack int
+        # after the first. Eight ints fill a0-a7; the rest spill.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+        ):
+            ctx = cls()
+            types = [ArgumentType.INT] * 11
+            for i, t in enumerate(types):
+                ctx.add_argument(i, t)
+            # a0-a7 in registers, not on the stack.
+            for i in range(8):
+                self.assertFalse(ctx._on_stack[i], msg=f"{cls.__name__} arg{i}")
+            # The three spilled ints occupy consecutive 8-byte slots.
+            spilled_offsets = [ctx._arg_offset[i] for i in range(8, 11)]
+            self.assertTrue(all(ctx._on_stack[i] for i in range(8, 11)))
+            self.assertEqual(spilled_offsets, [0, 8, 16], msg=cls.__name__)
 
     def test_m68k_pointer_return_uses_a0_symmetrically(self):
         # m68k SysV returns pointers in a0; set_return_value wrote a0 but
