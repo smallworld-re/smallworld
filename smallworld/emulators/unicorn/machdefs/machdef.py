@@ -1,5 +1,4 @@
 import abc
-import inspect
 import typing
 
 from .... import exceptions, platforms, utils
@@ -93,20 +92,3 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             raise ValueError(
                 f"No machine model for {platform.architecture}:{platform.byteorder}"
             )
-
-
-def populate_registers(arch_info, unicorn_consts):
-    def find_uc_const(reg_name):
-        ew = f"_{reg_name.upper()}"
-        for name, num in inspect.getmembers(unicorn_consts):
-            if name.endswith(ew) and "REG" in name:
-                return (name, num)
-        return None
-
-    registers = {}
-    for reg_name, info in arch_info.items():
-        base_reg_name, (start, end) = info
-        ucstr, ucnum = find_uc_const(reg_name)
-        registers[reg_name] = (ucnum, base_reg_name, start, end)
-
-    return registers

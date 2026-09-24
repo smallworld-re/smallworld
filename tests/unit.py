@@ -9928,6 +9928,53 @@ class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
             model.model(mock.MagicMock())
 
 
+class LoopDetectionStrandSplitTests(unittest.TestCase):
+    """Every loop iteration's strand is captured, including consecutive and
+    distinct iterations (SW-058).
+
+    The loop head executes at the start of every iteration, so the back-edge
+    occurrence that closes one strand is also the start of the next. The old
+    code discarded that occurrence, so alternating/consecutive iterations were
+    dropped. run() only reads self.traces (it ignores the machine), so the
+    algorithm is driven directly with synthetic pc sequences.
+    """
+
+    def _run(self, *pc_sequences):
+        from smallworld.analyses.loop_detection import LoopDetection
+
+        hinter = _RecordingHinter()
+        analysis = LoopDetection(hinter)
+        analysis.traces = [
+            SimpleNamespace(trace=[SimpleNamespace(pc=pc) for pc in seq])
+            for seq in pc_sequences
+        ]
+        analysis.run(None)
+        return hinter
+
+    def _strands_for(self, hinter, head):
+        from smallworld.hinting.hints import LoopHint
+
+        hints = [h for h in hinter.sent if isinstance(h, LoopHint) and h.head == head]
+        self.assertEqual(len(hints), 1)
+        # Strand order and duplicate-collapsing are not significant; compare as
+        # a set of tuples.
+        return {tuple(s) for s in hints[0].strands}
+
+    def test_distinct_iterations_are_all_captured(self):
+        # head=0x10; two different iteration bodies (0x14, then 0x18). The old
+        # code kept only the first and lost the [0x10, 0x18, 0x10] iteration.
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, H, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, H), (H, B, H)})
+
+    def test_repeated_identical_iterations_dedupe_to_one(self):
+        # Identical iterations still collapse to a single unique strand (the
+        # fix must not over-produce).
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, B, H, A, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
+
+
 class _FakeReadMemEmulator:
     """Minimal emulator with the real read_memory contract for the c99 helpers.
 
@@ -10162,6 +10209,51 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         label, out = self._describe(self._fda(), "msg.c", var)
         self.assertEqual(label, "msg.c")
         self.assertIs(out, var)
+        
+        
+class FieldDetectionHinterPlumbingTests(unittest.TestCase):
+    """The field-detection analysis family must bind self.hinter through the
+    MRO, and FieldDetectionFilter must be instantiable -- the plumbing SW-057
+    left broken and that the DNS use cases depend on.
+    """
+
+    @staticmethod
+    def _platform():
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_field_detection_analysis_binds_hinter(self):
+        from smallworld.analyses.field_detection import FieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        a = FieldDetectionAnalysis(self._platform(), h)
+        self.assertIs(a.hinter, h)
+
+    def test_forced_field_detection_binds_hinter_and_trace(self):
+        from smallworld.analyses.field_detection import ForcedFieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        trace = [{"pc": 0x1000}]
+        a = ForcedFieldDetectionAnalysis(self._platform(), trace, h)
+        self.assertIs(a.hinter, h)
+        self.assertEqual(a.trace, trace)
+
+    def test_forced_execution_binds_hinter(self):
+        from smallworld.analyses.forced_exec import ForcedExecution
+
+        h = hinting.Hinter()
+        a = ForcedExecution(self._platform(), [{"pc": 1}], h)
+        self.assertIs(a.hinter, h)
+
+    def test_field_detection_filter_is_instantiable(self):
+        from smallworld.analyses.field_detection.field_analysis import (
+            FieldDetectionFilter,
+        )
+
+        h = hinting.Hinter()
+        f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
+        self.assertIs(f.hinter, h)
 
 
 class ForcedExecutionEarlyStopTests(unittest.TestCase):

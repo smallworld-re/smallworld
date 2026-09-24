@@ -81,18 +81,15 @@ class MemoryMappedModel(state.Stateful):
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Hooking MMIO {self} {self.address:x}")
         emulator.map_memory(self.address, self.size)
-        if self.on_read is not None:
-            if not isinstance(emulator, emulators.MemoryReadHookable):
-                raise NotImplementedError("Emulator does not support read hooking")
-            emulator.hook_memory_read(
-                self.address, self.address + self.size, self.on_read
-            )
-        if self.on_write is not None:
-            if not isinstance(emulator, emulators.MemoryWriteHookable):
-                raise NotImplementedError("Emulator does not support write hooking")
-            emulator.hook_memory_write(
-                self.address, self.address + self.size, self.on_write
-            )
+        # on_read/on_write are abstract methods, always bound (never None).
+        if not isinstance(emulator, emulators.MemoryReadHookable):
+            raise NotImplementedError("Emulator does not support read hooking")
+        emulator.hook_memory_read(self.address, self.address + self.size, self.on_read)
+        if not isinstance(emulator, emulators.MemoryWriteHookable):
+            raise NotImplementedError("Emulator does not support write hooking")
+        emulator.hook_memory_write(
+            self.address, self.address + self.size, self.on_write
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({hex(self.address)})"
@@ -169,18 +166,17 @@ class SymbolicMemoryMappedModel(state.Stateful):
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Hooking MMIO {self} {self.address:x}")
         emulator.map_memory(self.address, self.size)
-        if self.on_read is not None:
-            if not isinstance(emulator, emulators.MemoryReadHookable):
-                raise NotImplementedError("Emulator does not support read hooking")
-            emulator.hook_memory_read_symbolic(
-                self.address, self.address + self.size, self.on_read
-            )
-        if self.on_write is not None:
-            if not isinstance(emulator, emulators.MemoryWriteHookable):
-                raise NotImplementedError("Emulator does not support write hooking")
-            emulator.hook_memory_write_symbolic(
-                self.address, self.address + self.size, self.on_write
-            )
+        # on_read/on_write are abstract methods, always bound (never None).
+        if not isinstance(emulator, emulators.MemoryReadHookable):
+            raise NotImplementedError("Emulator does not support read hooking")
+        emulator.hook_memory_read_symbolic(
+            self.address, self.address + self.size, self.on_read
+        )
+        if not isinstance(emulator, emulators.MemoryWriteHookable):
+            raise NotImplementedError("Emulator does not support write hooking")
+        emulator.hook_memory_write_symbolic(
+            self.address, self.address + self.size, self.on_write
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({hex(self.address)})"

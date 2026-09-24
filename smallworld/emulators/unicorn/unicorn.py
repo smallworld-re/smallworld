@@ -313,10 +313,6 @@ class UnicornEmulator(
         self.engine.hook_add(
             unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback
         )
-        # function to run on *every* interrupt
-        self.interrupts_hook: typing.Optional[
-            typing.Callable[[emulator.Emulator, int], None]
-        ] = None
 
         def interrupt_callback(uc, index, user_data):
             # On some ISAs, Unicorn will already have set PC

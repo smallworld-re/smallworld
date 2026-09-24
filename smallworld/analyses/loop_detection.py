@@ -78,15 +78,18 @@ class LoopDetection(Analysis):
                 if collecting:
                     strand.append(te.pc)
                 if collecting and te.pc == head:
-                    # we hit the back-edges
+                    # we hit the back-edge, closing this strand
                     # save unique strands
                     sh = hash(tuple(strand))
                     if te.pc not in strands:
                         strands[te.pc] = {}
                     strands[te.pc][sh] = strand
-                    collecting = False
-                    head = None
-                    strand = []
+                    # The head executes at the start of every iteration, so this
+                    # closing occurrence is simultaneously the start of the next
+                    # iteration's strand. Reopen collection here (keeping
+                    # `collecting`/`head`) instead of dropping it; otherwise
+                    # consecutive iterations get merged or lost.
+                    strand = [te.pc]
                     continue
         for pc in heads:
             the_strands = []
