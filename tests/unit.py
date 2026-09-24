@@ -10396,6 +10396,19 @@ class TrackerMemoryPpInspectTests(unittest.TestCase):
         self.assertIs(calls[0][2].get("disable_actions"), True)
 
 
+class TritonFlagsWidthMaskTests(unittest.TestCase):
+    """flags/eflags/rflags all map onto Triton's single 64-bit eflags register,
+    so narrow reads must be masked to the requested register's width (SW-151).
+    """
+
+    def test_narrow_flag_reads_are_masked(self):
+        emu = emulators.TritonEmulator(AMD64_PLATFORM)
+        emu.write_register("rflags", 0x0000000100000202)
+        self.assertEqual(emu.read_register("rflags"), 0x0000000100000202)
+        self.assertEqual(emu.read_register("eflags"), 0x00000202)  # low 32 bits
+        self.assertEqual(emu.read_register("flags"), 0x0202)  # low 16 bits
+
+
 class HookableChainOverlappingTests(unittest.TestCase):
     """A memory access spanning several disjoint hooks yields every overlapping
     hook, so the Q* backends run (chain) all of them, matching ghidra/angr
