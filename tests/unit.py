@@ -10643,8 +10643,8 @@ class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
 
     def test_labelled_read_ghidra_matches_oracle(self):
         self._assert_labelled_read(self._mk_ghidra)
-        
-        
+
+
 class TritonFlagsWidthMaskTests(unittest.TestCase):
     """flags/eflags/rflags all map onto Triton's single 64-bit eflags register,
     so narrow reads must be masked to the requested register's width (SW-151).
