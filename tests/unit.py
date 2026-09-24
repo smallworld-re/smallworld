@@ -9971,8 +9971,8 @@ class EmulatorHygieneTests(unittest.TestCase):
         from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
 
         self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
-        
-        
+
+
 class LoopDetectionStrandSplitTests(unittest.TestCase):
     """Every loop iteration's strand is captured, including consecutive and
     distinct iterations (SW-058).
