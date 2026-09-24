@@ -10511,6 +10511,8 @@ class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
 
     def test_labelled_read_ghidra_matches_oracle(self):
         self._assert_labelled_read(self._mk_ghidra)
+
+
 class HookableChainOverlappingTests(unittest.TestCase):
     """A memory access spanning several disjoint hooks yields every overlapping
     hook, so the Q* backends run (chain) all of them, matching ghidra/angr
