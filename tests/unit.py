@@ -10451,8 +10451,8 @@ class SymbolicMemoryLabelInvariantTests(unittest.TestCase):
             return emu
 
         self._assert_invariant(make)
-        
-        
+
+
 class TritonFlagsWidthMaskTests(unittest.TestCase):
     """flags/eflags/rflags all map onto Triton's single 64-bit eflags register,
     so narrow reads must be masked to the requested register's width (SW-151).
