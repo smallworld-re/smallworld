@@ -10077,5 +10077,62 @@ class TrackerMemoryPpInspectTests(unittest.TestCase):
         self.assertIs(calls[0][2].get("disable_actions"), True)
 
 
+class SymbolicMemoryLabelInvariantTests(unittest.TestCase):
+    """Every symbolic-capable emulator must uphold the memory-label invariant
+    (SW-152): labelling mapped-but-unwritten memory leaves the label a free
+    symbol (not pinned to a default 0), while labelling written memory pins it
+    to the content.
+    """
+
+    ADDR = 0x4000
+    # A byte-order-agnostic content value (0x0101...01), so "the label pinned
+    # to the written content" holds regardless of each emulator's internal load
+    # endianness -- the invariant under test is pinned-vs-free, not byte order.
+    WRITTEN = 0x0101010101010101
+
+    def _assert_invariant(self, make_emulator):
+        # Unwritten -> the label stays a free symbol.
+        emu = make_emulator()
+        emu.write_memory_label(self.ADDR, 8, "buf")
+        buf = claripy.BVS("buf", 64, explicit_name=True)
+        self.assertTrue(
+            emu.satisfiable([buf != 0]),
+            "labelled unwritten memory must stay a free symbol, not pin to 0",
+        )
+        # Written first -> the label pins to the written content.
+        emu = make_emulator()
+        emu.write_memory_content(self.ADDR, self.WRITTEN.to_bytes(8, "little"))
+        emu.write_memory_label(self.ADDR, 8, "buf2")
+        buf2 = claripy.BVS("buf2", 64, explicit_name=True)
+        self.assertTrue(emu.satisfiable([buf2 == self.WRITTEN]))
+        self.assertFalse(emu.satisfiable([buf2 != self.WRITTEN]))
+
+    def test_triton(self):
+        def make():
+            emu = emulators.TritonSymbolicEmulator(AMD64_PLATFORM)
+            emu.map_memory(self.ADDR, 0x100)
+            return emu
+
+        self._assert_invariant(make)
+
+    def test_angr(self):
+        def make():
+            emu = emulators.AngrEmulator(AMD64_PLATFORM)
+            emu.map_memory(self.ADDR, 0x100)
+            emu._code.append((0x400000, b"\x90\x90"))  # angr needs some code
+            emu.initialize()
+            return emu
+
+        self._assert_invariant(make)
+
+    def test_ghidra(self):
+        def make():
+            emu = _ghidra_symbolic_amd64_emulator()
+            emu.map_memory(self.ADDR, 0x100)
+            return emu
+
+        self._assert_invariant(make)
+
+
 if __name__ == "__main__":
     unittest.main()

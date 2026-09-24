@@ -21,6 +21,7 @@ import typing
 import claripy
 
 from ... import exceptions
+from ...utils import RangeCollection
 from .. import emulator
 from . import z3bridge
 from .triton import MemoryAccess, TritonEmulator
@@ -84,6 +85,10 @@ class TritonSymbolicEmulator(
         # fresh symbols — we must not treat that default 0 as a value to bind
         # the label to.
         self._written_registers: typing.Set[str] = set()
+        # The byte ranges the harness has explicitly written. The memory analog
+        # of _written_registers: write_memory_label must not pin a label to
+        # Triton's default 0 for memory that was never written.
+        self._written_memory: RangeCollection = RangeCollection()
 
     # ------------------------------------------------------ symbolic register I/O
 
@@ -178,9 +183,13 @@ class TritonSymbolicEmulator(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
     ) -> None:
         if isinstance(content, claripy.ast.bv.BV):
+            nbytes = content.size() // 8
             self._write_symbolic_memory(address, content)
         else:
+            nbytes = len(content)
             super().write_memory_content(address, content)
+        if nbytes:
+            self._written_memory.add_range((address, address + nbytes))
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         node = self.ctx.getRegisterAst(self._reg(name))
@@ -262,10 +271,15 @@ class TritonSymbolicEmulator(
     ) -> None:
         if label is None:
             return
-        prev = self.read_memory_symbolic(address, size)
         bv = claripy.BVS(label, size * 8, explicit_name=True)
-        if not (prev.symbolic and prev.op == "BVS"):
-            self._user_constraints.append(prev == bv)
+        # Bind the label to the memory's prior value only if the harness
+        # actually wrote it (angr/Ghidra discipline); never-written memory reads
+        # as Triton's default 0, which must stay a free symbol, not get pinned
+        # to 0. Mirrors write_register_label's _written_registers guard.
+        if not self._written_memory.get_missing_ranges((address, address + size)):
+            prev = self.read_memory_symbolic(address, size)
+            if not (prev.symbolic and prev.op == "BVS"):
+                self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self.write_memory_content(address, bv)
 
