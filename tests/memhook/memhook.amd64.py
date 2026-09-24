@@ -83,6 +83,14 @@ machine.add(baz)
 qux = FooModel("qux", 0x1034, 1)
 machine.add(qux)
 
+# Two adjacent hooks spanned by a single access at 0x1040 (SW-143): a read
+# straddling both must fire each of them.
+span_lo = FooModel("span_lo", 0x1040, 2)
+machine.add(span_lo)
+
+span_hi = FooModel("span_hi", 0x1042, 2)
+machine.add(span_hi)
+
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )

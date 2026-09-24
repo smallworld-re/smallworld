@@ -24,8 +24,6 @@ class TypedPointer(ctypes.c_void_p):
         subclass for your type.
     """
 
-    _type = None
-
     def __init__(self, *args, **kwargs):
         # No idea what the signature for this should be,
         # and don't want to pick one in case it changes
@@ -34,12 +32,8 @@ class TypedPointer(ctypes.c_void_p):
         # NOTE: Due to a bug, can't use super() in ctypes subclasses
         ctypes.c_void_p.__init__(self, *args, **kwargs)
 
-    @property
-    def type(self):
-        """The type referenced by this pointer."""
-
-        return self._type
-
+    # ``type`` is installed as a plain class attribute by
+    # create_typed_pointer(); concrete subclasses always carry it.
     def __str__(self):
         return f"Pointer {self.type} = {self.value}"
 

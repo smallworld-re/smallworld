@@ -258,20 +258,21 @@ class UnicornEmulator(
                     uc.mem_write(address, data)
                     orig_data = data
 
-            if cb := self.is_memory_read_hooked(address, size):
-                data = cb(self, address, size, orig_data)
-
-                # Execute registered callback
-                # data = cb(self, address, size)
-                # Overwrite memory being read.
-                # The instruction is emulated after this callback fires,
-                # so the new value will get used for computation.
-                if data:
-                    if len(data) != size:
+            # An access can straddle several disjoint hooks; run every
+            # overlapping one, chaining so each sees the previous hook's output.
+            data = orig_data
+            for cb in self.iter_memory_read_hooks(address, size):
+                new = cb(self, address, size, data)
+                # Overwrite memory being read; the instruction is emulated
+                # after this fires, so the new value gets used for computation.
+                if new:
+                    if len(new) != size:
                         raise exceptions.EmulationError(
-                            f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
+                            f"Read hook at {hex(address)} returned {len(new)} bytes; need {size} bytes"
                         )
-                    uc.mem_write(address, data)
+                    data = new
+            if data is not orig_data:
+                uc.mem_write(address, data)
 
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_WRITE
@@ -288,10 +289,13 @@ class UnicornEmulator(
                 data = value.to_bytes(size, self.platform.byteorder.value)
                 self.all_writes_hook(self, address, size, data)
 
-            if cb := self.is_memory_write_hooked(address, size):
+            hooks = self.iter_memory_write_hooks(address, size)
+            if hooks:
                 if data is None:
                     data = value.to_bytes(size, self.platform.byteorder.value)
-                cb(self, address, size, data)
+                # Notify every overlapping hook (writes don't return data).
+                for cb in hooks:
+                    cb(self, address, size, data)
 
         def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped read of address 0x{address:x}")
@@ -313,10 +317,6 @@ class UnicornEmulator(
         self.engine.hook_add(
             unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback
         )
-        # function to run on *every* interrupt
-        self.interrupts_hook: typing.Optional[
-            typing.Callable[[emulator.Emulator, int], None]
-        ] = None
 
         def interrupt_callback(uc, index, user_data):
             # On some ISAs, Unicorn will already have set PC
