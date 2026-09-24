@@ -1,10 +1,24 @@
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+# QEMU's MIPS instruction bus error exception index (target/mips cpu.h
+# EXCP_IBE). PANDA raises it when the CPU fetches an instruction from unmapped
+# memory, so it maps to a fetch-unmapped failure. (The 32-bit path surfaces
+# this here; mips64 is caught earlier by the instruction-bounds check.)
+_MIPS_EXCP_IBE = 15
 
 
 class MIPSMachineDef(PandaMachineDef):
     arch = Architecture.MIPS32
     cpu = "M14K"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _MIPS_EXCP_IBE:
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        super().handle_interrupt(intno, pc)
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags

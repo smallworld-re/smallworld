@@ -1,9 +1,22 @@
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+# QEMU's ARM prefetch (instruction) abort exception index (target/arm cpu.h
+# EXCP_PREFETCH_ABORT). PANDA raises it when the CPU fetches an instruction
+# from unmapped memory, so it maps to a fetch-unmapped failure.
+_ARM_EXCP_PREFETCH_ABORT = 3
 
 
 class ARMMachineDef(PandaMachineDef):
     panda_arch = "arm"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _ARM_EXCP_PREFETCH_ABORT:
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        super().handle_interrupt(intno, pc)
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
