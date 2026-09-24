@@ -10426,8 +10426,8 @@ class SymbolicMemoryLabelInvariantTests(unittest.TestCase):
             return emu
 
         self._assert_invariant(make)
-        
-        
+
+
 class HookableChainOverlappingTests(unittest.TestCase):
     """A memory access spanning several disjoint hooks yields every overlapping
     hook, so the Q* backends run (chain) all of them, matching ghidra/angr
