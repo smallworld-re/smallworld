@@ -1,4 +1,4 @@
-from .... import emulators
+from .... import emulators, exceptions
 
 # Maximum string length.
 # Used to terminate unbounded string operations
@@ -52,6 +52,14 @@ def _emu_strncpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
     src_len = _emu_strlen(emulator, src) + 1
     if src_len < n:
         actual = src_len
+
+    # The read is bounded by the string length; the pad to `n` is not.
+    if not emulator.is_memory_mapped(dst, n):
+        raise exceptions.EmulationWriteUnmappedFailure(
+            f"strncpy of {n} bytes to {dst:#x} is not mapped",
+            emulator.read_register("pc"),
+            address=dst,
+        )
 
     data = emulator.read_memory(src, actual)
     data += b"\0" * (n - actual)

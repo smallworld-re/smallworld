@@ -2,7 +2,7 @@ import abc
 import logging
 import random
 
-from ... import emulators
+from ... import emulators, exceptions
 from .model import Model
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,15 @@ def _emu_strncpy(
             emulator.write_memory(dst, src_bytes)
             if is_strncpy and l3 < n:
                 # if src string is less than n bytes then, according to man page
-                # strncpy copies 0s to get to n bytes
+                # strncpy copies 0s to get to n bytes. `n` is guest-supplied, so
+                # check before building the padding rather than after.
+                if not emulator.is_memory_mapped(dst + l3, n - l3):
+                    raise exceptions.EmulationWriteUnmappedFailure(
+                        f"strncpy padding of {n - l3} bytes at "
+                        f"{dst + l3:#x} is not mapped",
+                        emulator.read_register("pc"),
+                        address=dst + l3,
+                    )
                 emulator.write_memory(dst + l3, b"\0" * (n - l3))
 
 
