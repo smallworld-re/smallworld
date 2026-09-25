@@ -1,5 +1,11 @@
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+# QEMU shares the AArch32/AArch64 exception indices (target/arm cpu.h); a
+# prefetch (instruction) abort is EXCP_PREFETCH_ABORT = 3, raised when the CPU
+# fetches an instruction from unmapped memory.
+_ARM_EXCP_PREFETCH_ABORT = 3
 
 
 class AArch64MachineDef(PandaMachineDef):
@@ -7,6 +13,13 @@ class AArch64MachineDef(PandaMachineDef):
     byteorder = Byteorder.LITTLE
 
     panda_arch = "aarch64"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _ARM_EXCP_PREFETCH_ABORT:
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        super().handle_interrupt(intno, pc)
 
     def __init__(self):
         self._registers = {

@@ -1,10 +1,170 @@
+import enum
+import logging
+
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+logger = logging.getLogger(__name__)
+
+
+class MipsExcp(enum.IntEnum):
+    """QEMU MIPS exception indices (target/mips cpu.h).
+
+    PANDA and Unicorn are both QEMU-derived and share this numbering; this is
+    the same table used by emulators/unicorn/machdefs/mips.py. Only EXCP_IBE
+    (an unmapped instruction fetch) has been observed reaching PANDA's exception
+    callback in this tree -- read/write faults are caught earlier by the memory
+    callbacks -- but the whole table is mapped so any exception that does
+    surface here is classified rather than reported as a generic error.
+    """
+
+    EXCP_RESET = 0
+    EXCP_SRESET = 1
+    EXCP_DSS = 2
+    EXCP_DINT = 3
+    EXCP_DDBL = 4
+    EXCP_DDBS = 5
+    EXCP_NMI = 6
+    EXCP_MCHECK = 7
+    EXCP_EXT_INTERRUPT = 8
+    EXCP_DFWATCH = 9
+    EXCP_DIB = 10
+    EXCP_IWATCH = 11
+    EXCP_AdEL = 12
+    EXCP_AdES = 13
+    EXCP_TLBF = 14
+    EXCP_IBE = 15
+    EXCP_DBp = 16
+    EXCP_SYSCALL = 17
+    EXCP_BREAK = 18
+    EXCP_CpU = 19
+    EXCP_RI = 20
+    EXCP_OVERFLOW = 21
+    EXCP_TRAP = 22
+    EXCP_FPE = 23
+    EXCP_DWATCH = 24
+    EXCP_LTLBL = 25
+    EXCP_TLBL = 26
+    EXCP_TLBS = 27
+    EXCP_DBE = 28
+    EXCP_THREAD = 29
+    EXCP_MDMX = 30
+    EXCP_C2E = 31
+    EXCP_CACHE = 32
+    EXCP_DSPDIS = 33
+    EXCP_MSADIS = 34
+    EXCP_MSAFPE = 35
+    EXCP_TLBXI = 36
+    EXCP_TLBRI = 37
 
 
 class MIPSMachineDef(PandaMachineDef):
     arch = Architecture.MIPS32
     cpu = "M14K"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        # Ported from the Unicorn MIPS machdef's handle_interrupt table. Unicorn
+        # re-raises a UcError that its _error() remaps into a smallworld
+        # exception; PANDA has no such layer, so raise the exception directly.
+        try:
+            excp = MipsExcp(intno)
+        except ValueError:
+            super().handle_interrupt(intno, pc)
+            return
+
+        if excp == MipsExcp.EXCP_IBE:
+            # Instruction bus error: an unmapped instruction fetch.
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_TLBL:
+            # TLB load failure -> read of unmapped memory.
+            raise exceptions.EmulationReadUnmappedFailure(
+                "MIPS TLB load failure", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_TLBS:
+            # TLB store failure -> write to unmapped memory.
+            raise exceptions.EmulationWriteUnmappedFailure(
+                "MIPS TLB store failure", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_TLBRI:
+            # TLB read inhibited -> read of read-protected memory.
+            raise exceptions.EmulationReadProtectedFailure(
+                "MIPS TLB read-inhibit", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_LTLBL:
+            # TLB modify on an unwritable page -> write-protected memory.
+            raise exceptions.EmulationWriteProtectedFailure(
+                "MIPS TLB modify error", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_TLBXI:
+            # TLB execute inhibited -> fetch from exec-protected memory.
+            raise exceptions.EmulationFetchProtectedFailure(
+                "MIPS TLB execute-inhibit", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_AdEL:
+            # Address error on load -> unaligned read.
+            raise exceptions.EmulationReadUnalignedFailure(
+                "MIPS address load error", pc, address=pc
+            )
+        elif excp == MipsExcp.EXCP_AdES:
+            # Address error on store -> unaligned write.
+            raise exceptions.EmulationWriteUnalignedFailure(
+                "MIPS address store error", pc, address=pc
+            )
+        elif excp in (
+            MipsExcp.EXCP_CpU,
+            MipsExcp.EXCP_DSPDIS,
+            MipsExcp.EXCP_MSADIS,
+            MipsExcp.EXCP_RI,
+            MipsExcp.EXCP_BREAK,
+            MipsExcp.EXCP_TRAP,
+            MipsExcp.EXCP_OVERFLOW,
+            MipsExcp.EXCP_FPE,
+            MipsExcp.EXCP_C2E,
+            MipsExcp.EXCP_MDMX,
+            MipsExcp.EXCP_MSAFPE,
+            MipsExcp.EXCP_SYSCALL,
+        ):
+            # Reserved/illegal instructions, coprocessor faults, and traps.
+            logger.debug(f"MIPS instruction fault: {excp.name}")
+            raise exceptions.EmulationExecInvalidFailure(
+                f"MIPS instruction fault ({excp.name})", pc, None
+            )
+        elif excp in (
+            MipsExcp.EXCP_TLBF,
+            MipsExcp.EXCP_DBE,
+            MipsExcp.EXCP_CACHE,
+            MipsExcp.EXCP_MCHECK,
+        ):
+            # Memory faults QEMU cannot resolve to read vs write, plus machine
+            # and cache checks: report a generic execution exception.
+            logger.error(f"MIPS unresolved fault: {excp.name}")
+            raise exceptions.EmulationExecExceptionFailure(f"MIPS {excp.name}", pc)
+        elif excp in (
+            MipsExcp.EXCP_DSS,
+            MipsExcp.EXCP_DINT,
+            MipsExcp.EXCP_DDBL,
+            MipsExcp.EXCP_DDBS,
+            MipsExcp.EXCP_DIB,
+            MipsExcp.EXCP_DBp,
+            MipsExcp.EXCP_DFWATCH,
+            MipsExcp.EXCP_IWATCH,
+            MipsExcp.EXCP_DWATCH,
+            MipsExcp.EXCP_THREAD,
+            MipsExcp.EXCP_RESET,
+            MipsExcp.EXCP_SRESET,
+            MipsExcp.EXCP_NMI,
+            MipsExcp.EXCP_EXT_INTERRUPT,
+        ):
+            # Debug/watchpoint/reset/interrupt/thread events smallworld does not
+            # model: surface as an execution exception.
+            logger.error(f"MIPS system exception: {excp.name}")
+            raise exceptions.EmulationExecExceptionFailure(f"MIPS {excp.name}", pc)
+
+        # Defensive: an enum member with no explicit branch above.
+        super().handle_interrupt(intno, pc)
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags

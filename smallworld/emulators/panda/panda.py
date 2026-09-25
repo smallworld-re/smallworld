@@ -401,11 +401,25 @@ class PandaEmulator(
                     self.signal_and_wait(exception=e)
 
                 if not handled:
-                    # Generate an exception so we exit ungracefully
+                    # Not hooked: let the machine def classify the CPU
+                    # exception. PANDA (like QEMU) surfaces some memory faults --
+                    # notably an unmapped instruction fetch on ARM/MIPS32 -- as a
+                    # raw CPU exception here rather than through on_insn's bounds
+                    # check, so the per-arch machdef translates the exception
+                    # index into the matching smallworld failure (defaulting to a
+                    # generic EmulationError). The faulting address is the pc the
+                    # CPU tried to fetch, which get_pc reports (manager.pc still
+                    # holds the last executed instruction).
                     self.state = PandaEmulator.ThreadState.EXIT
                     try:
+                        pc = self.panda.arch.get_pc(cpu)
+                    except Exception:  # noqa: BLE001
+                        pc = self.manager.pc
+                    try:
+                        self.machdef.handle_interrupt(exception_index, pc)
+                        # handle_interrupt always raises; guard a non-raising override.
                         raise exceptions.EmulationError(
-                            f"Panda exception {exception_index}"
+                            f"Panda exception {exception_index} at {hex(pc)}"
                         )
                     except exceptions.EmulationError as e:
                         self.signal_and_wait(exception=e)
