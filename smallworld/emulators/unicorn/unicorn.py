@@ -495,6 +495,15 @@ class UnicornEmulator(
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
+        # Ask the guest's map BEFORE reading. unicorn's binding does
+        # `ctypes.create_string_buffer(size)` and only then calls uc_mem_read,
+        # so an unmapped read costs the whole buffer -- zero-filled, so it is
+        # resident -- before the range is ever checked. Same unmapped error
+        # either way; this one just does not allocate first.
+        if not self._is_address_range_mapped((address, address + size)):
+            self._error(
+                unicorn.UcError(unicorn.UC_ERR_READ_UNMAPPED, address, size), "mem"
+            )
         try:
             return bytes(self.engine.mem_read(address, size))
         except unicorn.UcError as e:
@@ -506,13 +515,21 @@ class UnicornEmulator(
         labels = set()
         if "mem" not in self.label:
             return None
+        mem = self.label["mem"]
+        # Walking `size` addresses is unbounded when the size came from the
+        # guest. Scanning what is actually labelled gives the same answer, so
+        # take whichever side is smaller -- in ascending address order either
+        # way, since set insertion order decides how the result is joined.
+        if size > len(mem):
+            for a in sorted(a for a in mem if address <= a < address + size):
+                labels.add(mem[a])
         else:
             for a in range(address, address + size):
-                if a in self.label["mem"]:
-                    labels.add(self.label["mem"][a])
-            if len(labels) == 0:
-                return None
-            return ":".join(list(labels))
+                if a in mem:
+                    labels.add(mem[a])
+        if len(labels) == 0:
+            return None
+        return ":".join(list(labels))
 
     def read_memory(self, address: int, size: int) -> bytes:
         return self.read_memory_content(address, size)
@@ -540,16 +557,25 @@ class UnicornEmulator(
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
         return list(self.memory_map.ranges)
 
+    def is_memory_mapped(self, address: int, size: int) -> bool:
+        if size < 0:
+            return False
+        if size == 0:
+            return True
+        return self._is_address_range_mapped((address, address + size))
+
     def _is_address_mapped(self, address):
         ind, found = self.memory_map.find_closest_range(address)
         return found
 
-    def _is_address_range_mapped(self, address_range):
-        a, b = address_range
-        for address in range(a, b):
-            if self._is_address_mapped(address) is False:
-                return False
-        return True
+    def _is_address_range_mapped(self, address_range) -> bool:
+        """Whether every byte of ``address_range`` is mapped in the guest.
+
+        Asks the RangeCollection once rather than walking the range: the callers
+        below use this to bound a `size` that arrives from the guest, so a
+        per-byte test would cost exactly what it is meant to prevent.
+        """
+        return not self.memory_map.get_missing_ranges(address_range)
 
     def write_memory_content(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
@@ -569,6 +595,15 @@ class UnicornEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
+        # Unlike the read path there is no buffer to avoid -- `content` is
+        # already built -- but the guest's map is still the bound that matters,
+        # and mem_write reports the same unmapped error one frame later.
+        if not self._is_address_range_mapped((address, address + len(content))):
+            self._error(
+                unicorn.UcError(unicorn.UC_ERR_WRITE_UNMAPPED, address, len(content)),
+                "mem",
+            )
+
         try:
             self.engine.mem_write(address, content)
         except unicorn.UcError as e:
@@ -584,6 +619,12 @@ class UnicornEmulator(
             return
         if "mem" not in self.label:
             self.label["mem"] = dict()
+        # One dict entry per byte. Callers label a range they have just written
+        # content to, so this is a backstop rather than a behaviour change.
+        if not self._is_address_range_mapped((address, address + size)):
+            self._error(
+                unicorn.UcError(unicorn.UC_ERR_WRITE_UNMAPPED, address, size), "mem"
+            )
         for a in range(address, address + size):
             self.label["mem"][a] = label
 

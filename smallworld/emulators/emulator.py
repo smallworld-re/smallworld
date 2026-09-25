@@ -267,6 +267,28 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         return []
 
+    def is_memory_mapped(self, address: int, size: int) -> bool:
+        """Whether every byte of ``[address, address + size)`` is mapped.
+
+        Exists so a model can test a guest-supplied size BEFORE building a
+        buffer of it: several build the buffer as an argument, which spends the
+        memory before the write that would have refused it.
+        """
+        # Zero is vacuously mapped, and callers rely on it: a zero-length
+        # operation must still reach the write that rejects it. A NEGATIVE size
+        # is nonsense, and a guard must not answer "safe" to nonsense.
+        if size < 0:
+            return False
+        if size == 0:
+            return True
+        end = address + size
+        for lo, hi in sorted(self.get_memory_map()):
+            if lo <= address < hi:
+                if end <= hi:
+                    return True
+                address = hi  # continue into an adjacent region
+        return False
+
     @abc.abstractmethod
     def write_memory_content(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]

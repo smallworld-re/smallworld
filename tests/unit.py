@@ -7545,6 +7545,189 @@ class UnicornRegisterLabelReadTests(unittest.TestCase):
         self.assertIsNone(self.emu.read_register_label("ah"))
 
 
+class ModelGuestSizeBoundsTests(unittest.TestCase):
+    """Models must test a guest-supplied size before building a buffer of it.
+
+    memset built `bytes([val]) * n` with n straight from the size register, so
+    the fill was charged to host RAM before write_memory could refuse it.
+    Harnessing libjpeg.jinit_c_master_control called memset with
+    n = 463,889,665,536 and the worker was OOM-killed. Driven through a real
+    UnicornEmulator rather than the model mock, since the bound comes from the
+    emulator's memory map.
+    """
+
+    HEAP = 0x60000
+    SIZE = 0x1000
+    HUGE = 463889665536  # the size the libjpeg run actually passed
+
+    def setUp(self):
+        self.plat = _amd64_platform()
+        self.emu = emulators.UnicornEmulator(self.plat)
+        self.emu.map_memory(self.HEAP, self.SIZE)
+
+    def _memset(self, ptr, val, n):
+        model = Model.lookup("memset", self.plat, platforms.ABI.SYSTEMV, 0x10004)
+        for reg, v in zip(["rdi", "rsi", "rdx"], [ptr, val, n]):
+            self.emu.write_register(reg, v)
+        model.model(self.emu)
+
+    def test_memset_with_a_guest_sized_fill_is_refused(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self._memset(self.HEAP, 0x41, self.HUGE)
+
+    def test_memset_within_the_mapped_region_still_works(self):
+        self._memset(self.HEAP, 0x41, 64)
+        self.assertEqual(self.emu.read_memory(self.HEAP, 4), b"AAAA")
+
+    def test_memset_straddling_the_end_of_the_region_is_refused(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self._memset(self.HEAP + self.SIZE - 8, 0x41, 64)
+
+    def test_memset_of_zero_bytes_keeps_its_existing_behaviour(self):
+        """An empty write has always raised; the new guard must not mask it
+        by returning early on size 0."""
+        with self.assertRaisesRegex(ValueError, "memory write cannot be empty"):
+            self._memset(self.HEAP, 0x41, 0)
+
+    def test_a_negative_size_is_not_mapped(self):
+        """Zero is vacuously mapped, but a guard must not call nonsense safe.
+        The underlying range test answers True for an inverted range, so this
+        has to be handled explicitly rather than left to it."""
+        self.assertFalse(self.emu.is_memory_mapped(self.HEAP, -8))
+        self.assertFalse(self.emu.is_memory_mapped(0x900000, -8))
+        self.assertTrue(self.emu.is_memory_mapped(self.HEAP, 0))
+        self.assertTrue(self.emu.is_memory_mapped(0x900000, 0))
+
+    def test_base_implementation_matches_the_unicorn_override(self):
+        """Every non-unicorn engine inherits Emulator.is_memory_mapped, so the
+        two must agree -- including across adjacent and disjoint regions."""
+        from smallworld.emulators.emulator import Emulator
+
+        self.emu.map_memory(self.HEAP + self.SIZE, self.SIZE)  # adjacent
+        self.emu.map_memory(self.HEAP + 0x8000, self.SIZE)  # disjoint
+        for addr in (
+            0x0,
+            self.HEAP - 8,
+            self.HEAP,
+            self.HEAP + self.SIZE - 8,
+            self.HEAP + self.SIZE,
+            self.HEAP + 0x8000,
+        ):
+            for size in (-8, 0, 1, 8, self.SIZE, self.SIZE * 2, 1 << 40):
+                with self.subTest(addr=hex(addr), size=size):
+                    self.assertEqual(
+                        self.emu.is_memory_mapped(addr, size),
+                        Emulator.is_memory_mapped(self.emu, addr, size),
+                    )
+
+    def test_is_memory_mapped_agrees_with_a_per_byte_check(self):
+        for start in (0x0, self.HEAP - 8, self.HEAP, self.HEAP + self.SIZE - 8):
+            for size in (0, 1, 8, self.SIZE, self.SIZE * 2):
+                with self.subTest(start=hex(start), size=size):
+                    brute = all(
+                        self.emu._is_address_mapped(a)
+                        for a in range(start, start + size)
+                    )
+                    self.assertEqual(self.emu.is_memory_mapped(start, size), brute)
+
+
+class UnicornMemoryBoundsTests(unittest.TestCase):
+    """Sized memory operations are bounded by the guest's map, not sys.maxsize.
+
+    A size arriving from an emulated program is unconstrained. unicorn's binding
+    does ``ctypes.create_string_buffer(size)`` before uc_mem_read validates the
+    range, so an unmapped read was charged to host RAM -- zero-filled, so
+    resident -- before anything checked it. Harnessing a libjpeg function this
+    way mapped 432 GiB and was OOM-killed. The label paths were worse: they walk
+    the range a byte at a time, and the write side stores one dict entry per
+    byte.
+    """
+
+    BASE = 0x1000
+    SIZE = 0x1000
+    HUGE = 432 * 1024**3
+    UNMAPPED = 0x900000
+
+    def setUp(self):
+        self.emu = emulators.UnicornEmulator(_amd64_platform())
+        self.emu.map_memory(self.BASE, self.SIZE)
+
+    def test_huge_unmapped_read_never_reaches_the_engine(self):
+        """The buffer is built inside engine.mem_read, so not getting there is
+        the property that matters -- deterministic, unlike watching RSS."""
+        reached = []
+
+        def spy(*args, **kwargs):
+            reached.append(args)
+            return b""
+
+        self.emu.engine.mem_read = spy
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            self.emu.read_memory(self.UNMAPPED, self.HUGE)
+        # _error disassembles the faulting instruction, so a small read at the
+        # pc is expected; what must not happen is the oversized one.
+        self.assertEqual(
+            [a for a in reached if len(a) > 1 and a[1] == self.HUGE],
+            [],
+            "mem_read reached with the huge size; the buffer was built",
+        )
+
+    def test_huge_unmapped_write_never_reaches_the_engine(self):
+        reached = []
+
+        def spy(*args, **kwargs):
+            reached.append(args)
+
+        self.emu.engine.mem_write = spy
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory(self.UNMAPPED, b"A" * 32)
+        self.assertEqual(reached, [])
+
+    def test_label_read_over_a_huge_range_terminates(self):
+        """Used to be a range() walk: 463 billion iterations at this size."""
+        self.emu.write_memory_label(self.BASE, 8, "tag")
+        self.assertEqual(self.emu.read_memory_label(self.BASE, self.HUGE), "tag")
+
+    def test_label_read_still_finds_nothing_outside_the_labeled_bytes(self):
+        self.emu.write_memory_label(self.BASE, 8, "tag")
+        self.assertIsNone(self.emu.read_memory_label(self.BASE + 8, self.HUGE))
+
+    def test_label_write_to_an_unmapped_range_stores_nothing(self):
+        """One dict entry per byte, so this is the bigger bomb of the two."""
+        before = len(self.emu.label.get("mem", {}))
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory_label(self.UNMAPPED, self.HUGE, "tag")
+        self.assertEqual(len(self.emu.label.get("mem", {})), before)
+
+    def test_ordinary_accesses_are_unchanged(self):
+        self.assertEqual(len(self.emu.read_memory(self.BASE, 16)), 16)
+        self.emu.write_memory(self.BASE, b"A" * 8)
+        self.assertEqual(self.emu.read_memory(self.BASE, 8), b"A" * 8)
+        self.assertEqual(self.emu.read_memory(self.BASE, 0), b"")
+
+    def test_access_straddling_the_end_of_a_region_still_fails(self):
+        edge = self.BASE + self.SIZE - 8
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            self.emu.read_memory(edge, 32)
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory(edge, b"A" * 32)
+
+    def test_range_test_agrees_with_a_per_byte_check(self):
+        """The O(log n) form must answer exactly what the old per-byte walk did."""
+        self.emu.map_memory(0x8000, 0x1000)
+        for start in (0x0, 0xFF8, self.BASE, self.BASE + 0xFF0, 0x7FF8, 0x8FF8):
+            for size in (0, 1, 8, 0x1000, 0x2000):
+                with self.subTest(start=hex(start), size=size):
+                    brute = all(
+                        self.emu._is_address_mapped(a)
+                        for a in range(start, start + size)
+                    )
+                    self.assertEqual(
+                        self.emu._is_address_range_mapped((start, start + size)),
+                        brute,
+                    )
+
+
 class UnicornUnsupportedRegisterTests(unittest.TestCase):
     """Registers whose unicorn id is 0 must raise UnsupportedRegisterError.
 
