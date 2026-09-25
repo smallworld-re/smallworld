@@ -199,19 +199,28 @@ class TritonSymbolicEmulator(
         with self._direct_access():
             if _is_access_size(size):
                 node = self.ctx.getMemoryAst(MemoryAccess(address, size))
-                return z3bridge.triton_to_claripy(self.ctx, node)
-            # As in _write_symbolic_memory: read in power-of-two chunks and glue
-            # them back together in memory order.
-            parts = [
-                z3bridge.triton_to_claripy(
-                    self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
-                )
-                for offset, chunk in _access_chunks(address, size)
-            ]
+                value = z3bridge.triton_to_claripy(self.ctx, node)
+            else:
+                # Read in power-of-two chunks and glue them into the loaded
+                # (platform-endianness) integer, matching getMemoryAst above.
+                parts = [
+                    z3bridge.triton_to_claripy(
+                        self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
+                    )
+                    for offset, chunk in _access_chunks(address, size)
+                ]
+                if self._byteorder() == "little":
+                    # Chunk 0 holds the least significant bytes; Concat is MSB-first.
+                    parts.reverse()
+                value = claripy.Concat(*parts)
+        # Contract (see state.py): read_memory_symbolic returns the byte
+        # SEQUENCE -- first byte most significant -- not the loaded integer, so
+        # it agrees across emulators (angr is the oracle). getMemoryAst yields
+        # the loaded value in platform endianness, so byte-reverse it on a
+        # little-endian platform to recover memory order.
         if self._byteorder() == "little":
-            # Chunk 0 holds the least significant bytes, and Concat is MSB-first.
-            parts.reverse()
-        return claripy.Concat(*parts)
+            value = claripy.Reverse(value)
+        return value
 
     def _slice(
         self, bv: claripy.ast.bv.BV, base: int, offset: int, size: int
@@ -281,7 +290,12 @@ class TritonSymbolicEmulator(
             if not (prev.symbolic and prev.op == "BVS"):
                 self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
-        self.write_memory_content(address, bv)
+        # ``bv`` is the byte sequence read_memory_symbolic returns (first byte
+        # most significant). write_memory_content lays out the loaded integer in
+        # platform endianness, so byte-reverse on little-endian to keep the
+        # memory bytes -- and thus the round-trip -- in order.
+        stored = claripy.Reverse(bv) if self._byteorder() == "little" else bv
+        self.write_memory_content(address, stored)
 
     # ------------------------------------------------------- ConstrainedEmulator
 
