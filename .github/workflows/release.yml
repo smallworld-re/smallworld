@@ -21,6 +21,22 @@ jobs:
         run: uv python install 3.12
       - name: Build
         run: uv build
+      - name: Check ABI Tables
+        # The published wheel must carry real ABI tables, never the no-data
+        # marker (a build on the wrong Python, or with
+        # SMALLWORLD_ABI_ALLOW_MISSING set).
+        run: |
+          python3 - <<'PY'
+          import glob
+          import zipfile
+
+          (wheel,) = glob.glob("dist/*.whl")
+          with zipfile.ZipFile(wheel) as zf:
+              text = zf.read("smallworld/platforms/abi/_data/__init__.py").decode()
+          if "\nAVAILABLE = True\n" not in text:
+              raise SystemExit(f"{wheel} has no ABI tables:\n{text}")
+          print(f"{wheel}: ABI tables present")
+          PY
       - name: Publish
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

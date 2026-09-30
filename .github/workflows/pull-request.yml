@@ -159,7 +159,7 @@ jobs:
         run: python -m coverage run --parallel-mode tests/python39/python39_compat.py
       - name: Run ABI Unit Tests On Python 3.9.6
         working-directory: tests
-        run: python -m coverage run --parallel-mode -m unittest -v abi.test
+        run: python -m coverage run --parallel-mode -m unittest -v abi.test abi.generator abi.packaging
       - name: Upload Coverage Data
         if: always()
         uses: actions/upload-artifact@v7
@@ -168,6 +168,66 @@ jobs:
           path: coverage-data
           include-hidden-files: true
           if-no-files-found: ignore
+
+  ABI-Tables:
+    # The ABI tables in smallworld/platforms/abi/_data are generated at build
+    # time and never committed, so this is the check that covers every value:
+    # build the wheel under both supported dependency sets (Python 3.10:
+    # pypcode 3.3.3 + angr 9.2.194; Python 3.12: pypcode 4.0.0 + angr 10.0.0)
+    # and require byte-identical tables. The 3.12 wheel is built from the
+    # sdist, which proves the sdist carries the generator.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            3.10
+            3.12
+      - name: Check The nix ABI Build-Tools Lock
+        run: |
+          python3.12 -m pip install uv
+          python3.12 -m uv lock --check --directory nix/abi-build-tools
+      - name: Build Wheels Under Both Dependency Sets
+        env:
+          # The transitive build dependencies uv pins from pyproject.toml.
+          PIP_CONSTRAINT: ${{ github.workspace }}/tools/abi/build-constraints.txt
+        run: |
+          python3.10 -m pip install --upgrade pip build
+          python3.12 -m pip install --upgrade pip build
+          python3.10 -m build --wheel --outdir dist-3.10
+          python3.12 -m build --outdir dist-3.12
+          for py in 3.10 3.12; do
+            python3.12 -m zipfile -e dist-$py/*.whl wheel-$py
+          done
+      - name: Compare Generated Tables
+        run: |
+          python3.12 tools/abi/generate.py --compare \
+            wheel-3.10/smallworld/platforms/abi/_data \
+            wheel-3.12/smallworld/platforms/abi/_data
+      - name: Check Wheel Contents
+        run: |
+          for f in NOTICE LICENSES/Apache-2.0.txt LICENSES/BSD-2-Clause-angr.txt LICENSES/BSD-2-Clause-archinfo.txt; do
+            test -f "wheel-3.12/smallworld/platforms/abi/$f"
+          done
+          if tar -tzf dist-3.12/*.tar.gz | grep -q "smallworld/platforms/abi/_data"; then
+            echo "the sdist ships generated ABI tables" >&2
+            exit 1
+          fi
+          tar -tzf dist-3.12/*.tar.gz | grep -q "tools/abi/generate.py"
+          python3.12 -m venv "$RUNNER_TEMP/abi-venv"
+          "$RUNNER_TEMP/abi-venv/bin/pip" install dist-3.12/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/abi-venv/bin/python" - <<'PY'
+          from smallworld.platforms import Architecture, Byteorder, Platform, abi
+
+          record = abi.resolve(Platform(Architecture.X86_64, Byteorder.LITTLE))
+          assert record.id == "X86_64/LITTLE:sysv", record
+          assert record.int_arg_registers() == ("rdi", "rsi", "rdx", "rcx", "r8", "r9")
+          assert abi.validate.check_records(abi.all_records()) == ()
+          assert "x86-64-sysv" in abi.table_features(), abi.table_features()
+          print(record, sorted(abi.table_features()))
+          PY
 
   Example-Test:
     runs-on: smallworld-arc
@@ -467,7 +527,7 @@ jobs:
     # ubuntu-latest so this pass/fail check does not wait on (or occupy) a
     # self-hosted runner slot.
     runs-on: ubuntu-latest
-    needs: [Lint, Build, Unit-Test, Example-Test, Integration-Matrix, Integration-Test, Downstream-Flake, Python39, Coverage-Combine]
+    needs: [Lint, Build, Unit-Test, Example-Test, Integration-Matrix, Integration-Test, Downstream-Flake, Python39, ABI-Tables, Coverage-Combine]
     if: always()
     steps:
       - name: Formatter committed – new run will verify
