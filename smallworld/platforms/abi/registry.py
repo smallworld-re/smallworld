@@ -46,8 +46,11 @@ from .model import ABIDef
 #: feature names it provides (see :func:`table_features`). A data module
 #: written for a build without tables sets ``AVAILABLE`` to ``False`` and
 #: ``REASON`` to a sentence saying why, and needs neither; lookups then raise
-#: with that reason. ``AVAILABLE`` defaults to ``True``.
-DATA_MODULE = "smallworld.platforms.abi._data"
+#: with that reason. ``AVAILABLE`` defaults to ``True``. The name is derived
+#: from this module's own package (``smallworld.platforms.abi._data``), so a
+#: copy of the package imported under another name (the build-time
+#: generator loads one) reads its own data module, never the installed one.
+DATA_MODULE = __name__.rpartition(".")[0] + "._data"
 
 #: Values accepted by ``default_variant(container=...)`` and the ABI family
 #: that is the default for that container (``None``: the platform default).
