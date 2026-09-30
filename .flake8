@@ -1,5 +1,5 @@
 [flake8]
-exclude = .git,__pycache__,.eggs,build
+exclude = .git,__pycache__,.eggs,build,smallworld/platforms/abi/_data
 ignore =
     # E265 block comment should start with '# '
     E265,

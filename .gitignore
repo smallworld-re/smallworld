@@ -23,3 +23,5 @@ core.*
 unicornafl-flake/result
 tests/downstream_flake/flake.lock
 .coverage*
+# Generated at build/install time by tools/abi; never committed.
+/smallworld/platforms/abi/_data/

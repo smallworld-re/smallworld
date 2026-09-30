@@ -39,4 +39,20 @@ class ABITablesUnavailable(ConfigurationError):
     pass
 
 
-__all__ = ["ABITablesUnavailable", "UnrealizableLocation", "UnsupportedSignature"]
+class ABITablesStale(UserWarning):
+    """The installed ABI tables are older than the sources they came from.
+
+    An editable build on a Python that generates no tables (3.9, 3.11) keeps
+    the tables an earlier build wrote; when the overlay or the generator has
+    changed since, the tables carry a ``STALE`` note and loading them warns.
+    Regenerate them with ``python tools/abi/generate.py --inplace`` on Python
+    3.10 or 3.12+.
+    """
+
+
+__all__ = [
+    "ABITablesStale",
+    "ABITablesUnavailable",
+    "UnrealizableLocation",
+    "UnsupportedSignature",
+]

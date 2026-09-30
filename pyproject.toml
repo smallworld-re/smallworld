@@ -93,9 +93,14 @@ license-files = ["LICENSE.txt"]
 [tool.setuptools.packages.find]
 include = ["smallworld*"]
 
+[tool.black]
+# Files the ABI generator writes (never committed). force-exclude, because
+# extend-exclude does not filter paths passed on the command line.
+force-exclude = '^/smallworld/platforms/abi/_data/'
+
 [tool.mypy]
 disable_error_code = ["annotation-unchecked"]
-exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|nix/triton-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
+exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|nix/triton-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache|smallworld/platforms/abi/_data)/'
 
 [tool.uv]
 exclude-dependencies = [

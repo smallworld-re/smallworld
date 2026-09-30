@@ -26,6 +26,12 @@ import capstone
 import claripy
 import lief
 import unicorn
+from abi.generator import (  # noqa: F401 - registers the TestCases
+    ABIEmitterTests,
+    ABIGeneratorIsolationTests,
+    ABIGeneratorNoDataTests,
+    ABIGeneratorTests,
+)
 from abi.test import (  # noqa: F401 - registers the TestCases
     ABIArgumentReturnQueryTests,
     ABIEnumAndFeatureTests,
