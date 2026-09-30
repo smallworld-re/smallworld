@@ -150,6 +150,17 @@ class ElfExecutable(Executable):
         page_size: System page size
     """
 
+    # TLS state, documented and given its values in _tls_defaults. Declared
+    # here, without values, because __init__ and __setstate__ fill it in
+    # through __dict__, where mypy cannot see it.
+    _tlsdesc_descriptors: typing.List[int]
+    _tlsdesc_got: typing.Dict[int, int]
+    _tlsdesc_got_next: typing.Optional[int]
+    _tls_image: bytes
+    _tls_size: int
+    _tls_align: int
+    _tlsdesc_resolver: int
+
     def __init__(
         self,
         file: typing.BinaryIO,

@@ -6210,6 +6210,15 @@ class ElfPickleCompatibilityTests(unittest.TestCase):
 
     TLS_FIELDS = tuple(ElfExecutable._tls_defaults())
 
+    def test_tls_fields_are_declared(self):
+        # __init__ sets the fields through __dict__, so the class body must
+        # declare each one for mypy, and must not give it a class-level value
+        # that would hide a field missing from an old pickle.
+        annotations = ElfExecutable.__annotations__
+        for name in self.TLS_FIELDS:
+            self.assertIn(name, annotations)
+            self.assertNotIn(name, vars(ElfExecutable))
+
     def test_old_pickle_gets_tls_defaults(self):
         if not os.path.exists(self.ELF):
             self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
