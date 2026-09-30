@@ -26,6 +26,19 @@ import capstone
 import claripy
 import lief
 import unicorn
+from abi.test import (  # noqa: F401 - registers the TestCases
+    ABIArgumentReturnQueryTests,
+    ABIEnumAndFeatureTests,
+    ABIImportGraphTests,
+    ABIMaskValidationTests,
+    ABIPreservationQueryTests,
+    ABIRecordIdentityTests,
+    ABIRegistryLoaderTests,
+    ABIResolveTests,
+    ABISpecialRegisterQueryTests,
+    ABIValidationTests,
+    PlatformDefForPlatformTests,
+)
 from harness.coverage import wrap_python_command
 from harness.framework import (
     CaseRunner,

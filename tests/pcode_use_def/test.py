@@ -615,8 +615,9 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
             pcode_use_def.analyze = real
 
     def test_capstone_writes_does_not_resolve_a_platform_def(self):
-        """PlatformDef.for_platform walks every subclass uncached, costing
-        10-100x the rest of _capstone_use_def. The writes path reads nothing
+        """PlatformDef.for_platform builds a new PlatformDef on every call
+        (only the subclass search is memoized), and a miss raises and chains
+        a ValueError, all of it wasted here. The writes path reads nothing
         from the platdef, and this is the DEFAULT backend on a property the
         colorizer and Unicorn hit once per instruction -- so it must not pay
         for the lookup, nor start raising for a platform that has no
