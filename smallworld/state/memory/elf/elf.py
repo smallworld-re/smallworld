@@ -183,24 +183,8 @@ class ElfExecutable(Executable):
         self._static_relas: typing.List[ElfRela] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
         self._relocator: typing.Optional[ElfRelocator] = None
-        # Addresses of TLS-descriptor pairs written by the relocator. Their
-        # resolver word is null at load and filled in by
-        # bind_tlsdesc_resolver once a model library is linked.
-        self._tlsdesc_descriptors: typing.List[int] = list()
-        # Synthetic GOT for object files, whose descriptor slots no linker
-        # built. Keyed by symbol so several call sites share one descriptor.
-        self._tlsdesc_got: typing.Dict[int, int] = dict()
-        self._tlsdesc_got_next: typing.Optional[int] = None
-        # PT_TLS: the module's thread-local initialization image, its full
-        # size including .tbss, and its required alignment. Empty when the
-        # image declares no thread-locals.
-        self._tls_image: bytes = b""
-        self._tls_size: int = 0
-        self._tls_align: int = 1
-        # Resolver the descriptors above should carry, remembered so that a
-        # descriptor relocated (or re-relocated) after binding is not written
-        # back to null.
-        self._tlsdesc_resolver: int = 0
+        # TLS state; see _tls_defaults.
+        self.__dict__.update(self._tls_defaults())
 
         # Read the entire image out of the file.
         image = file.read()
@@ -1361,6 +1345,42 @@ class ElfExecutable(Executable):
         state = self.__dict__.copy()
         state["_elf"] = None
         return state
+
+    @staticmethod
+    def _tls_defaults() -> typing.Dict[str, typing.Any]:
+        """TLS state of an image that declares no thread-locals.
+
+        __init__ starts from these, and __setstate__ fills them into pickles
+        written before the fields existed (#447), so the two cannot drift.
+        """
+        return {
+            # Addresses of TLS-descriptor pairs written by the relocator.
+            # Their resolver word is null at load and filled in by
+            # bind_tlsdesc_resolver once a model library is linked.
+            "_tlsdesc_descriptors": list(),
+            # Synthetic GOT for object files, whose descriptor slots no
+            # linker built. Keyed by symbol so several call sites share one
+            # descriptor.
+            "_tlsdesc_got": dict(),
+            "_tlsdesc_got_next": None,
+            # PT_TLS: the module's thread-local initialization image, its
+            # full size including .tbss, and its required alignment. Empty
+            # when the image declares no thread-locals.
+            "_tls_image": b"",
+            "_tls_size": 0,
+            "_tls_align": 1,
+            # Resolver the descriptors above should carry, remembered so
+            # that a descriptor relocated (or re-relocated) after binding is
+            # not written back to null.
+            "_tlsdesc_resolver": 0,
+        }
+
+    def __setstate__(self, state):
+        # Pickles written before the TLS fields existed (#447) lack them,
+        # and every TLS accessor then raises AttributeError.
+        for name, value in self._tls_defaults().items():
+            state.setdefault(name, value)
+        self.__dict__.update(state)
 
 
 __all__ = ["ElfExecutable"]
