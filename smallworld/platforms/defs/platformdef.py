@@ -127,13 +127,42 @@ class PlatformDef(metaclass=abc.ABCMeta):
         """Mapping from canonical register names to register definitions"""
         raise NotImplementedError()
 
+    def __init_subclass__(cls, **kwargs):
+        # for_platform() memoizes misses; a PlatformDef defined after a miss
+        # must be findable.
+        super().__init_subclass__(**kwargs)
+        utils.forget_subclass_misses()
+
     @classmethod
     def for_platform(cls, platform: Platform):
+        """A new instance of the PlatformDef for `platform`.
+
+        The class is found by searching the subclasses of `cls` for one
+        whose ``architecture`` and ``byteorder`` match, and the result is
+        memoized per ``(cls, architecture, byteorder)``:
+
+        * a hit is kept for the life of the process, so a PlatformDef
+          defined later for a platform that has already been looked up does
+          not replace the class found first;
+        * a miss is kept only until the next PlatformDef subclass is
+          defined, so a PlatformDef defined after a failed lookup is found
+          by the next one.
+
+        Each call returns a new instance.
+
+        Raises:
+            ValueError: On any failure: no PlatformDef matches `platform`,
+                or the search or the constructor raised. The original
+                exception is the ``__cause__``.
+        """
         try:
             return utils.find_subclass(
                 cls,
                 lambda x: x.architecture == platform.architecture
                 and x.byteorder == platform.byteorder,
+                cache_key=(platform.architecture, platform.byteorder),
             )
-        except:
-            raise ValueError(f"No platform definition for {platform}")
+        except Exception as e:
+            # Callers rely on any failure surfacing as ValueError. Exception,
+            # not a bare except, so KeyboardInterrupt and SystemExit propagate.
+            raise ValueError(f"No platform definition for {platform}") from e
