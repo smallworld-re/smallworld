@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pathlib
+import pickle
 import re
 import signal
 import struct
@@ -6194,6 +6195,58 @@ class ElfIgnorePlatformTests(unittest.TestCase):
                 f, platform=None, ignore_platform=True, user_base=0x100000
             )
         self.assertIsNone(elf.platform)
+
+
+class ElfPickleCompatibilityTests(unittest.TestCase):
+    """An ElfExecutable pickled before the TLS fields existed (#447) must
+    unpickle with the defaults of an image that has no thread-locals."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "c99",
+        "fabs",
+        "fabs.amd64.elf",
+    )
+
+    TLS_FIELDS = tuple(ElfExecutable._tls_defaults())
+
+    def test_tls_fields_are_declared(self):
+        # __init__ sets the fields through __dict__, so the class body must
+        # declare each one for mypy, and must not give it a class-level value
+        # that would hide a field missing from an old pickle.
+        annotations = ElfExecutable.__annotations__
+        for name in self.TLS_FIELDS:
+            self.assertIn(name, annotations)
+            self.assertNotIn(name, vars(ElfExecutable))
+
+    def test_old_pickle_gets_tls_defaults(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            elf = ElfExecutable(f, user_base=0x100000)
+        # Write a pickle the way a pre-#447 smallworld did: without the fields.
+        getstate = ElfExecutable.__getstate__
+
+        def old_getstate(this):
+            state = getstate(this)
+            for name in self.TLS_FIELDS:
+                del state[name]
+            return state
+
+        with mock.patch.object(ElfExecutable, "__getstate__", old_getstate):
+            data = pickle.dumps(elf)
+        old = pickle.loads(data)
+        # fabs declares no thread-locals, so a fresh load holds the defaults.
+        for name in self.TLS_FIELDS:
+            self.assertEqual(getattr(old, name), getattr(elf, name))
+        self.assertEqual(old.tls_image, b"")
+        # The paths that write TLS state work too.
+        old.bind_tlsdesc_resolver(0x1234)
+        self.assertEqual(old._tlsdesc_resolver, 0x1234)
+        # And a current pickle still round-trips unchanged.
+        new = pickle.loads(pickle.dumps(elf))
+        for name in self.TLS_FIELDS:
+            self.assertEqual(getattr(new, name), getattr(elf, name))
 
 
 class ElfCoreFileMissingPlatformTests(unittest.TestCase):
