@@ -2,15 +2,15 @@
 
 The shipped tables are generated at build/install time and are not in the
 source tree, so these tests serve the hand-written records in
-``abi/fixtures.py`` through ``registry._use_records`` (or by pointing the
-registry's data module at the fixture module). They need no emulator and no
-optional dependency, and they run on Python 3.9.
+``abi/fixtures.py`` through ``registry._use_records`` (or by re-running the
+registry's loader against the fixture module with ``registry._reload``).
+They need no emulator and no optional dependency, and they run on Python
+3.9.
 """
 
 import ast
 import copy
 import dataclasses
-import gc
 import importlib.util
 import os
 import pickle
@@ -20,11 +20,8 @@ import sys
 import sysconfig
 import tempfile
 import textwrap
-import threading
-import types
 import typing
 import unittest
-import weakref
 from unittest import mock
 
 import smallworld
@@ -242,12 +239,10 @@ class ABIImportGraphTests(unittest.TestCase):
             pkg.__path__ = [{SMALLWORLD_DIR!r}]
             sys.modules["smallworld"] = pkg
             import smallworld.platforms.abi as abi
-            assert abi.registry._loaded is None
             print("\\n".join(sorted(set(sys.modules) - before)))
             """)
         loaded = out.split()
         self.assertIn("smallworld.platforms.abi.registry", loaded)
-        self.assertNotIn("smallworld.platforms.abi._data", loaded)
         bad = []
         for name in loaded:
             top = name.split(".")[0]
@@ -265,17 +260,93 @@ class ABIImportGraphTests(unittest.TestCase):
                 bad.append(name)
         self.assertEqual(bad, [])
 
-    def test_import_smallworld_builds_no_registry(self):
+    def test_the_package_import_loads_the_tables_once(self):
+        # `import smallworld` does not import the package; importing it looks
+        # the data module up exactly once, and lookups never do.
         out = _run_python("""
             import sys
+            calls = []
+            class Finder:
+                @staticmethod
+                def find_spec(name, path=None, target=None):
+                    if name == "smallworld.platforms.abi._data":
+                        calls.append(name)
+                    return None
+            sys.meta_path.insert(0, Finder)
             import smallworld
+            print(len(calls), "smallworld.platforms.abi" in sys.modules)
             from smallworld.platforms import abi
-            print("smallworld.platforms.abi._data" in sys.modules,
-                  abi.registry._loaded is not None,
-                  abi.registry._load_failure is not None,
-                  abi.API_FEATURES == frozenset())
+            print(len(calls), abi.API_FEATURES == frozenset())
+            p = smallworld.platforms.Platform(
+                smallworld.platforms.Architecture.X86_64,
+                smallworld.platforms.Byteorder.LITTLE,
+            )
+            abi.tables_available()
+            abi.table_features()
+            for call in (abi.resolve, abi.maybe_resolve, abi.variants):
+                try:
+                    call(p)
+                except abi.ABITablesUnavailable:
+                    pass
+            print(len(calls))
             """)
-        self.assertEqual(out.split(), ["False", "False", "False", "True"])
+        self.assertEqual(out.split(), ["0", "False", "1", "True", "1"])
+
+    def test_importing_the_package_never_raises_because_of_the_tables(self):
+        # Import the package afresh over each data module in turn, served by
+        # a finder in place of smallworld.platforms.abi._data.
+        cases = {
+            # The fixture module imports its names from the package itself,
+            # while the package is still initializing.
+            "fixtures": "from abi.fixtures import RECORDS\n",
+            "marker": 'AVAILABLE = False\nREASON = "built on Python 3.9"\n',
+            "broken": 'raise RuntimeError("boom")\n',
+            "listy": "RECORDS = []\n",
+        }
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        paths = {}
+        for case, source in cases.items():
+            paths[case] = os.path.join(tmp.name, case + ".py")
+            with open(paths[case], "w") as f:
+                f.write(source)
+        out = _run_python(f"""
+            import importlib, importlib.util, sys
+            import smallworld
+            NAME = "smallworld.platforms.abi._data"
+            current = []
+            class Finder:
+                @staticmethod
+                def find_spec(name, path=None, target=None):
+                    if name == NAME:
+                        return importlib.util.spec_from_file_location(
+                            name, current[-1]
+                        )
+                    return None
+            sys.meta_path.insert(0, Finder)
+            for case, path in sorted({paths!r}.items()):
+                for m in list(sys.modules):
+                    if m.startswith("smallworld.platforms.abi") or m == "abi.fixtures":
+                        del sys.modules[m]
+                current.append(path)
+                abi = importlib.import_module("smallworld.platforms.abi")
+                try:
+                    result = abi.resolve(abi.all_records()[0].platform).id
+                except abi.ABITablesUnavailable as e:
+                    result = repr(str(e).splitlines()[-1])
+                print(case, abi.tables_available(), result)
+            """)
+        self.assertEqual(
+            out.splitlines(),
+            [
+                "broken False 'RuntimeError: boom'",
+                "fixtures True X86_64/LITTLE:sysv",
+                "listy False 'smallworld.platforms.abi._data does not define a "
+                "RECORDS tuple'",
+                "marker False 'this installation has no ABI tables: built on "
+                "Python 3.9'",
+            ],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -286,241 +357,15 @@ class ABIImportGraphTests(unittest.TestCase):
 class ABIRegistryLoaderTests(unittest.TestCase):
     """The data module may be absent or broken; lookups say so clearly."""
 
-    def _with_data_module(self, name):
-        patches = [
-            mock.patch.object(registry, "DATA_MODULE", name),
-            mock.patch.object(registry, "_loaded", None),
-            mock.patch.object(registry, "_load_failure", None),
-            mock.patch.object(registry, "_override", None),
-        ]
-        for p in patches:
+    def _load_tables_from(self, name):
+        """Re-run the loader against the data module `name` for this test;
+        the registry's state is restored afterwards."""
+        for attr in ("_tables", "_override"):
+            p = mock.patch.object(registry, attr, getattr(registry, attr))
             p.start()
             self.addCleanup(p.stop)
-
-    def test_default_data_module(self):
-        self.assertEqual(registry.DATA_MODULE, "smallworld.platforms.abi._data")
-
-    def test_missing_tables_raise_on_lookup(self):
-        self._with_data_module("smallworld.platforms.abi._no_such_tables")
-        self.assertFalse(abi.tables_available())
-        for call in (
-            lambda: abi.resolve(X86_64),
-            lambda: abi.maybe_resolve(X86_64),
-            lambda: abi.by_id("X86_64/LITTLE:sysv"),
-            lambda: abi.variants(X86_64),
-            lambda: abi.all_records(),
-        ):
-            with self.assertRaises(abi.ABITablesUnavailable) as ctx:
-                call()
-            self.assertIsInstance(ctx.exception, exceptions.ConfigurationError)
-            self.assertIn("no ABI tables are installed", str(ctx.exception))
-            self.assertIsNone(ctx.exception.__cause__)
-
-    def test_failed_load_is_cached_until_reset(self):
-        name = "_sw_abi_late_tables"
-        self._with_data_module(name)
-        with mock.patch.object(
-            registry.importlib, "import_module", wraps=importlib.import_module
-        ) as import_module:
-            self.assertFalse(abi.tables_available())
-            with self.assertRaisesRegex(abi.ABITablesUnavailable, "no ABI tables"):
-                abi.resolve(X86_64)
-            self.assertEqual(abi.table_features(), frozenset())
-            self.assertEqual(import_module.call_count, 1)
-            # Tables that appear later in the process are not picked up...
-            self._write_module(name, "from abi.fixtures import RECORDS\n")
-            self.assertFalse(abi.tables_available())
-            self.assertEqual(import_module.call_count, 1)
-            # ...until the test hook forgets the failure.
-            registry._reset()
-            self.assertIs(abi.resolve(X86_64), fixtures.X86_64_SYSV)
-            self.assertEqual(import_module.call_count, 2)
-
-    def test_cached_failure_keeps_its_cause_as_text(self):
-        self._write_module("_sw_abi_broken_tables2", "import _sw_abi_no_such_dep2\n")
-        self._with_data_module("_sw_abi_broken_tables2")
-        with self.assertRaisesRegex(abi.ABITablesUnavailable, "failed to load") as ctx:
-            abi.resolve(X86_64)
-        self.assertIsInstance(ctx.exception.__cause__, ModuleNotFoundError)
-        # Later lookups re-raise the cached failure, whose cause is the
-        # original chain formatted as text.
-        for _ in range(2):
-            with self.assertRaisesRegex(
-                abi.ABITablesUnavailable, "failed to load"
-            ) as ctx:
-                abi.resolve(X86_64)
-            cause = ctx.exception.__cause__
-            self.assertIsInstance(cause, registry._LoadFailureCause)
-            self.assertIn(
-                "ModuleNotFoundError: No module named '_sw_abi_no_such_dep2'",
-                str(cause),
-            )
-
-    def _assert_cached_failure_holds_no_frames(self, name, source):
-        """The data module `source` fails to import, and in doing so stores
-        a weakref to an object that only its frames reference in
-        ``_sw_abi_holder.ref``. Once the first failing lookup is over,
-        nothing the cache holds may keep that object alive."""
-        holder = types.ModuleType("_sw_abi_holder")
-        sys.modules["_sw_abi_holder"] = holder
-        self.addCleanup(sys.modules.pop, "_sw_abi_holder", None)
-        self._write_module(name, source)
-        self._with_data_module(name)
-
-        class Marker:
-            pass
-
-        def first_lookup():
-            marker = Marker()
-            try:
-                abi.resolve(X86_64)
-            except abi.ABITablesUnavailable:
-                pass
-            return weakref.ref(marker)
-
-        caller_ref = first_lookup()
-        gc.collect()
-        self.assertIsNone(caller_ref())
-        self.assertIsNone(holder.ref())  # type: ignore[attr-defined]
-        failure = registry._load_failure
-        self.assertIsNotNone(failure)
-        self.assertIsNone(failure.__traceback__)
-        self.assertIsInstance(failure.__cause__, registry._LoadFailureCause)
-        self.assertEqual(failure.__cause__.args, (str(failure.__cause__),))
-        # A later lookup still reports the cause, and pins nothing either.
-        with self.assertRaises(abi.ABITablesUnavailable) as ctx:
-            abi.resolve(X86_64)
-        self.assertIsNone(registry._load_failure.__traceback__)
-        return str(ctx.exception.__cause__)
-
-    def test_cached_failure_holds_no_frames(self):
-        text = self._assert_cached_failure_holds_no_frames(
-            "_sw_abi_broken_tables3",
-            """
-            import weakref
-            import _sw_abi_holder
-
-            class Marker:
-                pass
-
-            def fail():
-                marker = Marker()
-                _sw_abi_holder.ref = weakref.ref(marker)
-                import _sw_abi_no_such_dep3
-
-            fail()
-            """,
-        )
-        self.assertIn("No module named '_sw_abi_no_such_dep3'", text)
-
-    def test_cached_failure_of_an_exception_that_formats_its_argument(self):
-        # copy.copy() would rebuild this exception from its formatted args
-        # and format them again; the cached text is the original message.
-        text = self._assert_cached_failure_holds_no_frames(
-            "_sw_abi_formatting_tables",
-            """
-            import weakref
-            import _sw_abi_holder
-
-            class TableError(Exception):
-                def __init__(self, count):
-                    super().__init__(f"{count} bad records")
-
-            class Marker:
-                pass
-
-            def fail():
-                marker = Marker()
-                _sw_abi_holder.ref = weakref.ref(marker)
-                raise TableError(3)
-
-            fail()
-            """,
-        )
-        self.assertIn("TableError: 3 bad records", text)
-        self.assertNotIn("bad records bad records", text)
-
-    def test_cached_failure_of_an_exception_nested_in_args(self):
-        # The inner exception, carried in the outer one's args, has a
-        # traceback into fail()'s frame.
-        text = self._assert_cached_failure_holds_no_frames(
-            "_sw_abi_nested_tables",
-            """
-            import weakref
-            import _sw_abi_holder
-
-            class Marker:
-                pass
-
-            def fail():
-                marker = Marker()
-                _sw_abi_holder.ref = weakref.ref(marker)
-                raise KeyError("inner")
-
-            try:
-                fail()
-            except KeyError as inner:
-                raise RuntimeError(inner)
-            """,
-        )
-        self.assertIn("KeyError: 'inner'", text)
-        self.assertIn("RuntimeError", text)
-
-    def test_concurrent_first_lookups_load_once(self):
-        name = "_sw_abi_slow_tables"
-        self._write_module(
-            name,
-            """
-            import time
-            time.sleep(0.2)
-            from abi.fixtures import RECORDS
-            """,
-        )
-        self._with_data_module(name)
-        results: typing.List[typing.Any] = []
-        barrier = threading.Barrier(8)
-
-        def lookup():
-            barrier.wait()
-            try:
-                results.append(abi.resolve(X86_64))
-            except BaseException as e:  # pragma: no cover - reported below
-                results.append(e)
-
-        with mock.patch.object(
-            registry.importlib, "import_module", wraps=importlib.import_module
-        ) as import_module:
-            threads = [threading.Thread(target=lookup) for _ in range(8)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join(60)
-        self.assertEqual(import_module.call_count, 1)
-        self.assertEqual(len(results), 8)
-        self.assertTrue(all(r is fixtures.X86_64_SYSV for r in results), results)
-
-    def test_concurrent_failing_lookups_load_once(self):
-        self._with_data_module("smallworld.platforms.abi._no_such_tables")
-        errors: typing.List[BaseException] = []
-        barrier = threading.Barrier(8)
-
-        def lookup():
-            barrier.wait()
-            try:
-                abi.resolve(X86_64)
-            except abi.ABITablesUnavailable as e:
-                errors.append(e)
-
-        with mock.patch.object(
-            registry.importlib, "import_module", wraps=importlib.import_module
-        ) as import_module:
-            threads = [threading.Thread(target=lookup) for _ in range(8)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join(60)
-        self.assertEqual(import_module.call_count, 1)
-        self.assertEqual(len(errors), 8)
+        registry._override = None
+        registry._reload(name)
 
     def _write_module(self, name, source):
         tmp = tempfile.TemporaryDirectory()
@@ -531,48 +376,133 @@ class ABIRegistryLoaderTests(unittest.TestCase):
         self.addCleanup(sys.path.remove, tmp.name)
         self.addCleanup(sys.modules.pop, name, None)
 
-    def test_broken_tables_chain_the_cause(self):
-        self._write_module(
-            "_sw_abi_broken_tables", "import _sw_abi_no_such_dependency\n"
-        )
-        self._with_data_module("_sw_abi_broken_tables")
-        # The first failing lookup gets the original exception chain.
-        with self.assertRaises(abi.ABITablesUnavailable) as ctx:
-            abi.resolve(X86_64)
-        self.assertIsInstance(ctx.exception.__cause__, ModuleNotFoundError)
-        self.assertIn("failed to load", str(ctx.exception))
+    def _assert_unavailable(self, message):
+        """Every lookup raises ABITablesUnavailable containing `message`."""
         self.assertFalse(abi.tables_available())
+        self.assertEqual(abi.table_features(), frozenset())
+        for call in (
+            lambda: abi.resolve(X86_64),
+            lambda: abi.maybe_resolve(X86_64),
+            lambda: abi.by_id("X86_64/LITTLE:sysv"),
+            lambda: abi.variants(X86_64),
+            lambda: abi.default_variant(X86_64),
+            lambda: abi.all_records(),
+            lambda: abi.mechanics_for(X86_64, platforms.ABI.NONE),
+        ):
+            with self.assertRaises(abi.ABITablesUnavailable) as ctx:
+                call()
+            self.assertIsInstance(ctx.exception, exceptions.ConfigurationError)
+            self.assertIn(message, str(ctx.exception))
+            self.assertIsNone(ctx.exception.__cause__)
+            self.assertIsNone(ctx.exception.__context__)
+        # Only the text is kept.
+        self.assertIsInstance(registry._tables, str)
+        return str(registry._tables)
 
-    def test_lookup_while_loading_raises_instead_of_deadlocking(self):
-        # A data module that looks the tables up while it is being imported
-        # gets ABITablesUnavailable, and the outer load still succeeds.
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        with open(os.path.join(tmp.name, "_sw_abi_reentrant_tables.py"), "w") as f:
-            f.write(
-                "from smallworld.platforms import abi\n"
-                "INNER = abi.tables_available()\n"
-                "from abi.fixtures import RECORDS\n"
-            )
-        out = _run_python(
-            f"""
-            import sys
-            sys.path.insert(0, {tmp.name!r})
-            from smallworld.platforms import abi
-            from smallworld.platforms.abi import registry
-            registry.DATA_MODULE = "_sw_abi_reentrant_tables"
-            print(abi.tables_available(),
-                  sys.modules["_sw_abi_reentrant_tables"].INNER)
+    def test_default_data_module(self):
+        self.assertEqual(registry.DATA_MODULE, "smallworld.platforms.abi._data")
+
+    def test_missing_tables_raise_on_lookup(self):
+        self._load_tables_from("smallworld.platforms.abi._no_such_tables")
+        self._assert_unavailable("no ABI tables are installed")
+
+    def test_the_load_is_not_retried(self):
+        name = "_sw_abi_late_tables"
+        self._load_tables_from(name)
+        with mock.patch.object(
+            registry.importlib, "import_module", wraps=importlib.import_module
+        ) as import_module:
+            self._assert_unavailable("no ABI tables are installed")
+            # Tables that appear later in the process are not picked up, and
+            # no lookup attempts the import...
+            self._write_module(name, "from abi.fixtures import RECORDS\n")
+            self._assert_unavailable("no ABI tables are installed")
+            self.assertEqual(import_module.call_count, 0)
+            # ...until the test hook runs the loader again.
+            registry._reload(name)
+            self.assertEqual(import_module.call_count, 1)
+        self.assertTrue(abi.tables_available())
+        self.assertIs(abi.resolve(X86_64), fixtures.X86_64_SYSV)
+
+    def test_import_failure_is_recorded_as_text(self):
+        self._write_module(
+            "_sw_abi_broken_tables",
+            """
+            def fail():
+                raise KeyError("inner")
+
+            try:
+                fail()
+            except KeyError as inner:
+                raise RuntimeError(inner)
             """,
-            timeout=60,
         )
-        self.assertEqual(out.split(), ["True", "False"])
+        self._load_tables_from("_sw_abi_broken_tables")
+        text = self._assert_unavailable(
+            "the ABI tables in _sw_abi_broken_tables failed to load"
+        )
+        # The whole chain, formatted.
+        self.assertIn("KeyError: 'inner'", text)
+        self.assertIn("RuntimeError: 'inner'", text)
+        self.assertIn("in fail", text)
+        self.assertNotIn("_sw_abi_broken_tables", sys.modules)
+
+    def test_missing_dependency_is_a_failed_load(self):
+        # A missing module other than the data module itself is not "no
+        # tables installed".
+        self._write_module("_sw_abi_needy_tables", "import _sw_abi_no_such_dep\n")
+        self._load_tables_from("_sw_abi_needy_tables")
+        text = self._assert_unavailable("failed to load")
+        self.assertIn("No module named '_sw_abi_no_such_dep'", text)
+        self.assertNotIn("no ABI tables are installed", text)
+
+    def test_no_data_marker(self):
+        self._write_module(
+            "_sw_abi_marker_tables",
+            """
+            AVAILABLE = False
+            REASON = "Python 3.9 builds generate no ABI tables"
+            """,
+        )
+        self._load_tables_from("_sw_abi_marker_tables")
+        self._assert_unavailable(
+            "this installation has no ABI tables: "
+            "Python 3.9 builds generate no ABI tables"
+        )
+
+    def test_no_data_marker_without_a_reason(self):
+        self._write_module("_sw_abi_mute_marker", "AVAILABLE = False\nREASON = None\n")
+        self._load_tables_from("_sw_abi_mute_marker")
+        self._assert_unavailable("no ABI tables: no reason was recorded")
+
+    def test_available_must_be_a_bool(self):
+        self._write_module(
+            "_sw_abi_vague_marker",
+            """
+            from abi.fixtures import RECORDS
+            AVAILABLE = "yes"
+            """,
+        )
+        self._load_tables_from("_sw_abi_vague_marker")
+        self._assert_unavailable("AVAILABLE must be True or False, not 'yes'")
+
+    def test_explicitly_available_tables(self):
+        self._write_module(
+            "_sw_abi_explicit_tables",
+            """
+            from abi.fixtures import RECORDS
+            AVAILABLE = True
+            REASON = None
+            """,
+        )
+        self._load_tables_from("_sw_abi_explicit_tables")
+        self.assertTrue(abi.tables_available())
+        self.assertEqual(abi.all_records(), fixtures.RECORDS)
 
     def test_tables_without_records_tuple(self):
         self._write_module("_sw_abi_listy_tables", "RECORDS = []\n")
-        self._with_data_module("_sw_abi_listy_tables")
-        with self.assertRaisesRegex(abi.ABITablesUnavailable, "RECORDS tuple"):
-            abi.resolve(X86_64)
+        self._load_tables_from("_sw_abi_listy_tables")
+        self._assert_unavailable("does not define a RECORDS tuple")
 
     def test_invalid_tables(self):
         self._write_module(
@@ -582,22 +512,32 @@ class ABIRegistryLoaderTests(unittest.TestCase):
             RECORDS = (X86_64_SYSV, X86_64_SYSV)
             """,
         )
-        self._with_data_module("_sw_abi_duplicate_tables")
-        with self.assertRaises(abi.ABITablesUnavailable) as ctx:
-            abi.resolve(X86_64)
-        self.assertIn("duplicate ABI record id", str(ctx.exception.__cause__))
+        self._load_tables_from("_sw_abi_duplicate_tables")
+        self._assert_unavailable("the ABI tables are invalid")
+        self.assertIn("duplicate ABI record id", registry._tables)
 
-    def test_data_module_seam_loads_records_lazily(self):
+    def test_records_that_are_not_records(self):
+        self._write_module("_sw_abi_stringly_tables", 'RECORDS = ("sysv",)\n')
+        self._load_tables_from("_sw_abi_stringly_tables")
+        self._assert_unavailable("'sysv' is not an ABIDef")
+
+    def test_data_module_seam_loads_records(self):
         # The fixture module has the generated module's shape.
-        self._with_data_module("abi.fixtures")
-        self.assertIsNone(registry._loaded)
+        self._load_tables_from("abi.fixtures")
         self.assertTrue(abi.tables_available())
-        self.assertIsNotNone(registry._loaded)
         self.assertIs(abi.resolve(X86_64), fixtures.X86_64_SYSV)
         self.assertEqual(abi.all_records(), fixtures.RECORDS)
 
+    def test_the_loader_does_not_run_check_records(self):
+        # Full validation is the generator's and CI's job, not the import's.
+        with mock.patch.object(
+            validate, "check_records", side_effect=AssertionError("called")
+        ):
+            self._load_tables_from("abi.fixtures")
+        self.assertTrue(abi.tables_available())
+
     def test_use_records_restores_previous(self):
-        self._with_data_module("smallworld.platforms.abi._no_such_tables")
+        self._load_tables_from("smallworld.platforms.abi._no_such_tables")
         with registry._use_records(fixtures.RECORDS):
             self.assertIs(abi.resolve(X86_64), fixtures.X86_64_SYSV)
             # tables_available() and table_features() describe DATA_MODULE,
@@ -611,18 +551,17 @@ class ABIRegistryLoaderTests(unittest.TestCase):
             abi.resolve(X86_64)
 
     def test_api_features_is_a_fixed_code_feature_set(self):
-        self._with_data_module("abi.fixtures")
         self.assertIsInstance(abi.API_FEATURES, frozenset)
         self.assertEqual(abi.API_FEATURES, frozenset())
         self.assertIn("API_FEATURES", abi.__all__)
-        # Reading it loads nothing; it does not describe the tables.
-        self.assertIsNone(registry._loaded)
+        # It does not describe the tables.
+        self._load_tables_from("abi.fixtures")
         self.assertTrue(abi.tables_available())
         self.assertEqual(abi.API_FEATURES, frozenset())
 
     def test_table_features(self):
         # No FEATURES in the data module: none.
-        self._with_data_module("abi.fixtures")
+        self._load_tables_from("abi.fixtures")
         self.assertEqual(abi.table_features(), frozenset())
 
     def test_table_features_from_the_data_module(self):
@@ -633,11 +572,11 @@ class ABIRegistryLoaderTests(unittest.TestCase):
             FEATURES = ("variants", "syscall")
             """,
         )
-        self._with_data_module("_sw_abi_featured_tables")
+        self._load_tables_from("_sw_abi_featured_tables")
         self.assertEqual(abi.table_features(), frozenset({"variants", "syscall"}))
 
     def test_table_features_without_tables(self):
-        self._with_data_module("smallworld.platforms.abi._no_such_tables")
+        self._load_tables_from("smallworld.platforms.abi._no_such_tables")
         self.assertEqual(abi.table_features(), frozenset())
 
     def test_bad_features_make_the_tables_unavailable(self):
@@ -648,10 +587,8 @@ class ABIRegistryLoaderTests(unittest.TestCase):
             FEATURES = ["variants"]
             """,
         )
-        self._with_data_module("_sw_abi_bad_features")
-        self.assertEqual(abi.table_features(), frozenset())
-        with self.assertRaisesRegex(abi.ABITablesUnavailable, "FEATURES must be"):
-            abi.resolve(X86_64)
+        self._load_tables_from("_sw_abi_bad_features")
+        self._assert_unavailable("FEATURES must be")
 
     def test_registry_rejects_bad_record_sets(self):
         sysv = fixtures.X86_64_SYSV

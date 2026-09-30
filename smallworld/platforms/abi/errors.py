@@ -28,9 +28,12 @@ class ABITablesUnavailable(ConfigurationError):
     """No ABI tables are installed, or the installed tables failed to load.
 
     The tables are generated when smallworld is built or installed; a source
-    checkout that has not run the generator has none. Every registry lookup
-    raises this instead of answering "not modelled", so a missing install step
-    is never mistaken for a platform without an ABI record.
+    checkout that has not run the generator has none. They are loaded once,
+    when :mod:`smallworld.platforms.abi` is imported; that import never
+    raises because of them, and records why they did not load instead. Every
+    registry lookup then raises this, with that reason as its message,
+    instead of answering "not modelled", so a missing install step is never
+    mistaken for a platform without an ABI record.
     """
 
     pass

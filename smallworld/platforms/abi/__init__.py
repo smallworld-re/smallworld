@@ -14,10 +14,13 @@ One immutable :class:`ABIDef` per ``(Platform, variant)``, the ABI analogue of
     d = abi.resolve(platform, variant="ms-x64")   # a variant, any family
 
 The tables themselves are generated when smallworld is built or installed
-(see :mod:`.registry`); importing this package never loads them. Without
-tables every lookup, including ``maybe_resolve``, raises
-:class:`ABITablesUnavailable`. That is the case in builds that did not
-generate tables: source checkouts, and Python 3.9 and 3.11 builds.
+(see :mod:`.registry`). Importing this package loads them, once; the import
+never raises because of them. ``import smallworld`` does not import this
+package, so it loads no tables. When the tables are missing or did not load,
+every lookup, including ``maybe_resolve``, raises
+:class:`ABITablesUnavailable` with the reason. That is the case in builds
+that did not generate tables: source checkouts, and Python 3.9 and 3.11
+builds.
 
 Import discipline: this package imports only the standard library, capstone,
 :mod:`smallworld.utils`, :mod:`smallworld.platforms.platforms`,
@@ -34,12 +37,12 @@ rather than by version number, because features land in any order:
   package's code (``REQUIRED - abi.API_FEATURES``). It is empty in this
   release and says nothing about whether tables are installed.
 * :func:`tables_available` and :func:`table_features` describe the
-  generated tables: whether they load, and the feature names they declare.
+  generated tables: whether they loaded, and the feature names they declare.
 """
 
 import typing
 
-from . import enums, errors, model, registry, validate
+from . import enums, errors, model, validate
 from .enums import (
     Confidence,
     EntryCondition,
@@ -104,6 +107,11 @@ from .model import (
     Varargs,
     VarargsSignal,
 )
+
+# isort: split
+# The registry loads the tables when it is imported, so it comes last: the
+# names above are bound by then, and the data module may import them.
+from . import registry
 from .registry import (
     all_records,
     by_id,

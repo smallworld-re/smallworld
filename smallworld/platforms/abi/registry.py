@@ -3,25 +3,37 @@
 Records come from a data module, :data:`DATA_MODULE`, that exposes
 ``RECORDS: Tuple[ABIDef, ...]`` built from plain constructor calls over
 literals. That module is generated when smallworld is built or installed and
-is not part of the source tree, so it may be absent. The registry is built
-lazily, on the first lookup, never at import: ``import smallworld`` (and
-``import smallworld.platforms.abi``) always succeeds and loads no tables.
+is not part of the source tree, so it may be absent.
 
-When the data module is missing or fails to load, every lookup -- including
-:func:`maybe_resolve` and the listing functions -- raises
-:class:`~smallworld.platforms.abi.errors.ABITablesUnavailable`, so a missing
-install step is never mistaken for "not modelled". That is the case in
-builds that did not generate tables: source checkouts, and Python 3.9 and
-3.11 builds. :func:`tables_available` and :func:`table_features` describe the
-tables without raising.
+The tables are loaded eagerly, exactly once: this module imports
+:data:`DATA_MODULE` when it is itself imported, which happens whenever
+:mod:`smallworld.platforms.abi` is imported. ``import smallworld`` does not
+import this package, so it loads no tables. Importing never raises because
+of the tables. If the data module is missing, fails to import, is malformed,
+or is a no-data marker (``AVAILABLE = False``), the reason is recorded as
+text (with the formatted traceback when the import raised), and every
+lookup -- including :func:`maybe_resolve` and the listing functions --
+raises :class:`~smallworld.platforms.abi.errors.ABITablesUnavailable` with
+it, so a missing install step is never mistaken for "not modelled". That is
+the case in builds that did not generate tables: source checkouts, and
+Python 3.9 and 3.11 builds. :func:`tables_available` and
+:func:`table_features` describe the tables without raising.
 
-The load is attempted once per process: its result, success or failure, is
-kept, so tables installed while the process runs are not picked up.
+The load is not retried, so tables installed while the process runs are not
+picked up. At import the loader checks only the structure lookups rely on:
+``RECORDS`` is a tuple of :class:`ABIDef` with unique ids and keys and at
+most one default per platform and per family, and ``FEATURES`` is a tuple of
+strings. It does not run :func:`~smallworld.platforms.abi.validate.check_records`;
+the generator and CI do, which keeps the import cheap.
+
+The data module is imported while :mod:`smallworld.platforms.abi` is still
+initializing, after its ``enums``, ``errors``, ``model`` and ``validate``
+names are bound but before this module's lookups are. It may import
+:mod:`smallworld.platforms` and those names, but must not look anything up.
 """
 
 import contextlib
 import importlib
-import threading
 import traceback
 import typing
 
@@ -31,7 +43,10 @@ from .model import ABIDef
 
 #: The module the tables are loaded from. It must define ``RECORDS``, a tuple
 #: of :class:`ABIDef`, and may define ``FEATURES``, a tuple of the table
-#: feature names it provides (see :func:`table_features`).
+#: feature names it provides (see :func:`table_features`). A data module
+#: written for a build without tables sets ``AVAILABLE`` to ``False`` and
+#: ``REASON`` to a sentence saying why, and needs neither; lookups then raise
+#: with that reason. ``AVAILABLE`` defaults to ``True``.
 DATA_MODULE = "smallworld.platforms.abi._data"
 
 #: Values accepted by ``default_variant(container=...)`` and the ABI family
@@ -131,135 +146,92 @@ class _Registry:
         return record, ""
 
 
-# Reentrant, so that a lookup made while DATA_MODULE is being imported (by
-# the data module itself, or by something it imports) raises instead of
-# deadlocking; see _data_registry().
-_lock = threading.RLock()
-#: True while this thread is importing DATA_MODULE (only read under _lock).
-_loading = False
-#: The registry built from DATA_MODULE, once it has loaded.
-_loaded: typing.Optional[_Registry] = None
-#: Why DATA_MODULE failed to load, once it has; re-raised by every lookup.
-_load_failure: typing.Optional[ABITablesUnavailable] = None
-#: A record set installed by _use_records(); takes precedence over _loaded.
+def _failure(summary: str, error: BaseException) -> str:
+    """`summary`, followed by `error` and its cause chain formatted as
+    ``traceback.format_exception`` prints them.
+
+    Only this text is kept, so a failed load keeps no exception, traceback
+    or frame alive.
+    """
+    detail = "".join(
+        traceback.format_exception(type(error), error, error.__traceback__)
+    ).rstrip()
+    return f"{summary}:\n{detail}"
+
+
+def _load_module(name: str) -> typing.Union[_Registry, str]:
+    """The registry built from data module `name`, or why there is none.
+
+    Raises whatever importing `name` raises, except that `name` itself not
+    existing is reported as text.
+    """
+    try:
+        module = importlib.import_module(name)
+    except ModuleNotFoundError as e:
+        if e.name != name:
+            raise
+        return (
+            f"no ABI tables are installed ({name} does not exist); "
+            "they are generated when smallworld is built or installed, and "
+            "source checkouts and Python 3.9 and 3.11 builds have none"
+        )
+    available = getattr(module, "AVAILABLE", True)
+    if available is False:
+        reason = getattr(module, "REASON", None)
+        if not (isinstance(reason, str) and reason):
+            reason = "no reason was recorded"
+        return f"this installation has no ABI tables: {reason}"
+    if available is not True:
+        return f"{name}.AVAILABLE must be True or False, not {available!r}"
+    records = getattr(module, "RECORDS", None)
+    if not isinstance(records, tuple):
+        return f"{name} does not define a RECORDS tuple"
+    features = getattr(module, "FEATURES", ())
+    if not (isinstance(features, tuple) and all(isinstance(f, str) for f in features)):
+        return f"{name}.FEATURES must be a tuple of strings, not {features!r}"
+    try:
+        return _Registry(records, name, features)
+    except (TypeError, ValueError) as e:
+        return f"the ABI tables are invalid: {e}"
+
+
+def _load(name: str) -> typing.Union[_Registry, str]:
+    """Like :func:`_load_module`, but never raises an :class:`Exception`:
+    one raised while importing or indexing `name` is reported as text."""
+    try:
+        return _load_module(name)
+    except Exception as e:
+        return _failure(f"the ABI tables in {name} failed to load", e)
+
+
+#: The registry built from :data:`DATA_MODULE`, or the text saying why there
+#: is none. Set once, at the bottom of this module, when it is imported; this
+#: placeholder is what a lookup made while the data module is being imported
+#: sees.
+_tables: typing.Union[_Registry, str] = (
+    f"the ABI tables were looked up while {DATA_MODULE} was being imported"
+)
+#: A record set installed by _use_records(); takes precedence over _tables.
 _override: typing.Optional[_Registry] = None
 
 
-def _load_data_module() -> _Registry:
-    try:
-        module = importlib.import_module(DATA_MODULE)
-    except ModuleNotFoundError as e:
-        if e.name == DATA_MODULE:
-            raise ABITablesUnavailable(
-                f"no ABI tables are installed ({DATA_MODULE} does not exist); "
-                "they are generated when smallworld is built or installed, and "
-                "source checkouts and Python 3.9 and 3.11 builds have none"
-            ) from None
-        raise ABITablesUnavailable(
-            f"the ABI tables in {DATA_MODULE} failed to load"
-        ) from e
-    except Exception as e:
-        raise ABITablesUnavailable(
-            f"the ABI tables in {DATA_MODULE} failed to load"
-        ) from e
-    records = getattr(module, "RECORDS", None)
-    if not isinstance(records, tuple):
-        raise ABITablesUnavailable(f"{DATA_MODULE} does not define a RECORDS tuple")
-    features = getattr(module, "FEATURES", ())
-    if not (isinstance(features, tuple) and all(isinstance(f, str) for f in features)):
-        raise ABITablesUnavailable(
-            f"{DATA_MODULE}.FEATURES must be a tuple of strings, not {features!r}"
-        )
-    try:
-        return _Registry(records, DATA_MODULE, features)
-    except (TypeError, ValueError) as e:
-        raise ABITablesUnavailable(
-            f"the ABI tables in {DATA_MODULE} are invalid"
-        ) from e
+def _reload(name: typing.Optional[str] = None) -> None:
+    """Run the loader again, against `name` or :data:`DATA_MODULE` (test hook).
 
-
-class _LoadFailureCause(Exception):
-    """The formatted cause of a cached load failure.
-
-    It holds only text, so a cached failure keeps no frame, and no object
-    from the failed import, alive.
+    A module already in ``sys.modules`` is reused, not executed again; one
+    that failed to import is not there, so it is imported afresh.
     """
-
-    pass
-
-
-def _detached(error: ABITablesUnavailable) -> ABITablesUnavailable:
-    """A copy of `error` that holds no frames.
-
-    A raised exception's traceback (and its cause's and context's, and any
-    exception among their arguments) keeps every frame it passed through
-    alive, locals included. The cached failure outlives the lookup that
-    caused it, so it keeps only text: the message, and the cause chain
-    formatted as ``traceback.format_exception`` prints it.
-    """
-    detached = ABITablesUnavailable(str(error))
-    cause = error.__cause__
-    if cause is None:
-        detached.__suppress_context__ = True
-        return detached
-    text = "".join(
-        traceback.format_exception(type(cause), cause, cause.__traceback__)
-    ).rstrip()
-    detached.__cause__ = _LoadFailureCause(text)
-    return detached
-
-
-def _raise_load_failure(failure: ABITablesUnavailable) -> typing.NoReturn:
-    # A fresh exception each time, so the cached one never gains a traceback.
-    raise ABITablesUnavailable(*failure.args) from failure.__cause__
+    global _tables
+    importlib.invalidate_caches()
+    _tables = _load(DATA_MODULE if name is None else name)
 
 
 def _data_registry() -> _Registry:
-    """The registry built from DATA_MODULE, loading it on first use.
-
-    Only the first call attempts the load; a failure is cached and re-raised
-    by every later call (see :func:`_reset`).
-    """
-    global _loaded, _loading, _load_failure
-    registry = _loaded
-    if registry is not None:
-        return registry
-    failure = _load_failure
-    if failure is not None:
-        _raise_load_failure(failure)
-    with _lock:
-        if _load_failure is not None:
-            _raise_load_failure(_load_failure)
-        if _loaded is None:
-            if _loading:
-                # Only the loading thread gets past the lock while _loading
-                # is set, so this is a lookup from inside the import.
-                raise ABITablesUnavailable(
-                    f"the ABI tables were looked up while {DATA_MODULE} "
-                    "was being imported"
-                )
-            _loading = True
-            try:
-                _loaded = _load_data_module()
-            except ABITablesUnavailable as e:
-                # This caller gets the original, with its full traceback;
-                # later lookups re-raise a copy that holds no frames.
-                _load_failure = _detached(e)
-                raise
-            finally:
-                _loading = False
-        return _loaded
-
-
-def _reset() -> None:
-    """Forget the loaded tables or the cached load failure (test hook).
-
-    The next lookup attempts the load again.
-    """
-    global _loaded, _load_failure
-    with _lock:
-        _loaded = None
-        _load_failure = None
+    """The registry built from the data module; raises if there is none."""
+    tables = _tables
+    if isinstance(tables, str):
+        raise ABITablesUnavailable(tables)
+    return tables
 
 
 def _registry() -> _Registry:
@@ -270,17 +242,12 @@ def _registry() -> _Registry:
 
 
 def tables_available() -> bool:
-    """Whether the ABI tables in :data:`DATA_MODULE` are installed and load.
+    """Whether the ABI tables in :data:`DATA_MODULE` loaded.
 
-    Attempts the load if it has not happened yet. Never raises. False in
-    builds that did not generate tables: source checkouts, and Python 3.9
-    and 3.11 builds.
+    Never raises. False in builds that did not generate tables: source
+    checkouts, and Python 3.9 and 3.11 builds.
     """
-    try:
-        _data_registry()
-    except ABITablesUnavailable:
-        return False
-    return True
+    return not isinstance(_tables, str)
 
 
 def table_features() -> typing.FrozenSet[str]:
@@ -289,12 +256,12 @@ def table_features() -> typing.FrozenSet[str]:
     Read from the ``FEATURES`` tuple of :data:`DATA_MODULE`; ``frozenset()``
     when the module defines none or there are no tables. This describes the
     generated data; :data:`smallworld.platforms.abi.API_FEATURES` describes
-    the code. Attempts the load if it has not happened yet. Never raises.
+    the code. Never raises.
     """
-    try:
-        return _data_registry().features
-    except ABITablesUnavailable:
+    tables = _tables
+    if isinstance(tables, str):
         return frozenset()
+    return tables.features
 
 
 @contextlib.contextmanager
@@ -308,14 +275,12 @@ def _use_records(records: typing.Iterable[ABIDef]) -> typing.Iterator[None]:
     """
     global _override
     registry = _Registry(records, "_use_records()")
-    with _lock:
-        previous = _override
-        _override = registry
+    previous = _override
+    _override = registry
     try:
         yield
     finally:
-        with _lock:
-            _override = previous
+        _override = previous
 
 
 def resolve(
@@ -341,9 +306,10 @@ def resolve(
             family `abi`.
         TypeError: If `abi` is neither an :class:`~smallworld.platforms.ABI`
             nor ``None``.
-        ABITablesUnavailable: If no ABI tables are installed, as in builds
-            that did not generate tables: source checkouts, and Python 3.9
-            and 3.11 builds.
+        ABITablesUnavailable: If the ABI tables did not load when this
+            package was imported, with the reason recorded then; for example
+            none are installed, as in builds that did not generate tables:
+            source checkouts, and Python 3.9 and 3.11 builds.
     """
     record, reason = _registry().lookup(platform, abi, variant)
     if record is None:
@@ -362,7 +328,7 @@ def maybe_resolve(
     ``()`` means "modelled, stack-only".
 
     Raises:
-        ABITablesUnavailable: If no ABI tables are installed, rather than
+        ABITablesUnavailable: If the ABI tables did not load, rather than
             returning ``None``, so that a missing install step is not
             mistaken for "not modelled"; for example in builds that did not
             generate tables: source checkouts, and Python 3.9 and 3.11
@@ -386,7 +352,7 @@ def variants(platform: Platform) -> typing.Tuple[str, ...]:
     there are none.
 
     Raises:
-        ABITablesUnavailable: If no ABI tables are installed.
+        ABITablesUnavailable: If the ABI tables did not load.
     """
     return _registry().variants.get(platform, ())
 
@@ -399,7 +365,7 @@ def default_variant(platform: Platform, container: str = "elf") -> str:
 
     Raises:
         ValueError: If `container` is unknown or there is no such record.
-        ABITablesUnavailable: If no ABI tables are installed.
+        ABITablesUnavailable: If the ABI tables did not load.
     """
     try:
         family = _CONTAINER_FAMILY[container]
@@ -415,7 +381,7 @@ def by_id(record_id: str) -> ABIDef:
 
     Raises:
         ValueError: If there is no such record.
-        ABITablesUnavailable: If no ABI tables are installed.
+        ABITablesUnavailable: If the ABI tables did not load.
     """
     try:
         return _registry().by_id[record_id]
@@ -427,7 +393,7 @@ def all_records() -> typing.Tuple[ABIDef, ...]:
     """Every record, in table order.
 
     Raises:
-        ABITablesUnavailable: If no ABI tables are installed.
+        ABITablesUnavailable: If the ABI tables did not load.
     """
     return _registry().records
 
@@ -444,3 +410,7 @@ __all__ = [
     "tables_available",
     "variants",
 ]
+
+
+# Load the tables now, once. Every lookup is served from the result.
+_tables = _load(DATA_MODULE)
