@@ -1,0 +1,24 @@
+# The dependency set nix's smallworld-re build dumps the ABI tables from.
+#
+# uv2nix resolves [build-system] requires by name from the runtime lock
+# (../../uv.lock), which holds pypcode 3.3.3 and angr 9.2.194 because the
+# runtime pypcode must stay below 4.0 for the emu-angr extra. That set would
+# give the same tables (every set in tools/abi/overlay/versions.py does), but
+# pyproject.toml's build-isolation pins give a Python 3.12 build pypcode 4.0.0
+# + angr 10.0.0, and nix builds on 3.12, so this separate lock provides that
+# set and the smallworld-re derivation runs the generator's stage 1 with it
+# (SMALLWORLD_ABI_STAGE1_PYTHON).
+#
+# Keep it in step with [build-system] requires. Re-lock with
+#   uv lock --directory nix/abi-build-tools
+[project]
+name = "smallworld-abi-build-tools"
+version = "0"
+requires-python = ">=3.12"
+dependencies = [
+    "pypcode==4.0.0",
+    "angr==10.0.0",
+]
+
+[tool.uv]
+package = false

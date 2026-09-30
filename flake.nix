@@ -107,7 +107,9 @@
           pythonFor
           ;
         inherit (pythonPackages)
+          abiBuildTools
           devSelection
+          mkDevVirtualenv
           mkLockedVirtualenv
           mkPythonSet
           mkSmallworldPythonModule
