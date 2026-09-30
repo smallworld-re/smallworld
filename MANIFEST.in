@@ -1,0 +1,7 @@
+# The ABI generator travels in the sdist, so a wheel built from it can run it.
+graft tools/abi
+# The generated tables never do: every wheel build regenerates them.
+prune smallworld/platforms/abi/_data
+include smallworld/platforms/abi/NOTICE
+graft smallworld/platforms/abi/LICENSES
+global-exclude *.py[cod] __pycache__

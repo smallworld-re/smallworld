@@ -29,6 +29,10 @@ let
         ../uv.lock
         ../.python-version
         ../smallworld
+        # the build-time ABI generator run by the build_py hook (pyproject.toml)
+        ../tools/abi
+        # license-files in pyproject.toml, so the wheel ships the MIT text
+        ../LICENSE.txt
       ];
     in
     /.

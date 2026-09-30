@@ -32,6 +32,7 @@ from abi.generator import (  # noqa: F401 - registers the TestCases
     ABIGeneratorNoDataTests,
     ABIGeneratorTests,
 )
+from abi.packaging import ABIPackagingTests  # noqa: F401 - registers the TestCase
 from abi.test import (  # noqa: F401 - registers the TestCases
     ABIArgumentReturnQueryTests,
     ABIEnumAndFeatureTests,

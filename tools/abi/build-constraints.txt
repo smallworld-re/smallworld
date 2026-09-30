@@ -1,0 +1,83 @@
+# Constraints for the build-isolation environment that generates the ABI tables.
+#
+# uv.lock does not cover build dependencies, so pypcode and angr are pinned in
+# pyproject.toml's [build-system] requires, and their transitive dependencies
+# are pinned here: a floating transitive dependency (for example pycparser 3
+# under angr 9.2.x) breaks stage 1 at import time. uv applies this list from
+# [tool.uv] build-constraint-dependencies in pyproject.toml, which must stay
+# identical (tests/abi/packaging.py checks it). pip (25.3 or later) needs
+#     pip install --build-constraint tools/abi/build-constraints.txt .
+# or PIP_BUILD_CONSTRAINT set to this file's absolute path. Not
+# PIP_CONSTRAINT: recent pip ignores it for build isolation, and it would
+# also constrain the runtime install (pycparser, pypcode conflict there).
+# pypa/build installs build requirements with its own pip call, so
+# PIP_CONSTRAINT does apply to `python -m build` (CI uses that).
+# nix builds from nix/abi-build-tools/uv.lock instead.
+#
+# Generic build tools (setuptools, cffi, numpy, typing-extensions,
+# platformdirs) are left free, because these constraints apply to every
+# package a build compiles from source, not only to smallworld.
+#
+# Regenerate after changing a pinned dependency set:
+#     uv pip compile --python-version 3.10 <3.10 requires> and
+#     uv pip compile --python-version 3.12 <3.12 requires>, then merge.
+angr==9.2.194; python_version == '3.10'
+angr==10.0.0; python_version >= '3.12'
+angr-data==0.1.1; python_version >= '3.12'
+archinfo==9.2.194; python_version == '3.10'
+archinfo==10.0.0; python_version >= '3.12'
+arpy==1.1.1; python_version == '3.10' or python_version >= '3.12'
+backports-strenum==1.3.1; python_version == '3.10'
+bitarray==3.11.0; python_version == '3.10' or python_version >= '3.12'
+bitstring==4.4.0; python_version == '3.10' or python_version >= '3.12'
+cachetools==7.2.0; python_version == '3.10' or python_version >= '3.12'
+capstone==5.0.3; python_version == '3.10'
+capstone==5.0.9; python_version >= '3.12'
+cart==1.2.3; python_version == '3.10' or python_version >= '3.12'
+claripy==9.2.194; python_version == '3.10'
+cle==9.2.194; python_version == '3.10'
+cle==10.0.0; python_version >= '3.12'
+cxxheaderparser==2.0.0; python_version == '3.10' or python_version >= '3.12'
+future==1.0.0; python_version == '3.10' or python_version >= '3.12'
+gitdb==4.0.12; python_version == '3.10' or python_version >= '3.12'
+gitpython==3.2.0; python_version == '3.10' or python_version >= '3.12'
+lmdb==2.3.0; python_version == '3.10'
+lmdb==2.1.1; python_version >= '3.12'
+markdown-it-py==4.2.0; python_version == '3.10' or python_version >= '3.12'
+mdurl==0.1.2; python_version == '3.10' or python_version >= '3.12'
+minidump==0.0.24; python_version == '3.10' or python_version >= '3.12'
+mpmath==1.3.0; python_version == '3.10' or python_version >= '3.12'
+msgspec==0.22.0; python_version == '3.10' or python_version >= '3.12'
+mulpyplexer==0.9; python_version == '3.10' or python_version >= '3.12'
+networkx==3.4.2; python_version == '3.10'
+networkx==3.7; python_version >= '3.12'
+pefile==2024.8.26; python_version == '3.10' or python_version >= '3.12'
+protobuf==7.36.2; python_version == '3.10' or python_version >= '3.12'
+psutil==7.2.2; python_version == '3.10' or python_version >= '3.12'
+pycparser==2.23; python_version == '3.10'
+pycparser==3.0; python_version >= '3.12'
+pycryptodome==3.23.0; python_version == '3.10' or python_version >= '3.12'
+pydemumble==0.1.1.post1; python_version == '3.10'
+pydemumble==0.1.3; python_version >= '3.12'
+pydot==4.0.1; python_version == '3.10'
+pyelftools==0.33; python_version == '3.10' or python_version >= '3.12'
+pyformlang==1.0.11; python_version == '3.10'
+pygments==2.21.0; python_version == '3.10' or python_version >= '3.12'
+pyparsing==3.3.3; python_version == '3.10'
+pypcode==3.3.3; python_version == '3.10'
+pypcode==4.0.0; python_version >= '3.12'
+pyvex==9.2.194; python_version == '3.10'
+pyvex==10.0.0; python_version >= '3.12'
+pyxbe==1.0.3; python_version == '3.10'
+pyxbe==1.0.4; python_version >= '3.12'
+pyxdia==0.1.0; python_version == '3.10'
+pyxdia==0.1.1; python_version >= '3.12'
+rich==15.0.0; python_version == '3.10' or python_version >= '3.12'
+smmap==5.0.3; python_version == '3.10' or python_version >= '3.12'
+sortedcontainers==2.4.0; python_version == '3.10' or python_version >= '3.12'
+sympy==1.14.0; python_version == '3.10' or python_version >= '3.12'
+tibs==0.5.7; python_version == '3.10' or python_version >= '3.12'
+uefi-firmware==1.16; python_version == '3.10' or python_version >= '3.12'
+unique-log-filter==0.1.0; python_version == '3.10'
+z3-solver==4.13.0.0; python_version == '3.10'
+z3-solver==5.1.0.0; python_version >= '3.12'

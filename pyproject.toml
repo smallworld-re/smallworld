@@ -4,7 +4,12 @@ version = "3.0.1"
 description = "An emulation stack tracking library"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9.6"
-license = { file = "LICENSE.txt" }
+license = "MIT AND Apache-2.0 AND BSD-2-Clause"
+license-files = [
+    "LICENSE.txt",
+    "smallworld/platforms/abi/NOTICE",
+    "smallworld/platforms/abi/LICENSES/*.txt",
+]
 authors = [
    { name = "MIT Lincoln Laboratory" }, 
    { email = "smallworld@ll.mit.edu" },
@@ -36,7 +41,30 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=68"]
+# The ABI tables in smallworld/platforms/abi/_data are generated at build time
+# (tools/abi) from the Ghidra compiler specs bundled in pypcode and from angr
+# and archinfo, and are never committed. uv.lock does not cover build
+# dependencies, so a supported dependency set is pinned exactly here for each
+# Python that can install one, and tools/abi/overlay/versions.py refuses any
+# set it does not list; every listed set yields byte-identical tables. Their
+# transitive dependencies are pinned by tools/abi/build-constraints.txt
+# ([tool.uv] build-constraint-dependencies below; for pip, `pip install
+# --build-constraint tools/abi/build-constraints.txt .`). Builds on Python 3.9
+# and 3.11 need neither and ship no ABI tables (no angr release pairs with a
+# supported pypcode there). A source install on 3.10 or 3.12+ therefore
+# downloads about 400 MB of build dependencies and runs angr for a few
+# seconds. SMALLWORLD_ABI_ALLOW_MISSING=1 skips the tables but not this
+# install; without angr/pypcode wheels, use --no-build-isolation. Keep in
+# step with nix/abi-build-tools.
+requires = [
+    "setuptools>=77",
+    "pypcode==4.0.0; python_version >= '3.12'",
+    "angr==10.0.0; python_version >= '3.12'",
+    "pypcode==3.3.3; python_version == '3.10'",
+    "angr==9.2.194; python_version == '3.10'",
+    # Stage 2 loads smallworld/platforms, whose defs import capstone.
+    "capstone>=5.0.3; python_version == '3.10' or python_version >= '3.12'",
+]
 build-backend = "setuptools.build_meta"
 
 [dependency-groups]
@@ -88,10 +116,18 @@ emu-all = [
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
-license-files = ["LICENSE.txt"]
 
 [tool.setuptools.packages.find]
 include = ["smallworld*"]
+# Generated into build_lib by build_py (or in-tree for editable installs);
+# never copied from a source tree that holds a stale copy.
+exclude = ["smallworld.platforms.abi._data*"]
+
+[tool.setuptools.package-data]
+"smallworld.platforms.abi" = ["NOTICE", "LICENSES/*.txt"]
+
+[tool.setuptools.cmdclass]
+build_py = "tools.abi.build_hook.BuildPy"
 
 [tool.black]
 # Files the ABI generator writes (never committed). force-exclude, because
@@ -103,6 +139,95 @@ disable_error_code = ["annotation-unchecked"]
 exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|nix/triton-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache|smallworld/platforms/abi/_data)/'
 
 [tool.uv]
+# Editable builds generate smallworld/platforms/abi/_data in-tree, so rebuild
+# (and regenerate) when the generator, the overlay or the platform sources
+# change. uv's `*` crosses `/` (so tools/abi/*.py covers the overlay too), and
+# no key may match the generated smallworld/platforms/abi/_data files (that
+# would rebuild on every sync), hence the explicit smallworld/platforms files.
+# uv cannot see the generated files being deleted (git clean -fdX); then run
+# `uv sync --reinstall-package smallworld-re`. These keys cover exactly
+# tools/abi/common.py's INPUT_PATTERNS plus this file (tests/abi/packaging.py
+# checks it).
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "tools/abi/*.py" },
+    { file = "smallworld/utils.py" },
+    { file = "smallworld/exceptions/*.py" },
+    { file = "smallworld/platforms/__init__.py" },
+    { file = "smallworld/platforms/platforms.py" },
+    { file = "smallworld/platforms/naming.py" },
+    { file = "smallworld/platforms/defs/*.py" },
+    { file = "smallworld/platforms/abi/__init__.py" },
+    { file = "smallworld/platforms/abi/enums.py" },
+    { file = "smallworld/platforms/abi/errors.py" },
+    { file = "smallworld/platforms/abi/model.py" },
+    { file = "smallworld/platforms/abi/registry.py" },
+    { file = "smallworld/platforms/abi/validate.py" },
+]
+# The transitive build dependencies of the ABI generator: exactly
+# tools/abi/build-constraints.txt (tests/abi/packaging.py checks it).
+build-constraint-dependencies = [
+    "angr==9.2.194; python_version == '3.10'",
+    "angr==10.0.0; python_version >= '3.12'",
+    "angr-data==0.1.1; python_version >= '3.12'",
+    "archinfo==9.2.194; python_version == '3.10'",
+    "archinfo==10.0.0; python_version >= '3.12'",
+    "arpy==1.1.1; python_version == '3.10' or python_version >= '3.12'",
+    "backports-strenum==1.3.1; python_version == '3.10'",
+    "bitarray==3.11.0; python_version == '3.10' or python_version >= '3.12'",
+    "bitstring==4.4.0; python_version == '3.10' or python_version >= '3.12'",
+    "cachetools==7.2.0; python_version == '3.10' or python_version >= '3.12'",
+    "capstone==5.0.3; python_version == '3.10'",
+    "capstone==5.0.9; python_version >= '3.12'",
+    "cart==1.2.3; python_version == '3.10' or python_version >= '3.12'",
+    "claripy==9.2.194; python_version == '3.10'",
+    "cle==9.2.194; python_version == '3.10'",
+    "cle==10.0.0; python_version >= '3.12'",
+    "cxxheaderparser==2.0.0; python_version == '3.10' or python_version >= '3.12'",
+    "future==1.0.0; python_version == '3.10' or python_version >= '3.12'",
+    "gitdb==4.0.12; python_version == '3.10' or python_version >= '3.12'",
+    "gitpython==3.2.0; python_version == '3.10' or python_version >= '3.12'",
+    "lmdb==2.3.0; python_version == '3.10'",
+    "lmdb==2.1.1; python_version >= '3.12'",
+    "markdown-it-py==4.2.0; python_version == '3.10' or python_version >= '3.12'",
+    "mdurl==0.1.2; python_version == '3.10' or python_version >= '3.12'",
+    "minidump==0.0.24; python_version == '3.10' or python_version >= '3.12'",
+    "mpmath==1.3.0; python_version == '3.10' or python_version >= '3.12'",
+    "msgspec==0.22.0; python_version == '3.10' or python_version >= '3.12'",
+    "mulpyplexer==0.9; python_version == '3.10' or python_version >= '3.12'",
+    "networkx==3.4.2; python_version == '3.10'",
+    "networkx==3.7; python_version >= '3.12'",
+    "pefile==2024.8.26; python_version == '3.10' or python_version >= '3.12'",
+    "protobuf==7.36.2; python_version == '3.10' or python_version >= '3.12'",
+    "psutil==7.2.2; python_version == '3.10' or python_version >= '3.12'",
+    "pycparser==2.23; python_version == '3.10'",
+    "pycparser==3.0; python_version >= '3.12'",
+    "pycryptodome==3.23.0; python_version == '3.10' or python_version >= '3.12'",
+    "pydemumble==0.1.1.post1; python_version == '3.10'",
+    "pydemumble==0.1.3; python_version >= '3.12'",
+    "pydot==4.0.1; python_version == '3.10'",
+    "pyelftools==0.33; python_version == '3.10' or python_version >= '3.12'",
+    "pyformlang==1.0.11; python_version == '3.10'",
+    "pygments==2.21.0; python_version == '3.10' or python_version >= '3.12'",
+    "pyparsing==3.3.3; python_version == '3.10'",
+    "pypcode==3.3.3; python_version == '3.10'",
+    "pypcode==4.0.0; python_version >= '3.12'",
+    "pyvex==9.2.194; python_version == '3.10'",
+    "pyvex==10.0.0; python_version >= '3.12'",
+    "pyxbe==1.0.3; python_version == '3.10'",
+    "pyxbe==1.0.4; python_version >= '3.12'",
+    "pyxdia==0.1.0; python_version == '3.10'",
+    "pyxdia==0.1.1; python_version >= '3.12'",
+    "rich==15.0.0; python_version == '3.10' or python_version >= '3.12'",
+    "smmap==5.0.3; python_version == '3.10' or python_version >= '3.12'",
+    "sortedcontainers==2.4.0; python_version == '3.10' or python_version >= '3.12'",
+    "sympy==1.14.0; python_version == '3.10' or python_version >= '3.12'",
+    "tibs==0.5.7; python_version == '3.10' or python_version >= '3.12'",
+    "uefi-firmware==1.16; python_version == '3.10' or python_version >= '3.12'",
+    "unique-log-filter==0.1.0; python_version == '3.10'",
+    "z3-solver==4.13.0.0; python_version == '3.10'",
+    "z3-solver==5.1.0.0; python_version >= '3.12'",
+]
 exclude-dependencies = [
     "pandare2",
     "styx-emulator",
