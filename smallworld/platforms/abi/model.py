@@ -198,8 +198,20 @@ class Preservation:
     """
 
     callee_saved: typing.Tuple[RegEntry, ...]
+    """Entries whose bytes (or masked bits) a conforming callee preserves:
+    x86-64 SysV ``rbx``, ``rbp``, ``rsp``, ``r12..r15``, ``fctrl`` and the
+    ``mxcsr`` control bits."""
+
     caller_saved: typing.Tuple[RegEntry, ...]
+    """Entries a conforming callee may clobber: x86-64 SysV ``rax``, ``rcx``,
+    ``rdx``, ``rsi``, ``rdi``, ``r8..r11``, the vector registers and the
+    ``mxcsr`` status flags."""
+
     neither: typing.Tuple[RegEntry, ...]
+    """Entries that are in neither class: the thread pointer (x86-64
+    ``fsbase``), reserved bits (``mxcsr`` bits 16-31) and similar; ``()`` when
+    every byte is callee- or caller-saved."""
+
     universe: typing.Tuple[str, ...]
     """Every root the partition covers, in register-file order (the
     PlatformDef's register order, unmodeled roots last)."""
@@ -222,6 +234,10 @@ class IntArgSpec:
     ``registers``."""
 
     alloc: IntAlloc
+    """How arguments are assigned to ``registers`` (x86-64 SysV and AArch64:
+    ``SEQUENTIAL``; MSP430 EABI: ``FIRST_FIT``); see
+    :class:`IntAlloc`."""
+
     gpr_width: int
     """Width of an argument GPR in bytes (8 on n32 although ``long`` is 4)."""
 
@@ -230,7 +246,14 @@ class IntArgSpec:
     x86); 0 otherwise."""
 
     pair_align: PairAlign
+    """Which register a two-register integer argument may start in (ARM, MIPS
+    o32, PPC32: ``EVEN``; x86-64 SysV: ``NONE``)."""
+
     split: Split
+    """Whether a multi-register argument may start in the last free registers
+    and continue on the stack (RISC-V, LoongArch: ``LAST_REGISTER``; x86-64
+    SysV: ``NEVER``)."""
+
     close_on_fail: bool
     """Whether a value that does not fit closes the remaining registers."""
 
@@ -242,6 +265,9 @@ class IntArgSpec:
     """Whether 64-bit arguments always go on the stack (MS fastcall)."""
 
     pair_order: PairOrder
+    """Which half of a multi-register integer argument goes in the first
+    register; see :class:`PairOrder`."""
+
     ptr_one_reg: bool
     """Whether a pointer always takes exactly one register (MSP430X)."""
 
@@ -264,16 +290,48 @@ class FpArgSpec:
     """Register pairs holding one double (MIPS o32 FR=0)."""
 
     route: FpRoute
+    """Where FP arguments go: FP registers, the integer convention, or the
+    stack (x86-64 SysV: ``FPR``)."""
+
     index: FpIndex
+    """How the FP register for an argument is chosen: by its own counter
+    (x86-64 SysV, AArch64: ``OWN``), by the integer argument slot (MS x64, MIPS
+    n64: ``INT_CURSOR``), by argument position (vectorcall: ``POSITION``) or
+    for the two leading FP arguments only (MIPS o32: ``LEADING2``)."""
+
     consumes_int_slot: bool
+    """Whether an FP argument passed in an FP register also uses up an integer
+    argument register or slot (MS x64, MIPS n64, PPC64 ELF: True; x86-64 SysV,
+    AArch64: False)."""
+
     exhaust: FpExhaust
+    """Where FP arguments go once the FP argument registers run out: the stack
+    (x86-64 SysV, AArch64) or the free integer registers first (RISC-V,
+    LoongArch: ``INT``)."""
+
     file: FpFile
+    """How the allocator tracks the FP argument registers: a counter (x86-64
+    SysV), a bitmap of single-precision units that allows back-filling
+    (AAPCS-VFP: ``ALIAS_BITMAP``), or one counter shared by singles and doubles
+    (SH: ``PAIR_COUNTER``)."""
+
     backfill: bool
+    """Whether a later single-precision argument may use a register left free
+    by the alignment of an earlier double (AAPCS-VFP, Renesas SH: True; x86-64
+    SysV: False)."""
+
     close_on_stack: bool
+    """Whether, once an FP argument has gone to the stack, no later FP argument
+    uses an FP register (AAPCS-VFP rule C.2.cp: True; x86-64 SysV: False)."""
+
     flen: int
     """Widest FP value an FP register holds, in bytes (lp64f: 4)."""
 
     pair_order: PairOrder
+    """Which half of a value held in two FP registers (``double_pairs``) goes
+    in the first one (MIPS o32 FR=0: ``LOW_FIRST``); see
+    :class:`PairOrder`."""
+
     stack_position: bool
     """Whether FP stack arguments are interleaved with integer ones in
     argument order (True on every current record) rather than grouped."""
@@ -289,7 +347,8 @@ class StackSpec:
     """Stack layout at a call."""
 
     alignment: int
-    """Stack alignment at the call boundary."""
+    """Stack alignment at the call boundary, in bytes (x86-64 SysV and AArch64:
+    16; MIPS o32: 8)."""
 
     entry_bias: int
     """At entry, ``sp % alignment == entry_bias`` (x86-64: 8, the pushed
@@ -304,16 +363,34 @@ class StackSpec:
     area + 64 parameter save area)."""
 
     slot_size: int
+    """Bytes of one stack argument slot; a narrower argument still takes a
+    whole slot unless ``natural`` is set (x86-64 SysV, AArch64: 8; i386, MIPS
+    o32: 4)."""
+
     wide_align: int
-    """Alignment of a double-width stack argument."""
+    """Alignment of a double-width stack argument, in bytes."""
 
     natural: bool
     """Whether stack arguments are naturally aligned rather than slotted."""
 
     int_justify: Justify
+    """Where an integer argument narrower than its slot sits in the slot (MIPS
+    n64: ``RIGHT``; x86-64 SysV: ``LEFT``); see :class:`Justify`."""
+
     float_justify: Justify
+    """Where a floating-point argument narrower than its slot sits in the slot
+    (MIPS n64: ``LEFT``; PPC64 ELF: ``RIGHT``); see
+    :class:`Justify`."""
+
     float_format: FloatEncoding
+    """Encoding of a floating-point argument in its stack slot (x86-64 SysV:
+    ``IEEE``). The design gives no record with another value yet."""
+
     red_zone: int
+    """Bytes below the stack pointer that a function may use without moving it
+    and that signal handlers leave alone (x86-64 SysV: 128; PPC64 ELFv1: 288; 0
+    when there is none)."""
+
     shadow_space: int
     """Bytes the caller reserves above the return address for the callee to
     spill register arguments (ms-x64: 32; MIPS o32 home area: 16)."""
@@ -327,7 +404,14 @@ class StackSpec:
     arguments, before the first stack-passed one (ELFv1/ELFv2: 64)."""
 
     toc_save_slot: typing.Optional[int]
+    """Byte offset from the stack pointer at entry of the slot where the TOC
+    pointer is saved across calls (PPC64 ELFv1: 40; ELFv2: 24); ``None`` on
+    ABIs without a TOC."""
+
     reserved_below_sp: int
+    """Bytes directly below the stack pointer at entry that a caller must leave
+    alone, because the callee may write them (Xtensa windowed: 16, ``[sp-16,
+    sp-1]``, the window-overflow spill area); 0 elsewhere."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -335,15 +419,33 @@ class VarargsSignal:
     """A register a variadic caller sets (x86-64 ``al``, PPC32 ``cr1``)."""
 
     kind: SignalKind
+    """What the register carries: a count of vector registers used (x86-64
+    ``al``) or an "FP registers used" flag (PPC32 ``cr1``)."""
+
     register: RegEntry
+    """The register the caller sets before a variadic call (x86-64 ``al``;
+    PPC32 ``cr1``)."""
+
     mask: int
+    """The bits of ``register`` that hold the signal (x86-64 ``al``: ``0xFF``;
+    PPC32 ``cr1``: ``0x2``)."""
 
 
 @dataclasses.dataclass(frozen=True)
 class VaListField:
+    """One field of a structure ``va_list``."""
+
     name: str
+    """The C field name (x86-64 SysV: ``gp_offset``, ``fp_offset``,
+    ``overflow_arg_area``, ``reg_save_area``)."""
+
     offset: int
+    """Byte offset of the field from the start of ``va_list`` (x86-64 SysV
+    ``reg_save_area``: 16)."""
+
     size: int
+    """Size of the field in bytes (x86-64 SysV ``gp_offset``: 4;
+    ``reg_save_area``: 8)."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -351,9 +453,15 @@ class VaList:
     """The layout of ``va_list``."""
 
     kind: VaListKind
+    """Whether ``va_list`` is a pointer into the argument area or a structure
+    (x86-64 SysV: ``STRUCT``)."""
 
     size: int
+    """``sizeof(va_list)`` in bytes (x86-64 SysV: 24)."""
+
     fields: typing.Tuple[VaListField, ...]
+    """The structure's fields in offset order; ``()`` when ``kind`` is
+    ``POINTER``."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -361,16 +469,26 @@ class Varargs:
     """Variadic-call rules."""
 
     policy: VarargsPolicy
+    """How variadic arguments are placed relative to named ones (x86-64 SysV:
+    ``SAME``; RISC-V: ``FP_TO_INT``; MS x64: ``FP_DUP_GPR``); see
+    :class:`VarargsPolicy`."""
+
     base_standard_scope: typing.Optional[str]
     """With ``BASE_STANDARD``: which values follow the base standard (armhf:
     ``"variadic"``, so variadic doubles go in ``r0:r1``)."""
 
     variadic_slot: typing.Optional[int]
-    """Stack slot size of a variadic argument, when it differs from
-    ``StackSpec.slot_size``."""
+    """Stack slot size of a variadic argument in bytes, when it differs from
+    ``StackSpec.slot_size``; ``None`` when it does not."""
 
     signal: typing.Optional[VarargsSignal]
+    """The register a variadic caller sets (x86-64 ``al`` with the number of
+    vector registers used); ``None`` when the ABI has none."""
+
     va_list: typing.Optional[VaList]
+    """The layout of ``va_list``; ``None`` when the record does not describe
+    it."""
+
     fallback_record: typing.Optional[str]
     """With ``FALLBACK``: the id of the record variadic calls use instead."""
 
@@ -396,20 +514,41 @@ class ReturnSpec:
     """FP result registers; may include unmodeled entries (``st0``)."""
 
     fp_single: typing.Optional[RegEntry]
+    """The register a ``float`` result is returned in (x86-64 SysV: ``xmm0``;
+    AArch64: ``s0``); ``None`` when floats are not returned in an FP register
+    (soft-float)."""
+
     fp_double: typing.Optional[RegEntry]
+    """The register a ``double`` result is returned in (x86-64 SysV: ``xmm0``;
+    AArch64: ``d0``); ``None`` when a double is returned in ``fp_double_pairs``
+    or not in an FP register."""
+
     int64_pair: typing.Tuple[RegEntry, ...]
     """A 64-bit result on a 32-bit ABI: the registers in significance
     order."""
 
     int64_pair_order: PairOrder
+    """Which half of a 64-bit result goes in the first register of
+    ``int64_pair``; see :class:`PairOrder`."""
+
     fp_double_pairs: typing.Tuple[typing.Tuple[RegEntry, RegEntry], ...]
+    """Register pairs a ``double`` result spans when one FP register is too
+    narrow (MIPS o32 FR=0: ``(f0, f1)``); ``()`` otherwise."""
+
     fp_pair_order: PairOrder
+    """Which half of a ``double`` in ``fp_double_pairs`` goes in the first
+    register (MIPS o32: ``LOW_FIRST``, low word in ``f0``)."""
+
     fp_encoding: FloatEncoding
+    """Encoding of an FP result in its register (x86-64 SysV: ``IEEE``; PPC:
+    ``F64_IN_FPR``; RISC-V: ``NANBOX``)."""
+
     fp_named: typing.Tuple[typing.Tuple[FloatEncoding, RegEntry], ...]
     """Registers for named float formats (x87-80 in ``st0``)."""
 
     small_struct_max: int
-    """Largest struct returned in registers (0 if none)."""
+    """Largest struct returned in registers, in bytes (x86-64 SysV: 16; 0 if
+    none)."""
 
     small_struct_sizes: typing.Optional[typing.Tuple[int, ...]]
     """If set, only these struct sizes return in registers (ms-x64:
@@ -421,12 +560,25 @@ class StructReturn:
     """The hidden struct-return pointer."""
 
     location: SretLocation
+    """Whether the caller passes the pointer in a register or on the stack
+    (x86-64 SysV: ``REGISTER``; i386 SysV: ``STACK``)."""
+
     register: typing.Optional[RegEntry]
+    """The register holding the pointer at entry (x86-64 SysV: ``rdi``;
+    AArch64: ``x8``); ``None`` when ``location`` is ``STACK``."""
+
     arg_class: typing.Optional[RegClass]
     """The argument class whose slot it takes, when it consumes one."""
 
     consumes_arg_slot: bool
+    """Whether the pointer takes the first argument register or slot, so the
+    declared arguments move up one (x86-64 SysV ``rdi``: True; AArch64 ``x8``:
+    False)."""
+
     callee_pops: bool
+    """Whether the callee pops the pointer off the stack when it returns (i386
+    SysV: True, ``ret $4``)."""
+
     echo_register: typing.Optional[RegEntry]
     """The register the callee returns the pointer in (x86-64 ``rax``)."""
 
@@ -436,15 +588,50 @@ class ExtensionRule:
     """How narrow integers are represented in wider registers and slots."""
 
     gpr_bits: int
+    """Width of a general-purpose register in bits (x86-64: 64; i386: 32)."""
+
     int32_in_gpr: IntRepr
+    """What the upper bits of a 64-bit GPR hold when it carries a 32-bit
+    ``int`` argument (x86-64 SysV: ``UNSPECIFIED``; MIPS64, RISC-V 64,
+    LoongArch64: ``SIGN``). Meaningful only when ``gpr_bits`` is 64."""
+
     uint32_in_gpr: IntRepr
+    """As ``int32_in_gpr``, for a 32-bit ``unsigned int`` argument."""
+
     subint_promote_bits: int
+    """Width in bits that a ``char`` or ``short`` argument is extended to by
+    the caller (x86-64 SysV: 32)."""
+
     subint_repr: IntRepr
+    """How a ``char`` or ``short`` argument is extended to
+    ``subint_promote_bits`` (x86-64 SysV: ``BY_TYPE``, sign for signed types,
+    zero for unsigned ones)."""
+
     bool_repr: IntRepr
+    """How a ``_Bool`` argument fills the rest of its register (x86-64 SysV:
+    ``ZERO``; the psABI guarantees it for the low byte only)."""
+
     pointer_repr: IntRepr
+    """What the upper bits of a GPR hold when it carries a pointer narrower
+    than the register (x86-64 SysV, where pointers fill the register:
+    ``UNSPECIFIED``)."""
+
     return_int32: IntRepr
+    """How a 32-bit integer result is extended in a 64-bit return register
+    (RISC-V 64, LoongArch64, MIPS64: ``SIGN``; PPC64: ``BY_TYPE``; x86-64 SysV:
+    ``UNSPECIFIED``)."""
+
     stack_slot_repr: IntRepr
+    """How a narrow integer argument fills its stack slot: ``UNSPECIFIED``
+    writes only the value's own bytes (x86-64 SysV, AArch64); ``SIGN``,
+    ``ZERO`` and ``BY_TYPE`` extend it to the whole slot, justified by
+    ``StackSpec.int_justify`` (PPC64: ``BY_TYPE``)."""
+
     callee_relies: bool
+    """Whether callees rely on the caller having extended narrow arguments as
+    described, rather than re-extending them (x86-64 SysV: True; clang callees
+    rely on it)."""
+
     unknown_type_policy: UnknownTypePolicy
     """How to canonicalize a value of unknown type."""
 
@@ -459,20 +646,53 @@ class SyscallABI:
     """The Linux system-call ABI (``None`` on Windows and bare metal)."""
 
     instructions: typing.Tuple[str, ...]
+    """The instructions that enter the kernel, in assembler spelling (x86-64:
+    ``("syscall",)``; AArch64: ``("svc #0",)``)."""
+
     interrupt: typing.Optional[int]
+    """The software-interrupt vector for an interrupt-based entry (i386 ``int
+    0x80``: ``0x80``); ``None`` when the entry is a dedicated instruction."""
+
     number_register: RegEntry
+    """The register holding the system-call number (x86-64: ``rax``; MIPS:
+    ``v0``)."""
+
     arg_registers: typing.Tuple[RegEntry, ...]
+    """Argument registers in order (x86-64: ``rdi, rsi, rdx, r10, r8, r9``; ARM
+    EABI: ``r0..r5``)."""
+
     stack_args: int
     """Number of arguments passed on the stack after ``arg_registers``."""
 
     int64_pair_align: PairAlign
+    """Which register a 64-bit argument that takes two argument registers may
+    start in (ARM EABI, MIPS o32, PPC32, Xtensa: ``EVEN``; 64-bit ABIs:
+    ``NONE``). Its halves go in the order of ``IntArgSpec.pair_order``."""
+
     return_register: RegEntry
+    """The register holding the result (x86-64: ``rax``)."""
+
     return2_register: typing.Optional[RegEntry]
+    """A second result register, when the ABI defines one (x86-64: ``rdx``, per
+    syscall(2), although no x86-64 system call writes it); ``None``
+    otherwise."""
+
     error_convention: SyscallErrorConvention
+    """How a failure is reported (x86-64: ``NEG_ERRNO_4095``; MIPS:
+    ``MIPS_A3_FLAG``; PPC ``sc``: ``PPC_CR0_SO``)."""
 
     clobbered: typing.Tuple[RegEntry, ...]
+    """Registers the system call may change besides the result registers
+    (x86-64: ``rcx`` and ``r11``); ``()`` when none."""
+
     number_base: int
+    """Added to a family's base system-call numbers to give this ABI's (MIPS
+    o32: 4000; 0 where numbers start at 0, as on x86-64)."""
+
     numbers_family: typing.Optional[str]
+    """The name of the system-call number table this ABI uses (x86-64:
+    ``"x86_64"``); ``None`` for a family without a table, whose numbers come
+    from ``number_base`` alone."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -480,8 +700,15 @@ class ExceptionFrame:
     """Hardware exception-entry stacking (M-profile; data only)."""
 
     registers: typing.Tuple[str, ...]
+    """The registers the hardware stacks on exception entry, in stacking order
+    (M-profile: ``r0..r3``, ``r12``, ``lr``, ``pc``, ``xPSR``)."""
+
     alignment: int
+    """Alignment of the stacked frame in bytes (M-profile: 8)."""
+
     fp_extension: typing.Tuple[str, ...]
+    """Registers also stacked when an FP context is active (M-profile:
+    ``s0..s15``, ``FPSCR``); ``()`` without an FP extension."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -489,16 +716,52 @@ class ReturnMechanics:
     """How a callee finds its return address and returns."""
 
     kind: ReturnKind
+    """How the callee returns (x86-64 SysV: ``POP_RET``; AArch64:
+    ``LINK_REGISTER``; MIPS: ``LINK_REGISTER_DELAY_SLOT``)."""
+
     ra_register: typing.Optional[RegEntry]
+    """The register holding the return address at entry (AArch64: ``x30``;
+    MIPS: ``ra``; SH: ``pr``); ``None`` when it is on the stack."""
+
     ra_stack_offset: typing.Optional[int]
+    """Byte offset of the return address from the stack pointer at entry
+    (x86-64 SysV: 0); ``None`` when it is in a register."""
+
     ra_size: int
+    """Size of the return address in bytes (x86-64: 8; MSP430X eabi-small:
+    2)."""
+
     ra_mask: int
+    """Mask applied to a return address read from the stack or register
+    (x86-64: ``0xFFFFFFFFFFFFFFFF``; MSP430X eabi-small: ``0xFFFF``;
+    eabi-large: ``0xFFFFF``)."""
+
     delay_slot: bool
+    """Whether the return branch has a delay slot (MIPS ``jr $ra``, SH ``rts``:
+    True). The link register already points past the delay slot."""
+
     callee_cleanup: bool
+    """Whether the callee pops its stack arguments when it returns (MS i386
+    ``stdcall``, ``fastcall`` and ``thiscall``: True; x86-64 SysV: False)."""
+
     thumb_bit: bool
+    """Whether bit 0 of a code address selects the Thumb instruction set, so a
+    return address to Thumb code has it set (ARM: True)."""
+
     window_bits: int
+    """Xtensa windowed: the high bits of the return address that carry the
+    caller's window increment (the return target is ``{pc[31:30], a0[29:0]}``);
+    0 on records without register windows. Whether this is a bit count or a
+    mask is not yet decided."""
+
     exception_return_prefix: typing.Optional[int]
+    """M-profile: the value whose set bits mark a return address as an
+    exception return (EXC_RETURN, ``0xFFFFFF00``); ``None`` elsewhere. Data
+    only."""
+
     exception_frame: typing.Optional[ExceptionFrame]
+    """M-profile: how the hardware stacks registers on exception entry;
+    ``None`` elsewhere. Data only."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -506,10 +769,23 @@ class ModeReq:
     """A processor-mode requirement at function entry."""
 
     register: str
+    """The name of the control register (MIPS ``cp0_status``, RISC-V
+    ``mstatus``, x86 ``mxcsr``)."""
+
     mask: int
+    """The bits of ``register`` the requirement covers."""
+
     value: int
+    """The value those bits must hold (x86 ``mxcsr``: ``0x1F80``; x87 control
+    word: ``0x037F``); only bits in ``mask`` count."""
+
     kind: ModeKind
+    """Whether the bits enable a unit (ARM FPEXC.EN), select a mode (MIPS FR)
+    or state a default value (x86 MXCSR); see :class:`ModeKind`."""
+
     source: str
+    """Free text. The design names the field but not its contents; presumably
+    where the requirement comes from."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -517,10 +793,25 @@ class EntryReg:
     """A register that must hold a particular value at entry."""
 
     register: RegEntry
+    """The register (MIPS PIC: ``t9``; ELFv2: ``r12``; x86-64 process entry:
+    ``rdx``)."""
+
     value: EntryValue
+    """What it must hold (MIPS PIC ``t9``: ``ENTRY_ADDRESS``; x86-64
+    process-entry ``rdx``: ``ZERO``); see :class:`EntryValue`."""
+
     symbol: typing.Optional[str]
+    """The symbol whose address it holds, for ``SYMBOL`` and ``GP_SYMBOL``
+    (RISC-V ``gp``: ``"__global_pointer$"``); ``None`` otherwise."""
+
     constant: typing.Optional[int]
+    """The value for ``CONSTANT`` (M-profile reset ``lr``: ``0xFFFFFFFF``);
+    ``None`` otherwise. How a ``VECTOR_WORD`` names its word is not yet
+    decided."""
+
     when: EntryCondition
+    """When the requirement applies (always, only in PIC code, or only through
+    the ELFv2 global entry point)."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -528,16 +819,36 @@ class ProcessEntry:
     """How a process (or a reset image) is entered."""
 
     form: ProcessForm
+    """A System V process stack or a bare-metal reset (M-profile)."""
+
     registers: typing.Tuple[EntryReg, ...]
+    """Registers with a defined value at process entry (x86-64: ``rdx = 0``,
+    the ``rtld_fini`` slot); ``()`` when none."""
+
     sp_points_at: StackPointerTarget
+    """What the stack pointer points at (x86-64 SysV: ``ARGC``; M-profile
+    reset: ``STACK_TOP``)."""
+
     sp_alignment: int
+    """Alignment of the stack pointer at process entry, in bytes (x86-64 SysV:
+    16)."""
 
 
 @dataclasses.dataclass(frozen=True)
 class EntryState:
+    """Required processor and register state at function and process entry."""
+
     mode: typing.Tuple[ModeReq, ...]
+    """Processor-mode requirements at function entry, applied in order (ARM
+    FPEXC.EN; MIPS CU1/FR; x86 MXCSR ``0x1F80``); ``()`` when none."""
+
     registers: typing.Tuple[EntryReg, ...]
+    """Registers that must hold a particular value at function entry (MIPS PIC
+    ``t9``; ELFv2 ``r12``; RISC-V ``gp``); ``()`` when none."""
+
     process: typing.Optional[ProcessEntry]
+    """How a process or reset image is entered; ``None`` when the record does
+    not describe it."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -545,30 +856,82 @@ class Tls:
     """Thread-local storage access."""
 
     kind: TlsKind
+    """How the thread pointer is reached (x86-64: ``BASE_REGISTER``,
+    ``fsbase``; RISC-V: ``GPR``, ``tp``); see :class:`TlsKind`."""
+
     register: typing.Optional[RegEntry]
+    """The thread-pointer register (x86-64: ``fsbase``; AArch64: ``tpidr_el0``;
+    PPC64: ``r13``); ``None`` when it is not in a register (a helper call, or
+    no TLS)."""
+
     descriptor_register: typing.Optional[RegEntry]
+    """The register that carries the TLS descriptor argument and result in
+    TLSDESC sequences (x86-64: ``rax``); ``None`` without TLS descriptors."""
+
     variant: typing.Optional[int]
     """TLS layout variant (1 or 2), if any."""
 
     tp_offset: int
+    """Bytes from the end of the thread control block to the thread pointer
+    (MIPS and PPC: ``0x7000``, glibc ``TLS_TP_OFFSET``; x86-64 and AArch64:
+    0)."""
+
     tcb_size: int
+    """Size in bytes of the thread control block between the thread pointer and
+    the first TLS block in TLS variant I (AArch64: 16); 0 in variant II
+    (x86-64), where the TLS blocks lie below the thread pointer. This meaning
+    is the SW-01b overlay's; the design only names the field."""
+
     dtv_offset: int
+    """A DTV offset in bytes (x86-64: 8, the offset of the DTV pointer in the
+    TCB). Not yet decided: the generator fills it with the DTV pointer's offset
+    in the TCB, while the design also uses it for the DTV entry bias (glibc
+    ``TLS_DTV_OFFSET``; MIPS ``0x8000``)."""
+
     get_addr_symbol: typing.Optional[str]
+    """The general-dynamic TLS helper (``"__tls_get_addr"``; i386:
+    ``"___tls_get_addr"``); ``None`` when there is none."""
+
     get_addr_record: typing.Optional[str]
+    """The id of another record whose calling convention the helper uses;
+    ``None`` when it uses this record's. The design names the field only; its
+    use is not yet decided."""
 
 
 @dataclasses.dataclass(frozen=True)
 class SpecialRegisters:
+    """Registers with a fixed special purpose."""
+
     stack_pointer: RegEntry
+    """The stack pointer (x86-64: ``rsp``; AArch64: ``sp``)."""
+
     frame_pointer: typing.Optional[RegEntry]
+    """The frame pointer, when the ABI names one (x86-64: ``rbp``; AArch64:
+    ``x29``); ``None`` otherwise."""
+
     frame_pointer_by_isa: typing.Tuple[typing.Tuple[str, RegEntry], ...]
     """Frame pointers that depend on the instruction set (ARM Thumb ``r7``)."""
 
     global_pointer: typing.Optional[RegEntry]
+    """The global (small-data or GOT) pointer (MIPS, RISC-V: ``gp``); ``None``
+    when the ABI has none (x86-64)."""
+
     gp_bias: int
+    """Bytes from the start of the data the global or TOC pointer addresses to
+    the value it holds, so the pointer is that base plus ``gp_bias`` (PPC64
+    ELFv1: ``.TOC.`` is ``.got + 0x8000``); 0 without a global pointer."""
+
     tls: typing.Optional[Tls]
+    """Thread-local storage access; ``None`` when the record does not describe
+    it."""
+
     static_chain: typing.Optional[RegEntry]
+    """The register that carries the static chain to a nested function (x86-64
+    SysV: ``r10``); ``None`` when the ABI names none."""
+
     pic_call_register: typing.Optional[RegEntry]
+    """The register that must hold the callee's address when calling
+    position-independent code (MIPS: ``t9``); ``None`` elsewhere."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -576,9 +939,19 @@ class Linkage:
     """Dynamic-linking roles."""
 
     scratch: typing.Tuple[RegEntry, ...]
+    """Registers that PLT stubs and linker veneers may clobber between the
+    caller and the callee (x86-64: ``r11``; AArch64: ``x16``, ``x17``)."""
+
     plt_site_registers: typing.Tuple[EntryReg, ...]
+    """Registers that must hold particular values where a call goes through the
+    PLT (PPC32 secure PLT: ``r30``, the GOT address); ``()`` when none."""
+
     toc_register: typing.Optional[RegEntry]
+    """The TOC pointer (PPC64: ``r2``); ``None`` on ABIs without one."""
+
     function_pointer_format: FunctionPointerFormat
+    """What a C function pointer holds (x86-64: ``PLAIN``; ARM: ``THUMB_BIT``;
+    PPC64 ELFv1: ``DESCRIPTOR_24``)."""
 
 
 # ---------------------------------------------------------------------------
@@ -595,20 +968,51 @@ class CSizes:
     """``sizeof`` of the C scalar types, in bytes."""
 
     char: _Bytes
+    """``sizeof(char)``: 1."""
+
     short: _Bytes
+    """``sizeof(short)``: 2."""
+
     int: _Bytes
+    """``sizeof(int)``: 4 (MSP430: 2)."""
+
     long: _Bytes
+    """``sizeof(long)``: 8 on LP64 (x86-64 SysV, AArch64), 4 on ILP32 and on
+    Windows x64."""
+
     long_long: _Bytes
+    """``sizeof(long long)``: 8."""
+
     pointer: _Bytes
+    """``sizeof(void *)``: 8 on LP64, 4 on ILP32 (MSP430X eabi-small: 2)."""
+
     size_t: _Bytes
+    """``sizeof(size_t)`` (x86-64 SysV: 8)."""
+
     ssize_t: _Bytes
+    """``sizeof(ssize_t)`` (x86-64 SysV: 8)."""
+
     ptrdiff_t: _Bytes
+    """``sizeof(ptrdiff_t)`` (x86-64 SysV: 8)."""
+
     intmax_t: _Bytes
+    """``sizeof(intmax_t)`` (x86-64 SysV: 8)."""
+
     wchar_t: _Bytes
+    """``sizeof(wchar_t)`` (Linux: 4; Windows: 2)."""
+
     wint_t: _Bytes
+    """``sizeof(wint_t)`` (x86-64 SysV: 4)."""
+
     float: _Bytes
+    """``sizeof(float)``: 4."""
+
     double: _Bytes
+    """``sizeof(double)``: 8 (mspgcc legacy: 4)."""
+
     long_double: _Bytes
+    """``sizeof(long double)``, padding included (x86-64 SysV: 16, an 80-bit
+    x87 value; AArch64: 16)."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -616,33 +1020,78 @@ class CAligns:
     """``_Alignof`` of the C scalar types, in bytes."""
 
     char: _Bytes
+    """``_Alignof(char)``: 1."""
+
     short: _Bytes
+    """``_Alignof(short)``: 2."""
+
     int: _Bytes
+    """``_Alignof(int)`` (x86-64 SysV: 4)."""
+
     long: _Bytes
+    """``_Alignof(long)`` (x86-64 SysV: 8)."""
+
     long_long: _Bytes
+    """``_Alignof(long long)`` (x86-64 SysV: 8; i386 SysV: 4)."""
+
     pointer: _Bytes
+    """``_Alignof(void *)`` (x86-64 SysV: 8)."""
+
     size_t: _Bytes
+    """``_Alignof(size_t)`` (x86-64 SysV: 8)."""
+
     ssize_t: _Bytes
+    """``_Alignof(ssize_t)`` (x86-64 SysV: 8)."""
+
     ptrdiff_t: _Bytes
+    """``_Alignof(ptrdiff_t)`` (x86-64 SysV: 8)."""
+
     intmax_t: _Bytes
+    """``_Alignof(intmax_t)`` (x86-64 SysV: 8)."""
+
     wchar_t: _Bytes
+    """``_Alignof(wchar_t)`` (x86-64 SysV: 4)."""
+
     wint_t: _Bytes
+    """``_Alignof(wint_t)`` (x86-64 SysV: 4)."""
+
     float: _Bytes
+    """``_Alignof(float)``: 4."""
+
     double: _Bytes
+    """``_Alignof(double)`` (x86-64 SysV: 8; i386 SysV: 4)."""
+
     long_double: _Bytes
+    """``_Alignof(long double)`` (x86-64 SysV: 16)."""
 
 
 @dataclasses.dataclass(frozen=True)
 class DataModel:
+    """The C data model: type sizes, alignments and signedness."""
+
     name: str
     """``"LP64"``, ``"ILP32"``, ..."""
 
     char_signed: bool
+    """Whether plain ``char`` is signed (x86-64 SysV: True; AArch64 and PPC
+    Linux: False)."""
+
     sizes: CSizes
+    """``sizeof`` of the C scalar types."""
+
     aligns: CAligns
+    """``_Alignof`` of the C scalar types."""
+
     long_double_format: FloatEncoding
+    """The format of ``long double`` (x86-64 SysV: ``X87_80``; AArch64 Linux:
+    ``BINARY128``; PPC: ``IBM_DD``)."""
+
     wchar_signed: bool
+    """Whether ``wchar_t`` is a signed type (x86-64 SysV, where it is ``int``:
+    True)."""
+
     max_align: int
+    """``_Alignof(max_align_t)`` in bytes (x86-64 SysV: 16)."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -650,9 +1099,18 @@ class GhidraKeying:
     """Where Ghidra's keying of this record differs from the ABI."""
 
     deviation_id: str
+    """The id of the overlay Deviation this entry comes from (SH4-LE:
+    ``KD-GH-SH4LE-ORDER``)."""
+
     field: str
+    """The dotted ABIDef field path the difference is in."""
+
     ghidra_value: str
+    """Ghidra's value of ``field``, as JSON text."""
+
     abi_value: str
+    """The ABI's value of ``field`` (the record's own), as JSON text."""
+
     versions: typing.Optional[str]
     """Ghidra versions the entry applies to (``">=12.0"``); ``None`` means
     the pinned version."""
@@ -663,12 +1121,33 @@ class Sources:
     """Where the record's facts come from in external tools."""
 
     ghidra_language: typing.Optional[str]
+    """The Ghidra language id the record joins to (``"x86:LE:64:default"``);
+    ``None`` when Ghidra has none."""
+
     ghidra_compiler: typing.Optional[str]
+    """The Ghidra compiler spec id within that language (``"gcc"``); ``None``
+    when Ghidra has none."""
+
     ghidra_prototype: typing.Optional[str]
+    """The prototype model in that compiler spec (x86-64 SysV:
+    ``"__stdcall"``); ``None`` when Ghidra has no model for the record."""
+
     ghidra_join_klass: typing.Optional[str]
+    """Not yet decided: the design names the field but not its values, and
+    every record sets ``None``."""
+
     ghidra_keying: typing.Tuple[GhidraKeying, ...]
+    """Where Ghidra keys this record differently from the ABI, per Ghidra
+    version (the SH4-LE register order); ``()`` when it does not."""
+
     angr_simcc: typing.Optional[str]
+    """The dotted path of the matching angr SimCC class
+    (``"angr.calling_conventions.SimCCSystemVAMD64"``); ``None`` when angr has
+    none."""
+
     archinfo: typing.Optional[str]
+    """The dotted path of the archinfo arch class the record's archinfo facts
+    come from (``"archinfo.ArchAMD64"``); ``None`` when none is used."""
 
 
 # ---------------------------------------------------------------------------
@@ -758,6 +1237,8 @@ class ABIDef:
     ``"X86_64/LITTLE:sysv"``."""
 
     platform: Platform
+    """The platform the record describes; with ``variant``, its key."""
+
     variant: str
     """Kebab-case name, unique within the platform (``sysv``, ``aapcs64``)."""
 
@@ -765,6 +1246,9 @@ class ABIDef:
     """A label shared by records of the same convention (``amd64-psabi/sysv``)."""
 
     family: str
+    """The convention family, the part of ``abi_id`` before the slash
+    (``amd64-psabi``)."""
+
     abi: typing.Optional[ABI]
     """The coarse :class:`~smallworld.platforms.ABI` family, or ``None`` for a
     convention reachable only by variant (``regparm3``, ``go-abiinternal``)."""
@@ -776,32 +1260,80 @@ class ABIDef:
     """Whether this is what ``resolve(platform, abi)`` returns for ``abi``."""
 
     per_function: bool
+    """Whether the convention is chosen per function rather than per binary
+    (``regparm3``, ``go-abiinternal``, ELF ``ms_abi`` functions: True)."""
+
     toolchain: str
+    """The compiler whose behaviour the record follows where the psABI leaves a
+    choice (``"gcc"``). MS i386 conventions have separate ``+gcc`` records."""
+
     confidence: Confidence
+    """How well the record is verified; see :class:`Confidence`."""
 
     # --- conventions ----------------------------------------------------
     int_args: IntArgSpec
+    """Integer and pointer argument allocation."""
+
     fp_args: typing.Optional[FpArgSpec]
+    """Floating-point argument allocation; ``None`` on soft-float records."""
+
     stack: StackSpec
+    """Stack layout at a call."""
+
     varargs: Varargs
+    """Variadic-call rules."""
+
     returns: ReturnSpec
+    """Where results are returned."""
+
     sret: typing.Optional[StructReturn]
+    """The hidden struct-return pointer; ``None`` when the record has none."""
+
     extension: ExtensionRule
+    """How narrow integers fill wider registers and stack slots."""
+
     preservation: Preservation
+    """The callee-saved / caller-saved / neither partition of the register
+    file."""
+
     special: SpecialRegisters
+    """Stack, frame, global, thread and other special registers."""
+
     return_mechanics: ReturnMechanics
+    """How a callee finds its return address and returns."""
+
     entry: EntryState
+    """Required state at function and process entry."""
+
     float_abi: FloatABI
+    """The floating-point calling-convention family (x86-64 SysV: ``HARD``;
+    i386 SysV: ``X87``; MIPS o32-soft: ``SOFT``)."""
+
     fpu: FpuKind
+    """The FPU the record assumes (x86-64: ``X87_SSE``)."""
+
     data_model: DataModel
+    """C type sizes, alignments and signedness."""
+
     linkage: Linkage
+    """Dynamic-linking roles: PLT scratch registers, PLT call-site values, the
+    TOC, the function-pointer format."""
+
     os_abi: typing.Optional[str]
+    """The OS whose errno and uapi tables the libc models use (``"linux"``);
+    independent of ``syscall``. ``None`` on bare-metal and Windows records."""
+
     syscall: typing.Optional[SyscallABI]
+    """The Linux system-call ABI; ``None`` on Windows and bare-metal records.
+    The Xtensa records carry one although their default toolchain is bare
+    metal."""
+
     view_windowed_callinc: int
     """Xtensa windowed: the call increment of the pre-entry view; 0 on
     non-windowed records."""
 
     sources: Sources
+    """Where the record's facts come from in Ghidra, angr and archinfo."""
 
     def __post_init__(self) -> None:
         # Private, lazily filled memo of derived lookup tables. It is not a
