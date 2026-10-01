@@ -402,6 +402,24 @@ class ABIRegistryLoaderTests(unittest.TestCase):
     def test_default_data_module(self):
         self.assertEqual(registry.DATA_MODULE, "smallworld.platforms.abi._data")
 
+    def test_data_module_follows_the_package_name(self):
+        # A copy of the package imported under another name loads that
+        # name's data module, not the installed one.
+        out = _run_python(f"""
+            import sys, types
+            pkg = types.ModuleType("_sw_copy")
+            pkg.__path__ = [{SMALLWORLD_DIR!r}]
+            sys.modules["_sw_copy"] = pkg
+            sys.modules["_sw_copy.platforms.abi._data"] = None
+            import _sw_copy.platforms.abi as abi
+            print(abi.registry.DATA_MODULE)
+            print("smallworld.platforms.abi._data" in sys.modules)
+            print(abi.tables_available())
+            """)
+        self.assertEqual(
+            out.split(), ["_sw_copy.platforms.abi._data", "False", "False"]
+        )
+
     def test_missing_tables_raise_on_lookup(self):
         self._load_tables_from("smallworld.platforms.abi._no_such_tables")
         self._assert_unavailable("no ABI tables are installed")

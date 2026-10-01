@@ -1,0 +1,75 @@
+smallworld ABI tables: notices
+==============================
+
+The ABI tables in smallworld/platforms/abi/_data are generated when smallworld
+is built, and are not part of smallworld's source code. They are derived from,
+and modify, data in the following works:
+
+* The Ghidra processor specifications (compiler specification files, .cspec)
+  bundled in pypcode, licensed under the Apache License, Version 2.0 (see
+  LICENSES/Apache-2.0.txt). The generator reads the calling-convention
+  prototypes and data organization of these files, renames their registers
+  into smallworld's register names, filters and reorders them, and replaces
+  some of their values with the values of the published psABIs (the overlay
+  in smallworld's tools/abi/overlay lists every such change). These are
+  modified derived works within the meaning of section 4(b) of that license.
+
+* angr (BSD 2-Clause License, see LICENSES/BSD-2-Clause-angr.txt) and archinfo
+  (BSD 2-Clause License, see LICENSES/BSD-2-Clause-archinfo.txt): calling
+  convention and thread-local-storage facts read from their class
+  definitions.
+
+Ghidra's NOTICE follows, reproduced as distributed with pypcode 4.0.0
+(pypcode/docs/ghidra/NOTICE).
+
+------------------------------------------------------------------------------
+
+Ghidra
+
+This product includes software developed at National Security Agency
+(https://www.nsa.gov)
+
+Portions of this product were created by the U.S. Government and not subject to
+U.S. copyright protections under 17 U.S.C.
+
+The remaining portions are copyright their respective authors and have been
+contributed under the terms of one or more open source licenses, and made
+available to you under the terms of those licenses. (See LICENSE)
+
+
+
+Licensing Intent
+
+The intent is that this software and documentation ("Project") should be treated
+as if it is licensed under the license associated with the Project ("License")
+in the LICENSE file. However, because we are part of the United States (U.S.)
+Federal Government, it is not that simple.
+
+The portions of this Project written by U.S. Federal Government employees within
+the scope of their federal employment are ineligible for copyright protection in
+the U.S.; this is generally understood to mean that these portions of the
+Project are placed in the public domain.
+
+In countries where copyright protection is available (which does not include the
+U.S.), contributions made by U.S. Federal Government employees are released
+under the License. Merged contributions from private contributors are released
+under the License.
+
+The Ghidra software is released under the Apache License, Version 2.0
+("Apache 2.0").
+
+In addition, each module may contain numerous 3rd party components (libraries,
+icons, etc.) that each have their own license which is compatible with Apache
+2.0. Each module has a LICENSE.txt file that lists each license used in that
+module and the 3rd party files that fall under that license. The license files
+for each license used by Ghidra can be found in the licenses directory at the
+installation root.
+
+Also, in the GPL directory, there are several stand-alone support programs that
+are released using the GPL 3 license.  Ghidra executes these programs as needed
+and parses the output to get the desired results. There is a licenses directory
+under the GPL directory that has the GPL license files.
+
+Consistent with the inbound=outbound model, contributions to any module must be
+made available, by the contributor, under the applicable license(s). Please read
+the Legal section of the CONTRIBUTING.md guide.

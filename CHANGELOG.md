@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `smallworld.platforms.abi` ships generated ABI tables, starting with
+  `X86_64/LITTLE:sysv`. They are generated when smallworld is built from
+  source (the `build_py` step runs `tools/abi`) and never committed. A build on
+  Python 3.10 or 3.12 and later now installs its build dependencies, pypcode and
+  angr (about 400 MB), and runs angr for a few seconds, so a source install
+  takes about 20 s longer; builds on Python 3.9 and 3.11 ship no tables, and
+  `SMALLWORLD_ABI_ALLOW_MISSING=1` builds without them anywhere. The wheel adds
+  `smallworld/platforms/abi/NOTICE` and `LICENSES/` (Ghidra's Apache-2.0 and
+  angr's and archinfo's BSD-2-Clause texts), and the package license is now
+  `MIT AND Apache-2.0 AND BSD-2-Clause`.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

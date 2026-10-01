@@ -29,6 +29,10 @@ let
         ../uv.lock
         ../.python-version
         ../smallworld
+        # the build-time ABI generator run by the build_py hook (pyproject.toml)
+        ../tools/abi
+        # license-files in pyproject.toml, so the wheel ships the MIT text
+        ../LICENSE.txt
       ];
     in
     /.
@@ -122,6 +126,9 @@ let
       system,
       pkgs ? pkgsFor system,
       python ? pythonFor system,
+      # false: build smallworld-re without ABI tables (the dev shell's copy,
+      # which the live checkout shadows; see abiBuildToolsOverlay).
+      abiTables ? true,
     }:
     let
       pyprojectPackages = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
@@ -150,16 +157,101 @@ let
         (workspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
         (pkgs.callPackage ../overrides.nix { inherit python; })
         prebuiltOverlay
+        (abiBuildToolsOverlay system abiTables)
       ]
     );
+
+  # The build tools the ABI generator dumps its tables from (stage 1 of
+  # tools/abi). uv2nix resolves smallworld-re's [build-system] requires by
+  # name from the runtime lock, which pins pypcode 3.3.3 and angr 9.2.194,
+  # ignoring the build-isolation pins. Those would also give identical tables
+  # (every allow-listed set does), but they are the pins of the 3.10 build;
+  # the pypcode 4.0.0 + angr 10.0.0 set pinned for 3.12 gets its own lock
+  # (nix/abi-build-tools) and environment, always on the flake's Python.
+  abiToolsWorkspace = uv2nix.lib.workspace.loadWorkspace {
+    workspaceRoot =
+      /.
+      + builtins.unsafeDiscardStringContext (
+        lib.fileset.toSource {
+          root = ./abi-build-tools;
+          fileset = lib.fileset.unions [
+            ./abi-build-tools/pyproject.toml
+            ./abi-build-tools/uv.lock
+          ];
+        }
+      );
+  };
+
+  mkAbiBuildTools =
+    {
+      system,
+      pkgs ? pkgsFor system,
+      python ? pythonFor system,
+    }:
+    let
+      pyprojectPackages = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
+      toolsSet = pyprojectPackages.overrideScope (
+        lib.composeManyExtensions [
+          pyproject-build-systems.overlays.wheel
+          (abiToolsWorkspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
+          (pkgs.callPackage ../overrides.nix { inherit python; })
+          # On Linux, angr 10 links against its own pyvex (not nixpkgs') and,
+          # through its Rust extension, the z3 library the z3-solver wheel
+          # ships. uv2nix adds autoPatchelfHook only on Linux, so the patching
+          # is Linux-only; darwin builds try the wheels as they are.
+          (
+            final: prev:
+            lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+              angr = prev.angr.overrideAttrs (old: {
+                autoPatchelfLibs = [ "${final.pyvex}/${python.sitePackages}/pyvex/lib" ];
+                preFixup = (old.preFixup or "") + ''
+                  addAutoPatchelfSearchPath ${final.z3-solver}/${python.sitePackages}/z3/lib
+                '';
+              });
+            }
+          )
+        ]
+      );
+    in
+    toolsSet.mkVirtualEnv "smallworld-abi-build-tools" abiToolsWorkspace.deps.default;
+
+  abiBuildTools = forEachSystem (system: mkAbiBuildTools { inherit system; });
+
+  # Run the ABI generator's stage 1 under the build tools above; or, for the
+  # dev shell's copy of smallworld-re, generate no tables at all, so that a
+  # broken overlay in the checkout can never stop `nix develop` (the shell's
+  # hook regenerates the tables in-tree, and warns if it cannot).
+  abiBuildToolsOverlay =
+    system: abiTables: _final: prev:
+    lib.optionalAttrs (prev ? smallworld-re) {
+      smallworld-re = prev.smallworld-re.overrideAttrs (
+        _:
+        if abiTables then
+          { SMALLWORLD_ABI_STAGE1_PYTHON = "${abiBuildTools.${system}}/bin/python"; }
+        else
+          { SMALLWORLD_ABI_ALLOW_MISSING = "1"; }
+      );
+    };
 
   # Compute the locked package set once per platform so other modules can
   # reuse it instead of rebuilding the package graph for every output.
   pythonSets = forEachSystem (system: mkPythonSet { inherit system; });
+  devPythonSets = forEachSystem (
+    system:
+    mkPythonSet {
+      inherit system;
+      abiTables = false;
+    }
+  );
 
   mkLockedVirtualenv =
     system: name: selection:
     pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selection);
+
+  # The dev shell's environment: its smallworld-re carries no ABI tables.
+  mkDevVirtualenv =
+    system: name: selection:
+    devPythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selection);
 
   resolveLockedDependencyNames =
     pythonSet: name: enabledExtras:
@@ -209,7 +301,9 @@ let
 in
 {
   inherit
+    abiBuildTools
     devSelection
+    mkDevVirtualenv
     mkLockedVirtualenv
     mkPythonSet
     mkSmallworldPythonModule

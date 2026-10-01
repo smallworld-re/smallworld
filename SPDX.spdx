@@ -2,4 +2,4 @@ SPDXVersion: SPDX-2.1
 PackageName: SmallWorld
 PackageOriginator: MIT Lincoln Laboratory
 PackageHomePage: https://github.com/smallworld/smallworld
-PackageLicenseDeclared: MIT
+PackageLicenseDeclared: MIT AND Apache-2.0 AND BSD-2-Clause

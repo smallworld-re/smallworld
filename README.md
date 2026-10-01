@@ -29,6 +29,28 @@ Then run:
 ```
 See the comments in the python script for more details.
 
+### Installing from source
+
+A source install (`pip install .`, `uv sync`) generates smallworld's ABI
+tables at build time from pypcode and angr, which pip or uv fetch into the
+build environment: expect about 400 MB of build dependencies and about 20 s
+more build time on Python 3.10 and 3.12 or later. Builds on Python 3.9 and
+3.11 ship no ABI tables.
+
+uv pins the build environment's transitive dependencies from
+`pyproject.toml`. With pip (25.3 or later), pass the same pins with
+`pip install --build-constraint tools/abi/build-constraints.txt .` (or set
+`PIP_BUILD_CONSTRAINT` to that file's absolute path). Do not use
+`PIP_CONSTRAINT` for this: recent pip ignores it for build isolation, and it
+also constrains the runtime install, which conflicts with the runtime
+pypcode and pycparser.
+
+`SMALLWORLD_ABI_ALLOW_MISSING=1` builds smallworld without ABI tables on any
+Python, but pip and uv still install the build requirements (pypcode, angr)
+first. On a platform without wheels for them, build without isolation
+instead, with setuptools and capstone already installed:
+`SMALLWORLD_ABI_ALLOW_MISSING=1 pip install --no-build-isolation .`
+
 ## Description
 
 SmallWorld is an environment for streamlined harnessing of binary code for the

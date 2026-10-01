@@ -8,6 +8,15 @@ omit =
     # That file is not part of the package coverage target and its absolute
     # path differs between self-hosted and hosted GitHub runners.
     docs/*
+    # ABI tables that tools/abi generates at build time (never committed, so
+    # Coverage-Combine's checkout has no source for them). The measured paths
+    # are absolute (in-tree, site-packages or /nix/store) and are not
+    # remapped to a missing file, hence the leading wildcard.
+    */smallworld/platforms/abi/_data/*
+    # Throwaway ABI tables the tests generate in temporary directories and
+    # import as smallworld.platforms.abi.* modules: `source` matches them by
+    # module name, but they are deleted before Coverage-Combine runs.
+    /tmp/*
 disable_warnings =
     no-data-collected
     module-not-imported
@@ -26,3 +35,5 @@ skip_covered = True
 show_missing = True
 omit =
     docs/*
+    */smallworld/platforms/abi/_data/*
+    /tmp/*

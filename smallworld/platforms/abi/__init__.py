@@ -76,7 +76,12 @@ from .enums import (
     VaListKind,
     VarargsPolicy,
 )
-from .errors import ABITablesUnavailable, UnrealizableLocation, UnsupportedSignature
+from .errors import (
+    ABITablesStale,
+    ABITablesUnavailable,
+    UnrealizableLocation,
+    UnsupportedSignature,
+)
 from .model import (
     ABIDef,
     CAligns,
@@ -149,6 +154,7 @@ __all__ = [
     "tables_available",
     "variants",
     # errors
+    "ABITablesStale",
     "ABITablesUnavailable",
     "UnrealizableLocation",
     "UnsupportedSignature",

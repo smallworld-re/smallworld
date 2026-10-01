@@ -9,9 +9,11 @@
 # If you are new to Nix, this file answers:
 # "How do the raw packages become a usable shell or runtime environment?"
 {
+  abiBuildTools,
   aflplusplusPackages,
   lib,
   inputs,
+  mkDevVirtualenv,
   mkLockedVirtualenv,
   mkPythonSet,
   mkSmallworldPythonModule,
@@ -199,12 +201,13 @@ let
       selection,
       extraPythonPackages ? (_: [ ]),
       extraPackages ? [ ],
+      mkVirtualenv ? mkLockedVirtualenv,
     }:
     let
       pythonEnv = mkAugmentedPythonEnv {
         inherit system extraPythonPackages;
         name = "${name}-python";
-        basePythonEnv = mkLockedVirtualenv system "${name}-locked-python" selection;
+        basePythonEnv = mkVirtualenv system "${name}-locked-python" selection;
       };
     in
     mkRuntimeEnv {
@@ -401,6 +404,9 @@ let
         name = "smallworld-re-dev-env";
         selection = devSelection;
         extraPythonPackages = ps: [ ps.coverage ];
+        # Its smallworld-re carries no ABI tables (the checkout shadows it),
+        # so a broken overlay cannot stop the shell from starting.
+        mkVirtualenv = mkDevVirtualenv;
       };
     in
     pkgs.mkShell {
@@ -429,6 +435,15 @@ let
         export PYTHONPATH=$REPO_ROOT${
           lib.optionalString (binaryNinja != null) ":${binaryNinja}/opt/binaryninja/python"
         }''${PYTHONPATH:+:$PYTHONPATH}
+        # The live checkout shadows the store copy of smallworld (which the
+        # dev env builds without tables), so (re)generate the ABI tables
+        # in-tree (gitignored) when an input or a generated file changed:
+        # about 3 s, else about 0.35 s. Stage 1 dumps from the same pypcode 4
+        # / angr 10 set as `nix build`, here and in manual generate.py runs.
+        export SMALLWORLD_ABI_STAGE1_PYTHON=${abiBuildTools.${system}}/bin/python
+        python "$REPO_ROOT/tools/abi/generate.py" --inplace --if-stale >/dev/null \
+          || echo "warning: the smallworld ABI tables could not be regenerated;" \
+            "the previous tables in smallworld/platforms/abi/_data, if any, are still in use" >&2
       '';
     };
 

@@ -34,11 +34,14 @@ names are bound but before this module's lookups are. It may import
 
 import contextlib
 import importlib
+import os
+import sys
 import traceback
 import typing
+import warnings
 
 from ..platforms import ABI, Platform
-from .errors import ABITablesUnavailable
+from .errors import ABITablesStale, ABITablesUnavailable
 from .model import ABIDef
 
 #: The module the tables are loaded from. It must define ``RECORDS``, a tuple
@@ -46,8 +49,13 @@ from .model import ABIDef
 #: feature names it provides (see :func:`table_features`). A data module
 #: written for a build without tables sets ``AVAILABLE`` to ``False`` and
 #: ``REASON`` to a sentence saying why, and needs neither; lookups then raise
-#: with that reason. ``AVAILABLE`` defaults to ``True``.
-DATA_MODULE = "smallworld.platforms.abi._data"
+#: with that reason. ``AVAILABLE`` defaults to ``True``. Tables an editable
+#: build kept although their inputs changed carry ``STALE``, a sentence saying
+#: why; loading them warns with :class:`ABITablesStale`. The name is derived
+#: from this module's own package (``smallworld.platforms.abi._data``), so a
+#: copy of the package imported under another name (the build-time
+#: generator loads one) reads its own data module, never the installed one.
+DATA_MODULE = __name__.rpartition(".")[0] + "._data"
 
 #: Values accepted by ``default_variant(container=...)`` and the ABI family
 #: that is the default for that container (``None``: the platform default).
@@ -173,7 +181,10 @@ def _load_module(name: str) -> typing.Union[_Registry, str]:
         return (
             f"no ABI tables are installed ({name} does not exist); "
             "they are generated when smallworld is built or installed, and "
-            "source checkouts and Python 3.9 and 3.11 builds have none"
+            "source checkouts and Python 3.9 and 3.11 builds have none. "
+            "Rebuild with `pip install -e .`, `uv sync --reinstall-package "
+            "smallworld-re`, or `python tools/abi/generate.py --inplace` in "
+            "an environment with the build dependencies"
         )
     available = getattr(module, "AVAILABLE", True)
     if available is False:
@@ -190,9 +201,71 @@ def _load_module(name: str) -> typing.Union[_Registry, str]:
     if not (isinstance(features, tuple) and all(isinstance(f, str) for f in features)):
         return f"{name}.FEATURES must be a tuple of strings, not {features!r}"
     try:
-        return _Registry(records, name, features)
+        registry = _Registry(records, name, features)
     except (TypeError, ValueError) as e:
         return f"the ABI tables are invalid: {e}"
+    global _stale_reason
+    stale = getattr(module, "STALE", None)
+    if isinstance(stale, str) and stale:
+        message = f"the ABI tables in {name} are stale: {stale}"
+        _stale_reason = message
+        try:
+            _warn_stale(message)
+        except ABITablesStale:
+            # The warning filter turned it into an error (python -W error).
+            # Raising here would fail the import and lose the tables, which
+            # are still usable, so they load; say so on stderr instead.
+            sys.stderr.write(f"ABITablesStale (loaded anyway): {message}\n")
+    else:
+        _stale_reason = None
+    return registry
+
+
+#: Why the loaded tables are stale (their ``STALE`` note), or ``None``.
+#: Private: set by the loader, read by tests and debugging.
+_stale_reason: typing.Optional[str] = None
+
+
+#: The directory of the smallworld package; frames inside it are not the
+#: user's.
+_SMALLWORLD_DIR = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+
+
+#: The directory of the importlib package; its frames (importlib.import_module)
+#: are not the user's either.
+_IMPORTLIB_DIR = os.path.dirname(os.path.abspath(importlib.__file__))
+
+
+def _internal(filename: str) -> bool:
+    """A frame :mod:`warnings` does not count (the frozen import system)."""
+    return "importlib" in filename and "_bootstrap" in filename
+
+
+def _warn_stale(message: str) -> None:
+    """Warn with :class:`ABITablesStale`, attributed to the first frame
+    outside smallworld and the import machinery: the user's ``import``
+    statement, ``importlib.import_module`` call or lookup, which is where
+    Python shows the warning and where ``-W``, pytest and
+    ``warnings.filterwarnings`` match it."""
+    # warnings counts stack levels skipping the frozen import system's frames
+    # (warnings._is_internal_frame), so count the same way. importlib-package
+    # frames (importlib/__init__.py) are counted but walked past.
+    level = 1
+    frame = sys._getframe(1)
+    while frame is not None:
+        filename = frame.f_code.co_filename
+        if not _internal(filename):
+            level += 1
+            path = os.path.abspath(filename)
+            ours = path.startswith(_SMALLWORLD_DIR + os.sep) or path.startswith(
+                _IMPORTLIB_DIR + os.sep
+            )
+            if not ours:
+                break
+        frame = frame.f_back  # type: ignore[assignment]
+    warnings.warn(message, ABITablesStale, stacklevel=level)
 
 
 def _load(name: str) -> typing.Union[_Registry, str]:
