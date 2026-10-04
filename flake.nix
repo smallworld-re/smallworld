@@ -85,12 +85,18 @@
       );
       rootPath = (/. + rootString);
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
-      deps = workspace.deps.all // {
-        unicornafl = [ ];
-        pypanda = [ ];
-        colorama = [ ];
-        unicorn = [ ];
-      };
+      # PANDA (panda-ng qemu + pypanda) only builds on Linux.
+      depsFor =
+        system:
+        workspace.deps.all
+        // {
+          unicornafl = [ ];
+          colorama = [ ];
+          unicorn = [ ];
+        }
+        // lib.optionalAttrs (lib.hasSuffix "-linux" system) {
+          pypanda = [ ];
+        };
 
       basePython = forAllSystems (
         system:
@@ -129,7 +135,10 @@
           };
 
           unicornafl = hacks.nixpkgsPrebuilt {
-            from = (mkUnicornafl python.pkgs);
+            # On darwin, unicornafl is rpath-linked against the unicorn python package's dylib.
+            from = mkUnicornafl (
+              python.pkgs // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin { unicorn = pyUnicornPatched; }
+            );
           };
           pypanda = hacks.nixpkgsPrebuilt {
             from = panda-ng.lib.${system}.pypandaBuilder python.pkgs qemu.${system};
@@ -172,7 +181,7 @@
         system:
         let
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
-          venv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" deps;
+          venv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" (depsFor system);
         in
         venv
       );
@@ -181,7 +190,7 @@
         system:
         let
           pythonSet = pythonSets.${system};
-          venv = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
+          venv = pythonSet.mkVirtualEnv "smallworld-re-env" (depsFor system);
         in
         venv
       );
@@ -205,10 +214,18 @@
           pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
+          # z3's test suite segfaults on aarch64-darwin, so it's not in the binary cache.
+          z3 =
+            if pkgs.stdenv.hostPlatform.isDarwin then pkgs.z3.overrideAttrs { doCheck = false; } else pkgs.z3;
+          # aflplusplus and panda's qemu are Linux-only.
           inputs = [
-            pkgs.z3
+            z3
+          ]
+          ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [
             pkgs.aflplusplus
             qemu.${system}
+          ]
+          ++ [
             pkgs.ghidra
             pkgs.jdk
           ];
@@ -219,6 +236,7 @@
           default = pkgs.mkShell {
             packages = [
               virtualenv
+              pkgs.git # shellHook needs it; macOS's /usr/bin/git shim fails under nix's DEVELOPER_DIR
               pkgs.uv
               pkgs.nixfmt
               pkgs.nixfmt-tree
@@ -326,7 +344,7 @@
 
       pythonSet = forAllSystems (system: pythonSets.${system});
 
-      pythonDeps = deps;
+      pythonDeps = forAllSystems depsFor;
 
       inherit prebuilts;
 

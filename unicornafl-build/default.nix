@@ -1,4 +1,6 @@
 {
+  lib,
+  stdenv,
   fetchFromGitHub,
   rustPlatform,
   cargo,
@@ -44,4 +46,11 @@ ps.buildPythonPackage {
     cmake
     pkg-config
   ];
+  # The extension links @rpath/libunicorn.2.dylib; point it at the copy the
+  # unicorn python package loads so both share one libunicorn instance.
+  postFixup = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    for f in $out/${ps.python.sitePackages}/unicornafl/*.so; do
+      install_name_tool -add_rpath ${ps.unicorn}/${ps.python.sitePackages}/unicorn/lib "$f"
+    done
+  '';
 }
