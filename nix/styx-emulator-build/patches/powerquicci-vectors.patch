@@ -1,0 +1,55 @@
+# Local styx-emulator patch making the PowerQUICC I exception vectors fetchable
+# when MSR[IP] is set. With IP set the vector table moves from 0x00000000 to
+# 0xFFF00000, so a decrementer vectors to 0xFFF00900 - inside the "top level
+# space" region, the only one in the processor's map without EXEC. Those
+# deliveries failed with ProtectedMemoryFetch before the handler ran, making the
+# whole IP=1 vector path unreachable.
+#
+# The region is split rather than blanket-granted EXEC: only the top 1 MiB holds
+# vectors, and the lower 15 MiB covers the IMMR aperture and has no backing
+# data, so leaving it non-executable keeps a wild branch stopping at the jump
+# site instead of running on through a mapped page.
+#
+# Cut against styx-emulator 71a7746fe192a56b257549842cc3ec55ffc8f75a
+# (the `rev` pinned in ../default.nix). Touches no Cargo.toml, so the vendored
+# crate set and `cargoDeps` hash are unchanged.
+#
+# Remove once styx-emulator maps this region executable upstream.
+--- a/styx/processors/ppc/styx-powerquicci-processor/src/lib.rs	2026-09-03 14:49:45.470899578 -0400
++++ b/styx/processors/ppc/styx-powerquicci-processor/src/lib.rs	2026-09-03 14:49:45.490899437 -0400
+@@ -189,15 +189,34 @@
+             .push(MemoryRegion::new(0x0600_0000, 0x0010_1000, MemoryPermissions::all()).unwrap());
+ 
+         // top level space -- gdb wants it ???
++        //
++        // Split, because the top 1 MiB of it is also where the exception
++        // vectors live when MSR[IP] is set: the table moves from 0x0000_0000 to
++        // 0xFFF0_0000, so a decrementer vectors to 0xFFF0_0900. This whole
++        // range was the only one in the map without EXEC, so every exception
++        // taken while MSR[IP] was set died on a fetch-protection fault instead
++        // of reaching its handler.
++        //
++        // Only the vector page needs to be fetchable, so grant EXEC there and
++        // nowhere else. The lower 15 MiB keeps READ|WRITE: it has no backing
++        // data and covers the IMMR aperture (immr::DEFAULT_BASE_ADDRESS is
++        // 0xFF00_0000), so a wild branch into it should still stop at the jump
++        // site rather than fetch zero words out of a mapped page - which is the
++        // difference between a crash report that names the jump and one that
++        // names somewhere further along.
+         regions.push(
+             MemoryRegion::new(
+                 0xff00_0000,
+-                0x0100_0000,
++                0x00f0_0000,
+                 MemoryPermissions::READ | MemoryPermissions::WRITE,
+             )
+             .unwrap(),
+         );
+ 
++        // Exception vectors for MSR[IP] == 1. WRITE is kept so firmware (and
++        // the harness) can install handlers here; EXEC is the point.
++        regions.push(MemoryRegion::new(0xfff0_0000, 0x0010_0000, MemoryPermissions::all()).unwrap());
++
+         for region in regions {
+             mmu.add_memory_region(region)?;
+         }
