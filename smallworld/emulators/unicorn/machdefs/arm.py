@@ -51,8 +51,6 @@ class ARMMachineMixinM:
                 # seems to emulate a mash-up of M- and A-series arm.
                 "psr": unicorn.arm_const.UC_ARM_REG_CPSR,
                 "primask": unicorn.arm_const.UC_ARM_REG_PRIMASK,
-                "basepri": unicorn.arm_const.UC_ARM_REG_BASEPRI,
-                "faultmask": unicorn.arm_const.UC_ARM_REG_FAULTMASK,
                 "control": unicorn.arm_const.UC_ARM_REG_CONTROL,
                 "msp": unicorn.arm_const.UC_ARM_REG_MSP,
                 "psp": unicorn.arm_const.UC_ARM_REG_PSP,
@@ -60,8 +58,21 @@ class ARMMachineMixinM:
         )
 
 
-class ARMMachineMixinRA:
-    """Mixin for ARM R- or A- series machine models"""
+class ARMMachineMixinMMainline(ARMMachineMixinM):
+    """Mixin for ARMv7-M CPUs, which add priority masks to ARMv6-M"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "basepri": unicorn.arm_const.UC_ARM_REG_BASEPRI,
+                "faultmask": unicorn.arm_const.UC_ARM_REG_FAULTMASK,
+            }
+        )
+
+
+class ARMMachineMixinBanked:
+    """Mixin for ARM machine models with the classic banked-register model (non-M-profile)"""
 
     def __init__(self):
         super().__init__()
@@ -77,9 +88,6 @@ class ARMMachineMixinRA:
                 "r10_usr": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "r11_usr": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "r12_usr": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "sp_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "spsr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "elr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "sp_svc": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "lr_svc": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "spsr_svc": unicorn.arm_const.UC_ARM_REG_INVALID,
@@ -89,9 +97,6 @@ class ARMMachineMixinRA:
                 "sp_und": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "lr_und": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "spsr_und": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "sp_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "lr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "spsr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "sp_irq": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "lr_irq": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "spsr_irq": unicorn.arm_const.UC_ARM_REG_INVALID,
@@ -103,6 +108,34 @@ class ARMMachineMixinRA:
                 "r10_fiq": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "r11_fiq": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "r12_fiq": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinSecurity:
+    """Mixin for ARM CPUs with the Security Extensions (Monitor mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "sp_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "lr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "spsr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinVirtualization:
+    """Mixin for ARM CPUs with the Virtualization Extensions (Hyp mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "sp_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "spsr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "elr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
             }
         )
 
@@ -267,14 +300,14 @@ class ARMMachineMixinVFP:
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
     """Unicorn machine definition for ARMv5T little-endian"""
 
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
 
 
-class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv6-M little-endian"""
 
     arch = Architecture.ARM_V6M
@@ -288,21 +321,27 @@ class ARMv6MThumbMachineDef(ARMv6MMachineDef):
     uc_mode = unicorn.UC_MODE_THUMB
 
 
-class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7RMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
+class ARMv7RMachineDef(ARMMachineMixinFP, ARMMachineMixinBanked, ARMMachineDef):
     """Unicorn machine definition for ARMv7-R little-endian"""
 
     arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
+class ARMv7AMachineDef(
+    ARMMachineMixinVFP,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     """Unicorn machine definition for ARMv7-A little-endian"""
 
     arch = Architecture.ARM_V7A

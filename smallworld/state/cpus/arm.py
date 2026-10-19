@@ -64,21 +64,22 @@ class ARM(cpu.CPU):
 
 
 class ARMCPUMixinM:
-    """Abstract class for M-series CPUs.
+    """Abstract class for M-profile CPUs (ARMv6-M baseline).
 
-    The main difference between M and R/A
+    The main difference between M and the other profiles
     is the available system status registers.
+    ARMv7-M adds more priority masks (see :class:`ARMCPUMixinMMainline`).
     """
 
     def __init__(self):
         super().__init__()
         # *** Special Registers ***
         # Program Status Register
-        # NOTE: PSR can be accessed through several masked aliases.
-        # These are read-only, so I'm not including them.
-        # - apsr: Just the condition flags
-        # - ipsr: Just exception information
-        # - epsr: Just execution state info
+        # NOTE: PSR can be accessed through several masked views
+        # via mrs/msr, which I'm not including:
+        # - apsr: Just the condition flags; writable
+        # - ipsr: Just exception information; read-only
+        # - epsr: Just execution state info; reads as zero
         # - iapsr: apsr | ipsr
         # - eapsr: apsr | epsr
         # - iepsr: ipsr | epsr
@@ -90,12 +91,6 @@ class ARMCPUMixinM:
         # Exception Mask Register
         self.primask = state.Register("primask", size=4)
         self.add(self.primask)
-        # Base Priority Mask Register
-        self.basepri = state.Register("basepri", size=4)
-        self.add(self.basepri)
-        # Fault Mask Register
-        self.faultmask = state.Register("faultmask", size=4)
-        self.add(self.faultmask)
         # Control register; includes a lot of flags.
         self.control = state.Register("control", size=4)
         self.add(self.control)
@@ -113,19 +108,39 @@ class ARMCPUMixinM:
         self.add(self.psp)
 
 
-class ARMCPUMixinRA:
-    """Mixin for R- or A-series CPUs.
+class ARMCPUMixinMMainline(ARMCPUMixinM):
+    """Abstract class for ARMv7-M CPUs.
 
-    The main difference between M and R/A
-    is the available system status registers.
+    ARMv7-M adds priority-based exception masking
+    on top of the ARMv6-M baseline.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Base Priority Mask Register
+        self.basepri = state.Register("basepri", size=4)
+        self.add(self.basepri)
+        # Fault Mask Register
+        self.faultmask = state.Register("faultmask", size=4)
+        self.add(self.faultmask)
+
+
+class ARMCPUMixinBanked:
+    """Mixin for CPUs with the classic banked-register model.
+
+    This covers every non-M-profile CPU from ARMv4 on,
+    including the R- and A-series.
+    The Security and Virtualization extensions add more modes
+    (see :class:`ARMCPUMixinSecurity` and :class:`ARMCPUMixinVirtualization`).
     """
 
     def __init__(self):
         super().__init__()
         # *** Special Registers ***
         # Current Program Status Register
-        # NOTE: CPSR can be accessed through several masked aliases.
-        # These are read-only, so I'm not including them.
+        # NOTE: CPSR has a few masked views
+        # which I'm not including:
+        # - apsr: Just the condition flags
         # - isetstate: Just includes instruction set control bits
         # - itstate: Just includes state bits for Thumb IT instruction
         self.cpsr = state.Register("cpsr", size=4)
@@ -162,17 +177,6 @@ class ARMCPUMixinRA:
         self.r12_usr = state.Register("r12_usr", size=4)
         self.add(self.r12_usr)
 
-        # Hypervisor Stack Pointer
-        self.sp_hyp = state.Register("sp_hyp", size=4)
-        self.add(self.sp_hyp)
-        # Hypervisor Saved PSR
-        self.spsr_hyp = state.Register("spsr_hyp", size=4)
-        self.add(self.spsr_hyp)
-        # Hypervisor Exception Link Register
-        # NOTE: This isn't so much banked, as it only exists in hypervisor mode.
-        self.elr_hyp = state.Register("elr_hyp", size=4)
-        self.add(self.elr_hyp)
-
         # Supervisor Stack Pointer
         self.sp_svc = state.Register("sp_svc", size=4)
         self.add(self.sp_svc)
@@ -202,16 +206,6 @@ class ARMCPUMixinRA:
         # Undefined-mode Saved PSR
         self.spsr_und = state.Register("spsr_und", size=4)
         self.add(self.spsr_und)
-
-        # Monitor-mode Stack Pointer
-        self.sp_mon = state.Register("sp_mon", size=4)
-        self.add(self.sp_mon)
-        # Monitor-mode Link Register
-        self.lr_mon = state.Register("lr_mon", size=4)
-        self.add(self.lr_mon)
-        # Monitor-mode Saved PSR
-        self.spsr_mon = state.Register("spsr_mon", size=4)
-        self.add(self.spsr_mon)
 
         # IRQ-mode Stack Pointer
         self.sp_irq = state.Register("sp_irq", size=4)
@@ -249,11 +243,53 @@ class ARMCPUMixinRA:
         self.add(self.r12_fiq)
 
 
-class ARMCPUMixinFPEL:
-    """Mixin for little-endian ARM CPUs with FP extensions
+class ARMCPUMixinSecurity:
+    """Mixin for CPUs with the Security Extensions (TrustZone).
 
-    This is one kind of floating-point extension
-    which offers 64-bit scalar operations
+    These add Monitor mode, with its own register bank.
+    They're optional in ARMv6K/ARMv7-A, and absent from ARMv7-R.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Monitor-mode Stack Pointer
+        self.sp_mon = state.Register("sp_mon", size=4)
+        self.add(self.sp_mon)
+        # Monitor-mode Link Register
+        self.lr_mon = state.Register("lr_mon", size=4)
+        self.add(self.lr_mon)
+        # Monitor-mode Saved PSR
+        self.spsr_mon = state.Register("spsr_mon", size=4)
+        self.add(self.spsr_mon)
+
+
+class ARMCPUMixinVirtualization:
+    """Mixin for CPUs with the Virtualization Extensions.
+
+    These add Hypervisor mode, with its own register bank.
+    They're optional in ARMv7-A, and absent from ARMv7-R.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Hypervisor Stack Pointer
+        self.sp_hyp = state.Register("sp_hyp", size=4)
+        self.add(self.sp_hyp)
+        # Hypervisor Saved PSR
+        self.spsr_hyp = state.Register("spsr_hyp", size=4)
+        self.add(self.spsr_hyp)
+        # Hypervisor Exception Link Register
+        # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+        self.elr_hyp = state.Register("elr_hyp", size=4)
+        self.add(self.elr_hyp)
+
+
+class ARMCPUMixinFPEL:
+    """Mixin for little-endian ARM CPUs with a 16-register VFP
+
+    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
+    which offer 64-bit scalar operations on d0-d15,
+    and no Advanced SIMD (NEON).
     """
 
     def __init__(self):
@@ -375,14 +411,13 @@ class ARMCPUMixinFPEL:
 
 
 class ARMCPUMixinVFPEL:
-    """Mixin for little-endian ARM CPUs with VFP/NEON mixins
+    """Mixin for little-endian ARM CPUs with 32-register VFP and NEON
 
-    This is one kind of floating-point extension
+    This covers VFPv3-D32 or VFPv4-D32 with Advanced SIMD (NEON),
     which supports up to 128-bit scalar and SIMD vector operations.
 
-    VFP and NEON are always optional extensions;
-    The two can exist independently, and VFP can support either
-    16 or 32 double registers.
+    VFP and NEON are both optional; NEON requires VFP,
+    but VFP can exist alone with 16 or 32 double registers.
     This is the maximal set of registers, assuming both are supported.
     """
 
@@ -570,7 +605,7 @@ class ARMCPUMixinVFPEL:
         self.add(self.d31)
 
 
-class ARMv5T(ARMCPUMixinM, ARM):
+class ARMv5T(ARMCPUMixinBanked, ARM):
     """CPU Model for ARMv5t little-endian."""
 
     platform = platforms.Platform(
@@ -578,7 +613,7 @@ class ARMv5T(ARMCPUMixinM, ARM):
     )
 
 
-class ARMv6M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
+class ARMv6M(ARMCPUMixinM, ARM):
     """CPU Model for ARMv6-M little-endian."""
 
     platform = platforms.Platform(
@@ -594,7 +629,7 @@ class ARMv6MThumb(ARMv6M):
     )
 
 
-class ARMv7M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
+class ARMv7M(ARMCPUMixinMMainline, ARM):
     """CPU Model for ARMv7-M little-endian."""
 
     platform = platforms.Platform(
@@ -602,7 +637,7 @@ class ARMv7M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
     )
 
 
-class ARMv7R(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
+class ARMv7R(ARMCPUMixinFPEL, ARMCPUMixinBanked, ARM):
     """CPU Model for ARMv7-R little-endian."""
 
     # TODO: v7r and v7a have different MMUs, which I don't implement yet.
@@ -611,7 +646,13 @@ class ARMv7R(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
     )
 
 
-class ARMv7A(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
+class ARMv7A(
+    ARMCPUMixinVFPEL,
+    ARMCPUMixinVirtualization,
+    ARMCPUMixinSecurity,
+    ARMCPUMixinBanked,
+    ARM,
+):
     """CPU Model for ARMv7-A little-endian."""
 
     platform = platforms.Platform(

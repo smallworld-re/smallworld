@@ -43,11 +43,11 @@ class ARMMachineMixinM:
             {
                 # *** Special Registers ***
                 # Program Status Register
-                # NOTE: PSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
-                # - apsr: Just the condition flags
-                # - ipsr: Just exception information
-                # - epsr: Just execution state info
+                # NOTE: PSR can be accessed through several masked views
+                # via mrs/msr, which I'm not including:
+                # - apsr: Just the condition flags; writable
+                # - ipsr: Just exception information; read-only
+                # - epsr: Just execution state info; reads as zero
                 # - iapsr: apsr | ipsr
                 # - eapsr: apsr | epsr
                 # - iepsr: ipsr | epsr
@@ -57,10 +57,6 @@ class ARMMachineMixinM:
                 "psr": "cpsr",
                 # Exception Mask Register
                 "primask": None,
-                # Base Priority Mask Register
-                "basepri": None,
-                # Fault Mask Register
-                "faultmask": None,
                 # Control register; includes a lot of flags.
                 "control": None,
                 # *** Stack Pointer Bank ***
@@ -75,8 +71,23 @@ class ARMMachineMixinM:
         )
 
 
-class ARMMachineMixinRA:
-    """Mixin for ARM series A and R CPUs"""
+class ARMMachineMixinMMainline(ARMMachineMixinM):
+    """Mixin for ARMv7-M CPUs, which add priority masks to ARMv6-M"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Base Priority Mask Register
+                "basepri": None,
+                # Fault Mask Register
+                "faultmask": None,
+            }
+        )
+
+
+class ARMMachineMixinBanked:
+    """Mixin for ARM CPUs with the classic banked-register model (non-M-profile)"""
 
     def __init__(self):
         super().__init__()
@@ -84,8 +95,9 @@ class ARMMachineMixinRA:
             {
                 # *** Special Registers ***
                 # Current Program Status Register
-                # NOTE: CPSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
+                # NOTE: CPSR has a few masked views
+                # which I'm not including:
+                # - apsr: Just the condition flags
                 # - isetstate: Just includes instruction set control bits
                 # - itstate: Just includes state bits for Thumb IT instruction
                 "cpsr": "cpsr",
@@ -110,13 +122,6 @@ class ARMMachineMixinRA:
                 "r11_usr": None,
                 # User-mode r12
                 "r12_usr": None,
-                # Hypervisor Stack Pointer
-                "sp_hyp": None,
-                # Hypervisor Saved PSR
-                "spsr_hyp": None,
-                # Hypervisor Exception Link Register
-                # NOTE: None,
-                "elr_hyp": None,
                 # Supervisor Stack Pointer
                 "sp_svc": None,
                 # Supervisor Link Register
@@ -135,12 +140,6 @@ class ARMMachineMixinRA:
                 "lr_und": None,
                 # Undefined-mode Saved PSR
                 "spsr_und": None,
-                # Monitor-mode Stack Pointer
-                "sp_mon": None,
-                # Monitor-mode Link Register
-                "lr_mon": None,
-                # Monitor-mode Saved PSR
-                "spsr_mon": None,
                 # IRQ-mode Stack Pointer
                 "sp_irq": None,
                 # IRQ-mode Link Register
@@ -163,6 +162,41 @@ class ARMMachineMixinRA:
                 "r11_fiq": None,
                 # FIQ-mode r12
                 "r12_fiq": None,
+            }
+        )
+
+
+class ARMMachineMixinSecurity:
+    """Mixin for ARM CPUs with the Security Extensions (Monitor mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Monitor-mode Stack Pointer
+                "sp_mon": None,
+                # Monitor-mode Link Register
+                "lr_mon": None,
+                # Monitor-mode Saved PSR
+                "spsr_mon": None,
+            }
+        )
+
+
+class ARMMachineMixinVirtualization:
+    """Mixin for ARM CPUs with the Virtualization Extensions (Hyp mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": None,
+                # Hypervisor Saved PSR
+                "spsr_hyp": None,
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": None,
             }
         )
 
@@ -346,21 +380,27 @@ class ARMMachineMixinVFPEL:
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
 
 
-class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7AMachineDef(ARMMachineMixinVFPEL, ARMMachineMixinRA, ARMMachineDef):
+class ARMv7AMachineDef(
+    ARMMachineMixinVFPEL,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE

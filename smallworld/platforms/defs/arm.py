@@ -7,7 +7,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
 #: Ghidra's 32-bit ARM model exposes the condition flags as four one-bit
 #: registers. SmallWorld models them as fields of the program status
-#: register, which the M-series calls psr and the R/A-series cpsr -- hence
+#: register, which the M-profile calls psr and every other profile cpsr -- hence
 #: one map per mixin, below.
 #:
 #: Mapping them costs some precision: Ghidra routes every data-processing
@@ -168,21 +168,25 @@ class ARMPlatformDef(PlatformDef):
             # r12 doubles as the Intra-call scratch register
             "r12": RegisterDef(name="r12", size=4),
             "ip": RegisterAliasDef(name="ip", parent="r12", size=4, offset=0),
-            # sp is technically also r13, but is never aliased as such
+            # sp is also r13; that alias isn't modeled
             "sp": RegisterDef(name="sp", size=4),
-            # lr is technically also r14, but is never aliased as such
+            # lr is also r14; that alias isn't modeled
             "lr": RegisterDef(name="lr", size=4),
-            # pc is technically also r15, but is never aliased as such
+            # pc is also r15; that alias isn't modeled
             "pc": RegisterDef(name="pc", size=4),
         }
 
 
 class ARMPlatformMixinM:
-    """Abstract class for M-series CPUs.
+    """Abstract class for M-profile CPUs (ARMv6-M baseline).
 
     The M-series CPUs are built for embedded applications,
     and have an extremely simplified privilege model,
     and don't often have an MMU.
+
+    This is the register set common to every M-profile CPU;
+    ARMv7-M adds more priority masks
+    (see :class:`ARMPlatformMixinMMainline`).
     """
 
     ghidra_register_aliases = _flag_aliases("psr")
@@ -193,11 +197,11 @@ class ARMPlatformMixinM:
         self._registers |= {
             # *** Special Registers ***
             # Program Status Register
-            # NOTE: PSR can be accessed through several masked aliases.
-            # These are read-only, so I'm not including them.
-            # - apsr: Just the condition flags
-            # - ipsr: Just exception information
-            # - epsr: Just execution state info
+            # NOTE: PSR can be accessed through several masked views
+            # via mrs/msr, which I'm not including:
+            # - apsr: Just the condition flags; writable
+            # - ipsr: Just exception information; read-only
+            # - epsr: Just execution state info; reads as zero
             # - iapsr: apsr | ipsr
             # - eapsr: apsr | epsr
             # - iepsr: ipsr | epsr
@@ -205,10 +209,6 @@ class ARMPlatformMixinM:
             "psr": RegisterDef(name="psr", size=4),
             # Exception Mask Register
             "primask": RegisterDef(name="primask", size=4),
-            # Base Priority Mask Register
-            "basepri": RegisterDef(name="basepri", size=4),
-            # Fault Mask Register
-            "faultmask": RegisterDef(name="faultmask", size=4),
             # Control register; includes a lot of flags.
             "control": RegisterDef(name="control", size=4),
             # *** Stack Pointer Bank ***
@@ -222,16 +222,36 @@ class ARMPlatformMixinM:
         }
 
 
-class ARMPlatformMixinRA:
-    """Abstract class for R- or A-series CPUs.
+class ARMPlatformMixinMMainline(ARMPlatformMixinM):
+    """Abstract class for ARMv7-M CPUs.
 
-    The A- series supports full application-style multi-tasking,
-    and thus needs a much more complicated privileged model
-    than the M-series.
+    ARMv7-M adds priority-based exception masking
+    on top of the ARMv6-M baseline.
+    """
 
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Base Priority Mask Register
+            "basepri": RegisterDef(name="basepri", size=4),
+            # Fault Mask Register
+            "faultmask": RegisterDef(name="faultmask", size=4),
+        }
+
+
+class ARMPlatformMixinBanked:
+    """Abstract class for CPUs with the classic banked-register model.
+
+    This covers every non-M-profile CPU from ARMv4 on,
+    including the R- and A-series.
+    Each privileged mode has its own copy of some registers;
+    the Security and Virtualization extensions add more modes
+    (see :class:`ARMPlatformMixinSecurity`
+    and :class:`ARMPlatformMixinVirtualization`).
+
+    The A- series supports full application-style multi-tasking.
     The R- series uses the same privilege model as the A- series,
     but it's designed for real-time operations.
-    The major differences are in the MMU semantics, which don't impact registers.
     """
 
     ghidra_register_aliases = _flag_aliases("cpsr")
@@ -242,8 +262,9 @@ class ARMPlatformMixinRA:
         self._registers |= {
             # *** Special Registers ***
             # Current Program Status Register
-            # NOTE: CPSR can be accessed through several masked aliases.
-            # These are read-only, so I'm not including them.
+            # NOTE: CPSR has a few masked views
+            # which I'm not including:
+            # - apsr: Just the condition flags
             # - isetstate: Just includes instruction set control bits
             # - itstate: Just includes state bits for Thumb IT instruction
             "cpsr": RegisterDef(name="cpsr", size=4),
@@ -269,13 +290,6 @@ class ARMPlatformMixinRA:
             "r11_usr": RegisterDef(name="r11_usr", size=4),
             # User-mode r12
             "r12_usr": RegisterDef(name="r12_usr", size=4),
-            # Hypervisor Stack Pointer
-            "sp_hyp": RegisterDef(name="sp_hyp", size=4),
-            # Hypervisor Saved PSR
-            "spsr_hyp": RegisterDef(name="spsr_hyp", size=4),
-            # Hypervisor Exception Link Register
-            # NOTE: This isn't so much banked, as it only exists in hypervisor mode.
-            "elr_hyp": RegisterDef(name="elr_hyp", size=4),
             # Supervisor Stack Pointer
             "sp_svc": RegisterDef(name="sp_svc", size=4),
             # Supervisor Link Register
@@ -294,12 +308,6 @@ class ARMPlatformMixinRA:
             "lr_und": RegisterDef(name="lr_und", size=4),
             # Undefined-mode Saved PSR
             "spsr_und": RegisterDef(name="spsr_und", size=4),
-            # Monitor-mode Stack Pointer
-            "sp_mon": RegisterDef(name="sp_mon", size=4),
-            # Monitor-mode Link Register
-            "lr_mon": RegisterDef(name="lr_mon", size=4),
-            # Monitor-mode Saved PSR
-            "spsr_mon": RegisterDef(name="spsr_mon", size=4),
             # IRQ-mode Stack Pointer
             "sp_irq": RegisterDef(name="sp_irq", size=4),
             # IRQ-mode Link Register
@@ -325,17 +333,55 @@ class ARMPlatformMixinRA:
         }
 
 
-class ARMPlatformMixinFPEL:
-    """Mixin for little-endian ARM CPUs with FP extensions
+class ARMPlatformMixinSecurity:
+    """Mixin for CPUs with the Security Extensions (TrustZone).
 
-    This is a simpler floating-point extension
-    which offers 64-bit scalar operations
+    These add Monitor mode, with its own register bank.
+    They're optional in ARMv6K/ARMv7-A, and absent from ARMv7-R.
     """
 
     def __init__(self):
         super().__init__()
-        # TODO: What do the FP floating-point instructions look like?
-        # I only have docs for VFP.
+        self._registers |= {
+            # Monitor-mode Stack Pointer
+            "sp_mon": RegisterDef(name="sp_mon", size=4),
+            # Monitor-mode Link Register
+            "lr_mon": RegisterDef(name="lr_mon", size=4),
+            # Monitor-mode Saved PSR
+            "spsr_mon": RegisterDef(name="spsr_mon", size=4),
+        }
+
+
+class ARMPlatformMixinVirtualization:
+    """Mixin for CPUs with the Virtualization Extensions.
+
+    These add Hypervisor mode, with its own register bank.
+    They're optional in ARMv7-A, and absent from ARMv7-R.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Hypervisor Stack Pointer
+            "sp_hyp": RegisterDef(name="sp_hyp", size=4),
+            # Hypervisor Saved PSR
+            "spsr_hyp": RegisterDef(name="spsr_hyp", size=4),
+            # Hypervisor Exception Link Register
+            # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+            "elr_hyp": RegisterDef(name="elr_hyp", size=4),
+        }
+
+
+class ARMPlatformMixinFPEL:
+    """Mixin for little-endian ARM CPUs with a 16-register VFP
+
+    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
+    which offer 64-bit scalar operations on d0-d15,
+    and no Advanced SIMD (NEON).
+    """
+
+    def __init__(self):
+        super().__init__()
         self._registers |= {
             # *** Floating point control registers ***
             # Floating-point Status and Control Register
@@ -401,13 +447,13 @@ class ARMPlatformMixinFPEL:
 
 
 class ARMPlatformMixinVFPEL:
-    """Mixin for little-endian ARM CPUs with VFP/NEON extensions
+    """Mixin for little-endian ARM CPUs with 32-register VFP and NEON
 
-    This is a newer floating-point extension
+    This covers VFPv3-D32 or VFPv4-D32 with Advanced SIMD (NEON),
     which supports up to 128-bit scalar and SIMD vector operations.
 
-    VFP and NEON are always optional extensions;
-    the two can exist independently, and VFP can support 16 or 32 double registers.
+    VFP and NEON are both optional; NEON requires VFP,
+    but VFP can exist alone with 16 or 32 double registers.
     This is the maximal set of registers, assuming both are supported.
     """
 
@@ -513,15 +559,21 @@ class ARMPlatformMixinVFPEL:
         }
 
 
-class ARMv5T(ARMPlatformMixinM, ARMPlatformDef):
-    """Platform definition for ARMv5t little-endian."""
+class ARMv5T(ARMPlatformMixinBanked, ARMPlatformDef):
+    """Platform definition for ARMv5t little-endian.
+
+    VFPv2 is an optional extension on ARMv5; it isn't modeled.
+    """
 
     architecture = Architecture.ARM_V5T
     ghidra_language_id = "ARM:LE:32:v5t"
 
 
-class ARMv6M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
-    """Platform definition for ARMv6m little-endian."""
+class ARMv6M(ARMPlatformMixinM, ARMPlatformDef):
+    """Platform definition for ARMv6m little-endian.
+
+    ARMv6-M has no floating-point extension.
+    """
 
     architecture = Architecture.ARM_V6M
     ghidra_language_id = "ARM:LE:32:v6"
@@ -544,15 +596,22 @@ class ARMv6MThumb(ARMv6M):
     ghidra_language_id = "ARM:LE:32:v6"
 
 
-class ARMv7M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
-    """Platform definition for ARMv7m little-endian"""
+class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
+    """Platform definition for ARMv7m little-endian
+
+    The FPv4/FPv5 floating-point extensions of ARMv7E-M aren't modeled.
+    """
 
     architecture = Architecture.ARM_V7M
     ghidra_language_id = "ARM:LE:32:v7"
 
 
-class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
-    """Platform definition for ARMv7r little-endian"""
+class ARMv7R(ARMPlatformMixinFPEL, ARMPlatformMixinBanked, ARMPlatformDef):
+    """Platform definition for ARMv7r little-endian
+
+    ARMv7-R has neither the Security nor the Virtualization Extensions,
+    and doesn't support Advanced SIMD.
+    """
 
     architecture = Architecture.ARM_V7R
     # v7R is instruction-compatible with v7A; without this the p-code use/def
@@ -560,8 +619,18 @@ class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
     ghidra_language_id = "ARM:LE:32:v7"
 
 
-class ARMv7A(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
-    """Platform definition for ARMv7a little-endian"""
+class ARMv7A(
+    ARMPlatformMixinVFPEL,
+    ARMPlatformMixinVirtualization,
+    ARMPlatformMixinSecurity,
+    ARMPlatformMixinBanked,
+    ARMPlatformDef,
+):
+    """Platform definition for ARMv7a little-endian
+
+    This assumes the optional Security and Virtualization Extensions,
+    as well as NEON.
+    """
 
     architecture = Architecture.ARM_V7A
     ghidra_language_id = "ARM:LE:32:v7"

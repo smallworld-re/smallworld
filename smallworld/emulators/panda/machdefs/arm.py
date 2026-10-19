@@ -58,13 +58,19 @@ class ARMMachineMixinM:
             # NOTE: None of the expected privileged registers exist
             "psr",
             "primask",
-            "basepri",
-            "faultmask",
             "control",
             "msp",
             "psp",
         }
         self._registers = self._registers | {i: None for i in self._registers_m}
+
+
+class ARMMachineMixinMMainline(ARMMachineMixinM):
+    """Mixin for ARMv7-M machine models, which add priority masks to ARMv6-M"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {"basepri": None, "faultmask": None}
 
 
 class ARMMachineMixinFP:
@@ -128,8 +134,8 @@ class ARMMachineMixinFP:
         self._registers = self._registers | {i: None for i in self._registers_fp}
 
 
-class ARMMachineMixinA:
-    """Mixin for ARM A-series machine models"""
+class ARMMachineMixinBanked:
+    """Mixin for ARM machine models with the classic banked-register model"""
 
     def __init__(self):
         super().__init__()
@@ -147,9 +153,6 @@ class ARMMachineMixinA:
             "r10_usr": None,
             "r11_usr": None,
             "r12_usr": None,
-            "sp_hyp": None,
-            "spsr_hyp": None,
-            "elr_hyp": None,
             "sp_svc": None,
             "lr_svc": None,
             "spsr_svc": None,
@@ -159,9 +162,6 @@ class ARMMachineMixinA:
             "sp_und": None,
             "lr_und": None,
             "spsr_und": None,
-            "sp_mon": None,
-            "lr_mon": None,
-            "spsr_mon": None,
             "sp_irq": None,
             "lr_irq": None,
             "spsr_irq": None,
@@ -175,6 +175,30 @@ class ARMMachineMixinA:
             "r12_fiq": None,
         }
         self._registers = self._registers | {k: v for k, v in self._registers_a.items()}
+
+
+class ARMMachineMixinSecurity:
+    """Mixin for ARM machine models with the Security Extensions (Monitor mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "sp_mon": None,
+            "lr_mon": None,
+            "spsr_mon": None,
+        }
+
+
+class ARMMachineMixinVirtualization:
+    """Mixin for ARM machine models with the Virtualization Extensions (Hyp mode)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "sp_hyp": None,
+            "spsr_hyp": None,
+            "elr_hyp": None,
+        }
 
 
 class ARMMachineMixinVFP:
@@ -277,7 +301,7 @@ class ARMMachineMixinVFP:
         self._registers = self._registers | {i: None for i in self._registers_vfp}
 
 
-class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
     cpu = "arm926"
@@ -285,7 +309,7 @@ class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
 
 # TODO: I have no idea which board to use.
 # I'm hoping that v6m code is compatible with a v7m-ish machine.
-class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
@@ -294,14 +318,20 @@ class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
 # TODO: Something's very weird with Panda's Arm 7 models.
 # cortex-a9 should be an A-series, but it looks more like an M-series.
 # cortex-m4 looks like an M-series, but aborts; I suspect we're missing configuration.
-class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinA, ARMMachineDef):
+class ARMv7AMachineDef(
+    ARMMachineMixinVFP,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
 
 
 # TODO: This is not the right CPU, but might be close enough
-class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"

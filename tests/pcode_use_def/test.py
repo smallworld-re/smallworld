@@ -122,13 +122,13 @@ class PcodeNamingTests(unittest.TestCase):
 
     def test_arm_condition_flags_reach_the_status_register(self):
         """Ghidra's four one-bit ARM flags map to the platform's status
-        register -- cpsr on the R/A-series, psr on the M-series -- so `cmp`
+        register -- psr on the M-profile, cpsr everywhere else -- so `cmp`
         no longer reports writing nothing. The cost is a spurious read on
         plain data-processing instructions; see the note in arm.py."""
         for arch, expected in (
             ("ARM_V7A", "cpsr"),
             ("ARM_V7R", "cpsr"),
-            ("ARM_V5T", "psr"),
+            ("ARM_V5T", "cpsr"),
             ("ARM_V6M", "psr"),
             ("ARM_V7M", "psr"),
         ):

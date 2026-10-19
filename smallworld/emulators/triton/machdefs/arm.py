@@ -40,7 +40,7 @@ _BASE_REGS = {
 _M_REGS = {"psr": "apsr"}
 _RA_REGS = {"cpsr": "apsr"}
 
-_V5T_REGS = {**_BASE_REGS, **_M_REGS}
+_V5T_REGS = {**_BASE_REGS, **_RA_REGS}
 _V6M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7R_REGS = {**_BASE_REGS, **_RA_REGS}
