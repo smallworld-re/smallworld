@@ -30,8 +30,11 @@ class ARMMachineDef(AngrMachineDef):
             "r12": "r12",
             "ip": "ip",
             "sp": "sp",
+            "r13": "sp",
             "lr": "lr",
+            "r14": "lr",
             "pc": "pc",
+            "r15": "pc",
         }
 
 
@@ -170,7 +173,7 @@ class ARMMachineMixinBanked:
 
 
 class ARMMachineMixinSecurity:
-    """Mixin for ARM CPUs with the Security Extensions (Monitor mode)"""
+    """Mixin for CPUs with the Security Extensions (TrustZone)."""
 
     def __init__(self):
         super().__init__()
@@ -182,12 +185,20 @@ class ARMMachineMixinSecurity:
                 "lr_mon": "lr_mon",
                 # Monitor-mode Saved PSR
                 "spsr_mon": "spsr_mon",
+                # Secure Configuration Register
+                "scr": "scr",
+                # Secure Debug Enable Register
+                "sder": "sder",
+                # Non-Secure Access Control Register
+                "nsacr": "nsacr",
+                # Monitor Vector Base Address Register
+                "mvbar": "mvbar",
             }
         )
 
 
 class ARMMachineMixinVirtualization:
-    """Mixin for ARM CPUs with the Virtualization Extensions (Hyp mode)"""
+    """Mixin for CPUs with the Virtualization Extensions."""
 
     def __init__(self):
         super().__init__()
@@ -200,6 +211,193 @@ class ARMMachineMixinVirtualization:
                 # Hypervisor Exception Link Register
                 # NOTE: Hyp mode has no banked lr; it uses lr_usr.
                 "elr_hyp": "elr_hyp",
+                # Hyp Configuration Register
+                "hcr": "hcr",
+                # Hyp Coprocessor Trap Register
+                "hcptr": "hcptr",
+                # Hyp System Trap Register
+                "hstr": "hstr",
+                # Hyp Debug Configuration Register
+                "hdcr": "hdcr",
+                # Hyp System Control Register
+                "hsctlr": "hsctlr",
+                # Hyp Vector Base Address Register
+                "hvbar": "hvbar",
+                # Hyp Translation Table Base Register
+                "httbr": "httbr",
+                # Hyp Translation Control Register
+                "htcr": "htcr",
+                # Virtualization Translation Table Base Register
+                "vttbr": "vttbr",
+                # Virtualization Translation Control Register
+                "vtcr": "vtcr",
+                # Hyp Syndrome Register
+                "hsr": "hsr",
+                # Hyp Data Fault Address Register
+                "hdfar": "hdfar",
+                # Hyp Instruction Fault Address Register
+                "hifar": "hifar",
+                # Hyp IPA Fault Address Register
+                "hpfar": "hpfar",
+                # Hyp Software Thread ID Register
+                "htpidr": "htpidr",
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": "hmair0",
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": "hmair1",
+                # Virtualization Processor ID Register
+                "vpidr": "vpidr",
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": "vmpidr",
+                # Virtual Offset Register
+                "cntvoff": "cntvoff",
+                # Timer PL2 Control Register
+                "cnthctl": "cnthctl",
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": "cnthp_ctl",
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": "cnthp_cval",
+            }
+        )
+
+
+class ARMMachineMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Translation Table Base Register
+                "ttbr": "ttbr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Fault Status Register
+                "fsr": "fsr",
+                # Fault Address Register
+                "far": "far",
+                # FCSE Process ID Register
+                "fcseidr": "fcseidr",
+            }
+        )
+
+
+class ARMMachineMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # Multiprocessor Affinity Register
+                "mpidr": "mpidr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Auxiliary Control Register
+                "actlr": "actlr",
+                # Coprocessor Access Control Register
+                "cpacr": "cpacr",
+                # Cache Size Selection Register
+                "csselr": "csselr",
+                # Data Fault Status Register
+                "dfsr": "dfsr",
+                # Instruction Fault Status Register
+                "ifsr": "ifsr",
+                # Data Fault Address Register
+                "dfar": "dfar",
+                # Instruction Fault Address Register
+                "ifar": "ifar",
+                # Context ID Register
+                "contextidr": "contextidr",
+                # User Read/Write Thread ID Register
+                "tpidrurw": "tpidrurw",
+                # User Read-Only Thread ID Register
+                "tpidruro": "tpidruro",
+                # PL1-only Thread ID Register
+                "tpidrprw": "tpidrprw",
+            }
+        )
+
+
+class ARMMachineMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # MPU Region Number Register
+                "rgnr": "rgnr",
+                # Data Region Base Address Register
+                "drbar": "drbar",
+                # Data Region Size and Enable Register
+                "drsr": "drsr",
+                # Data Region Access Control Register
+                "dracr": "dracr",
+            }
+        )
+
+
+class ARMMachineMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Translation Table Base Register 0
+                "ttbr0": "ttbr0",
+                # Translation Table Base Register 1
+                "ttbr1": "ttbr1",
+                # Translation Table Base Control Register
+                "ttbcr": "ttbcr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Physical Address Register
+                "par": "par",
+                # Primary Region Remap Register
+                "prrr": "prrr",
+                # Normal Memory Remap Register
+                "nmrr": "nmrr",
+                # Vector Base Address Register
+                "vbar": "vbar",
+            }
+        )
+
+
+class ARMMachineMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Counter Frequency Register
+                "cntfrq": "cntfrq",
+                # Timer PL1 Control Register
+                "cntkctl": "cntkctl",
+                # Physical Count Register
+                "cntpct": "cntpct",
+                # Virtual Count Register
+                "cntvct": "cntvct",
+                # PL1 Physical Timer Control Register
+                "cntp_ctl": "cntp_ctl",
+                # PL1 Physical Timer CompareValue Register
+                "cntp_cval": "cntp_cval",
+                # Virtual Timer Control Register
+                "cntv_ctl": "cntv_ctl",
+                # Virtual Timer CompareValue Register
+                "cntv_cval": "cntv_cval",
             }
         )
 
@@ -383,7 +581,9 @@ class ARMMachineMixinVFPEL:
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
+class ARMv5TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
     angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
@@ -412,6 +612,9 @@ class ARMv7AMachineDef(
     ARMMachineMixinVFPEL,
     ARMMachineMixinVirtualization,
     ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):

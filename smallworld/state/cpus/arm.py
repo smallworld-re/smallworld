@@ -55,12 +55,21 @@ class ARM(cpu.CPU):
         self.add(self.r12)
         self.ip = state.RegisterAlias("ip", self.r12, size=4, offset=0)
         self.add(self.ip)
+        # sp doubles as r13
         self.sp = state.Register("sp", size=4)
         self.add(self.sp)
+        self.r13 = state.RegisterAlias("r13", self.sp, size=4, offset=0)
+        self.add(self.r13)
+        # lr doubles as r14
         self.lr = state.Register("lr", size=4)
         self.add(self.lr)
+        self.r14 = state.RegisterAlias("r14", self.lr, size=4, offset=0)
+        self.add(self.r14)
+        # pc doubles as r15
         self.pc = state.Register("pc", size=4)
         self.add(self.pc)
+        self.r15 = state.RegisterAlias("r15", self.pc, size=4, offset=0)
+        self.add(self.r15)
 
 
 class ARMCPUMixinM:
@@ -246,8 +255,12 @@ class ARMCPUMixinBanked:
 class ARMCPUMixinSecurity:
     """Mixin for CPUs with the Security Extensions (TrustZone).
 
-    These add Monitor mode, with its own register bank.
+    These add Monitor mode, with its own register bank,
+    and the cp15 registers that control the security state.
     They're optional in ARMv6K/ARMv7-A, and absent from ARMv7-R.
+
+    NOTE: Several cp15 registers have separate Secure and Non-secure copies;
+    only the copy for the current security state is modeled.
     """
 
     def __init__(self):
@@ -261,13 +274,28 @@ class ARMCPUMixinSecurity:
         # Monitor-mode Saved PSR
         self.spsr_mon = state.Register("spsr_mon", size=4)
         self.add(self.spsr_mon)
+        # Secure Configuration Register
+        self.scr = state.Register("scr", size=4)
+        self.add(self.scr)
+        # Secure Debug Enable Register
+        self.sder = state.Register("sder", size=4)
+        self.add(self.sder)
+        # Non-Secure Access Control Register
+        self.nsacr = state.Register("nsacr", size=4)
+        self.add(self.nsacr)
+        # Monitor Vector Base Address Register
+        self.mvbar = state.Register("mvbar", size=4)
+        self.add(self.mvbar)
 
 
 class ARMCPUMixinVirtualization:
     """Mixin for CPUs with the Virtualization Extensions.
 
-    These add Hypervisor mode, with its own register bank.
+    These add Hypervisor mode, with its own register bank,
+    and the cp15 registers that control it.
     They're optional in ARMv7-A, and absent from ARMv7-R.
+
+    NOTE: The hyp-mode timer registers assume the Generic Timer is present.
     """
 
     def __init__(self):
@@ -282,6 +310,254 @@ class ARMCPUMixinVirtualization:
         # NOTE: Hyp mode has no banked lr; it uses lr_usr.
         self.elr_hyp = state.Register("elr_hyp", size=4)
         self.add(self.elr_hyp)
+        # Hyp Configuration Register
+        self.hcr = state.Register("hcr", size=4)
+        self.add(self.hcr)
+        # Hyp Coprocessor Trap Register
+        self.hcptr = state.Register("hcptr", size=4)
+        self.add(self.hcptr)
+        # Hyp System Trap Register
+        self.hstr = state.Register("hstr", size=4)
+        self.add(self.hstr)
+        # Hyp Debug Configuration Register
+        self.hdcr = state.Register("hdcr", size=4)
+        self.add(self.hdcr)
+        # Hyp System Control Register
+        self.hsctlr = state.Register("hsctlr", size=4)
+        self.add(self.hsctlr)
+        # Hyp Vector Base Address Register
+        self.hvbar = state.Register("hvbar", size=4)
+        self.add(self.hvbar)
+        # Hyp Translation Table Base Register
+        self.httbr = state.Register("httbr", size=8)
+        self.add(self.httbr)
+        # Hyp Translation Control Register
+        self.htcr = state.Register("htcr", size=4)
+        self.add(self.htcr)
+        # Virtualization Translation Table Base Register
+        self.vttbr = state.Register("vttbr", size=8)
+        self.add(self.vttbr)
+        # Virtualization Translation Control Register
+        self.vtcr = state.Register("vtcr", size=4)
+        self.add(self.vtcr)
+        # Hyp Syndrome Register
+        self.hsr = state.Register("hsr", size=4)
+        self.add(self.hsr)
+        # Hyp Data Fault Address Register
+        self.hdfar = state.Register("hdfar", size=4)
+        self.add(self.hdfar)
+        # Hyp Instruction Fault Address Register
+        self.hifar = state.Register("hifar", size=4)
+        self.add(self.hifar)
+        # Hyp IPA Fault Address Register
+        self.hpfar = state.Register("hpfar", size=4)
+        self.add(self.hpfar)
+        # Hyp Software Thread ID Register
+        self.htpidr = state.Register("htpidr", size=4)
+        self.add(self.htpidr)
+        # Hyp Memory Attribute Indirection Register 0
+        self.hmair0 = state.Register("hmair0", size=4)
+        self.add(self.hmair0)
+        # Hyp Memory Attribute Indirection Register 1
+        self.hmair1 = state.Register("hmair1", size=4)
+        self.add(self.hmair1)
+        # Virtualization Processor ID Register
+        self.vpidr = state.Register("vpidr", size=4)
+        self.add(self.vpidr)
+        # Virtualization Multiprocessor ID Register
+        self.vmpidr = state.Register("vmpidr", size=4)
+        self.add(self.vmpidr)
+        # Virtual Offset Register
+        self.cntvoff = state.Register("cntvoff", size=8)
+        self.add(self.cntvoff)
+        # Timer PL2 Control Register
+        self.cnthctl = state.Register("cnthctl", size=4)
+        self.add(self.cnthctl)
+        # PL2 Physical Timer Control Register
+        self.cnthp_ctl = state.Register("cnthp_ctl", size=4)
+        self.add(self.cnthp_ctl)
+        # PL2 Physical Timer CompareValue Register
+        self.cnthp_cval = state.Register("cnthp_cval", size=8)
+        self.add(self.cnthp_cval)
+
+
+class ARMCPUMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor
+
+    This is the ARMv5 VMSA register set, as found on an ARM926.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Main ID Register
+        self.midr = state.Register("midr", size=4)
+        self.add(self.midr)
+        # Cache Type Register
+        self.ctr = state.Register("ctr", size=4)
+        self.add(self.ctr)
+        # System Control Register
+        self.sctlr = state.Register("sctlr", size=4)
+        self.add(self.sctlr)
+        # Translation Table Base Register
+        self.ttbr = state.Register("ttbr", size=4)
+        self.add(self.ttbr)
+        # Domain Access Control Register
+        self.dacr = state.Register("dacr", size=4)
+        self.add(self.dacr)
+        # Fault Status Register
+        self.fsr = state.Register("fsr", size=4)
+        self.add(self.fsr)
+        # Fault Address Register
+        self.far = state.Register("far", size=4)
+        self.add(self.far)
+        # FCSE Process ID Register
+        self.fcseidr = state.Register("fcseidr", size=4)
+        self.add(self.fcseidr)
+
+
+class ARMCPUMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        # Main ID Register
+        self.midr = state.Register("midr", size=4)
+        self.add(self.midr)
+        # Cache Type Register
+        self.ctr = state.Register("ctr", size=4)
+        self.add(self.ctr)
+        # Multiprocessor Affinity Register
+        self.mpidr = state.Register("mpidr", size=4)
+        self.add(self.mpidr)
+        # System Control Register
+        self.sctlr = state.Register("sctlr", size=4)
+        self.add(self.sctlr)
+        # Auxiliary Control Register
+        self.actlr = state.Register("actlr", size=4)
+        self.add(self.actlr)
+        # Coprocessor Access Control Register
+        self.cpacr = state.Register("cpacr", size=4)
+        self.add(self.cpacr)
+        # Cache Size Selection Register
+        self.csselr = state.Register("csselr", size=4)
+        self.add(self.csselr)
+        # Data Fault Status Register
+        self.dfsr = state.Register("dfsr", size=4)
+        self.add(self.dfsr)
+        # Instruction Fault Status Register
+        self.ifsr = state.Register("ifsr", size=4)
+        self.add(self.ifsr)
+        # Data Fault Address Register
+        self.dfar = state.Register("dfar", size=4)
+        self.add(self.dfar)
+        # Instruction Fault Address Register
+        self.ifar = state.Register("ifar", size=4)
+        self.add(self.ifar)
+        # Context ID Register
+        self.contextidr = state.Register("contextidr", size=4)
+        self.add(self.contextidr)
+        # User Read/Write Thread ID Register
+        self.tpidrurw = state.Register("tpidrurw", size=4)
+        self.add(self.tpidrurw)
+        # User Read-Only Thread ID Register
+        self.tpidruro = state.Register("tpidruro", size=4)
+        self.add(self.tpidruro)
+        # PL1-only Thread ID Register
+        self.tpidrprw = state.Register("tpidrprw", size=4)
+        self.add(self.tpidrprw)
+
+
+class ARMCPUMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)
+
+    drbar, drsr, and dracr access whichever region rgnr selects;
+    the per-region registers behind them aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # MPU Region Number Register
+        self.rgnr = state.Register("rgnr", size=4)
+        self.add(self.rgnr)
+        # Data Region Base Address Register
+        self.drbar = state.Register("drbar", size=4)
+        self.add(self.drbar)
+        # Data Region Size and Enable Register
+        self.drsr = state.Register("drsr", size=4)
+        self.add(self.drsr)
+        # Data Region Access Control Register
+        self.dracr = state.Register("dracr", size=4)
+        self.add(self.dracr)
+
+
+class ARMCPUMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension
+
+    LPAE widens ttbr0, ttbr1, and par to 64 bits;
+    with long descriptors, prrr and nmrr act as MAIR0 and MAIR1.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Translation Table Base Register 0
+        self.ttbr0 = state.Register("ttbr0", size=8)
+        self.add(self.ttbr0)
+        # Translation Table Base Register 1
+        self.ttbr1 = state.Register("ttbr1", size=8)
+        self.add(self.ttbr1)
+        # Translation Table Base Control Register
+        self.ttbcr = state.Register("ttbcr", size=4)
+        self.add(self.ttbcr)
+        # Domain Access Control Register
+        self.dacr = state.Register("dacr", size=4)
+        self.add(self.dacr)
+        # Physical Address Register
+        self.par = state.Register("par", size=8)
+        self.add(self.par)
+        # Primary Region Remap Register
+        self.prrr = state.Register("prrr", size=4)
+        self.add(self.prrr)
+        # Normal Memory Remap Register
+        self.nmrr = state.Register("nmrr", size=4)
+        self.add(self.nmrr)
+        # Vector Base Address Register
+        self.vbar = state.Register("vbar", size=4)
+        self.add(self.vbar)
+
+
+class ARMCPUMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension
+
+    The TVAL registers are views of CVAL minus the count,
+    not separate state, so they aren't included.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Counter Frequency Register
+        self.cntfrq = state.Register("cntfrq", size=4)
+        self.add(self.cntfrq)
+        # Timer PL1 Control Register
+        self.cntkctl = state.Register("cntkctl", size=4)
+        self.add(self.cntkctl)
+        # Physical Count Register
+        self.cntpct = state.Register("cntpct", size=8)
+        self.add(self.cntpct)
+        # Virtual Count Register
+        self.cntvct = state.Register("cntvct", size=8)
+        self.add(self.cntvct)
+        # PL1 Physical Timer Control Register
+        self.cntp_ctl = state.Register("cntp_ctl", size=4)
+        self.add(self.cntp_ctl)
+        # PL1 Physical Timer CompareValue Register
+        self.cntp_cval = state.Register("cntp_cval", size=8)
+        self.add(self.cntp_cval)
+        # Virtual Timer Control Register
+        self.cntv_ctl = state.Register("cntv_ctl", size=4)
+        self.add(self.cntv_ctl)
+        # Virtual Timer CompareValue Register
+        self.cntv_cval = state.Register("cntv_cval", size=8)
+        self.add(self.cntv_cval)
 
 
 class ARMCPUMixinFPEL:
@@ -605,7 +881,7 @@ class ARMCPUMixinVFPEL:
         self.add(self.d31)
 
 
-class ARMv5T(ARMCPUMixinBanked, ARM):
+class ARMv5T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
     """CPU Model for ARMv5t little-endian."""
 
     platform = platforms.Platform(
@@ -637,7 +913,13 @@ class ARMv7M(ARMCPUMixinMMainline, ARM):
     )
 
 
-class ARMv7R(ARMCPUMixinFPEL, ARMCPUMixinBanked, ARM):
+class ARMv7R(
+    ARMCPUMixinFPEL,
+    ARMCPUMixinPMSA,
+    ARMCPUMixinV7SystemControl,
+    ARMCPUMixinBanked,
+    ARM,
+):
     """CPU Model for ARMv7-R little-endian."""
 
     # TODO: v7r and v7a have different MMUs, which I don't implement yet.
@@ -650,6 +932,9 @@ class ARMv7A(
     ARMCPUMixinVFPEL,
     ARMCPUMixinVirtualization,
     ARMCPUMixinSecurity,
+    ARMCPUMixinGenericTimer,
+    ARMCPUMixinVMSA,
+    ARMCPUMixinV7SystemControl,
     ARMCPUMixinBanked,
     ARM,
 ):

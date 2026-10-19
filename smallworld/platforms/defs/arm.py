@@ -168,12 +168,15 @@ class ARMPlatformDef(PlatformDef):
             # r12 doubles as the Intra-call scratch register
             "r12": RegisterDef(name="r12", size=4),
             "ip": RegisterAliasDef(name="ip", parent="r12", size=4, offset=0),
-            # sp is also r13; that alias isn't modeled
+            # sp doubles as r13
             "sp": RegisterDef(name="sp", size=4),
-            # lr is also r14; that alias isn't modeled
+            "r13": RegisterAliasDef(name="r13", parent="sp", size=4, offset=0),
+            # lr doubles as r14
             "lr": RegisterDef(name="lr", size=4),
-            # pc is also r15; that alias isn't modeled
+            "r14": RegisterAliasDef(name="r14", parent="lr", size=4, offset=0),
+            # pc doubles as r15
             "pc": RegisterDef(name="pc", size=4),
+            "r15": RegisterAliasDef(name="r15", parent="pc", size=4, offset=0),
         }
 
 
@@ -336,8 +339,12 @@ class ARMPlatformMixinBanked:
 class ARMPlatformMixinSecurity:
     """Mixin for CPUs with the Security Extensions (TrustZone).
 
-    These add Monitor mode, with its own register bank.
+    These add Monitor mode, with its own register bank,
+    and the cp15 registers that control the security state.
     They're optional in ARMv6K/ARMv7-A, and absent from ARMv7-R.
+
+    NOTE: Several cp15 registers have separate Secure and Non-secure copies;
+    only the copy for the current security state is modeled.
     """
 
     def __init__(self):
@@ -349,14 +356,25 @@ class ARMPlatformMixinSecurity:
             "lr_mon": RegisterDef(name="lr_mon", size=4),
             # Monitor-mode Saved PSR
             "spsr_mon": RegisterDef(name="spsr_mon", size=4),
+            # Secure Configuration Register
+            "scr": RegisterDef(name="scr", size=4),
+            # Secure Debug Enable Register
+            "sder": RegisterDef(name="sder", size=4),
+            # Non-Secure Access Control Register
+            "nsacr": RegisterDef(name="nsacr", size=4),
+            # Monitor Vector Base Address Register
+            "mvbar": RegisterDef(name="mvbar", size=4),
         }
 
 
 class ARMPlatformMixinVirtualization:
     """Mixin for CPUs with the Virtualization Extensions.
 
-    These add Hypervisor mode, with its own register bank.
+    These add Hypervisor mode, with its own register bank,
+    and the cp15 registers that control it.
     They're optional in ARMv7-A, and absent from ARMv7-R.
+
+    NOTE: The hyp-mode timer registers assume the Generic Timer is present.
     """
 
     def __init__(self):
@@ -369,6 +387,198 @@ class ARMPlatformMixinVirtualization:
             # Hypervisor Exception Link Register
             # NOTE: Hyp mode has no banked lr; it uses lr_usr.
             "elr_hyp": RegisterDef(name="elr_hyp", size=4),
+            # Hyp Configuration Register
+            "hcr": RegisterDef(name="hcr", size=4),
+            # Hyp Coprocessor Trap Register
+            "hcptr": RegisterDef(name="hcptr", size=4),
+            # Hyp System Trap Register
+            "hstr": RegisterDef(name="hstr", size=4),
+            # Hyp Debug Configuration Register
+            "hdcr": RegisterDef(name="hdcr", size=4),
+            # Hyp System Control Register
+            "hsctlr": RegisterDef(name="hsctlr", size=4),
+            # Hyp Vector Base Address Register
+            "hvbar": RegisterDef(name="hvbar", size=4),
+            # Hyp Translation Table Base Register
+            "httbr": RegisterDef(name="httbr", size=8),
+            # Hyp Translation Control Register
+            "htcr": RegisterDef(name="htcr", size=4),
+            # Virtualization Translation Table Base Register
+            "vttbr": RegisterDef(name="vttbr", size=8),
+            # Virtualization Translation Control Register
+            "vtcr": RegisterDef(name="vtcr", size=4),
+            # Hyp Syndrome Register
+            "hsr": RegisterDef(name="hsr", size=4),
+            # Hyp Data Fault Address Register
+            "hdfar": RegisterDef(name="hdfar", size=4),
+            # Hyp Instruction Fault Address Register
+            "hifar": RegisterDef(name="hifar", size=4),
+            # Hyp IPA Fault Address Register
+            "hpfar": RegisterDef(name="hpfar", size=4),
+            # Hyp Software Thread ID Register
+            "htpidr": RegisterDef(name="htpidr", size=4),
+            # Hyp Memory Attribute Indirection Register 0
+            "hmair0": RegisterDef(name="hmair0", size=4),
+            # Hyp Memory Attribute Indirection Register 1
+            "hmair1": RegisterDef(name="hmair1", size=4),
+            # Virtualization Processor ID Register
+            "vpidr": RegisterDef(name="vpidr", size=4),
+            # Virtualization Multiprocessor ID Register
+            "vmpidr": RegisterDef(name="vmpidr", size=4),
+            # Virtual Offset Register
+            "cntvoff": RegisterDef(name="cntvoff", size=8),
+            # Timer PL2 Control Register
+            "cnthctl": RegisterDef(name="cnthctl", size=4),
+            # PL2 Physical Timer Control Register
+            "cnthp_ctl": RegisterDef(name="cnthp_ctl", size=4),
+            # PL2 Physical Timer CompareValue Register
+            "cnthp_cval": RegisterDef(name="cnthp_cval", size=8),
+        }
+
+
+class ARMPlatformMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor
+
+    This is the ARMv5 VMSA register set, as found on an ARM926.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Main ID Register
+            "midr": RegisterDef(name="midr", size=4),
+            # Cache Type Register
+            "ctr": RegisterDef(name="ctr", size=4),
+            # System Control Register
+            "sctlr": RegisterDef(name="sctlr", size=4),
+            # Translation Table Base Register
+            "ttbr": RegisterDef(name="ttbr", size=4),
+            # Domain Access Control Register
+            "dacr": RegisterDef(name="dacr", size=4),
+            # Fault Status Register
+            "fsr": RegisterDef(name="fsr", size=4),
+            # Fault Address Register
+            "far": RegisterDef(name="far", size=4),
+            # FCSE Process ID Register
+            "fcseidr": RegisterDef(name="fcseidr", size=4),
+        }
+
+
+class ARMPlatformMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Main ID Register
+            "midr": RegisterDef(name="midr", size=4),
+            # Cache Type Register
+            "ctr": RegisterDef(name="ctr", size=4),
+            # Multiprocessor Affinity Register
+            "mpidr": RegisterDef(name="mpidr", size=4),
+            # System Control Register
+            "sctlr": RegisterDef(name="sctlr", size=4),
+            # Auxiliary Control Register
+            "actlr": RegisterDef(name="actlr", size=4),
+            # Coprocessor Access Control Register
+            "cpacr": RegisterDef(name="cpacr", size=4),
+            # Cache Size Selection Register
+            "csselr": RegisterDef(name="csselr", size=4),
+            # Data Fault Status Register
+            "dfsr": RegisterDef(name="dfsr", size=4),
+            # Instruction Fault Status Register
+            "ifsr": RegisterDef(name="ifsr", size=4),
+            # Data Fault Address Register
+            "dfar": RegisterDef(name="dfar", size=4),
+            # Instruction Fault Address Register
+            "ifar": RegisterDef(name="ifar", size=4),
+            # Context ID Register
+            "contextidr": RegisterDef(name="contextidr", size=4),
+            # User Read/Write Thread ID Register
+            "tpidrurw": RegisterDef(name="tpidrurw", size=4),
+            # User Read-Only Thread ID Register
+            "tpidruro": RegisterDef(name="tpidruro", size=4),
+            # PL1-only Thread ID Register
+            "tpidrprw": RegisterDef(name="tpidrprw", size=4),
+        }
+
+
+class ARMPlatformMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)
+
+    drbar, drsr, and dracr access whichever region rgnr selects;
+    the per-region registers behind them aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # MPU Region Number Register
+            "rgnr": RegisterDef(name="rgnr", size=4),
+            # Data Region Base Address Register
+            "drbar": RegisterDef(name="drbar", size=4),
+            # Data Region Size and Enable Register
+            "drsr": RegisterDef(name="drsr", size=4),
+            # Data Region Access Control Register
+            "dracr": RegisterDef(name="dracr", size=4),
+        }
+
+
+class ARMPlatformMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension
+
+    LPAE widens ttbr0, ttbr1, and par to 64 bits;
+    with long descriptors, prrr and nmrr act as MAIR0 and MAIR1.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Translation Table Base Register 0
+            "ttbr0": RegisterDef(name="ttbr0", size=8),
+            # Translation Table Base Register 1
+            "ttbr1": RegisterDef(name="ttbr1", size=8),
+            # Translation Table Base Control Register
+            "ttbcr": RegisterDef(name="ttbcr", size=4),
+            # Domain Access Control Register
+            "dacr": RegisterDef(name="dacr", size=4),
+            # Physical Address Register
+            "par": RegisterDef(name="par", size=8),
+            # Primary Region Remap Register
+            "prrr": RegisterDef(name="prrr", size=4),
+            # Normal Memory Remap Register
+            "nmrr": RegisterDef(name="nmrr", size=4),
+            # Vector Base Address Register
+            "vbar": RegisterDef(name="vbar", size=4),
+        }
+
+
+class ARMPlatformMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension
+
+    The TVAL registers are views of CVAL minus the count,
+    not separate state, so they aren't included.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Counter Frequency Register
+            "cntfrq": RegisterDef(name="cntfrq", size=4),
+            # Timer PL1 Control Register
+            "cntkctl": RegisterDef(name="cntkctl", size=4),
+            # Physical Count Register
+            "cntpct": RegisterDef(name="cntpct", size=8),
+            # Virtual Count Register
+            "cntvct": RegisterDef(name="cntvct", size=8),
+            # PL1 Physical Timer Control Register
+            "cntp_ctl": RegisterDef(name="cntp_ctl", size=4),
+            # PL1 Physical Timer CompareValue Register
+            "cntp_cval": RegisterDef(name="cntp_cval", size=8),
+            # Virtual Timer Control Register
+            "cntv_ctl": RegisterDef(name="cntv_ctl", size=4),
+            # Virtual Timer CompareValue Register
+            "cntv_cval": RegisterDef(name="cntv_cval", size=8),
         }
 
 
@@ -559,7 +769,7 @@ class ARMPlatformMixinVFPEL:
         }
 
 
-class ARMv5T(ARMPlatformMixinBanked, ARMPlatformDef):
+class ARMv5T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian.
 
     VFPv2 is an optional extension on ARMv5; it isn't modeled.
@@ -606,7 +816,13 @@ class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     ghidra_language_id = "ARM:LE:32:v7"
 
 
-class ARMv7R(ARMPlatformMixinFPEL, ARMPlatformMixinBanked, ARMPlatformDef):
+class ARMv7R(
+    ARMPlatformMixinFPEL,
+    ARMPlatformMixinPMSA,
+    ARMPlatformMixinV7SystemControl,
+    ARMPlatformMixinBanked,
+    ARMPlatformDef,
+):
     """Platform definition for ARMv7r little-endian
 
     ARMv7-R has neither the Security nor the Virtualization Extensions,
@@ -623,13 +839,16 @@ class ARMv7A(
     ARMPlatformMixinVFPEL,
     ARMPlatformMixinVirtualization,
     ARMPlatformMixinSecurity,
+    ARMPlatformMixinGenericTimer,
+    ARMPlatformMixinVMSA,
+    ARMPlatformMixinV7SystemControl,
     ARMPlatformMixinBanked,
     ARMPlatformDef,
 ):
     """Platform definition for ARMv7a little-endian
 
-    This assumes the optional Security and Virtualization Extensions,
-    as well as NEON.
+    This assumes the optional Security, Virtualization,
+    and Generic Timer Extensions, as well as NEON.
     """
 
     architecture = Architecture.ARM_V7A

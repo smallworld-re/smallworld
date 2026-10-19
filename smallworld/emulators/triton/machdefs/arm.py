@@ -30,8 +30,11 @@ _BASE_REGS = {
     "fp": "r11",
     "ip": "r12",
     "sp": "sp",
+    "r13": "sp",
     "lr": "r14",  # Triton exposes the link register only as "r14"
+    "r14": "r14",
     "pc": "pc",
+    "r15": "pc",
 }
 
 # Program-status register. Triton has no cpsr/psr; APSR is its only status

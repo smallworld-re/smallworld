@@ -46,6 +46,9 @@ class ARMMachineDef(PandaMachineDef):
             "sl": "r10",
             "fp": "r11",
             "ip": "r12",
+            "r13": "sp",
+            "r14": "lr",
+            "r15": "pc",
         }
 
 
@@ -71,6 +74,94 @@ class ARMMachineMixinMMainline(ARMMachineMixinM):
     def __init__(self):
         super().__init__()
         self._registers = self._registers | {"basepri": None, "faultmask": None}
+
+
+class ARMMachineMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "midr": None,
+            "ctr": None,
+            "sctlr": None,
+            "ttbr": None,
+            "dacr": None,
+            "fsr": None,
+            "far": None,
+            "fcseidr": None,
+        }
+
+
+class ARMMachineMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "midr": None,
+            "ctr": None,
+            "mpidr": None,
+            "sctlr": None,
+            "actlr": None,
+            "cpacr": None,
+            "csselr": None,
+            "dfsr": None,
+            "ifsr": None,
+            "dfar": None,
+            "ifar": None,
+            "contextidr": None,
+            "tpidrurw": None,
+            "tpidruro": None,
+            "tpidrprw": None,
+        }
+
+
+class ARMMachineMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "rgnr": None,
+            "drbar": None,
+            "drsr": None,
+            "dracr": None,
+        }
+
+
+class ARMMachineMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "ttbr0": None,
+            "ttbr1": None,
+            "ttbcr": None,
+            "dacr": None,
+            "par": None,
+            "prrr": None,
+            "nmrr": None,
+            "vbar": None,
+        }
+
+
+class ARMMachineMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "cntfrq": None,
+            "cntkctl": None,
+            "cntpct": None,
+            "cntvct": None,
+            "cntp_ctl": None,
+            "cntp_cval": None,
+            "cntv_ctl": None,
+            "cntv_cval": None,
+        }
 
 
 class ARMMachineMixinFP:
@@ -178,7 +269,7 @@ class ARMMachineMixinBanked:
 
 
 class ARMMachineMixinSecurity:
-    """Mixin for ARM machine models with the Security Extensions (Monitor mode)"""
+    """Mixin for CPUs with the Security Extensions (TrustZone)."""
 
     def __init__(self):
         super().__init__()
@@ -186,11 +277,15 @@ class ARMMachineMixinSecurity:
             "sp_mon": None,
             "lr_mon": None,
             "spsr_mon": None,
+            "scr": None,
+            "sder": None,
+            "nsacr": None,
+            "mvbar": None,
         }
 
 
 class ARMMachineMixinVirtualization:
-    """Mixin for ARM machine models with the Virtualization Extensions (Hyp mode)"""
+    """Mixin for CPUs with the Virtualization Extensions."""
 
     def __init__(self):
         super().__init__()
@@ -198,6 +293,29 @@ class ARMMachineMixinVirtualization:
             "sp_hyp": None,
             "spsr_hyp": None,
             "elr_hyp": None,
+            "hcr": None,
+            "hcptr": None,
+            "hstr": None,
+            "hdcr": None,
+            "hsctlr": None,
+            "hvbar": None,
+            "httbr": None,
+            "htcr": None,
+            "vttbr": None,
+            "vtcr": None,
+            "hsr": None,
+            "hdfar": None,
+            "hifar": None,
+            "hpfar": None,
+            "htpidr": None,
+            "hmair0": None,
+            "hmair1": None,
+            "vpidr": None,
+            "vmpidr": None,
+            "cntvoff": None,
+            "cnthctl": None,
+            "cnthp_ctl": None,
+            "cnthp_cval": None,
         }
 
 
@@ -301,7 +419,9 @@ class ARMMachineMixinVFP:
         self._registers = self._registers | {i: None for i in self._registers_vfp}
 
 
-class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
+class ARMv5TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
     cpu = "arm926"
@@ -322,6 +442,9 @@ class ARMv7AMachineDef(
     ARMMachineMixinVFP,
     ARMMachineMixinVirtualization,
     ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):

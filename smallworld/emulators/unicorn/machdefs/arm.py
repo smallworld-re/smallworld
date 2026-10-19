@@ -34,8 +34,11 @@ class ARMMachineDef(UnicornMachineDef):
             "r12": unicorn.arm_const.UC_ARM_REG_R12,
             "ip": unicorn.arm_const.UC_ARM_REG_IP,
             "sp": unicorn.arm_const.UC_ARM_REG_SP,
+            "r13": unicorn.arm_const.UC_ARM_REG_R13,
             "lr": unicorn.arm_const.UC_ARM_REG_LR,
+            "r14": unicorn.arm_const.UC_ARM_REG_R14,
             "pc": unicorn.arm_const.UC_ARM_REG_PC,
+            "r15": unicorn.arm_const.UC_ARM_REG_R15,
         }
 
 
@@ -113,7 +116,7 @@ class ARMMachineMixinBanked:
 
 
 class ARMMachineMixinSecurity:
-    """Mixin for ARM CPUs with the Security Extensions (Monitor mode)"""
+    """Mixin for CPUs with the Security Extensions (TrustZone)."""
 
     def __init__(self):
         super().__init__()
@@ -122,12 +125,16 @@ class ARMMachineMixinSecurity:
                 "sp_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "lr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "spsr_mon": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "scr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "sder": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "nsacr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "mvbar": unicorn.arm_const.UC_ARM_REG_INVALID,
             }
         )
 
 
 class ARMMachineMixinVirtualization:
-    """Mixin for ARM CPUs with the Virtualization Extensions (Hyp mode)"""
+    """Mixin for CPUs with the Virtualization Extensions."""
 
     def __init__(self):
         super().__init__()
@@ -136,6 +143,127 @@ class ARMMachineMixinVirtualization:
                 "sp_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "spsr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "elr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hcptr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hstr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hdcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hsctlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hvbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "httbr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "htcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vttbr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vtcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hdfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hifar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hpfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "htpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hmair0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hmair1": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vmpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntvoff": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthp_ctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthp_cval": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "midr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ctr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "sctlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ttbr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dacr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "fsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "far": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "fcseidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "midr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ctr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "mpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "sctlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "actlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cpacr": unicorn.arm_const.UC_ARM_REG_C1_C0_2,
+                "csselr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dfsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ifsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ifar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "contextidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "tpidrurw": unicorn.arm_const.UC_ARM_REG_C13_C0_2,
+                "tpidruro": unicorn.arm_const.UC_ARM_REG_C13_C0_3,
+                "tpidrprw": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "rgnr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "drbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "drsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dracr": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "ttbr0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ttbr1": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ttbcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dacr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "par": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "prrr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "nmrr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "cntfrq": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntkctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntpct": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntvct": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntp_ctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntp_cval": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntv_ctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntv_cval": unicorn.arm_const.UC_ARM_REG_INVALID,
             }
         )
 
@@ -150,6 +278,8 @@ class ARMMachineMixinFP:
                 "fpscr": unicorn.arm_const.UC_ARM_REG_FPSCR,
                 "fpexc": unicorn.arm_const.UC_ARM_REG_FPEXC,
                 "fpsid": unicorn.arm_const.UC_ARM_REG_FPSID,
+                # NOTE: Unicorn defines MVFR0/MVFR1 IDs, but as of 2.1.4
+                # they aren't backed: they read 0 and ignore writes.
                 "mvfr0": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "mvfr1": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "d0": unicorn.arm_const.UC_ARM_REG_D0,
@@ -214,6 +344,8 @@ class ARMMachineMixinVFP:
                 "fpscr": unicorn.arm_const.UC_ARM_REG_FPSCR,
                 "fpexc": unicorn.arm_const.UC_ARM_REG_FPEXC,
                 "fpsid": unicorn.arm_const.UC_ARM_REG_FPSID,
+                # NOTE: Unicorn defines MVFR0/MVFR1 IDs, but as of 2.1.4
+                # they aren't backed: they read 0 and ignore writes.
                 "mvfr0": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "mvfr1": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "q0": unicorn.arm_const.UC_ARM_REG_Q0,
@@ -300,7 +432,9 @@ class ARMMachineMixinVFP:
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinBanked, ARMMachineDef):
+class ARMv5TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
     """Unicorn machine definition for ARMv5T little-endian"""
 
     arch = Architecture.ARM_V5T
@@ -328,7 +462,13 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7RMachineDef(ARMMachineMixinFP, ARMMachineMixinBanked, ARMMachineDef):
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     """Unicorn machine definition for ARMv7-R little-endian"""
 
     arch = Architecture.ARM_V7R
@@ -339,6 +479,9 @@ class ARMv7AMachineDef(
     ARMMachineMixinVFP,
     ARMMachineMixinVirtualization,
     ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):
