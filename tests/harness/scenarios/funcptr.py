@@ -7,8 +7,8 @@ NATIVE_PARITY = True
 _VARIANTS = (
     ("aarch64", None),
     ("amd64", None),
-    ("armel", None),
-    ("armhf.pcode", None),
+    ("armv6k", None),
+    ("armv7a.pcode", None),
     ("i386", None),
     ("la64.pcode", None),
     ("mips.pcode", None),

@@ -53,7 +53,7 @@ _SIMPLE_SPECS = {
         engine="panda",
         print_raw_value=True,
     ),
-    "armel": _FuzzSpec(
+    "armv5t": _FuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -61,7 +61,7 @@ _SIMPLE_SPECS = {
         exit_offset=84,
         engine="unicorn",
     ),
-    "armhf": _FuzzSpec(
+    "armv7a": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -120,7 +120,7 @@ _SIMPLE_SPECS = {
     # through the MPC860 core because the fuzz program's deliberate write to
     # 0x12345678 only faults on a restricted memory map; the default PPC405
     # core maps the full 4 GiB and the write would silently succeed.
-    "armhf.styx": _FuzzSpec(
+    "armv7a.styx": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -128,7 +128,7 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         engine="styx",
     ),
-    "armel.styx": _FuzzSpec(
+    "armv5t.styx": _FuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -165,7 +165,7 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
-    "armel": _FuzzSpec(
+    "armv5t": _FuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -174,15 +174,14 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
-    "armhf": _FuzzSpec(
+    "armv7a": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        exit_offset=84,
+        exit_offset=92,
         engine="unicorn",
         heap_size=0x4000,
-        binary_name="fuzz.armel.bin",
     ),
     "m68k": _FuzzSpec(
         platform=PlatformSpec("M68K", "BIG"),
@@ -229,13 +228,13 @@ SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
 
 NATIVE_PARITY = True
 
-_FUZZ_ARCHES = ("amd64", "aarch64", "armel", "armhf", "m68k", "mips", "mipsel", "ppc")
+_FUZZ_ARCHES = ("amd64", "aarch64", "armv5t", "armv7a", "m68k", "mips", "mipsel", "ppc")
 
 _AFL_EXPECTED = {
     "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
     "aarch64": ("002975:1", "022192:1", "039638:1", "050871:1"),
-    "armel": ("002975:1", "022192:1", "050871:1"),
-    "armhf": ("002975:1", "022192:1", "050871:1"),
+    "armv5t": ("002975:1", "022192:1", "050871:1"),
+    "armv7a": ("002975:1", "022192:1", "050871:1"),
     "m68k": ("021692:1", "022192:1", "059686:1"),
     "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
@@ -248,8 +247,8 @@ _AFL_EXPECTED = {
 # alternate emulator from common.make_emulator; the arch-only entries (e.g.
 # "ppc") default to the engine declared in the matching spec.
 _FUZZ_VARIANTS = tuple((arch, None) for arch in _FUZZ_ARCHES) + (
-    ("armhf.styx", None),
-    ("armel.styx", None),
+    ("armv7a.styx", None),
+    ("armv5t.styx", None),
     ("ppc.styx-mpc860", None),
 )
 
@@ -268,7 +267,7 @@ def _fuzz_run_factory(info, variant, kwargs):
         # by default (always faults; UC_ERR_WRITE_UNMAPPED on stderr); Styx
         # MPC860's firmware map also leaves 0x12345678 unmapped (the
         # EmulationError printed by _run_simple ends in "UnmappedMemoryWrite");
-        # Styx CycloneV (armhf/armel) maps it, so the store succeeds and there
+        # Styx CycloneV (armv7a/armv5t) maps it, so the store succeeds and there
         # is no crash to assert against.
         spec = _SIMPLE_SPECS[variant]
         if spec.engine == "unicorn":

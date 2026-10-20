@@ -1,4 +1,4 @@
-"""Standalone SmallWorld + AFL++ fuzz harness (Unicorn backend, armel target).
+"""Standalone SmallWorld + AFL++ fuzz harness (Unicorn backend, armv5t target).
 
 Run from this directory under AFL++::
 
@@ -14,7 +14,7 @@ import smallworld
 
 smallworld.logging.setup_logging(level=logging.INFO)
 
-# armel = 32-bit ARM, little-endian, V5T baseline.
+# armv5t = 32-bit ARM, little-endian, V5T baseline.
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.ARM_V5T,
     smallworld.platforms.Byteorder.LITTLE,
@@ -25,7 +25,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
 # Load the raw fuzz target at 0x1000.
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "fuzz.armel.bin", address=0x1000
+    "fuzz.armv5t.bin", address=0x1000
 )
 
 # Heap holds the 4-byte size field followed by the input buffer that vuln() reads.

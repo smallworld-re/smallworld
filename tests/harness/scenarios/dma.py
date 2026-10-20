@@ -34,8 +34,8 @@ class DMASpec:
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "m68k",
@@ -58,8 +58,8 @@ _ARCHS = (
 _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"result_register": "w0", "argument_registers": ("x0", "x1")},
     "amd64": {"argument_registers": ("rdi", "rsi")},
-    "armel": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
-    "armhf": {"argument_registers": ("r0", "r1")},
+    "armv5t": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
+    "armv7a": {"argument_registers": ("r0", "r1")},
     "i386": {"argument_registers": ("edi", "esi")},
     "la64": {"argument_registers": ("a0", "a1")},
     "m68k": {"argument_registers": ("d0", "d1")},
@@ -101,7 +101,7 @@ _SPECS = build_specs(
     # The MMIO register width always matches the pointer width for this scenario.
     field_aliases={"mmio_width": "pointer_size"},
     common={"mmio_address": 0x50014000},
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 
@@ -119,9 +119,9 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "armel.panda": "Waiting for panda-ng fix",
-            "armel.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
-            "armhf.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
+            "armv5t.panda": "Waiting for panda-ng fix",
+            "armv5t.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
+            "armv7a.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "ppc.styx": "styx PPC405 target lacks MMIO mapping at test addresses",
             "ppc.styx-mpc860": "styx MPC860 target lacks MMIO mapping at test addresses",
             "ppc64": "Unicorn ppc64 support buggy",

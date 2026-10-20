@@ -1,12 +1,12 @@
 # Known-failing PANDA tests
 
 The integration suite is manifest-driven: each case has an id of the form
-`scenario:variant` (for example `dma:armel.panda`), and the test runner selects
+`scenario:variant` (for example `dma:armv5t.panda`), and the test runner selects
 cases with `--filter`, not by `unittest` class/method names. To run a single
 case from the project dev shell:
 
 ```
-nix develop . -c python3 tests/integration.py --filter 'dma:armel.panda'
+nix develop . -c python3 tests/integration.py --filter 'dma:armv5t.panda'
 ```
 
 Use `python3 tests/integration.py --list` to see every case and its current
@@ -17,7 +17,7 @@ recorded as skips in the corresponding manifest
 (`tests/harness/scenarios/<scenario>.py`). The skip reason shown by `--list`
 is quoted for each.
 
-## `dma:armel.panda` — "Waiting for panda-ng fix"
+## `dma:armv5t.panda` — "Waiting for panda-ng fix"
 
 Qemu thrashes with many prefetch exception errors. This is likely an issue with
 panda-ng but the exact cause has not been determined to fix.
@@ -48,7 +48,7 @@ Taking exception 3 [Prefetch Abort] on CPU 0
 
 ## `memhook:i386.panda` — "Waiting for panda-ng"
 
-Blocked on the same outstanding panda-ng fix as `dma:armel.panda`.
+Blocked on the same outstanding panda-ng fix as `dma:armv5t.panda`.
 
 ## `memhook:mips64.panda` / `memhook:mips64el.panda` — "Panda failure"
 
@@ -67,8 +67,8 @@ These variants used to fail and are now expected to pass (their manifest skip
 reason is `None`), but the underlying notes are kept here for context.
 
 - `memhook:aarch64.panda`: previously thrashed with prefetch exception errors,
-  similar to `dma:armel.panda`.
-- `memhook:armhf.panda`: this test issues an 8-byte read for an address that is
+  similar to `dma:armv5t.panda`.
+- `memhook:armv7a.panda`: this test issues an 8-byte read for an address that is
   only 4-byte aligned. The processor manuals state that this may not be atomic,
   as though two 4-byte reads were issued for the two 4-byte-aligned halves.
   Older versions of qemu happened to actually issue two 4-byte reads, and the

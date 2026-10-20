@@ -60,7 +60,7 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
-    "armel": ExitpointSpec(
+    "armv6k": ExitpointSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -70,7 +70,7 @@ _SPECS = {
         mid_exit_offset=24,
         link_register="lr",
     ),
-    "armhf": ExitpointSpec(
+    "armv7a": ExitpointSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -232,8 +232,8 @@ _SPECS = enroll_triton(_SPECS)
 _SKIP_REASONS = {
     "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
-    "armel.panda": "Waiting for panda-ng",
-    "armhf.panda": "Waiting for panda-ng",
+    "armv6k.panda": "Waiting for panda-ng",
+    "armv7a.panda": "Waiting for panda-ng",
     "i386.panda": "Waiting for panda-ng",
     "mips.panda": "Waiting for panda-ng",
     "mips64.panda": "Waiting for panda-ng",

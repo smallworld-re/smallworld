@@ -337,7 +337,7 @@ picks an entry point, patches the single arithmetic instruction in place, and
 lets the guest walk an array. The contract has the same *shape* everywhere - an
 input cursor, an output cursor and a case count - but each architecture names its
 own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
-on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
+on SuperH, ``r0``/``r1``/``r2`` on armv7a, ``x0``/``x1``/``x2`` on aarch64,
 ``esi``/``edi``/``ecx`` on i386 and ``rdi``/``rsi``/``rdx`` on amd64. On SuperH
 ``r7`` additionally carries the FPSCR value that the kernel installs with
 ``lds`` - a direct register write would leave the split ``FPSCR_PR`` stale, as
@@ -395,10 +395,10 @@ Every skip is an upstream defect, reduced to a minimal case first:
   and passes all five single-precision functions - so the defect is in Ghidra's
   float evaluation and is not specific to SuperH. Double precision is
   unaffected. It reproduces on **three** unrelated instruction sets, which is
-  what settles the attribution: SuperH ``fmul``, armhf ``vmul.f32`` and amd64
+  what settles the attribution: SuperH ``fmul``, armv7a ``vmul.f32`` and amd64
   ``mulss`` all return signed zero for the same operands, so ``amd64`` and
-  ``armhf`` carry the same two per-function skips as SuperH.
-- **armhf square root** is skipped under ``angr``. ARM's ``vsqrt.f32`` and
+  ``armv7a`` carry the same two per-function skips as SuperH.
+- **armv7a square root** is skipped under ``angr``. ARM's ``vsqrt.f32`` and
   ``vsqrt.f64`` lower to VEX's *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and
   angr implements neither, so the run raises
   ``UnsupportedIROpError``. This is specific to the scalar opcodes rather than

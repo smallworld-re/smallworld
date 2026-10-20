@@ -35,6 +35,18 @@ EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
 
+_ARM32_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V5T,
+        Architecture.ARM_V6K,
+        Architecture.ARM_V6M,
+        Architecture.ARM_V6M_THUMB,
+        Architecture.ARM_V7M,
+        Architecture.ARM_V7R,
+        Architecture.ARM_V7A,
+    }
+)
+
 # SuperH-specific flag values.
 #
 # EM_SH covers every SuperH generation, and they are not binary compatible with
@@ -340,6 +352,13 @@ class ElfExecutable(Executable):
             elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
                 # This is ARMv7a, as built by gcc.
                 architecture = Architecture.ARM_V7A
+            elif (
+                self.platform is not None
+                and self.platform.architecture in _ARM32_ARCHITECTURES
+            ):
+                # The file might be a core dump, which carries no ABI flags;
+                # an explicitly requested ARM32 platform wins.
+                architecture = self.platform.architecture
             else:
                 # The file might be a core dump or some uncommon flavor of ARM.
                 # Fallback to a default if flags are missing.

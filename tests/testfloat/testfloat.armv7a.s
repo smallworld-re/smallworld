@@ -1,4 +1,4 @@
-    @ Berkeley TestFloat kernels for ARMv7-A with VFPv3 (armhf, hard-float).
+    @ Berkeley TestFloat kernels for ARMv7-A with VFPv3 (armv7a, hard-float).
     @
     @ Four loops, one per (precision, arity), each at a fixed offset so the
     @ harness can pick an entry point without parsing the binary.  The
@@ -19,7 +19,7 @@
     @
     @ 1. FPEXC.EN (bit 30) gates the whole VFP unit, and Unicorn comes out of
     @    reset with it clear - with it clear *every* VFP instruction, loads and
-    @    register moves included, aborts as UC_ERR_INSN_INVALID.  Real armhf
+    @    register moves included, aborts as UC_ERR_INSN_INVALID.  Real armv7a
     @    userland never notices because the kernel enables VFP before the first
     @    user instruction, so the guest code has to do it here.  FPEXC cannot be
     @    seeded from the harness instead: angr is VEX-backed and archinfo's

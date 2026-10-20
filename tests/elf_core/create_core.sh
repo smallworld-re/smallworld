@@ -15,11 +15,8 @@ if [ "$platform" = "aarch64" ]; then
 elif [ "$platform" = "amd64" ]; then
     sysroot=$AMD64_SYSROOT
     qemu_bin="qemu-x86_64"
-elif [ "$platform" = "armel" ]; then
+elif [ "$platform" = "armv6k" ] || [ "$platform" = "armv7a" ]; then
     echo "FIXME: No sysroot for arm32 in Nix"
-    exit 0
-elif [ "$platform" = "armhf" ]; then
-    echo "FIXME: no sysroot for arm32 in nix"
     exit 0
 elif [ "$platform" = "i386" ]; then
     echo "FIXME: no sysroot for i386 in nix"

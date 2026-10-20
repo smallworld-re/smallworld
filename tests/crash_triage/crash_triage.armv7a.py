@@ -205,7 +205,7 @@ good &= run_test(
     mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
 )
 
-# NOTE: armhf doesn't trap on div0.
+# NOTE: armv7a doesn't trap on div0.
 # It reports a result of zero.
 #
 # good &= run_test(

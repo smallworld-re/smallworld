@@ -7,13 +7,10 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
-# NOTE: Core dumps resolve as arm v7a.  Sorry.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6K, smallworld.platforms.Byteorder.LITTLE
 )
-coreplatform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
-)
+coreplatform = platform
 
 # Create a machine
 machine = smallworld.state.Machine()
@@ -28,7 +25,7 @@ filename = (
     filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".triton", "")
 )
 filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
@@ -64,5 +61,7 @@ machine.add(puts)
 machine.add_exit_point(cpu.pc.get() + 0x14)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
-machine.emulate(emulator)
+emulator = smallworld.emulators.TritonEmulator(platform)
+# Extracting the full machine state is slow and unnecessary here
+machine.apply(emulator)
+emulator.run()

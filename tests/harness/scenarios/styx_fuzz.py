@@ -9,7 +9,7 @@ Provides two scenario names:
   unified entry point auto-detects ``StyxEmulator`` and routes through
   ``styxafl``). Mirrors ``fuzz.afl_fuzz`` but uses the Styx backend.
 
-Scope: 32-bit ARM only (``armhf``, ``armel``) — Styx has no 64-bit ARM target.
+Scope: 32-bit ARM only (``armv7a``, ``armv5t``) — Styx has no 64-bit ARM target.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class _StyxFuzzSpec:
 
 
 _SIMPLE_SPECS = {
-    "armhf": _StyxFuzzSpec(
+    "armv7a": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -51,31 +51,31 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         heap_size=0x1000,
     ),
-    "armel": _StyxFuzzSpec(
+    "armv5t": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        exit_offset=92,
+        exit_offset=84,
         heap_size=0x1000,
     ),
 }
 
 
 _AFL_SPECS = {
-    "armhf": _StyxFuzzSpec(
+    "armv7a": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
         exit_offset=92,
     ),
-    "armel": _StyxFuzzSpec(
+    "armv5t": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        exit_offset=92,
+        exit_offset=84,
     ),
 }
 

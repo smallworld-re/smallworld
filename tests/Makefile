@@ -19,8 +19,14 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 AARCH64_ID := aarch64-linux-gnu.2.40
 AMD64_ID := x86_64-linux-gnu.2.40
 AMD64_MINGW_ID := x86_64-windows-gnu.2.40
-ARMEL_ID := arm-linux-gnueabi.2.40
-ARMHF_ID := arm-linux-gnueabihf.2.40
+# 32-bit ARM is named by platform ID. The float ABI is implied by the
+# platform: armv5t and armv6k are soft-float (gnueabi), armv7a and armv7r
+# hard-float (gnueabihf). Each is pinned to a CPU via its ASFLAGS/CFLAGS,
+# since zig otherwise targets ARMv7-A.
+ARMV5T_ID := arm-linux-gnueabi.2.40
+ARMV6K_ID := arm-linux-gnueabi.2.40
+ARMV7A_ID := arm-linux-gnueabihf.2.40
+ARMV7R_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
 LA64_ID := loongarch64-linux-gnu.2.40
@@ -44,8 +50,10 @@ XTENSA_ID := xtensa-lx106-elf
 
 AARCH64_ASM_AS := zig build-exe -target $(AARCH64_ID) 
 AMD64_ASM_AS := ./nasm_wrapper.sh
-ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
-ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
+ARMV5T_ASM_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
+ARMV7A_ASM_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7R_ASM_AS := zig build-exe -target $(ARMV7R_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
@@ -68,8 +76,10 @@ XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
 AARCH64_ELF_AS := zig build-exe -target $(AARCH64_ID) 
 AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
-ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
-ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
+ARMV5T_ELF_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
+ARMV7A_ELF_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
@@ -93,8 +103,10 @@ XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 AARCH64_OBJCOPY := zig objcopy
 # NASM doesn't produce a .o; we can skip this
 AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
-ARMEL_OBJCOPY := zig objcopy
-ARMHF_OBJCOPY := zig objcopy
+ARMV5T_OBJCOPY := zig objcopy
+ARMV6K_OBJCOPY := zig objcopy
+ARMV7A_OBJCOPY := zig objcopy
+ARMV7R_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
@@ -118,8 +130,8 @@ XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 AARCH64_CC := zig cc -target $(AARCH64_ID) 
 AMD64_CC := zig cc -target $(AMD64_ID)  
 AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
-ARMEL_CC := zig cc -target $(ARMEL_ID)
-ARMHF_CC := zig cc -target $(ARMHF_ID) 
+ARMV6K_CC := zig cc -target $(ARMV6K_ID)
+ARMV7A_CC := zig cc -target $(ARMV7A_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
 LA64_CC := zig cc -target $(LA64_ID) 
@@ -141,6 +153,12 @@ XTENSA_CC := $(XTENSA_ID)-gcc
 # *************************
 
 GENERAL_ASFLAGS := $(ASFLAGS)
+# ARM CPUs: ARMv5T matches Panda's ARM926; ARMv7-A matches the Cortex-A9 that
+# Panda and Styx use, a subset of Unicorn's Cortex-A15.
+ARMV5T_ASFLAGS := -mcpu=arm926ej_s
+ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
+ARMV7A_ASFLAGS := -mcpu=cortex_a9
+ARMV7R_ASFLAGS := -mcpu=cortex_r5
 MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
 MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
 XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
@@ -158,8 +176,8 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 
 # C flags
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
-ARMEL_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
-ARMHF_CFLAGS := -marm
+ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
+ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
@@ -170,7 +188,7 @@ PPC_CFLAGS := -mfloat-abi=hard
 # ELF Executable C flags
 AARCH64_ELF_CFLAGS := -pie
 AMD64_ELF_CFLAGS := -pie
-ARMHF_ELF_CFLAGS := -pie
+ARMV7A_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
@@ -188,8 +206,10 @@ M68K_ELF_LDLIBS := -lm
 AARCH64_EXT := aarch64
 AMD64_EXT := amd64
 AMD64_MINGW_EXT := amd64
-ARMEL_EXT := armel
-ARMHF_EXT := armhf
+ARMV5T_EXT := armv5t
+ARMV6K_EXT := armv6k
+ARMV7A_EXT := armv7a
+ARMV7R_EXT := armv7r
 I386_EXT := i386
 I386_MINGW_EXT := i386
 LA64_EXT := la64
@@ -212,8 +232,10 @@ XTENSA_EXT := xtensa
 # Arch-specific source extensions
 AARCH64_SRC_EXT := $(AARCH64_EXT)
 AMD64_SRC_EXT := $(AMD64_EXT)
-ARMEL_SRC_EXT := $(ARMEL_EXT)
-ARMHF_SRC_EXT := $(ARMHF_EXT)
+ARMV5T_SRC_EXT := $(ARMV5T_EXT)
+ARMV6K_SRC_EXT := $(ARMV6K_EXT)
+ARMV7A_SRC_EXT := $(ARMV7A_EXT)
+ARMV7R_SRC_EXT := $(ARMV7R_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
 M68K_SRC_EXT := $(M68K_EXT)
@@ -378,13 +400,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV7A ARMV7R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV7A ARMV7R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

@@ -12,8 +12,8 @@ NATIVE_PARITY = True
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "m68k",
@@ -40,7 +40,7 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
     per_arch={"la64": {"result_register": "v0"}},
 )

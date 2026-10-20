@@ -45,12 +45,12 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
-    "armel": UnmappedSpec(
+    "armv6k": UnmappedSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
     ),
-    "armhf": UnmappedSpec(
+    "armv7a": UnmappedSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),

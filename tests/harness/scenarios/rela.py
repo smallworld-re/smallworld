@@ -51,7 +51,7 @@ _SPECS = {
         string_source=StringSource(register="rdi"),
         load_address=0x400000,
     ),
-    "armel": RelaSpec(
+    "armv6k": RelaSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
@@ -60,7 +60,7 @@ _SPECS = {
         string_source=StringSource(register="r0"),
         print_entrypoint=True,
     ),
-    "armhf": RelaSpec(
+    "armv7a": RelaSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
@@ -235,7 +235,7 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         stack.push_integer(0, 4, None)
     elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch == "armhf" and engine == "panda":
+    elif arch == "armv7a" and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
     return stack
@@ -244,7 +244,7 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
 def _configure_exit(
     machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int
 ) -> None:
-    if arch == "armhf" and engine == "panda":
+    if arch == "armv7a" and engine == "panda":
         emulator.add_exit_point(entrypoint + 40)
         return
     if arch == "ppc" and engine == "panda":
@@ -258,7 +258,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 8, None)
     elif arch in {"i386", "m68k"}:
         stack.push_integer(exitpoint, 4, None)
-    elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
+    elif arch in {"aarch64", "armv6k", "armv7a", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
     elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)

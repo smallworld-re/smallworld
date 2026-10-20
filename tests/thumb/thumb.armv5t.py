@@ -29,7 +29,6 @@ def is_cpu_register_order_bad(cpu):
 
 for arch in [
     smallworld.platforms.Architecture.ARM_V5T,
-    smallworld.platforms.Architecture.ARM_V6K,
 ]:
     # harness definition
     platform = smallworld.platforms.Platform(
@@ -42,7 +41,7 @@ for arch in [
         # reroll until we get a CPU instance where when we iterate over registers, we get CPSR before PC
         cpu = smallworld.state.cpus.CPU.for_platform(platform)
     code = smallworld.state.memory.code.Executable.from_filepath(
-        "thumb/thumb.armel.bin", address=0x1000
+        "thumb/thumb.armv5t.bin", address=0x1000
     )
     machine.add(cpu)
     machine.add(code)

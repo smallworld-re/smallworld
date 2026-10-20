@@ -12,8 +12,8 @@ def _skip(arch: str) -> str:
 _VARIANTS = (
     ("aarch64", _skip("aarch64")),
     ("amd64", None),
-    ("armel", _skip("armel")),
-    ("armhf", _skip("armhf")),
+    ("armv6k", _skip("armv6k")),
+    ("armv7a", _skip("armv7a")),
     ("i386", _skip("i386")),
     ("la64", _skip("la64")),
     ("m68k", _skip("m68k")),

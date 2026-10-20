@@ -59,7 +59,7 @@ _SPECS = {
         argument_registers=("rdi", "rsi"),
         add_zero_exitpoint=True,
     ),
-    "armel": LinkElfSpec(
+    "armv6k": LinkElfSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
@@ -70,7 +70,7 @@ _SPECS = {
         argument_registers=("r0", "r1"),
         add_zero_exitpoint=True,
     ),
-    "armhf": LinkElfSpec(
+    "armv7a": LinkElfSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
@@ -278,7 +278,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     elif arch in {"i386", "m68k"}:
         stack.push_integer(exitpoint, 4, None)
         machine.add_exit_point(exitpoint)
-    elif arch in {"aarch64", "armel", "armhf", "ppc"}:
+    elif arch in {"aarch64", "armv6k", "armv7a", "ppc"}:
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
     elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:

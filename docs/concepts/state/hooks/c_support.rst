@@ -24,7 +24,7 @@ SmallWorld currently provides basic C calling convention definitions for the fol
 - System V
     - aarch64
     - amd64
-    - armel (arm v5t)
+    - armel (arm v6k)
     - armhf (arm v7a)
     - i386
     - mips

@@ -8,8 +8,10 @@ NATIVE_PARITY = True
 
 _VARIANT_ARCH_NAMES = {
     # M-profile is Thumb-only, so it can't run this ARM/Thumb interworking test.
-    "armhf": ("ARM_V7A", "ARM_V7R"),
-    "armel": ("ARM_V5T", "ARM_V6K"),
+    "armv5t": ("ARM_V5T",),
+    "armv6k": ("ARM_V6K",),
+    "armv7a": ("ARM_V7A",),
+    "armv7r": ("ARM_V7R",),
 }
 
 _VARIANTS = tuple((variant, None) for variant in _VARIANT_ARCH_NAMES)

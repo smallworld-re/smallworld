@@ -7,13 +7,10 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
-# NOTE: Core dumps resolve as arm v7a.  Sorry.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6K, smallworld.platforms.Byteorder.LITTLE
 )
-coreplatform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
-)
+coreplatform = platform
 
 # Create a machine
 machine = smallworld.state.Machine()

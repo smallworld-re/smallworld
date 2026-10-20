@@ -11,8 +11,8 @@ NATIVE_PARITY = True
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "m68k",
@@ -47,8 +47,8 @@ def _stack(arch: str, **overrides: Any) -> StackSpec:
 _STACKS = {
     "aarch64": _stack("aarch64"),
     "amd64": _stack("amd64"),
-    "armel": _stack("armel"),
-    "armhf": _stack("armhf"),
+    "armv5t": _stack("armv5t"),
+    "armv7a": _stack("armv7a"),
     "i386": _stack("i386", argument_size=4, pointer_adjust=4),
     "la64": _stack("la64"),
     "m68k": _stack("m68k"),
@@ -81,7 +81,7 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 

@@ -93,14 +93,14 @@ _SPECS = {
         output_registers=("rax", "rcx", "rdx", "r8"),
         word_size=8,
     ),
-    "armel": TaintSpec(
+    "armv5t": TaintSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         input_registers=("r0", "r1"),
         output_registers=("r2", "r3", "r4", "r6"),
         word_size=4,
     ),
-    "armhf": TaintSpec(
+    "armv7a": TaintSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         input_registers=("r0", "r1"),

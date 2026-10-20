@@ -11,8 +11,8 @@ NATIVE_PARITY = True
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "m68k",
@@ -40,7 +40,7 @@ _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
     common={"print_mode": "register"},
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     # branch prints the 32-bit view on aarch64 so the boolean fits.
     per_arch={"aarch64": {"result_register": "w0"}},
 )

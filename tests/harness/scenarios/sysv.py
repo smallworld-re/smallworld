@@ -9,8 +9,8 @@ _VARIANTS = tuple(
     for arch in (
         "aarch64",
         "amd64",
-        "armel",
-        "armhf",
+        "armv6k",
+        "armv7a",
         "i386",
         "la64",
         "m68k",

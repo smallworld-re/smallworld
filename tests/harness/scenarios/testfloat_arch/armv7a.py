@@ -1,4 +1,4 @@
-"""ARMv7-A (armhf) guest kernels and encoding tables for the testfloat scenario.
+"""ARMv7-A (armv7a) guest kernels and encoding tables for the testfloat scenario.
 
 VFP data-processing instructions are one 32-bit A32 word shaped
 ``cccc 1110 opc1 Vn Vd 101 sz N opc4 M 0 Vm``: the operation lives in bits 23:20
@@ -52,7 +52,7 @@ FPSCR_INIT = 0x00000000
 
 # op -> (patch bytes in memory order, the disassembly they must produce).
 #
-# armhf is little-endian, so these are byte-reversed relative to how the ARM ARM
+# armv7a is little-endian, so these are byte-reversed relative to how the ARM ARM
 # spells the words (`vadd.f32 s0,s0,s1` is 0xEE300A20, stored 20 0A 30 EE).
 # `base.encode_patch` is deliberately not used: it reverses big-endian-spelled
 # tables, which would turn every word here back into garbage.
@@ -119,7 +119,7 @@ KERNELS: Dict[str, Kernel] = {
 _SETUP = {"r3": FPSCR_INIT}
 
 SPECS: Dict[str, TestFloatSpec] = {
-    "armhf": TestFloatSpec(
+    "armv7a": TestFloatSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         engines=("unicorn", "angr", "pcode", "panda", "styx"),
         in_register="r0",
@@ -132,7 +132,7 @@ SPECS: Dict[str, TestFloatSpec] = {
 
 
 def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
-    # Reproduces on armhf exactly as it does on SuperH and amd64, which is the
+    # Reproduces on armv7a exactly as it does on SuperH and amd64, which is the
     # point: `vmul.f32`/`vdiv.f32` return +-0 where the reference is the least
     # positive subnormal, so the defect is in Ghidra's float evaluation rather
     # than in any one processor spec. Double precision and add/sub/sqrt are
@@ -163,7 +163,7 @@ def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
 # `-M configurable` machine sets up no FP unit on either architecture. It also
 # matches what the project already documents - `float_support.csv` records
 # `arm-v7 double scalar` as No for panda, and the `floats` scenario never
-# registered an `armhf.panda` variant at all. `testfloat` was the outlier.
+# registered an `armv7a.panda` variant at all. `testfloat` was the outlier.
 _PANDA_NO_VFP = (
     "PANDA's ARM CPU starts with the VFP unit inaccessible, so every "
     "floating-point instruction raises EXCP_UDEF (exception 1); enabling it "
@@ -173,7 +173,7 @@ _PANDA_NO_VFP = (
 
 SUPPORT = ArchSupport(
     specs=SPECS,
-    variant_skips={"armhf.panda": _PANDA_NO_VFP},
+    variant_skips={"armv7a.panda": _PANDA_NO_VFP},
     function_skip=function_skip,
 )
 

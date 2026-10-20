@@ -7,9 +7,10 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
-# NOTE: The core dump doesn't include the ABI flags.
+# NOTE: The core dump doesn't include the ABI flags,
+# so the platform must be given explicitly.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6K, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine

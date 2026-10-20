@@ -19,8 +19,8 @@ NATIVE_PARITY = True
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "m68k",
     "mips",
@@ -65,8 +65,8 @@ _SPECS = build_specs(
     engines={
         "aarch64": _ENGINES_UNICORN_PANDA,
         "amd64": _ENGINES_UNICORN_PANDA,
-        "armel": _ENGINES_UNICORN_PANDA,
-        "armhf": _ENGINES_UNICORN_PANDA,
+        "armv5t": _ENGINES_UNICORN_PANDA,
+        "armv7a": _ENGINES_UNICORN_PANDA,
         "i386": _ENGINES_UNICORN_PANDA,
         "m68k": ("unicorn",),
         "mips": _ENGINES_UNICORN_PANDA,

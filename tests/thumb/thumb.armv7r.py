@@ -30,7 +30,6 @@ def is_cpu_register_order_bad(cpu):
 # M-profile (e.g. ARM_V7M) is Thumb-only, so it can't run this ARM/Thumb
 # interworking test.
 for arch in [
-    smallworld.platforms.Architecture.ARM_V7A,
     smallworld.platforms.Architecture.ARM_V7R,
 ]:
     # harness definition
@@ -44,7 +43,7 @@ for arch in [
         # reroll until we get a CPU instance where when we iterate over registers, we get CPSR before PC
         cpu = smallworld.state.cpus.CPU.for_platform(platform)
     code = smallworld.state.memory.code.Executable.from_filepath(
-        "thumb/thumb.armhf.bin", address=0x1000
+        "thumb/thumb.armv7r.bin", address=0x1000
     )
     machine.add(cpu)
     machine.add(code)

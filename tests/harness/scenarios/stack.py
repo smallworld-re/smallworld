@@ -60,7 +60,7 @@ _SPECS = {
         stack_arguments=((0x44444444, 8), (0xFFFFFFFF, 8)),
         stack_pointer_register="rsp",
     ),
-    "armel": StackCaseSpec(
+    "armv5t": StackCaseSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -73,7 +73,7 @@ _SPECS = {
         ),
         stack_arguments=((0x44444444, 4), (0x01010101, 4), (0x33333333, 4)),
     ),
-    "armhf": StackCaseSpec(
+    "armv7a": StackCaseSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",

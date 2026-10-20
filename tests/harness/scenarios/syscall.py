@@ -8,8 +8,8 @@ NATIVE_PARITY = True
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "mips",

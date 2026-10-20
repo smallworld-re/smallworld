@@ -49,8 +49,8 @@ def _fake_return(arch: str, label: str = "fake return address") -> StackItem:
 _ARCHS = (
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv7a",
     "i386",
     "la64",
     "m68k",
@@ -68,8 +68,8 @@ _ARCHS = (
 _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"stack_items": (_fake_return("aarch64"),), "stack_pointer_adjust": 8},
     "amd64": {"stack_items": (_fake_return("amd64"),)},
-    "armel": {"stack_items": (_fake_return("armel"),)},
-    "armhf": {"stack_items": (_fake_return("armhf"),)},
+    "armv5t": {"stack_items": (_fake_return("armv5t"),)},
+    "armv7a": {"stack_items": (_fake_return("armv7a"),)},
     # i386 and m68k pass the argument on the stack rather than in a register.
     "i386": {
         "arg_register": None,
@@ -109,7 +109,7 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RecursionSpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 

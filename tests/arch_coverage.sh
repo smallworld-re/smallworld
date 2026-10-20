@@ -15,8 +15,10 @@ from harness.manifest import all_cases
 preferred_arches = [
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv6k",
+    "armv7a",
+    "armv7r",
     "i386",
     "la64",
     "m68k",

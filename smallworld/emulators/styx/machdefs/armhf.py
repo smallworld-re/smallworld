@@ -1,9 +1,9 @@
 """Styx machine definition for hard-float ARM (`Architecture.ARM_V7A`).
 
 Styx exposes a 32-bit Cortex-A9 firmware target (`CycloneV`) which supports
-both ARM and Thumb modes, matching armhf semantics. Cortex-M targets like
+both ARM and Thumb modes, matching ARMv7-A. Cortex-M targets like
 Kinetis21 only support Thumb-2 and would fail to decode ARM32 instructions
-that armhf test binaries use, so we route armhf through CycloneV.
+that the armv7a test binaries use, so we route ARMv7-A through CycloneV.
 """
 
 from styx_emulator.arch.arm import ArmRegister

@@ -6,7 +6,7 @@ NATIVE_PARITY = True
 
 _VARIANTS = tuple(
     (arch, None)
-    for arch in ("aarch64", "amd64", "armel", "armhf", "i386", "mips", "mipsel")
+    for arch in ("aarch64", "amd64", "armv6k", "armv7a", "i386", "mips", "mipsel")
 )
 
 SCENARIO_INFO = ScenarioInfo(

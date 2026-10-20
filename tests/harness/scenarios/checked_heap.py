@@ -16,8 +16,8 @@ from .spec import ScenarioInfo, VariantInfo, just_run
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
     "amd64": PlatformSpec("X86_64", "LITTLE"),
-    "armel": PlatformSpec("ARM_V6K", "LITTLE"),
-    "armhf": PlatformSpec("ARM_V7A", "LITTLE"),
+    "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
+    "armv7a": PlatformSpec("ARM_V7A", "LITTLE"),
     "i386": PlatformSpec("X86_32", "LITTLE"),
     "mips": PlatformSpec("MIPS32", "BIG"),
     "mips64": PlatformSpec("MIPS64", "BIG"),
@@ -27,7 +27,7 @@ _ARCH_SPECS = {
     "riscv64": PlatformSpec("RISCV64", "LITTLE"),
 }
 
-_NO_FIXED_LOAD_ADDRESS = {"armel", "mips", "mips64", "mips64el", "mipsel", "ppc"}
+_NO_FIXED_LOAD_ADDRESS = {"armv6k", "mips", "mips64", "mips64el", "mipsel", "ppc"}
 _NEEDS_T9 = {"mips", "mips64", "mips64el", "mipsel"}
 _EXPECTED_ERRORS = {
     "read": ("Access uninitialized bytes at ", None),

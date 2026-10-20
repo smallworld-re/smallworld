@@ -3536,12 +3536,12 @@ class StyxFuzzScenarioTests(unittest.TestCase):
                                 [
                                     "run_case.py",
                                     "styx.afl_fuzz",
-                                    "armhf",
+                                    "armv7a",
                                     "@@",
                                 ],
                             ):
                                 result = styx_fuzz_scenario.run_case(
-                                    "styx.afl_fuzz", "armhf", [seed_path]
+                                    "styx.afl_fuzz", "armv7a", [seed_path]
                                 )
 
         self.assertEqual(result, 0)
@@ -6249,6 +6249,37 @@ class ElfIgnorePlatformTests(unittest.TestCase):
                 f, platform=None, ignore_platform=True, user_base=0x100000
             )
         self.assertIsNone(elf.platform)
+
+
+class ElfArmFlaglessPlatformTests(unittest.TestCase):
+    """An ARM ELF with no ABI flags, like a core dump, must honor an
+    explicitly requested ARM32 platform instead of forcing ARM_V7A."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "elf",
+        "elf.armv6k.elf",
+    )
+
+    def _flagless(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make armv6k` in tests/)")
+        with open(self.ELF, "rb") as f:
+            image = bytearray(f.read())
+        # e_flags is at offset 0x24 in an ELF32 header.
+        image[0x24:0x28] = b"\0\0\0\0"
+        return io.BytesIO(bytes(image))
+
+    def test_requested_arm32_platform_wins(self):
+        plat = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+        )
+        elf = ElfExecutable(self._flagless(), platform=plat)
+        self.assertEqual(elf.platform, plat)
+
+    def test_unrequested_falls_back_to_v7a(self):
+        elf = ElfExecutable(self._flagless())
+        self.assertEqual(elf.platform.architecture, platforms.Architecture.ARM_V7A)
 
 
 class ElfPickleCompatibilityTests(unittest.TestCase):

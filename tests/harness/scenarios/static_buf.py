@@ -54,7 +54,7 @@ _SPECS = {
         stack_pointer_register="rsp",
         model_code_offset=0x2800,
     ),
-    "armel": StaticBufferSpec(
+    "armv5t": StaticBufferSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -64,7 +64,7 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
-    "armhf": StaticBufferSpec(
+    "armv7a": StaticBufferSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -270,8 +270,8 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
             "ppc64": "Unicorn ppc64 support buggy",
-            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
-            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv5t.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv7a.styx": "styx function-hook semantics don't satisfy this scenario yet",
             **_SH4_BSR_SKIPS,
         },
     ),
