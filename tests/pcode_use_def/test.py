@@ -868,21 +868,30 @@ class SegmentAddressTests(unittest.TestCase):
         self.assertIsNone(BSIDMemoryReferenceOperand.from_json(legacy).segment)
 
 
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class ThumbUseDefBackendTests(unittest.TestCase):
-    """Thumb must not go through p-code. Needs no pyghidra: the refusal
-    happens before the backend is reached."""
+    """M-profile platforms use Ghidra's Thumb-only Cortex language, so their
+    Thumb goes through p-code. Under the ARM-mode v6/v7 languages these
+    bytes decoded as an unrelated ARM instruction."""
 
-    def test_thumb_falls_back_to_capstone(self):
+    def test_m_profile_thumb_uses_pcode(self):
         from smallworld.instructions import Instruction, RegisterOperand
         from smallworld.platforms import Architecture, Byteorder, Platform
 
-        platform = Platform(Architecture.ARM_V6M_THUMB, Byteorder.LITTLE)
-        insn = Instruction.from_bytes(
-            b"\x08\x46", 0x1000, platform, use_def_backend="pcode"
-        )  # Thumb `mov r0, r1`; as ARM these bytes are andeq r0,r0,r6,lsl #16
-        self.assertFalse(insn._use_pcode())
-        self.assertEqual(insn.reads, {RegisterOperand("r1")})
-        self.assertEqual(insn.writes, {RegisterOperand("r0")})
+        for arch in (
+            Architecture.ARM_V6M,
+            Architecture.ARM_V6M_THUMB,
+            Architecture.ARM_V7M,
+        ):
+            with self.subTest(arch=arch):
+                platform = Platform(arch, Byteorder.LITTLE)
+                # Thumb `mov r0, r1`; as ARM these bytes are andeq r0,r0,r6,lsl #16
+                insn = Instruction.from_bytes(
+                    b"\x08\x46", 0x1000, platform, use_def_backend="pcode"
+                )
+                self.assertTrue(insn._use_pcode())
+                self.assertEqual(insn.reads, {RegisterOperand("r1")})
+                self.assertEqual(insn.writes, {RegisterOperand("r0")})
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")

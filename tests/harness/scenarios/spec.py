@@ -34,6 +34,15 @@ class ScenarioInfo:
     description_factory: DescriptionFactory | None = None
 
 
+#: Skip reasons applied to every arch-table variant unless a scenario gives
+#: its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
+#: their Thumb-only code yet.
+_DEFAULT_SKIP_REASONS = {
+    f"{arch}.panda": "PANDA has no M-profile (Cortex-M) machine configured"
+    for arch in ("armv6m", "armv7m")
+}
+
+
 def from_arch_table(
     specs: Mapping[str, Any],
     *,
@@ -52,7 +61,7 @@ def from_arch_table(
     the standard enumeration (e.g. a hand-rolled spec override).
     """
 
-    skips = dict(skip_reasons or {})
+    skips = {**_DEFAULT_SKIP_REASONS, **(skip_reasons or {})}
     arch_kw = {arch: dict(kw) for arch, kw in (arch_kwargs or {}).items()}
 
     def _impl() -> Sequence[VariantInfo]:

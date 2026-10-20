@@ -80,16 +80,19 @@ class TritonARMv6KMachineDef(TritonARMMachineDef):
 class TritonARMv6MMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V6M
     _registers = _V6M_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True
 
 
 class TritonARMv6MThumbMachineDef(TritonARMv6MMachineDef):
     arch = Architecture.ARM_V6M_THUMB
-    is_thumb = True
 
 
 class TritonARMv7MMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V7M
     _registers = _V7M_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True
 
 
 class TritonARMv7RMachineDef(TritonARMMachineDef):

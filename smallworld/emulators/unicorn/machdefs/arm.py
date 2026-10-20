@@ -42,8 +42,21 @@ class ARMMachineDef(UnicornMachineDef):
         }
 
 
+# QEMU's ARM prefetch (instruction) abort exception index (target/arm cpu.h
+# EXCP_PREFETCH_ABORT).
+_ARM_EXCP_PREFETCH_ABORT = 3
+
+
 class ARMMachineMixinM:
     """Mixin for ARM M-series machine models"""
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _ARM_EXCP_PREFETCH_ABORT:
+            # A Cortex-M3 reports an instruction fetch from unmapped memory as
+            # a prefetch abort rather than as a fetch error.
+            raise unicorn.UcError(unicorn.UC_ERR_FETCH_UNMAPPED)
+        # The machine def this mixes into provides the default.
+        super().handle_interrupt(intno, pc)  # type: ignore[misc]
 
     def __init__(self):
         super().__init__()
@@ -516,6 +529,8 @@ class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
     # it overrides uc_cpu and forces a Cortex-M33.
     uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M0
+    # M-profile is Thumb-only.
+    uc_mode = unicorn.UC_MODE_THUMB
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
@@ -533,6 +548,8 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
     # it overrides uc_cpu and forces a Cortex-M33.
     uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M3
+    # M-profile is Thumb-only.
+    uc_mode = unicorn.UC_MODE_THUMB
 
 
 class ARMv7RMachineDef(

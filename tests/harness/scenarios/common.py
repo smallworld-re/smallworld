@@ -42,7 +42,17 @@ _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
 # absent. Scenarios enroll Triton through :func:`enroll_triton` rather than
 # spelling this set out again.
 TRITON_ARCHS = frozenset(
-    {"aarch64", "amd64", "armv5t", "armv6k", "armv7a", "i386", "riscv64"}
+    {
+        "aarch64",
+        "amd64",
+        "armv5t",
+        "armv6k",
+        "armv6m",
+        "armv7a",
+        "armv7m",
+        "i386",
+        "riscv64",
+    }
 )
 
 ARCH_REGISTERS: dict[str, ArchInfo] = {
@@ -75,6 +85,24 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
     ),
     "armv6k": ArchInfo(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv6m": ArchInfo(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv7m": ArchInfo(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",

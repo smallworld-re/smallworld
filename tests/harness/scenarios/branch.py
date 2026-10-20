@@ -12,6 +12,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6m",
+    "armv7m",
     "armv7a",
     "i386",
     "la64",
@@ -40,7 +42,13 @@ _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
     common={"print_mode": "register"},
-    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     # branch prints the 32-bit view on aarch64 so the boolean fits.
     per_arch={"aarch64": {"result_register": "w0"}},
 )

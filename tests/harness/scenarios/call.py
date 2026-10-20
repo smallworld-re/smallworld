@@ -12,6 +12,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6m",
+    "armv7m",
     "armv7a",
     "i386",
     "la64",
@@ -48,6 +50,8 @@ _STACKS = {
     "aarch64": _stack("aarch64"),
     "amd64": _stack("amd64"),
     "armv5t": _stack("armv5t"),
+    "armv6m": _stack("armv6m"),
+    "armv7m": _stack("armv7m"),
     "armv7a": _stack("armv7a"),
     "i386": _stack("i386", argument_size=4, pointer_adjust=4),
     "la64": _stack("la64"),
@@ -81,7 +85,13 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     per_arch=_PER_ARCH,
 )
 

@@ -73,6 +73,32 @@ _SPECS = {
         ),
         stack_arguments=((0x44444444, 4), (0x01010101, 4), (0x33333333, 4)),
     ),
+    "armv6m": StackCaseSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        register_arguments=(
+            ("r0", 0x11111111),
+            ("r1", 0x01010101),
+            ("r2", 0x22222222),
+            ("r3", 0x01010101),
+        ),
+        stack_arguments=((0x44444444, 4), (0x01010101, 4), (0x33333333, 4)),
+    ),
+    "armv7m": StackCaseSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        register_arguments=(
+            ("r0", 0x11111111),
+            ("r1", 0x01010101),
+            ("r2", 0x22222222),
+            ("r3", 0x01010101),
+        ),
+        stack_arguments=((0x44444444, 4), (0x01010101, 4), (0x33333333, 4)),
+    ),
     "armv7a": StackCaseSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",

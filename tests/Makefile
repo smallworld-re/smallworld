@@ -20,12 +20,15 @@ AARCH64_ID := aarch64-linux-gnu.2.40
 AMD64_ID := x86_64-linux-gnu.2.40
 AMD64_MINGW_ID := x86_64-windows-gnu.2.40
 # 32-bit ARM is named by platform ID. The float ABI is implied by the
-# platform: armv5t and armv6k are soft-float (gnueabi), armv7a and armv7r
-# hard-float (gnueabihf). Each is pinned to a CPU via its ASFLAGS/CFLAGS,
+# platform: armv5t, armv6k, armv6m, and armv7m are soft-float (gnueabi),
+# armv7a and armv7r hard-float (gnueabihf). armv6m and armv7m are Thumb-only,
+# so their sources start with `.thumb`. Each is pinned to a CPU via its ASFLAGS/CFLAGS,
 # since zig otherwise targets ARMv7-A.
 ARMV5T_ID := arm-linux-gnueabi.2.40
 ARMV6K_ID := arm-linux-gnueabi.2.40
+ARMV6M_ID := arm-linux-gnueabi.2.40
 ARMV7A_ID := arm-linux-gnueabihf.2.40
+ARMV7M_ID := arm-linux-gnueabi.2.40
 ARMV7R_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
@@ -52,7 +55,11 @@ AARCH64_ASM_AS := zig build-exe -target $(AARCH64_ID)
 AMD64_ASM_AS := ./nasm_wrapper.sh
 ARMV5T_ASM_AS := zig build-exe -target $(ARMV5T_ID)
 ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
+# armv6m/armv7m build raw binaries only. build-obj skips linking, which would
+# pull in zig's Linux start code; its syscall asm uses r7, which Thumb reserves.
+ARMV6M_ASM_AS := zig build-obj -target $(ARMV6M_ID)
 ARMV7A_ASM_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7M_ASM_AS := zig build-obj -target $(ARMV7M_ID)
 ARMV7R_ASM_AS := zig build-exe -target $(ARMV7R_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
@@ -105,7 +112,9 @@ AARCH64_OBJCOPY := zig objcopy
 AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
 ARMV5T_OBJCOPY := zig objcopy
 ARMV6K_OBJCOPY := zig objcopy
+ARMV6M_OBJCOPY := zig objcopy
 ARMV7A_OBJCOPY := zig objcopy
+ARMV7M_OBJCOPY := zig objcopy
 ARMV7R_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
@@ -157,7 +166,9 @@ GENERAL_ASFLAGS := $(ASFLAGS)
 # Panda and Styx use, a subset of Unicorn's Cortex-A15.
 ARMV5T_ASFLAGS := -mcpu=arm926ej_s
 ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
+ARMV6M_ASFLAGS := -mcpu=cortex_m0
 ARMV7A_ASFLAGS := -mcpu=cortex_a9
+ARMV7M_ASFLAGS := -mcpu=cortex_m3
 ARMV7R_ASFLAGS := -mcpu=cortex_r5
 MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
 MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
@@ -208,7 +219,9 @@ AMD64_EXT := amd64
 AMD64_MINGW_EXT := amd64
 ARMV5T_EXT := armv5t
 ARMV6K_EXT := armv6k
+ARMV6M_EXT := armv6m
 ARMV7A_EXT := armv7a
+ARMV7M_EXT := armv7m
 ARMV7R_EXT := armv7r
 I386_EXT := i386
 I386_MINGW_EXT := i386
@@ -234,7 +247,9 @@ AARCH64_SRC_EXT := $(AARCH64_EXT)
 AMD64_SRC_EXT := $(AMD64_EXT)
 ARMV5T_SRC_EXT := $(ARMV5T_EXT)
 ARMV6K_SRC_EXT := $(ARMV6K_EXT)
+ARMV6M_SRC_EXT := $(ARMV6M_EXT)
 ARMV7A_SRC_EXT := $(ARMV7A_EXT)
+ARMV7M_SRC_EXT := $(ARMV7M_EXT)
 ARMV7R_SRC_EXT := $(ARMV7R_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
@@ -400,10 +415,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV7A ARMV7R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV7A ARMV7R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

@@ -6,9 +6,9 @@ SmallWorld's soft-float ARM tests use two architectures:
 
 Both run ARM32 code, so both map to Styx's CycloneV (Cortex-A9, supports
 ARM+Thumb). Styx has no ARMv5 or ARM11 target; the Cortex-A9 accepts a
-superset of their instructions. ``ARM_V6M`` maps to Kinetis21 (Cortex-M4F),
-the closest Styx target to a Thumb-only Cortex-M0. The user-visible ARM
-register file matches between the two.
+superset of their instructions. ``ARM_V6M`` and ``ARM_V7M`` map to Kinetis21
+(Cortex-M4F), the closest Styx target to a Cortex-M0 or M3. The user-visible
+ARM register file matches between the two.
 """
 
 from styx_emulator.arch.arm import ArmRegister
@@ -75,6 +75,18 @@ class StyxARMv6MMachineDef(StyxMachineDef):
     byteorder = Byteorder.LITTLE
     # Cortex-M0 is Thumb-only — Kinetis21 (Cortex-M4F) is the closest Styx
     # target supporting Thumb-2.
+    target = Target.Kinetis21
+    backend = Backend.Unicorn
+    address_size = 4
+    pc_register = "pc"
+    lr_register = "lr"
+    _registers = dict(_BASE_REGS)
+
+
+class StyxARMv7MMachineDef(StyxMachineDef):
+    arch = Architecture.ARM_V7M
+    byteorder = Byteorder.LITTLE
+    # Kinetis21 is a Cortex-M4F (ARMv7E-M), a superset of ARMv7-M.
     target = Target.Kinetis21
     backend = Backend.Unicorn
     address_size = 4

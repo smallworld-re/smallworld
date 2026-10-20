@@ -34,6 +34,7 @@ import logging
 import tempfile
 import typing
 
+import capstone
 import claripy
 
 from ... import exceptions, platforms, utils
@@ -138,6 +139,12 @@ class StyxEmulator(
         super().__init__(platform)
         self.platform: platforms.Platform = platform
         self.machdef: StyxMachineDef = StyxMachineDef.for_platform(platform)
+        # Thumb-only platforms (M-profile) must keep the Thumb bit in the PC;
+        # an even PC means ARM state, which faults.
+        self._thumb_only: bool = (
+            platforms.PlatformDef.for_platform(platform).capstone_mode
+            == capstone.CS_MODE_THUMB
+        )
         # Which Styx ``Target`` to build. Multi-core families (PowerPC) use an
         # optional ``cpu_model`` to choose; otherwise the machdef default applies.
         self.cpu_model: typing.Optional[str] = cpu_model
@@ -245,6 +252,8 @@ class StyxEmulator(
     def _do_write_register(self, name: str, value: int) -> None:
         assert self._proc is not None
         reg = self.machdef.styx_register(name)
+        if self._thumb_only and name == self.machdef.pc_register:
+            value |= 1
         # The Styx pyi names the single-register-write method ``write_registers``
         # despite operating on one register at a time.
         self._proc.write_registers(reg, int(value))
@@ -461,14 +470,18 @@ class StyxEmulator(
             if _lr is None:
                 return
             # Step out of the hooked function by jumping to the link register.
-            # Mask the Thumb bit if present so PC stays aligned.
+            # Mask the Thumb bit if present so PC stays aligned, unless the
+            # platform is Thumb-only, where the bit must stay set.
             try:
                 ret = cpu.read_register(_lr)
             except Exception:
                 ret = None
             if ret is None:
                 return
-            cpu.write_register("pc", int(ret) & ~0x1)
+            if _self._thumb_only:
+                cpu.write_register("pc", int(ret) | 0x1)
+            else:
+                cpu.write_register("pc", int(ret) & ~0x1)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 

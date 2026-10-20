@@ -680,22 +680,23 @@ class ARMv6KMachineDef(
 
 
 class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
-    angr_arch = archinfo.arch_arm.ArchARMEL()
-    arch = Architecture.ARM_V6M
-    byteorder = Byteorder.LITTLE
-
-
-class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+    # M-profile is Thumb-only.
     angr_arch = archinfo.arch_arm.ArchARMCortexM()
-    arch = Architecture.ARM_V6M_THUMB
+    arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
     is_thumb = True
 
 
+class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+    arch = Architecture.ARM_V6M_THUMB
+
+
 class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # M-profile is Thumb-only.
+    angr_arch = archinfo.arch_arm.ArchARMCortexM()
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
+    is_thumb = True
 
 
 class ARMv7AMachineDef(

@@ -4287,7 +4287,7 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         self.assertEqual(
             ARMV6MInstruction.platform.architecture, platforms.Architecture.ARM_V6M
         )
-        self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_ARM)
+        self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB)
 
     def test_armv6m_thumb_instruction(self):
         from smallworld.instructions.arm import ARMV6MThumbInstruction

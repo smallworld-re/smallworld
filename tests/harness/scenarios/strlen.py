@@ -38,6 +38,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6m",
+    "armv7m",
     "armv7a",
     "i386",
     "la64",
@@ -64,7 +66,13 @@ _SPECS = build_specs(
     StrlenSpec,
     _ARCHS,
     field_aliases={"return_address_size": "pointer_size"},
-    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     per_arch={
         # i386 and m68k take the string pointer on the stack rather than in a reg.
         "i386": {"arg_register": None, "stack_argument_size": 4},

@@ -1,6 +1,7 @@
 import logging
 import typing
 
+import capstone
 import claripy
 import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
@@ -116,6 +117,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
             return
         if not isinstance(value, int):
             raise TypeError("Pcode emulator can't support symbolic values")
+        if (
+            name == self.platdef.pc_register
+            and self.platdef.capstone_mode == capstone.CS_MODE_THUMB
+        ):
+            # Thumb-only platforms run Ghidra's Thumb-only language, so a
+            # Thumb-tagged address (e.g. a return through lr) is just aligned.
+            value &= ~1
 
         state = self._thread.getState()
 

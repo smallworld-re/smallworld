@@ -13,6 +13,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6m",
+    "armv7m",
     "armv7a",
     "i386",
     "la64",
@@ -40,7 +42,13 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armv5t": _ARM_ENGINES, "armv7a": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
     per_arch={"la64": {"result_register": "v0"}},
 )

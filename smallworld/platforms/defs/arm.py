@@ -876,38 +876,37 @@ class ARMv6K(
 class ARMv6M(ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv6m little-endian.
 
+    M-profile CPUs execute only Thumb, so this is a Thumb platform.
     ARMv6-M has no floating-point extension.
     """
 
     architecture = Architecture.ARM_V6M
-    ghidra_language_id = "ARM:LE:32:v6"
+    capstone_mode = capstone.CS_MODE_THUMB
+    # Ghidra's Cortex language is its Thumb-only M-profile model.
+    ghidra_language_id = "ARM:LE:32:Cortex"
 
 
 class ARMv6MThumb(ARMv6M):
     """Platform definition for ARMv6m little-endian in thumb mode.
 
-    Thumb is annoying; most emulators have a very hard time
-    switching between arm and thumb instructions,
-    despite it being a key feature of many CPUs.
+    Equivalent to ARMv6M, which is itself Thumb-only;
+    kept for compatibility.
     """
 
     architecture = Architecture.ARM_V6M_THUMB
-    # Thumb-mode platform: override the ARM-mode Capstone default so a
-    # disassembler built statically from capstone_mode decodes Thumb.
-    capstone_mode = capstone.CS_MODE_THUMB
-    # ARMv6-M is Thumb; Ghidra decodes Thumb via the TMode context register
-    # within the same SLEIGH language, so this shares ARMv6M's language id.
-    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     """Platform definition for ARMv7m little-endian
 
+    M-profile CPUs execute only Thumb, so this is a Thumb platform.
     The FPv4/FPv5 floating-point extensions of ARMv7E-M aren't modeled.
     """
 
     architecture = Architecture.ARM_V7M
-    ghidra_language_id = "ARM:LE:32:v7"
+    capstone_mode = capstone.CS_MODE_THUMB
+    # Ghidra's Cortex language is its Thumb-only M-profile model.
+    ghidra_language_id = "ARM:LE:32:Cortex"
 
 
 class ARMv7R(

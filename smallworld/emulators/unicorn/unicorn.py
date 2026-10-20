@@ -704,6 +704,11 @@ class UnicornEmulator(
                 "called get_thumb() on non-ARM32 system"
             )
 
+        if self.platdef.capstone_mode == capstone.CS_MODE_THUMB:
+            # Thumb-only (M-profile). A Cortex-M fresh from reset doesn't
+            # report the Thumb bit through the A-profile CPSR view.
+            return True
+
         CPSR_THUMB_MODE_MASK = 0x20
         cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
         if cpsr & CPSR_THUMB_MODE_MASK:
