@@ -50,8 +50,8 @@ machine.add(code)
 
 
 emulator = smallworld.emulators.StyxEmulator(platform)
-# 0x1000 + 92 = nop at the end of vuln(); normal exit.
-emulator.add_exit_point(0x1000 + 92)
+# 0x1000 + 84 = nop at the end of vuln(); normal exit.
+emulator.add_exit_point(0x1000 + 84)
 
 # Out-of-bounds-write detection. The heap lives at 0x2000–0x6000 and the
 # code at 0x1000–0x105c; anything above 0x10000 is "the program just wrote

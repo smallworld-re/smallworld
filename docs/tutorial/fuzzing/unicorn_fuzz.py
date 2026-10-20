@@ -59,8 +59,8 @@ def input_callback(emulator, input_bytes, persistent_round, data):
 
 
 emulator = smallworld.emulators.UnicornEmulator(platform)
-# 0x1000 + 92 = nop at the end of vuln(); normal exit.
-emulator.add_exit_point(0x1000 + 92)
+# 0x1000 + 84 = nop at the end of vuln(); normal exit.
+emulator.add_exit_point(0x1000 + 84)
 
 # AFL++ replaces argv[1] with each generated input file via @@.
 input_file = sys.argv[1] if len(sys.argv) > 1 else "inputs/good_input"

@@ -20,11 +20,10 @@ vuln:
     cmp     r1, #33
     bne     .L1
     ldrb    r1, [r0, #8]
-    mov     r2, #0x5678
-    mov     r3, #0x1234
-    orr     r2, r2, r3, lsl #16
+    ldr     r2, =0x12345678
     str     r1, [r2]
 .L3:
     mov     r0, #-1
 .L4:
     nop 
+    .ltorg
