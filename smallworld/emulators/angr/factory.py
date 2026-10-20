@@ -26,6 +26,12 @@ class PatchedObjectFactory(AngrObjectFactory):
                 ip = state.solver.eval_one(state._ip)
             except SimValueError:
                 raise AnalysisError("Cannot step an unconstrained state")
+            if kwargs.get("thumb") or (
+                ip & 1 and self.project.arch.name.startswith("ARM")
+            ):
+                # angr addresses ARM Thumb code with the Thumb bit set;
+                # measure the block from the instruction's real address.
+                ip &= ~1
 
             # Check if the ip is mapped
             r, found = state.scratch.memory_map.find_closest_range(ip)

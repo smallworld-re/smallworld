@@ -101,6 +101,10 @@ class AngrMachineDef:
         else:
             exit_points = state.scratch.exit_points
 
+        if self.is_thumb:
+            # angr addresses Thumb code with the Thumb bit set.
+            exit_points = exit_points | {p | 1 for p in exit_points}
+
         return state.project.factory.successors(
             state, extra_stop_points=exit_points, **kwargs
         )

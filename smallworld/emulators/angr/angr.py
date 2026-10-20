@@ -842,10 +842,13 @@ class AngrEmulator(
 
         else:
             hook = HookHandler(callback=function, parent=self)
-            self.proj.hook(address, hook, 0)
+            # angr addresses Thumb code with the Thumb bit set,
+            # so a call into Thumb code arrives at address | 1.
+            for addr in self._code_addresses(address):
+                self.proj.hook(addr, hook, 0)
+                self.state.scratch.func_bps[addr] = None
 
             self.map_memory(address, 1)
-            self.state.scratch.func_bps[address] = None
 
     def unhook_function(self, address: int) -> None:
         if not self._initialized:
@@ -855,7 +858,17 @@ class AngrEmulator(
             raise NotImplementedError("Cannot unhook functions once emulation starts")
 
         else:
-            self.proj.unhook(address)
+            for addr in self._code_addresses(address):
+                self.proj.unhook(addr)
+
+    def _code_addresses(self, address: int) -> typing.Tuple[int, ...]:
+        """The addresses angr may use for code at `address`.
+
+        angr addresses Thumb code with the Thumb bit set.
+        """
+        if self.machdef.is_thumb:
+            return (address & ~1, address | 1)
+        return (address,)
 
     def hook_syscall(
         self, number: int, function: typing.Callable[[emulator.Emulator], None]
@@ -1529,6 +1542,9 @@ class AngrEmulator(
 
         def filter_func(state):
             ip = state.solver.eval_exact(state._ip, 1)[0]
+            if self.machdef.is_thumb:
+                # angr addresses Thumb code with the Thumb bit set.
+                ip &= ~1
             if (
                 not self.state.scratch.bounds.is_empty()
                 and not self.state.scratch.bounds.contains_value(ip)
