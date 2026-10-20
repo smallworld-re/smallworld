@@ -8,9 +8,8 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
-# NOTE: angr doesn't support the v7a floating point model.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine

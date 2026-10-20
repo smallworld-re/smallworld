@@ -46,19 +46,26 @@ class AngrMachineDef:
     # and is not safe to step in this manner.
     supports_single_step: bool = True
 
-    _registers: typing.Dict[str, str]
+    #: SmallWorld register name -> angr register name, or (angr register
+    #: name, size) for a register angr lacks that starts at that one and spans
+    #: `size` bytes (e.g. an ARM NEON q register over two d registers).
+    _registers: typing.Dict[str, typing.Union[str, typing.Tuple[str, int]]]
 
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:
             raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
         angr_name = self._registers[name]
+        size = None
+        if isinstance(angr_name, tuple):
+            angr_name, size = angr_name
 
         if angr_name not in self.angr_arch.registers:
             raise exceptions.UnsupportedRegisterError(
                 f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
-        return self.angr_arch.registers[angr_name]
+        offset, angr_size = self.angr_arch.registers[angr_name]
+        return offset, angr_size if size is None else size
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture
