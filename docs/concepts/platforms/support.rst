@@ -34,7 +34,8 @@ Specific Emulator Notes
 Specific ISA Notes
 ------------------
 
-**arm32 Unicorn:** SmallWorld runs arm-v6k on Unicorn's ARM1176 model.
+**arm32 Unicorn:** SmallWorld runs arm-v6k on Unicorn's ARM1176 model,
+arm-v6m on its Cortex-M0, and arm-v7m on its Cortex-M3.
 The other arm32 platforms use Unicorn's default model, a Cortex-A15 (ARMv7-A),
 which accepts code for older architectures but also instructions they lack.
 Support for privileged operations is unknown.

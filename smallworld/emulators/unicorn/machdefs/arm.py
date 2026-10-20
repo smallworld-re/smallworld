@@ -513,6 +513,9 @@ class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
 
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
+    # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
+    # it overrides uc_cpu and forces a Cortex-M33.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M0
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
@@ -527,6 +530,9 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
 
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
+    # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
+    # it overrides uc_cpu and forces a Cortex-M33.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M3
 
 
 class ARMv7RMachineDef(

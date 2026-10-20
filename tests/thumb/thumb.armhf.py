@@ -27,9 +27,10 @@ def is_cpu_register_order_bad(cpu):
     return pc_index > cpsr_index
 
 
+# M-profile (e.g. ARM_V7M) is Thumb-only, so it can't run this ARM/Thumb
+# interworking test.
 for arch in [
     smallworld.platforms.Architecture.ARM_V7A,
-    smallworld.platforms.Architecture.ARM_V7M,
     smallworld.platforms.Architecture.ARM_V7R,
 ]:
     # harness definition

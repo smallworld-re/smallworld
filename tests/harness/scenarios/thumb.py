@@ -7,7 +7,8 @@ from .spec import ScenarioInfo, from_variants
 NATIVE_PARITY = True
 
 _VARIANT_ARCH_NAMES = {
-    "armhf": ("ARM_V7A", "ARM_V7M", "ARM_V7R"),
+    # M-profile is Thumb-only, so it can't run this ARM/Thumb interworking test.
+    "armhf": ("ARM_V7A", "ARM_V7R"),
     "armel": ("ARM_V5T", "ARM_V6K"),
 }
 
