@@ -8,17 +8,17 @@ NATIVE_PARITY = True
 
 _VARIANT_ARCH_NAMES = {
     "armhf": ("ARM_V7A", "ARM_V7M", "ARM_V7R"),
-    "armel": ("ARM_V5T", "ARM_V6M"),
+    "armel": ("ARM_V5T", "ARM_V6K"),
 }
 
 _VARIANTS = tuple((variant, None) for variant in _VARIANT_ARCH_NAMES)
 
 _TRACE_PATTERNS = (
     r"single step at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
-    r"single step at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+    r"single step at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: movs?(?:\.w)? r1, #1>",
     r"single step at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
     r"step block at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
-    r"step block at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+    r"step block at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: movs?(?:\.w)? r1, #1>",
     r"step block at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
 )
 

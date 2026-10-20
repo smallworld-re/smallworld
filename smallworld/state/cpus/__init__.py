@@ -1,6 +1,6 @@
 from .aarch64 import AArch64
 from .amd64 import AMD64
-from .arm import ARMv5T, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
+from .arm import ARMv5T, ARMv6K, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
 from .cpu import *  # noqa: F401, F403
 from .cpu import __all__ as __cpu__
 from .i386 import I386
@@ -20,6 +20,7 @@ __all__ = __cpu__ + [
     "AArch64",
     "AMD64",
     "ARMv5T",
+    "ARMv6K",
     "ARMv6M",
     "ARMv6MThumb",
     "ARMv7M",

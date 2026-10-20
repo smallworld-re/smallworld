@@ -7,14 +7,14 @@ from ...posix.filedesc import POSIXFileDescriptorManager
 
 class FileDescriptorManager(POSIXFileDescriptorManager):
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
     )
     abi = platforms.ABI.SYSTEMV
 
 
 class ArmELSysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
     )
     abi = platforms.ABI.SYSTEMV
 

@@ -33,6 +33,10 @@ class ARMv5T(ARM):
     architecture = platforms.Architecture.ARM_V5T
 
 
+class ARMv6K(ARM):
+    architecture = platforms.Architecture.ARM_V6K
+
+
 class ARMv6M(ARM):
     architecture = platforms.Architecture.ARM_V6M
 

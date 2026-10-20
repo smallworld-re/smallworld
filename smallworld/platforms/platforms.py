@@ -41,6 +41,9 @@ class Architecture(enum.Enum):
     ARM_V5T = "arm-v5t"
     """arm32 v5t"""
 
+    ARM_V6K = "arm-v6k"
+    """arm32 v6k, modeled on the ARM1176"""
+
     ARM_V6M = "arm-v6m"
     """arm32 v6m, ARM isa"""
 

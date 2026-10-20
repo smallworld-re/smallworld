@@ -45,7 +45,7 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
     "armel": ElfSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",

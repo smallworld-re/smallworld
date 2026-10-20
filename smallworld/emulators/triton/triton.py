@@ -100,6 +100,7 @@ _ARM32_CONDITION_CODES = {
 _ARM32_ARCHITECTURES = frozenset(
     {
         platforms.Architecture.ARM_V5T,
+        platforms.Architecture.ARM_V6K,
         platforms.Architecture.ARM_V6M,
         platforms.Architecture.ARM_V6M_THUMB,
         platforms.Architecture.ARM_V7M,

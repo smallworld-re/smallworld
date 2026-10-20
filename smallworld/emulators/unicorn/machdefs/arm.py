@@ -189,6 +189,42 @@ class ARMMachineMixinV5SystemControl:
         )
 
 
+class ARMMachineMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "midr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ctr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "sctlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "actlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cpacr": unicorn.arm_const.UC_ARM_REG_C1_C0_2,
+                "ttbr0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ttbr1": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ttbcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dacr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dfsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ifsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "dfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "wfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "ifar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "par": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "prrr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "nmrr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "fcseidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "contextidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                # NOTE: Unicorn defines a TPIDRURW ID (C13_C0_2), but as of 2.1.4
+                # it isn't backed: it reads 0 and ignores writes.
+                "tpidrurw": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "tpidruro": unicorn.arm_const.UC_ARM_REG_C13_C0_3,
+                "tpidrprw": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
 class ARMMachineMixinV7SystemControl:
     """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
 
@@ -208,7 +244,9 @@ class ARMMachineMixinV7SystemControl:
                 "dfar": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "ifar": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "contextidr": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "tpidrurw": unicorn.arm_const.UC_ARM_REG_C13_C0_2,
+                # NOTE: Unicorn defines a TPIDRURW ID (C13_C0_2), but as of 2.1.4
+                # it isn't backed: it reads 0 and ignores writes.
+                "tpidrurw": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "tpidruro": unicorn.arm_const.UC_ARM_REG_C13_C0_3,
                 "tpidrprw": unicorn.arm_const.UC_ARM_REG_INVALID,
             }
@@ -334,6 +372,21 @@ class ARMMachineMixinFP:
         )
 
 
+class ARMMachineMixinVFPv2(ARMMachineMixinFP):
+    """Mixin for little-endian ARM CPUs with VFPv2"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # NOTE: Unicorn defines FPINST/FPINST2 IDs, but as of 2.1.4
+                # they aren't backed: they read 0 and ignore writes.
+                "fpinst": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "fpinst2": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
 class ARMMachineMixinVFP:
     """Mixin for ARM machine models with VFP/NEON support"""
 
@@ -439,6 +492,20 @@ class ARMv5TMachineDef(
 
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
+
+
+class ARMv6KMachineDef(
+    ARMMachineMixinVFPv2,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinV6SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    """Unicorn machine definition for ARMv6K little-endian"""
+
+    arch = Architecture.ARM_V6K
+    byteorder = Byteorder.LITTLE
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_1176
 
 
 class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):

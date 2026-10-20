@@ -93,6 +93,38 @@ class ARMMachineMixinV5SystemControl:
         }
 
 
+class ARMMachineMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "midr": None,
+            "ctr": None,
+            "sctlr": None,
+            "actlr": None,
+            "cpacr": None,
+            "ttbr0": None,
+            "ttbr1": None,
+            "ttbcr": None,
+            "dacr": None,
+            "dfsr": None,
+            "ifsr": None,
+            "dfar": None,
+            "wfar": None,
+            "ifar": None,
+            "par": None,
+            "prrr": None,
+            "nmrr": None,
+            "vbar": None,
+            "fcseidr": None,
+            "contextidr": None,
+            "tpidrurw": None,
+            "tpidruro": None,
+            "tpidrprw": None,
+        }
+
+
 class ARMMachineMixinV7SystemControl:
     """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
 
@@ -319,6 +351,17 @@ class ARMMachineMixinVirtualization:
         }
 
 
+class ARMMachineMixinVFPv2(ARMMachineMixinFP):
+    """Mixin for little-endian ARM CPUs with VFPv2"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "fpinst": None,
+            "fpinst2": None,
+        }
+
+
 class ARMMachineMixinVFP:
     def __init__(self):
         super().__init__()
@@ -425,6 +468,18 @@ class ARMv5TMachineDef(
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
     cpu = "arm926"
+
+
+class ARMv6KMachineDef(
+    ARMMachineMixinVFPv2,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinV6SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V6K
+    byteorder = Byteorder.LITTLE
+    cpu = "arm1176"
 
 
 # TODO: I have no idea which board to use.

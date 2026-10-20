@@ -23,6 +23,14 @@ class ARMv5tStack(ARM32Stack):
     )
 
 
+class ARMv6kStack(ARM32Stack):
+    """A stack for an ARMv6k 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMv6mStack(ARM32Stack):
     """A stack for an ARMv6m 32-bit CPU"""
 

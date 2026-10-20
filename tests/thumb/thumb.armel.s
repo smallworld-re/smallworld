@@ -7,12 +7,16 @@ test:
 
     .thumb
 thumb:
-    mov r1, #1
+    # Plain 16-bit Thumb: ARMv5T and ARMv6K have no Thumb-2,
+    # so the non-flag-setting `mov`/`add` immediates aren't encodable.
+    movs r1, #1
     add r0, r1
-    add r0, #1
+    adds r0, #1
     blx arm
 
     .arm
+    # Keep the ARM block at offset 0x20, where the test expects it.
+    .balign 16
 arm:
     mov r1, #1
     add r0, r1

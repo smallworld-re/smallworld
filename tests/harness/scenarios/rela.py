@@ -52,7 +52,7 @@ _SPECS = {
         load_address=0x400000,
     ),
     "armel": RelaSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",

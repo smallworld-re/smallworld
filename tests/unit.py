@@ -170,9 +170,7 @@ from smallworld.state.models.loongarch64.systemv.systemv import (
 )
 from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
-from smallworld.state.models.mips64el.systemv.systemv import (
-    MIPS64ELSysVCallingContext,
-)
+from smallworld.state.models.mips64el.systemv.systemv import MIPS64ELSysVCallingContext
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
 from smallworld.state.models.mipsel.systemv.systemv import MIPSELSysVCallingContext
 from smallworld.state.models.model import Model
@@ -181,9 +179,7 @@ from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
-from smallworld.state.models.powerpc.systemv.systemv import (
-    PowerPCSysVCallingContext,
-)
+from smallworld.state.models.powerpc.systemv.systemv import PowerPCSysVCallingContext
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 from smallworld.state.models.tls import (
@@ -1067,6 +1063,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv6k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_armv6m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
@@ -1263,6 +1265,12 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv6k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1464,6 +1472,12 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_armv6k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_armv6m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
@@ -1661,6 +1675,12 @@ class PandaMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_panda_armv6k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_panda_armv6m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
@@ -1842,6 +1862,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2852,6 +2878,13 @@ class TritonMachdefTests(unittest.TestCase):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv6k(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
             )
         )
 
@@ -4239,6 +4272,14 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         self.assertEqual(
             ARMV5TInstruction.platform.architecture, platforms.Architecture.ARM_V5T
         )
+
+    def test_armv6k_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV6KInstruction
+
+        self.assertEqual(
+            ARMV6KInstruction.platform.architecture, platforms.Architecture.ARM_V6K
+        )
+        self.assertEqual(ARMV6KInstruction.cs_mode, capstone.CS_MODE_ARM)
 
     def test_armv6m_instruction_platform(self):
         from smallworld.instructions.arm import ARMV6MInstruction
@@ -10726,9 +10767,7 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         return SimpleNamespace(fda_bindings=bindings or {})
 
     def _describe(self, fda, label, val):
-        from smallworld.analyses.field_detection.field_analysis import (
-            _describe_field,
-        )
+        from smallworld.analyses.field_detection.field_analysis import _describe_field
 
         return _describe_field(fda, label, val)
 

@@ -27,6 +27,12 @@ class ARMV5TInstruction(ARMInstruction):
     )
 
 
+class ARMV6KInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMV6MInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE

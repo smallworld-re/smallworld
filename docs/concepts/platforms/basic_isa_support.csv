@@ -2,6 +2,7 @@
 aarch64,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 amd64,              **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v5t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v6k,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v7m,            **Yes**,    **Yes**,    No,         No,         **Yes**

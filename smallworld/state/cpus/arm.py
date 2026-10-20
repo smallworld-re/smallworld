@@ -415,6 +415,87 @@ class ARMCPUMixinV5SystemControl:
         self.add(self.fcseidr)
 
 
+class ARMCPUMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor
+
+    This is the ARMv6 VMSA register set, as found on the ARM1176.
+    Its translation table registers are 32 bits wide (no LPAE),
+    and vbar exists only with the Security Extensions.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Main ID Register
+        self.midr = state.Register("midr", size=4)
+        self.add(self.midr)
+        # Cache Type Register
+        self.ctr = state.Register("ctr", size=4)
+        self.add(self.ctr)
+        # System Control Register
+        self.sctlr = state.Register("sctlr", size=4)
+        self.add(self.sctlr)
+        # Auxiliary Control Register
+        self.actlr = state.Register("actlr", size=4)
+        self.add(self.actlr)
+        # Coprocessor Access Control Register
+        self.cpacr = state.Register("cpacr", size=4)
+        self.add(self.cpacr)
+        # Translation Table Base Register 0
+        self.ttbr0 = state.Register("ttbr0", size=4)
+        self.add(self.ttbr0)
+        # Translation Table Base Register 1
+        self.ttbr1 = state.Register("ttbr1", size=4)
+        self.add(self.ttbr1)
+        # Translation Table Base Control Register
+        self.ttbcr = state.Register("ttbcr", size=4)
+        self.add(self.ttbcr)
+        # Domain Access Control Register
+        self.dacr = state.Register("dacr", size=4)
+        self.add(self.dacr)
+        # Data Fault Status Register
+        self.dfsr = state.Register("dfsr", size=4)
+        self.add(self.dfsr)
+        # Instruction Fault Status Register
+        self.ifsr = state.Register("ifsr", size=4)
+        self.add(self.ifsr)
+        # Data Fault Address Register
+        self.dfar = state.Register("dfar", size=4)
+        self.add(self.dfar)
+        # Watchpoint Fault Address Register
+        self.wfar = state.Register("wfar", size=4)
+        self.add(self.wfar)
+        # Instruction Fault Address Register
+        self.ifar = state.Register("ifar", size=4)
+        self.add(self.ifar)
+        # Physical Address Register
+        self.par = state.Register("par", size=4)
+        self.add(self.par)
+        # Primary Region Remap Register
+        self.prrr = state.Register("prrr", size=4)
+        self.add(self.prrr)
+        # Normal Memory Remap Register
+        self.nmrr = state.Register("nmrr", size=4)
+        self.add(self.nmrr)
+        # Vector Base Address Register
+        self.vbar = state.Register("vbar", size=4)
+        self.add(self.vbar)
+        # FCSE Process ID Register
+        self.fcseidr = state.Register("fcseidr", size=4)
+        self.add(self.fcseidr)
+        # Context ID Register
+        self.contextidr = state.Register("contextidr", size=4)
+        self.add(self.contextidr)
+        # User Read/Write Thread ID Register
+        self.tpidrurw = state.Register("tpidrurw", size=4)
+        self.add(self.tpidrurw)
+        # User Read-Only Thread ID Register
+        self.tpidruro = state.Register("tpidruro", size=4)
+        self.add(self.tpidruro)
+        # PL1-only Thread ID Register
+        self.tpidrprw = state.Register("tpidrprw", size=4)
+        self.add(self.tpidrprw)
+
+
 class ARMCPUMixinV7SystemControl:
     """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
 
@@ -686,6 +767,23 @@ class ARMCPUMixinFPEL:
         self.add(self.s31)
 
 
+class ARMCPUMixinVFPv2(ARMCPUMixinFPEL):
+    """Mixin for little-endian ARM CPUs with VFPv2
+
+    This is the 16-register VFP of the ARM1176JZF-S (VFP11),
+    plus the VFPv2 registers that hold a trapped instruction.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Floating-point Instruction Register
+        self.fpinst = state.Register("fpinst", size=4)
+        self.add(self.fpinst)
+        # Floating-point Instruction Register 2
+        self.fpinst2 = state.Register("fpinst2", size=4)
+        self.add(self.fpinst2)
+
+
 class ARMCPUMixinVFPEL:
     """Mixin for little-endian ARM CPUs with 32-register VFP and NEON
 
@@ -886,6 +984,20 @@ class ARMv5T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
 
     platform = platforms.Platform(
         platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv6K(
+    ARMCPUMixinVFPv2,
+    ARMCPUMixinSecurity,
+    ARMCPUMixinV6SystemControl,
+    ARMCPUMixinBanked,
+    ARM,
+):
+    """CPU Model for ARMv6K little-endian, modeled on the ARM1176JZF-S."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
     )
 
 

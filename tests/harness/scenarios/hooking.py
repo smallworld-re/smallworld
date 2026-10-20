@@ -61,7 +61,7 @@ _SPECS = {
         stack_base=0x8000,
     ),
     "armel": HookingSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",

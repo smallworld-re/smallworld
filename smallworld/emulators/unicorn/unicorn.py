@@ -690,6 +690,7 @@ class UnicornEmulator(
         """Check for ARM32 platform architecture"""
         return self.platform.architecture in [
             platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V6K,
             platforms.Architecture.ARM_V6M,
             platforms.Architecture.ARM_V7A,
             platforms.Architecture.ARM_V7M,

@@ -326,9 +326,9 @@ class ElfExecutable(Executable):
                 # unless the user specifically asks for v6.
                 if (
                     self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V6M
+                    and self.platform.architecture is Architecture.ARM_V6K
                 ):
-                    architecture = Architecture.ARM_V6M
+                    architecture = Architecture.ARM_V6K
                 elif (
                     self.platform is not None
                     and self.platform.architecture is Architecture.ARM_V5T

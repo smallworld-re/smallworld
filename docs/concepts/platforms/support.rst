@@ -34,10 +34,13 @@ Specific Emulator Notes
 Specific ISA Notes
 ------------------
 
-**arm32 Unicorn:** Unicorn only has one arm32 model.
-It appears to support up to arm-v7 application code, 
-but its privileged features are a mash-up of v6, v7, A-series, and M-series.  
+**arm32 Unicorn:** SmallWorld runs arm-v6k on Unicorn's ARM1176 model.
+The other arm32 platforms use Unicorn's default model, a Cortex-A15 (ARMv7-A),
+which accepts code for older architectures but also instructions they lack.
 Support for privileged operations is unknown.
+
+**arm-v6k on Styx:** Styx has no ARM11 target, so arm-v6k runs on its
+Cortex-A9 (CycloneV) target, which accepts instructions an ARM1176 would not.
 
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.

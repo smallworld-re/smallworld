@@ -46,7 +46,7 @@ _SPECS = {
         stack_pointer_register="rsp",
     ),
     "armel": UnmappedSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
     ),

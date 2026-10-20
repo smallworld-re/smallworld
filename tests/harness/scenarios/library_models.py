@@ -11,7 +11,7 @@ NATIVE_PARITY = True
 _ARCH_MATRIX = (
     ("aarch64", "AARCH64", "LITTLE"),
     ("amd64", "X86_64", "LITTLE"),
-    ("armel", "ARM_V6M", "LITTLE"),
+    ("armel", "ARM_V6K", "LITTLE"),
     ("armhf", "ARM_V7A", "LITTLE"),
     ("i386", "X86_32", "LITTLE"),
     ("la64", "LOONGARCH64", "LITTLE"),

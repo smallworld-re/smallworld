@@ -288,6 +288,63 @@ class ARMMachineMixinV5SystemControl:
         )
 
 
+class ARMMachineMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Auxiliary Control Register
+                "actlr": "actlr",
+                # Coprocessor Access Control Register
+                "cpacr": "cpacr",
+                # Translation Table Base Register 0
+                "ttbr0": "ttbr0",
+                # Translation Table Base Register 1
+                "ttbr1": "ttbr1",
+                # Translation Table Base Control Register
+                "ttbcr": "ttbcr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Data Fault Status Register
+                "dfsr": "dfsr",
+                # Instruction Fault Status Register
+                "ifsr": "ifsr",
+                # Data Fault Address Register
+                "dfar": "dfar",
+                # Watchpoint Fault Address Register
+                "wfar": "wfar",
+                # Instruction Fault Address Register
+                "ifar": "ifar",
+                # Physical Address Register
+                "par": "par",
+                # Primary Region Remap Register
+                "prrr": "prrr",
+                # Normal Memory Remap Register
+                "nmrr": "nmrr",
+                # Vector Base Address Register
+                "vbar": "vbar",
+                # FCSE Process ID Register
+                "fcseidr": "fcseidr",
+                # Context ID Register
+                "contextidr": "contextidr",
+                # User Read/Write Thread ID Register
+                "tpidrurw": "tpidrurw",
+                # User Read-Only Thread ID Register
+                "tpidruro": "tpidruro",
+                # PL1-only Thread ID Register
+                "tpidrprw": "tpidrprw",
+            }
+        )
+
+
 class ARMMachineMixinV7SystemControl:
     """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
 
@@ -477,6 +534,21 @@ class ARMMachineMixinFP:
         )
 
 
+class ARMMachineMixinVFPv2(ARMMachineMixinFP):
+    """Mixin for little-endian ARM CPUs with VFPv2"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Instruction Register
+                "fpinst": "fpinst",
+                # Floating-point Instruction Register 2
+                "fpinst2": "fpinst2",
+            }
+        )
+
+
 class ARMMachineMixinVFPEL:
     def __init__(self):
         super().__init__()
@@ -586,6 +658,18 @@ class ARMv5TMachineDef(
 ):
     angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = Architecture.ARM_V5T
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv6KMachineDef(
+    ARMMachineMixinVFPv2,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinV6SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V6K
     byteorder = Byteorder.LITTLE
 
 

@@ -1,14 +1,14 @@
 """Styx machine definitions for 32-bit ARM ``armel`` variants.
 
 SmallWorld's ``armel`` tests use two underlying architectures:
-  * ``ARM_V5T`` for the raw-binary scenarios (square/branch/call/...) — these
-    run ARM32 code that needs a Cortex-A class target.
-  * ``ARM_V6M`` for the hooking/model scenarios — these run Thumb-only code
-    that needs a Cortex-M class target.
+  * ``ARM_V5T`` for the raw-binary scenarios (square/branch/call/...).
+  * ``ARM_V6K`` for the ELF/hooking/model scenarios.
 
-We map them to Styx's CycloneV (Cortex-A9, supports ARM+Thumb) and Kinetis21
-(Cortex-M4F, supports Thumb-2) respectively. The user-visible ARM register
-file matches between the two.
+Both run ARM32 code, so both map to Styx's CycloneV (Cortex-A9, supports
+ARM+Thumb). Styx has no ARMv5 or ARM11 target; the Cortex-A9 accepts a
+superset of their instructions. ``ARM_V6M`` maps to Kinetis21 (Cortex-M4F),
+the closest Styx target to a Thumb-only Cortex-M0. The user-visible ARM
+register file matches between the two.
 """
 
 from styx_emulator.arch.arm import ArmRegister
@@ -50,6 +50,17 @@ _BASE_REGS = {
 
 class StyxARMv5TMachineDef(StyxMachineDef):
     arch = Architecture.ARM_V5T
+    byteorder = Byteorder.LITTLE
+    target = Target.CycloneV
+    backend = Backend.Unicorn
+    address_size = 4
+    pc_register = "pc"
+    lr_register = "lr"
+    _registers = dict(_BASE_REGS)
+
+
+class StyxARMv6KMachineDef(StyxMachineDef):
+    arch = Architecture.ARM_V6K
     byteorder = Byteorder.LITTLE
     target = Target.CycloneV
     backend = Backend.Unicorn

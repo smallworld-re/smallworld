@@ -61,11 +61,13 @@ _SPECS = {
         stack_pointer_register="rsp",
     ),
     "armel": ExitpointSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         result_register="r0",
         engines=("unicorn", "angr", "pcode"),
-        mid_exit_offset=12,
+        # ARMv6K has no movw, so main's constants sit in a literal pool
+        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
+        mid_exit_offset=24,
         link_register="lr",
     ),
     "armhf": ExitpointSpec(

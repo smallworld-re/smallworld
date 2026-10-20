@@ -464,6 +464,66 @@ class ARMPlatformMixinV5SystemControl:
         }
 
 
+class ARMPlatformMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor
+
+    This is the ARMv6 VMSA register set, as found on the ARM1176.
+    Its translation table registers are 32 bits wide (no LPAE),
+    and vbar exists only with the Security Extensions.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Main ID Register
+            "midr": RegisterDef(name="midr", size=4),
+            # Cache Type Register
+            "ctr": RegisterDef(name="ctr", size=4),
+            # System Control Register
+            "sctlr": RegisterDef(name="sctlr", size=4),
+            # Auxiliary Control Register
+            "actlr": RegisterDef(name="actlr", size=4),
+            # Coprocessor Access Control Register
+            "cpacr": RegisterDef(name="cpacr", size=4),
+            # Translation Table Base Register 0
+            "ttbr0": RegisterDef(name="ttbr0", size=4),
+            # Translation Table Base Register 1
+            "ttbr1": RegisterDef(name="ttbr1", size=4),
+            # Translation Table Base Control Register
+            "ttbcr": RegisterDef(name="ttbcr", size=4),
+            # Domain Access Control Register
+            "dacr": RegisterDef(name="dacr", size=4),
+            # Data Fault Status Register
+            "dfsr": RegisterDef(name="dfsr", size=4),
+            # Instruction Fault Status Register
+            "ifsr": RegisterDef(name="ifsr", size=4),
+            # Data Fault Address Register
+            "dfar": RegisterDef(name="dfar", size=4),
+            # Watchpoint Fault Address Register
+            "wfar": RegisterDef(name="wfar", size=4),
+            # Instruction Fault Address Register
+            "ifar": RegisterDef(name="ifar", size=4),
+            # Physical Address Register
+            "par": RegisterDef(name="par", size=4),
+            # Primary Region Remap Register
+            "prrr": RegisterDef(name="prrr", size=4),
+            # Normal Memory Remap Register
+            "nmrr": RegisterDef(name="nmrr", size=4),
+            # Vector Base Address Register
+            "vbar": RegisterDef(name="vbar", size=4),
+            # FCSE Process ID Register
+            "fcseidr": RegisterDef(name="fcseidr", size=4),
+            # Context ID Register
+            "contextidr": RegisterDef(name="contextidr", size=4),
+            # User Read/Write Thread ID Register
+            "tpidrurw": RegisterDef(name="tpidrurw", size=4),
+            # User Read-Only Thread ID Register
+            "tpidruro": RegisterDef(name="tpidruro", size=4),
+            # PL1-only Thread ID Register
+            "tpidrprw": RegisterDef(name="tpidrprw", size=4),
+        }
+
+
 class ARMPlatformMixinV7SystemControl:
     """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
 
@@ -656,6 +716,23 @@ class ARMPlatformMixinFPEL:
         }
 
 
+class ARMPlatformMixinVFPv2(ARMPlatformMixinFPEL):
+    """Mixin for little-endian ARM CPUs with VFPv2
+
+    This is the 16-register VFP of the ARM1176JZF-S (VFP11),
+    plus the VFPv2 registers that hold a trapped instruction.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Floating-point Instruction Register
+            "fpinst": RegisterDef(name="fpinst", size=4),
+            # Floating-point Instruction Register 2
+            "fpinst2": RegisterDef(name="fpinst2", size=4),
+        }
+
+
 class ARMPlatformMixinVFPEL:
     """Mixin for little-endian ARM CPUs with 32-register VFP and NEON
 
@@ -777,6 +854,23 @@ class ARMv5T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatfor
 
     architecture = Architecture.ARM_V5T
     ghidra_language_id = "ARM:LE:32:v5t"
+
+
+class ARMv6K(
+    ARMPlatformMixinVFPv2,
+    ARMPlatformMixinSecurity,
+    ARMPlatformMixinV6SystemControl,
+    ARMPlatformMixinBanked,
+    ARMPlatformDef,
+):
+    """Platform definition for ARMv6k little-endian, modeled on the ARM1176JZF-S
+
+    The ARM1176 is technically ARMv6KZ:
+    ARMv6K plus the Security Extensions, which are included here.
+    """
+
+    architecture = Architecture.ARM_V6K
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv6M(ARMPlatformMixinM, ARMPlatformDef):

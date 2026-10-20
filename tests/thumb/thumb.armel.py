@@ -29,7 +29,7 @@ def is_cpu_register_order_bad(cpu):
 
 for arch in [
     smallworld.platforms.Architecture.ARM_V5T,
-    smallworld.platforms.Architecture.ARM_V6M,
+    smallworld.platforms.Architecture.ARM_V6K,
 ]:
     # harness definition
     platform = smallworld.platforms.Platform(

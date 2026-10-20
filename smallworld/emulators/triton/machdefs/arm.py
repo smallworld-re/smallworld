@@ -44,6 +44,7 @@ _M_REGS = {"psr": "apsr"}
 _RA_REGS = {"cpsr": "apsr"}
 
 _V5T_REGS = {**_BASE_REGS, **_RA_REGS}
+_V6K_REGS = {**_BASE_REGS, **_RA_REGS}
 _V6M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7R_REGS = {**_BASE_REGS, **_RA_REGS}
@@ -69,6 +70,11 @@ class TritonARMMachineDef(TritonMachineDef):
 class TritonARMv5TMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V5T
     _registers = _V5T_REGS
+
+
+class TritonARMv6KMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V6K
+    _registers = _V6K_REGS
 
 
 class TritonARMv6MMachineDef(TritonARMMachineDef):

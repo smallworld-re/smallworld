@@ -129,6 +129,7 @@ class PcodeNamingTests(unittest.TestCase):
             ("ARM_V7A", "cpsr"),
             ("ARM_V7R", "cpsr"),
             ("ARM_V5T", "cpsr"),
+            ("ARM_V6K", "cpsr"),
             ("ARM_V6M", "psr"),
             ("ARM_V7M", "psr"),
         ):
@@ -398,9 +399,7 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
     def test_mips64_names_resolve_to_the_right_physical_register(self):
         self._start_jvm()  # machdefs import Ghidra's Java classes at module scope
 
-        from smallworld.emulators.ghidra.machdefs.mips64 import (
-            MIPS64BEMachineDef,
-        )
+        from smallworld.emulators.ghidra.machdefs.mips64 import MIPS64BEMachineDef
         from smallworld.platforms.defs.mips64 import MIPS64BE
 
         self._check(MIPS64BEMachineDef, MIPS64BE)
@@ -624,12 +623,7 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         PlatformDef at all. Asserted behaviourally; a timing test would flake.
         """
         from smallworld.instructions import Instruction
-        from smallworld.platforms import (
-            Architecture,
-            Byteorder,
-            Platform,
-            PlatformDef,
-        )
+        from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
 
         platform = Platform(Architecture.MIPS32, Byteorder.BIG)
         insn = Instruction.from_bytes(
@@ -1254,12 +1248,7 @@ class InstructionUseDefTests(unittest.TestCase):
 
     def test_reads_writes_are_platform_valid(self):
         from smallworld.instructions import Instruction, RegisterOperand
-        from smallworld.platforms import (
-            Architecture,
-            Byteorder,
-            Platform,
-            PlatformDef,
-        )
+        from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
 
         for arch, bo, hexbytes, desc, must_read, must_write in self.SAMPLES:
             with self.subTest(instruction=desc):
