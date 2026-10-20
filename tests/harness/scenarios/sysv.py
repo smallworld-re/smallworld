@@ -19,6 +19,7 @@ _VARIANTS = tuple(
         "mips64",
         "mips64el",
         "ppc",
+        "riscv32",
         "riscv64",
     )
 )

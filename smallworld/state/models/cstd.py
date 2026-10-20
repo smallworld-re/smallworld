@@ -70,6 +70,13 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     # integer offset instead of a private FP counter.
     _fp_shares_int_regs: bool = False
 
+    # When an eight-byte value takes a pair of argument registers
+    # (`_eight_byte_reg_size == 2`), most ABIs start the pair on an
+    # even-numbered register.  RiscV ilp32 only does this for variadic
+    # arguments; fixed arguments take the next two registers, whatever they are.
+    _align_eight_byte_regs: bool = True
+    _variadic_align_eight_byte_regs: typing.Optional[bool] = None
+
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
 
@@ -449,11 +456,21 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             kind == ArgumentType.DOUBLE and self._soft_float
         ):
             # Eight byte int type, or double on a system without separate FP arg regs
-            if self._int_reg_offset % self._eight_byte_reg_size != 0:
+            if (
+                self._align_eight_byte_regs
+                and self._int_reg_offset % self._eight_byte_reg_size != 0
+            ):
                 # Align argument register for eight-byte value
                 self._int_reg_offset += 1
 
-            if self._int_reg_offset == len(self._eight_byte_arg_regs):
+            if self._int_reg_offset + self._eight_byte_reg_size > len(
+                self._eight_byte_arg_regs
+            ):
+                # NOTE: An unaligned pair can find only one register left.
+                # RiscV ilp32 then splits the value between the last register
+                # and the stack; that isn't modeled, so the whole value goes
+                # on the stack, and no later argument uses a register.
+                self._int_reg_offset = len(self._eight_byte_arg_regs)
                 # No room left in registers; use stack
                 if (
                     self._align_stack
@@ -1025,11 +1042,12 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV32
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
         ):
-            # mips32, mips64, riscv64 and superh: branch to register 'ra'.  On
+            # mips32, mips64, riscv32, riscv64 and superh: branch to register 'ra'.  On
             # SuperH that is an alias of the architectural PR register, matching
             # the 'ra' branch of state.models.model.Model.get_return_address.
             emulator.write_register("ra", address)
@@ -1178,6 +1196,11 @@ class VariadicContext:
         self._eight_byte_arg_regs = parent._eight_byte_arg_regs
         self._soft_float = parent._soft_float or parent._variadic_soft_float
         self._fp_shares_int_regs = parent._fp_shares_int_regs
+        self._align_eight_byte_regs = (
+            parent._align_eight_byte_regs
+            if parent._variadic_align_eight_byte_regs is None
+            else parent._variadic_align_eight_byte_regs
+        )
         self._floats_are_doubles = parent._floats_are_doubles
         self._float_arg_regs = parent._float_arg_regs
         self._double_arg_regs = parent._double_arg_regs

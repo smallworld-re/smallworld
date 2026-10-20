@@ -8,9 +8,13 @@ from .utils import _emu_strlen
 
 # NOTE: time_t and clock_t are longs.
 # As such, all your 32-bit routers are vulnerable to the 2038 bug.
+# (Not RiscV32: glibc gave it a 64-bit time_t from the start.)
 
 
 class TimeModel(CStdModel):
+    # The type of time_t, for platforms where it isn't a long.
+    time_t_type = ArgumentType.LONG
+
     def time_struct_to_tuple(self, ptr: int, emulator: Emulator):
         # Load the fields out of the struct
         tm_sec = self.read_integer(ptr, ArgumentType.INT, emulator)
@@ -96,7 +100,7 @@ class Time(TimeModel):
         intval = int(time.time())
 
         if ptr != 0:
-            self.write_integer(ptr, intval, ArgumentType.LONG, emulator)
+            self.write_integer(ptr, intval, self.time_t_type, emulator)
 
         self.set_return_value(emulator, intval)
 
@@ -119,7 +123,7 @@ class Localtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t_type, emulator)
 
         timetuple = time.localtime(tv)
 
@@ -147,7 +151,7 @@ class Gmtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t_type, emulator)
 
         timetuple = time.gmtime(tv)
 
@@ -173,7 +177,7 @@ class Ctime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t_type, emulator)
 
         timestr = time.ctime(tv)
         timebytes = timestr.encode("utf-8") + b"\n\0"

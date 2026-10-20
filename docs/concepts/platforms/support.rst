@@ -49,6 +49,12 @@ for some of the extensions, so I haven't tested anywhere near all of them.
 Also, the standards for this ISA are still being developed,
 so some things like the syscall convention are something of a guess.
 
+**riscv32:** SmallWorld models RV32GC, following Ghidra's ``RISCV:LE:32:default``.
+The floating-point registers are 64 bits wide, as the "D" extension requires.
+archinfo has no RV32 model, so angr runs RV32 through its pcode engine instead of VEX.
+That path handles ``ecall`` as a syscall, ``ebreak`` as a breakpoint trap,
+and the ``fence`` instructions as no-ops.
+
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
 *sh2a-fpu* is SH-2A-FPU. It is **big-endian only**, because the only SH-2A

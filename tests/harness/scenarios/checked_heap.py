@@ -24,6 +24,7 @@ _ARCH_SPECS = {
     "mips64el": PlatformSpec("MIPS64", "LITTLE"),
     "mipsel": PlatformSpec("MIPS32", "LITTLE"),
     "ppc": PlatformSpec("POWERPC32", "BIG"),
+    "riscv32": PlatformSpec("RISCV32", "LITTLE"),
     "riscv64": PlatformSpec("RISCV64", "LITTLE"),
 }
 
@@ -74,7 +75,7 @@ SCENARIO_INFOS = tuple(
 def _supports_engine(arch: str, engine: str) -> bool:
     if engine == "triton":
         return arch in TRITON_ARCHS
-    if arch == "riscv64":
+    if arch in {"riscv32", "riscv64"}:
         return engine in {"unicorn", "angr", "pcode"}
     return engine in {"unicorn", "angr", "panda", "pcode"}
 

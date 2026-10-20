@@ -165,6 +165,16 @@ _SPECS = {
         stack_pointer_adjust=-0x80,
         model_address=0x1000,
     ),
+    "riscv32": StaticBufferSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        model_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        entry_offset=2,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "riscv64": StaticBufferSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",

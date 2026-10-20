@@ -1,11 +1,12 @@
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
-# SmallWorld canonical register name -> Triton register name (RISC-V 64).
+# SmallWorld canonical register name -> Triton register name (RISC-V).
+# Triton names the registers identically for RV32 and RV64.
 # SmallWorld carries both numeric (``x0``..``x31``, ``f0``..``f31``) and ABI
 # (``ra``, ``sp``, ``a0``, ``fs0``, ...) names as separate keys; Triton's
 # canonical ``getName()`` is the numeric form, so ABI aliases map onto it.
-_RISCV64_REGISTERS = {
+_RISCV_REGISTERS = {
     # Program counter (pc_register == "pc" for RISC-V).
     "pc": "pc",
     "x0": "x0",
@@ -139,23 +140,37 @@ _RISCV64_REGISTERS = {
 }
 
 
-class TritonRISCV64MachineDef(TritonMachineDef):
-    """Triton machine definition for RISC-V 64.
+class TritonRISCVMachineDef(TritonMachineDef):
+    """Triton machine definition common to all RISC-V variants.
 
     Triton only gained RISC-V support after its last PyPI release, so builds
-    older than mid-2024 lack ``ARCH.RV64``; the shared ``triton_arch`` property
-    feature-detects it and raises a clear ``ConfigurationError`` otherwise.
+    older than mid-2024 lack ``ARCH.RV32``/``ARCH.RV64``; the shared
+    ``triton_arch`` property feature-detects it and raises a clear
+    ``ConfigurationError`` otherwise.
     """
 
-    arch = Architecture.RISCV64
     byteorder = Byteorder.LITTLE
-    triton_arch_name = "RV64"
     pc_register = "pc"
     sp_register = "sp"
     lr_register = "ra"
-    address_size = 8
     interrupt_mnemonics = {"ecall", "ebreak"}
     halt_mnemonics = {"wfi"}
     syscall_mnemonics = {"ecall"}
     syscall_number_register = "a7"
-    _registers = _RISCV64_REGISTERS
+    _registers = _RISCV_REGISTERS
+
+
+class TritonRISCV32MachineDef(TritonRISCVMachineDef):
+    """Triton machine definition for RISC-V 32."""
+
+    arch = Architecture.RISCV32
+    triton_arch_name = "RV32"
+    address_size = 4
+
+
+class TritonRISCV64MachineDef(TritonRISCVMachineDef):
+    """Triton machine definition for RISC-V 64."""
+
+    arch = Architecture.RISCV64
+    triton_arch_name = "RV64"
+    address_size = 8

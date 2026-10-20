@@ -133,6 +133,7 @@ from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
 )
+from smallworld.state.memory.elf.rela.riscv32 import RISCV32ElfRelocator
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
@@ -142,7 +143,7 @@ from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.memory.stack.loongarch import LoongArch64Stack, LoongArchStack
 from smallworld.state.memory.stack.m68k import M68KStack
 from smallworld.state.memory.stack.msp430 import MSP430Stack
-from smallworld.state.memory.stack.riscv import RISCV64Stack
+from smallworld.state.memory.stack.riscv import RISCV32Stack, RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
@@ -155,7 +156,11 @@ from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
 from smallworld.state.models.c99.string import _require_c_locale
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
-from smallworld.state.models.cstd import ArgumentType
+from smallworld.state.models.cstd import (
+    ArgumentType,
+    CStdCallingContext,
+    VariadicContext,
+)
 from smallworld.state.models.defaultmmio import (
     LogAccessModel,
     NullMemoryMappedModel,
@@ -185,6 +190,7 @@ from smallworld.state.models.powerpc.systemv.systemv import (
     PowerPCSysVCallingContext,
 )
 from smallworld.state.models.returnconstant import ReturnConstant
+from smallworld.state.models.riscv32.systemv.systemv import RiscV32SysVCallingContext
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 from smallworld.state.models.tls import (
     RELOCATED_TLS_MODULE,
@@ -1163,6 +1169,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
@@ -1341,6 +1353,12 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1555,6 +1573,12 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
@@ -1732,6 +1756,13 @@ class PandaMachdefTests(unittest.TestCase):
     def test_panda_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
@@ -1940,6 +1971,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2891,6 +2928,14 @@ class TritonMachdefTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_triton_riscv32(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+            )
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
     def test_triton_riscv64(self):
         self.run_test(
             platforms.Platform(
@@ -3039,6 +3084,20 @@ class TritonExecutionTests(unittest.TestCase):
                 bytes([0x90, 0x00, 0x00, 0xE0]),
                 "r0",
                 "r0",
+            ),
+            25,
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_riscv32(self):
+        # mul a0, a0, a0
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.RISCV32,
+                platforms.Byteorder.LITTLE,
+                bytes([0x33, 0x05, 0xA5, 0x02]),
+                "a0",
+                "a0",
             ),
             25,
         )
@@ -4424,6 +4483,11 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         self.assertEqual(RiscV64SysVCallingContext._float_arg_regs, expected)
         self.assertEqual(RiscV64SysVCallingContext._double_arg_regs, expected)
 
+    def test_riscv32_fp_arg_regs_are_fa0_to_fa7(self):
+        expected = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+        self.assertEqual(RiscV32SysVCallingContext._float_arg_regs, expected)
+        self.assertEqual(RiscV32SysVCallingContext._double_arg_regs, expected)
+
     def test_mips64_fp_arg_regs_are_f12_to_f19(self):
         # n64 passes FP arguments in $f12-$f19 (fa0-fa7). The list previously
         # started at f13 and stopped at f18 -- missing the first (f12) and last
@@ -4449,6 +4513,49 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         )
         self.assertEqual(
             ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+        )
+
+
+class EightByteRegisterPairTests(unittest.TestCase):
+    """Where an 8-byte integer lands on ABIs that pass it in a register pair."""
+
+    ULL = ArgumentType.ULONGLONG
+    UINT = ArgumentType.UINT
+
+    @staticmethod
+    def _offsets(ctx, types):
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        return [
+            "stack" if on_stack else offset
+            for on_stack, offset in zip(ctx._on_stack, ctx._arg_offset)
+        ]
+
+    def test_riscv32_fixed_pairs_are_not_aligned(self):
+        # foo(ull, uint, ull, uint, ull) from tests/sysv: a0:a1, a2, a3:a4, a5, a6:a7
+        types = [self.ULL, self.UINT, self.ULL, self.UINT, self.ULL]
+        self.assertEqual(
+            self._offsets(RiscV32SysVCallingContext(), types), [0, 2, 3, 5, 6]
+        )
+
+    def test_riscv32_variadic_pairs_are_aligned(self):
+        ctx = RiscV32SysVCallingContext()
+        ctx.add_argument(0, self.UINT)
+        varargs = VariadicContext(ctx)
+        CStdCallingContext.add_argument(varargs, 1, self.ULL)
+        # a1 is skipped; the pair starts at a2.
+        self.assertEqual(varargs._arg_offset[1], 2)
+
+    def test_riscv32_pair_with_one_register_left_goes_on_the_stack(self):
+        # Seven uints leave only a7; the ull must not run off the register list,
+        # and nothing after it may use a7.
+        types = [self.UINT] * 7 + [self.ULL, self.UINT]
+        offsets = self._offsets(RiscV32SysVCallingContext(), types)
+        self.assertEqual(offsets[7:], ["stack", "stack"])
+
+    def test_armhf_pairs_are_still_aligned(self):
+        self.assertEqual(
+            self._offsets(ArmHFSysVCallingContext(), [self.UINT, self.ULL]), [0, 2]
         )
 
 
@@ -7203,6 +7310,7 @@ class StackRegionCorrectnessTests(unittest.TestCase):
         for cls, arch in (
             (M68KStack, "M68K"),
             (MSP430Stack, "MSP430"),
+            (RISCV32Stack, "RISCV32"),
             (RISCV64Stack, "RISCV64"),
             (LoongArchStack, "LoongArch"),
         ):
@@ -7295,6 +7403,10 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     def test_loongarch64_r_larch_64(self):
         # R_LARCH_64 == 2
         self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
+
+    def test_riscv32_r_riscv_32(self):
+        # R_RISCV_32 == 1
+        self.assertEqual(self._value(RISCV32ElfRelocator(), 1), self.LE32)
 
     def test_riscv64_r_riscv_64(self):
         # R_RISCV_64 == 2

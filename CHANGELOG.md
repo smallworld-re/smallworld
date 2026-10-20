@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 32-bit RISC-V (`Architecture.RISCV32`, modeled as RV32GC): platform
+  definition, CPU, stack, errno, ELF loading and relocation, ilp32d System V
+  library models, plus machine definitions for the Unicorn, angr (via pcode),
+  Ghidra and Triton emulators. The integration harness and test binaries cover
+  `riscv32` everywhere they cover `riscv64`.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

@@ -446,7 +446,7 @@ class ElfExecutable(Executable):
         elif elf.header.machine_type.value == EM_RISCV:
             # RISC-V
             if elf.header.identity_class.value == 1:
-                raise ConfigurationError("RISC-V 32-bit isn't supported")
+                architecture = Architecture.RISCV32
             elif elf.header.identity_class.value == 2:
                 architecture = Architecture.RISCV64
             else:

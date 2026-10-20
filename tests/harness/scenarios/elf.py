@@ -121,6 +121,15 @@ _SPECS = {
         stack_pointer_register="r1",
         engines=("angr", "pcode"),
     ),
+    "riscv32": ElfSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        print_register="a0",
+        use_platform_loader=False,
+    ),
     "riscv64": ElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pointer_size=8,

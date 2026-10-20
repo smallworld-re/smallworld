@@ -13,7 +13,7 @@ from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
 from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
-from .riscv import RISCV64MachineDef
+from .riscv import RISCV32MachineDef, RISCV64MachineDef
 from .superh import SH2AFPUMachineDef
 from .superh4 import SuperH4BEMachineDef, SuperH4ELMachineDef
 from .tricore import TriCoreMachineDef
@@ -37,6 +37,7 @@ __all__ = [
     "MSP430XMachineDef",
     "PowerPC32MachineDef",
     "PowerPC64MachineDef",
+    "RISCV32MachineDef",
     "RISCV64MachineDef",
     "SH2AFPUMachineDef",
     "SuperH4BEMachineDef",

@@ -41,7 +41,9 @@ _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
 # target for (LoongArch, m68k, MIPS, MSP430, PowerPC, TriCore, Xtensa) is
 # absent. Scenarios enroll Triton through :func:`enroll_triton` rather than
 # spelling this set out again.
-TRITON_ARCHS = frozenset({"aarch64", "amd64", "armel", "armhf", "i386", "riscv64"})
+TRITON_ARCHS = frozenset(
+    {"aarch64", "amd64", "armel", "armhf", "i386", "riscv32", "riscv64"}
+)
 
 ARCH_REGISTERS: dict[str, ArchInfo] = {
     "aarch64": ArchInfo(
@@ -177,6 +179,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="r3",
         stack_pointer_register="sp",
         pointer_size=8,
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "riscv32": ArchInfo(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="a0",
+        stack_pointer_register="sp",
+        pointer_size=4,
         engines=("unicorn", "angr", "pcode"),
     ),
     "riscv64": ArchInfo(
