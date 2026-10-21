@@ -47,16 +47,26 @@ class ARMMachineDef(UnicornMachineDef):
 _ARM_EXCP_PREFETCH_ABORT = 3
 
 
-class ARMMachineMixinM:
-    """Mixin for ARM M-series machine models"""
+class ARMMachineMixinPrefetchAbortFetch:
+    """Mixin for cores that report an unmapped instruction fetch as an abort
+
+    Some of Unicorn's ARM cores (the Cortex-M3 and Cortex-R5F, for example)
+    report an instruction fetch from unmapped memory as a prefetch abort
+    rather than as a fetch error.
+    """
+
+    def is_fetch_fault(self, intno: int) -> bool:
+        return intno == _ARM_EXCP_PREFETCH_ABORT
 
     def handle_interrupt(self, intno: int, pc: int) -> None:
         if intno == _ARM_EXCP_PREFETCH_ABORT:
-            # A Cortex-M3 reports an instruction fetch from unmapped memory as
-            # a prefetch abort rather than as a fetch error.
             raise unicorn.UcError(unicorn.UC_ERR_FETCH_UNMAPPED)
         # The machine def this mixes into provides the default.
         super().handle_interrupt(intno, pc)  # type: ignore[misc]
+
+
+class ARMMachineMixinM(ARMMachineMixinPrefetchAbortFetch):
+    """Mixin for ARM M-series machine models"""
 
     def __init__(self):
         super().__init__()
@@ -632,6 +642,7 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
 
 
 class ARMv7RMachineDef(
+    ARMMachineMixinPrefetchAbortFetch,
     ARMMachineMixinFP,
     ARMMachineMixinPMSA,
     ARMMachineMixinV7SystemControl,

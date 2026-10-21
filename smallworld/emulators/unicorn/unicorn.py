@@ -319,6 +319,17 @@ class UnicornEmulator(
         )
 
         def interrupt_callback(uc, index, user_data):
+            if self.machdef.is_fetch_fault(index):
+                # The core faulted fetching its next instruction; PC holds
+                # the address it tried to fetch. If that's an exit point,
+                # this is reaching it, as a core that reports the fault as
+                # a fetch error would have stopped there cleanly.
+                target = uc.reg_read(self.machdef.uc_reg(self.platdef.pc_register))
+                if (target & ~1) in self._exit_points or target in self._exit_points:
+                    self.state = EmulatorState.EXIT
+                    self.engine.emu_stop()
+                    return
+
             # On some ISAs, Unicorn will already have set PC
             # to the interrupt handler address,
             # which is probably garbage.  Put it back.

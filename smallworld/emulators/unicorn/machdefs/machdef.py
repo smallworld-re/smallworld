@@ -55,6 +55,14 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def is_fetch_fault(self, intno: int) -> bool:
+        """Whether interrupt `intno` reports a failed instruction fetch
+
+        Some cores report a fetch from unmapped memory as an exception
+        rather than as a Unicorn fetch error.
+        """
+        return False
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt
 
