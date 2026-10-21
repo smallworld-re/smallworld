@@ -26,6 +26,7 @@ _ARCHS = (
     "sh2a",
     "sh4",
     "sh4el",
+    "sparc32",
     "tricore",
     "xtensa",
 )
@@ -65,6 +66,9 @@ _STACKS = {
     "sh2a": _stack("sh2a", fake_return_size=None),
     "sh4": _stack("sh4", fake_return_size=None),
     "sh4el": _stack("sh4el", fake_return_size=None),
+    # SPARC leaves the return address in %o7, so like SuperH it needs no
+    # synthetic return slot; sp itself must still be valid.
+    "sparc32": _stack("sparc32", fake_return_size=None),
     "tricore": _stack("tricore", fake_return_size=None),
 }
 

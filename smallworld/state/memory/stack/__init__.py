@@ -9,6 +9,7 @@ from .mips64 import MIPS64BEStack, MIPS64ELStack
 from .msp430 import MSP430Stack
 from .ppc import PowerPC32Stack, PowerPC64Stack
 from .riscv import RISCV64Stack
+from .sparc import SPARC32Stack
 from .stack import *  # noqa: F401, F403
 from .stack import __all__ as __stack__
 from .superh import SH2AFPUStack, SuperH4BEStack, SuperH4ELStack
@@ -35,6 +36,7 @@ __all__ = __stack__ + [
     "PowerPC64Stack",
     "RISCV64Stack",
     "SH2AFPUStack",
+    "SPARC32Stack",
     "SuperH4BEStack",
     "SuperH4ELStack",
     "TriCoreStack",

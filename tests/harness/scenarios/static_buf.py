@@ -230,6 +230,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "sparc32": StaticBufferSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pc_register="pc",
+        result_register="o0",
+        model_register="o0",
+        engines=("unicorn", "angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

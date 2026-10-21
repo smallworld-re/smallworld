@@ -32,6 +32,7 @@ preferred_arches = [
     "sh2a",
     "sh4",
     "sh4el",
+    "sparc32",
     "xtensa",
 ]
 # The familiar engines in a familiar order. This is a preference, not the whole

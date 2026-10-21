@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `GhidraEmulator` and `GhidraSymbolicEmulator` no longer treat a p-code
+  `STORE` into the register space as a memory write, which reported it as an
+  unmapped write or ran memory hooks on it.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -48,6 +51,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 32-bit SPARC V8 support: `Architecture.SPARC32` (big-endian) across the
+  angr, Ghidra and Unicorn backends, with CPU state, a stack, ELF loading and
+  relocation, and function-model returns (to `%o7 + 8`). Only the registers
+  visible through the current register window are modeled. The bundled Unicorn
+  is patched so SPARC indirect jumps work while a code hook is installed and a
+  stopped CPU reports the right pc, and the angr and Ghidra backends correct
+  Ghidra's register-window copy, which loses `%l2` and `%l7` across a call.
+  The test suite builds SPARC binaries with GNU binutils (zig can assemble
+  SPARC but not link it) and runs the branch, call, delay, dma, elf, null_pc,
+  recursion, square, stack, static_buf and strlen scenarios on it. `GhidraMachineDef` gains
+  `fixes_pcode`/`pcode_fixes()` for correcting an instruction's p-code before
+  it runs.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

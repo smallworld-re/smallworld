@@ -37,6 +37,8 @@ RISCV64_ID := riscv64-linux-gnu.2.40
 # One SuperH binutils covers SH-4 big/little and SH-2A; the generation and
 # endianness come from per-platform ASFLAGS below.
 SH_ID := sh4-unknown-linux-gnu
+# zig assembles SPARC but cannot link it, so SPARC uses GNU binutils.
+SPARC32_ID := sparc-unknown-linux-gnu
 TRICORE_ID := tricore-elf
 XTENSA_ID := xtensa-lx106-elf
 
@@ -61,6 +63,7 @@ RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ASM_AS := ./$(SH_ID)-asm
 SH4EL_ASM_AS := ./$(SH_ID)-asm
 SH2A_ASM_AS := ./$(SH_ID)-asm
+SPARC32_ASM_AS := ./$(SPARC32_ID)-asm
 TRICORE_ASM_AS := ./$(TRICORE_ID)-asm
 XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
@@ -85,6 +88,7 @@ RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ELF_AS := ./$(SH_ID)-elfasm
 SH4EL_ELF_AS := ./$(SH_ID)-elfasm
 SH2A_ELF_AS := ./$(SH_ID)-elfasm
+SPARC32_ELF_AS := ./$(SPARC32_ID)-elfasm
 TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
@@ -110,6 +114,7 @@ RISCV64_OBJCOPY := zig objcopy
 SH4_OBJCOPY := $(SH_ID)-objcopy
 SH4EL_OBJCOPY := $(SH_ID)-objcopy
 SH2A_OBJCOPY := $(SH_ID)-objcopy
+SPARC32_OBJCOPY := $(SPARC32_ID)-objcopy
 TRICORE_OBJCOPY := $(TRICORE_ID)-objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 
@@ -147,6 +152,8 @@ XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
 SH4_ASFLAGS := -big --isa=sh4a
 SH4EL_ASFLAGS := -little --isa=sh4a
 SH2A_ASFLAGS := -big --isa=sh2a
+# Reject anything past SPARC V8, which is all the SPARC32 platform models.
+SPARC32_ASFLAGS := -32 -Av8
 
 # objcopy flags
 GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
@@ -206,6 +213,7 @@ RISCV64_EXT := riscv64
 SH4_EXT := sh4
 SH4EL_EXT := sh4el
 SH2A_EXT := sh2a
+SPARC32_EXT := sparc32
 TRICORE_EXT := tricore
 XTENSA_EXT := xtensa
 
@@ -232,6 +240,7 @@ SH4_SRC_EXT := $(SH4_EXT)
 # NOTE: sh4el uses sh4 source
 SH4EL_SRC_EXT := $(SH4_EXT)
 SH2A_SRC_EXT := $(SH2A_EXT)
+SPARC32_SRC_EXT := $(SPARC32_EXT)
 TRICORE_SRC_EXT := $(TRICORE_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
 
@@ -378,10 +387,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SPARC32 TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SPARC32 TRICORE XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

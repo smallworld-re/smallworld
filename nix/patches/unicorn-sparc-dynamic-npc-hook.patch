@@ -1,0 +1,31 @@
+Don't clobber a dynamic SPARC npc when tracing an instruction.
+
+With a UC_HOOK_CODE hook active (which includes the hook emu_start installs
+for a `count` limit), the SPARC translator syncs pc and npc into the CPU state
+before each traced instruction.  It wrote dc->npc unconditionally, but after a
+jmpl or rett dc->npc is the DYNAMIC_PC marker (1), not an address, and cpu_npc
+already holds the computed jump target.  Storing the marker over it sent every
+indirect jump -- ret, retl, jmp, call through a register -- to address 1 after
+its delay slot, which raised TT_UNALIGNED (interrupt 7).
+
+Sync npc only when it is a static address.  A conditional branch's JUMP_PC
+npc is resolved from the branch condition at the end of the block, so leaving
+cpu_npc alone there changes nothing.
+
+--- a/qemu/target/sparc/translate.c	2026-10-21 11:16:13.956824981 -0400
++++ b/qemu/target/sparc/translate.c	2026-10-21 11:16:14.065825321 -0400
+@@ -5964,7 +5964,13 @@
+ 
+         // Sync PC in advance
+         tcg_gen_movi_tl(tcg_ctx, tcg_ctx->cpu_pc, dc->pc);
+-        tcg_gen_movi_tl(tcg_ctx, tcg_ctx->cpu_npc, dc->npc);
++        // Only a static npc can be synced this way.  DYNAMIC_PC and JUMP_PC
++        // are translator markers, not addresses: after a jmpl/rett, cpu_npc
++        // already holds the computed target, and storing the marker over it
++        // sends the delay slot's successor to address 1.
++        if (dc->npc != DYNAMIC_PC && dc->npc != JUMP_PC) {
++            tcg_gen_movi_tl(tcg_ctx, tcg_ctx->cpu_npc, dc->npc);
++        }
+ 
+         gen_uc_tracecode(tcg_ctx, 4, UC_HOOK_CODE_IDX, uc, dc->pc);
+         // the callback might want to stop emulation immediately

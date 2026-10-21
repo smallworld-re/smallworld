@@ -234,6 +234,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         # gain skips, because styx hangs once a hook fires.
         engines=("angr", "pcode", "panda"),
     ),
+    "sparc32": ArchInfo(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pc_register="pc",
+        arg_register="o0",
+        result_register="o0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "tricore": ArchInfo(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",

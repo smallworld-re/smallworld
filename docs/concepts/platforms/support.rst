@@ -49,6 +49,55 @@ for some of the extensions, so I haven't tested anywhere near all of them.
 Also, the standards for this ISA are still being developed,
 so some things like the syscall convention are something of a guess.
 
+**sparc32:** 32-bit SPARC V8 (big-endian), aimed at LEON-class processors and
+user-mode code. Ghidra has no V8 language, so the angr and Ghidra backends use
+Ghidra's 32-bit V9 language, which decodes the V8 privileged instructions
+(``rd``/``wr`` of ``%psr``, ``%wim`` and ``%tbr``) as unrelated V9 instructions.
+
+SPARC's register windows are where the backends differ most, so the platform
+models only the 32 integer registers visible through the current window
+(``%g``, ``%o``, ``%l`` and ``%i``, with ``sp`` and ``fp`` aliasing ``%o6`` and
+``%i6``), plus ``pc``, ``npc`` and ``y``. The windows belonging to callers are
+not part of the CPU state, so they are not transferred between emulators; a
+state captured partway through a call chain loses its callers' ``%l`` and ``%i``
+registers.
+
+Window spill and fill are out of scope. On real hardware, running out of
+windows raises a window overflow or underflow trap, and an operating system's
+handler spills the oldest window to its stack save area or fills it back. That
+part of the calling convention depends on trap handlers, which a
+micro-execution framework does not provide; a full-system image would bring its
+own. SmallWorld therefore does not emulate spill and fill, does not write
+caller windows to the stack when capturing state, and does not restore them
+when loading it. What happens when a program runs out of windows is up to each
+emulator, as described below.
+
+- **Unicorn** (LEON3) rotates its windows like the hardware does, over 8
+  windows, but never raises a window overflow or underflow trap. A call chain
+  nested 8 or more ``save``\ s deep silently overwrites the outermost window.
+  Unicorn 2.1.4 cannot access ``npc`` or ``y``, and reading ``%psr`` crashes it,
+  so neither the processor state register nor the condition codes are exposed.
+  Upstream Unicorn 2.1.4 also sends every ``jmpl``-based transfer (``ret``,
+  ``retl``, ``jmp``, a ``call`` through a register) to address 1 whenever a code
+  hook is installed, which SmallWorld always does, and a CPU stopped at an exit
+  address reports ``pc`` as the address after it. SmallWorld's build carries
+  ``nix/patches/unicorn-sparc-dynamic-npc-hook.patch`` and
+  ``nix/patches/unicorn-sparc-exit-pc.patch`` to fix them. The ``recursion``
+  scenario nests deeper than 8 windows, so it is skipped on Unicorn.
+- **angr** and **Ghidra** use Ghidra's model, which copies the current window to
+  and from a backing bank on ``save`` and ``restore``, with no window limit and
+  no traps. Ghidra 12.1.2's copy stores ``%l3`` in ``%l2``'s slot and restores
+  ``%l7`` from ``%l6``'s; both backends correct those ops before running them.
+  Both also keep Ghidra's ``DECOMPILE_MODE`` register at 0, which the window copy
+  requires, and angr drops the ``call``/``restore`` tail-call check Ghidra emits
+  after a ``call``, which it would otherwise treat as a second successor.
+- **GhidraSymbolicEmulator** cannot run ``save`` or ``restore``: its Z3-backed
+  state rejects the computed register addresses of the window bank.
+
+A function model returns to ``%o7 + 8``, past the call and its delay slot. Every
+branch and jump has one delay slot; stepping one also runs the instruction after
+it, including when an annulled branch skips its delay slot.
+
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
 *sh2a-fpu* is SH-2A-FPU. It is **big-endian only**, because the only SH-2A

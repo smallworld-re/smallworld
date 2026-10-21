@@ -451,12 +451,21 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self._process_function_hook(pc)
         else:
             skip = False
+            replacement = None
+            fixes = None
             frame = None
             # We need to step individual pcode ops to capture hooks
             # There is an exception-based hooking mechanism,
             # but it's unworkable for SmallWorld's purpose.
             while True:
-                if skip:
+                if replacement is not None:
+                    # Run the machine's corrected op in place of the next one
+                    self._thread.getExecutor().stepOp(
+                        replacement, frame, self._thread.getUseropLibrary()
+                    )
+                    self._thread.skipPcodeOp()
+                    replacement = None
+                elif skip:
                     # Skip the next op; it was modeled by a hook
                     skip = False
                     self._thread.skipPcodeOp()
@@ -475,14 +484,30 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     self._thread.finishInstruction()
                     break
 
-                # Inspect the op to see if it's memory-hook relevant
                 code = frame.getCode()
+
+                # Check whether the machine corrects this op.
+                # The first op has already run by now; no fix targets it.
+                if self.machdef.fixes_pcode:
+                    if fixes is None:
+                        fixes = self.machdef.pcode_fixes(code)
+                    replacement = fixes.get(frame.index())
+                    if replacement is not None:
+                        continue
+
+                # Inspect the op to see if it's memory-hook relevant
                 op = code[frame.index()]
                 opcode = op.getOpcode()
                 if opcode == op.STORE:
                     # This is a STORE opcode; could trigger a "write" hook
-                    _, addr_var, data_var = op.getInputs()
-                    self._process_write_breakpoint(addr_var, data_var)
+                    space_var, addr_var, data_var = op.getInputs()
+                    space_id = space_var.getAddress().getOffset()
+
+                    # Only the primary address space is memory.
+                    # A STORE can also target the register space:
+                    # SPARC's save writes its register-window bank that way.
+                    if space_id == self._default_space.getSpaceID():
+                        self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:
                     # This is a LOAD opcode; could trigger a "read" hook
                     addr_space = self._default_space

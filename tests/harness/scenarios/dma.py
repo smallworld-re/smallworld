@@ -51,6 +51,7 @@ _ARCHS = (
     "sh2a",
     "sh4",
     "sh4el",
+    "sparc32",
     "tricore",
     "xtensa",
 )
@@ -83,6 +84,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "sh2a": {"argument_registers": ("r4", "r5")},
     "sh4": {"argument_registers": ("r4", "r5")},
     "sh4el": {"argument_registers": ("r4", "r5")},
+    "sparc32": {"argument_registers": ("o0", "o1")},
     "tricore": {"argument_registers": ("d4", "d5")},
     "xtensa": {
         "argument_registers": ("a2", "a3"),

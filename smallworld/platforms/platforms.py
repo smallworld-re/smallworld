@@ -71,6 +71,9 @@ class Architecture(enum.Enum):
     SUPERH_SH2A_FPU = "superh-sh2a-fpu"
     """Renesas SuperH SH-2A with FPU"""
 
+    SPARC32 = "sparc32"
+    """32-bit SPARC V8"""
+
     TRICORE = "tricore"
     """Infineon TriCore"""
 

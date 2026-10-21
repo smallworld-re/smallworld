@@ -5,6 +5,7 @@ import pdb
 import typing
 
 from ... import emulators, exceptions, platforms, utils
+from ...platforms.defs.sparc import SPARC_RETURN_ADDRESS_OFFSET
 from .. import state
 
 logger = logging.getLogger(__name__)
@@ -298,6 +299,13 @@ class Model(Hook):
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
+        elif self.platform.architecture == platforms.Architecture.SPARC32:
+            # sparc: `call` leaves its own address in 'o7'; return past the
+            # call and its delay slot.  A model runs in the caller's window
+            # (it never executes `save`), so 'o7' is still the caller's.
+            return (
+                emulator.read_register("o7") + SPARC_RETURN_ADDRESS_OFFSET
+            ) & 0xFFFFFFFF
 
         raise exceptions.ConfigurationError(
             f"Don't know how to return for {self.platform.architecture}"

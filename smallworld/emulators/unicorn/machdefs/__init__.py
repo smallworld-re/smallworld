@@ -19,6 +19,7 @@ from .mips import (
 )
 from .ppc import PPC32MachineDef, PPC64MachineDef
 from .riscv64 import RISCV64MachineDef
+from .sparc import SPARC32MachineDef
 from .tricore import TriCoreMachineDef
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "PPC32MachineDef",
     "PPC64MachineDef",
     "RISCV64MachineDef",
+    "SPARC32MachineDef",
     "TriCoreMachineDef",
     "UnicornMachineDef",
 ]

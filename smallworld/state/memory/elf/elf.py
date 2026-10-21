@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 # ELF machine values
 # See /usr/include/elf.h for the complete list
+EM_SPARC = 2  # SPARC 32-bit (V7/V8)
 EM_386 = 3  # Intel 80386
 EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
@@ -412,6 +413,10 @@ class ElfExecutable(Executable):
                     "requested platform"
                 )
                 architecture = self.platform.architecture
+        elif elf.header.machine_type.value == EM_SPARC:
+            # EM_SPARC is V7/V8 only; V8+ (EM_SPARC32PLUS) and V9 (EM_SPARCV9)
+            # images use V9 instructions and are not supported.
+            architecture = Architecture.SPARC32
         elif elf.header.machine_type.value == EM_TRICORE:
             architecture = Architecture.TRICORE
         elif elf.header.machine_type.value == EM_LOONGARCH:

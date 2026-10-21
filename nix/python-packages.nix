@@ -86,6 +86,13 @@ let
       };
       patchedUnicorn = pkgs.unicorn.overrideAttrs (_: {
         src = patchedUnicornSrc;
+        # Without these, every SPARC indirect jump (ret, retl, jmp) traps
+        # whenever a code hook is installed, which SmallWorld always does, and
+        # a SPARC CPU stopped at an exit address reports the wrong pc.
+        patches = [
+          ./patches/unicorn-sparc-dynamic-npc-hook.patch
+          ./patches/unicorn-sparc-exit-pc.patch
+        ];
       });
       mkUnicornafl = pkgs.callPackage ./unicornafl-build {
         unicornLibraryPath = "${patchedUnicorn}/lib";

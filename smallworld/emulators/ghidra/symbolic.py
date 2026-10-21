@@ -716,10 +716,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     def _step_pcode_ops(self) -> None:
         """Per-pcode-op step loop with LOAD/STORE/COPY interception for hooks."""
         skip = False
+        replacement = None
+        fixes = None
+        frame = None
         default_space = self.machdef.language.getDefaultSpace()
         default_space_id = default_space.getSpaceID()
         while True:
-            if skip:
+            if replacement is not None:
+                # Run the machine's corrected op in place of the next one.
+                self._thread.getExecutor().stepOp(
+                    replacement, frame, self._thread.getUseropLibrary()
+                )
+                self._thread.skipPcodeOp()
+                replacement = None
+            elif skip:
                 skip = False
                 self._thread.skipPcodeOp()
             else:
@@ -733,12 +743,22 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 break
 
             code = frame.getCode()
+            if self.machdef.fixes_pcode:
+                if fixes is None:
+                    fixes = self.machdef.pcode_fixes(code)
+                replacement = fixes.get(frame.index())
+                if replacement is not None:
+                    continue
+
             op = code[frame.index()]
             opcode = op.getOpcode()
 
             if opcode == op.STORE:
-                _, addr_var, data_var = op.getInputs()
-                self._process_write_breakpoint(addr_var, data_var)
+                space_var, addr_var, data_var = op.getInputs()
+                # Only the primary address space is memory; a STORE can also
+                # target the register space (SPARC's register-window bank).
+                if space_var.getAddress().getOffset() == default_space_id:
+                    self._process_write_breakpoint(addr_var, data_var)
             elif opcode == op.LOAD:
                 space_var, addr_var = op.getInputs()
                 out_var = op.getOutput()

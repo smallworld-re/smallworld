@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  sparcBinutils,
   superHBinutils,
   tricoreGcc,
   xtensaGcc,
@@ -19,6 +20,7 @@ stdenv.mkDerivation {
     zig
     qemu-user
     gdb
+    sparcBinutils
     superHBinutils
     tricoreGcc
     xtensaGcc
@@ -51,6 +53,8 @@ stdenv.mkDerivation {
     # elf_wrapper.sh mirrors that choice onto `ld` as -EB/-EL.
     ln -sf asm_wrapper.sh sh4-unknown-linux-gnu-asm
     ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh sparc-unknown-linux-gnu-asm
+    ln -sf elf_wrapper.sh sparc-unknown-linux-gnu-elfasm
 
     make -j$(nproc)
     cd elf_core

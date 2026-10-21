@@ -318,6 +318,23 @@ _SPECS = {
         ),
         stack_arguments=((0xCCCCCCCC, 4),),
     ),
+    "sparc32": StackCaseSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pc_register="pc",
+        result_register="o0",
+        engines=("unicorn", "angr", "pcode"),
+        register_arguments=(
+            ("o0", 0x11111111),
+            ("o1", 0x01010101),
+            ("o2", 0x22222222),
+            ("o3", 0x01010101),
+            ("o4", 0x33333333),
+            ("o5", 0x01010101),
+        ),
+        # Arg 7 sits past the 92 bytes a caller reserves at %sp: the 64-byte
+        # window save area, the struct-return word and six argument words.
+        stack_arguments=((0x44444444, 4),) + ((0, 4),) * 23,
+    ),
     "xtensa": StackCaseSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

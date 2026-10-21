@@ -61,6 +61,7 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sparc32",
     "tricore",
     "xtensa",
 )
@@ -98,6 +99,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
         "stack_items": (_fake_return("riscv64"),),
         "stack_pointer_adjust": 8,
     },
+    "sparc32": {},
     "tricore": {"entry_offset": 0x38},
     "xtensa": {"stack_items": (_fake_return("xtensa"),)},
 }
@@ -131,6 +133,11 @@ SCENARIO_INFO = ScenarioInfo(
             # short emulations don't trigger it, but recursion runs long enough
             # that the controller thread panics and the main loop hangs.
             "ppc.styx-mpc860": "styx MPC866M event controller unimplemented (hangs)",
+            # mc91 nests about a dozen register windows deep for the small
+            # inputs. Unicorn has 8 windows and never raises the window
+            # overflow trap that would spill the oldest one to the stack, so
+            # the deepest calls overwrite their callers' %l/%i registers.
+            "sparc32": "Unicorn has 8 SPARC register windows and no overflow trap",
         },
     ),
     run_factory=assert_outputs(

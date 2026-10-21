@@ -129,6 +129,18 @@
       # this cpu variant", so a test source cannot silently drift generations.
       mkSuperHBinutils = system: (pkgsFor system).pkgsCross.sh4.buildPackages.binutils-unwrapped;
 
+      # SPARC is a first-class binutils target too, but nixpkgs has no
+      # `pkgsCross` entry for 32-bit SPARC, so instantiate the cross package set
+      # from the triple. As with SuperH, every SPARC test is assembly, so the
+      # unwrapped binutils is all we need. (zig can assemble SPARC, but its lld
+      # cannot link it.) The tools come out prefixed `sparc-unknown-linux-gnu-*`.
+      mkSparcBinutils =
+        system:
+        (import nixpkgs {
+          inherit system;
+          crossSystem.config = "sparc-unknown-linux-gnu";
+        }).buildPackages.binutils-unwrapped;
+
       mkTricoreGcc =
         system:
         let
@@ -194,9 +206,15 @@
           xtensaGcc = mkXtensaGcc system;
           tricoreGcc = mkTricoreGcc system;
           superHBinutils = mkSuperHBinutils system;
+          sparcBinutils = mkSparcBinutils system;
 
           tests = pkgs.callPackage ../tests {
-            inherit superHBinutils tricoreGcc xtensaGcc;
+            inherit
+              sparcBinutils
+              superHBinutils
+              tricoreGcc
+              xtensaGcc
+              ;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
           };
 

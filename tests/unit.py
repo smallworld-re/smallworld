@@ -1187,6 +1187,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_sparc32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_cpu_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1370,6 +1376,12 @@ class UnicornMachdefTests(unittest.TestCase):
         )
         # Not supported by unicorn
         self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sparc32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
 
     def test_unicorn_tricore(self):
         platform = platforms.Platform(
@@ -1579,6 +1591,12 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_sparc32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_angr_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1763,6 +1781,13 @@ class PandaMachdefTests(unittest.TestCase):
             platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+    def test_panda_sparc32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_panda_tricore(self):
         platform = platforms.Platform(
@@ -1967,6 +1992,12 @@ class GhidraMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_ghidra_sparc32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_ghidra_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -2090,6 +2121,196 @@ class GhidraMachdefLanguageIdTests(unittest.TestCase):
 
         # Guard against the loop silently skipping everything.
         self.assertGreater(checked, 0, msg="no concrete machine defs found")
+
+
+SPARC32_PLATFORM = platforms.Platform(
+    platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+)
+
+
+def _sparc32_add(rd, rs1, rs2):
+    """Encode `add %rs1, %rs2, %rd` (register numbers, %i0 = 24)."""
+    return (2 << 30) | (rd << 25) | (rs1 << 14) | rs2
+
+
+class _SPARC32SetO0(state.models.Model):
+    """Sets %o0 and returns; runs in the caller's register window."""
+
+    name = "sparc32_unit_test_set_o0"
+    platform = SPARC32_PLATFORM
+    abi = platforms.ABI.NONE
+
+    def model(self, emulator):
+        emulator.write_register("o0", 0x99)
+
+
+class SPARC32Tests(unittest.TestCase):
+    """SPARC register windows and returns behave alike on every backend.
+
+    The program calls a function that opens a register window, writes a
+    local, computes its result in %i0 and returns through `ret; restore`.
+    The caller's %l and %i registers must come back unchanged, and the
+    result must arrive in the caller's %o0.  The checks cover the faults
+    each backend needs worked around:
+
+    - Unicorn 2.1.4 sent every jmpl-based return (`ret`, `retl`) to
+      address 1 while a code hook was installed (fixed by
+      nix/patches/unicorn-sparc-dynamic-npc-hook.patch);
+    - Ghidra's `save`/`restore` lose %l2 and %l7, and skip the window copy
+      unless DECOMPILE_MODE is 0;
+    - angr turns the p-code Ghidra emits after a `call` into a second
+      successor.
+    """
+
+    ENTRY = 0x1000
+    EXIT = 0x1008
+    MODEL = 0x2000
+    CODE = {
+        0x1000: 0x40000004,  # call 0x1010
+        0x1004: 0x01000000,  # nop (delay slot)
+        0x1008: 0x01000000,  # exit point
+        0x1010: 0x9DE3BFA0,  # save %sp, -96, %sp
+        0x1014: 0xA4102007,  # mov 7, %l2
+        0x1018: _sparc32_add(24, 24, 24),  # add %i0, %i0, %i0
+        0x101C: 0x81C7E008,  # ret
+        0x1020: 0x81E80000,  # restore (delay slot)
+    }
+    INITIAL = {
+        "o0": 0x15,
+        "l2": 0x22,
+        "l3": 0x33,
+        "l6": 0x66,
+        "l7": 0x77,
+        "i0": 0x44,
+        "sp": 0x8000,
+    }
+    EXPECTED = {
+        "o0": 0x2A,
+        "l2": 0x22,
+        "l3": 0x33,
+        "l6": 0x66,
+        "l7": 0x77,
+        "i0": 0x44,
+        "sp": 0x8000,
+        "pc": 0x1008,
+    }
+
+    def _image(self, code):
+        image = bytearray(max(code) + 4 - self.ENTRY)
+        for address, word in code.items():
+            offset = address - self.ENTRY
+            image[offset : offset + 4] = struct.pack(">I", word)
+        return bytes(image)
+
+    def _load(self, emu, code):
+        emu.map_memory(self.ENTRY, 0x1000)
+        emu.write_code(self.ENTRY, self._image(code))
+        # Stack below %sp only.  Ghidra keeps its register-window bank at
+        # 0x8000 in the register space; mapping RAM there once hid a bug that
+        # treated those stores as memory writes.
+        emu.map_memory(0x7000, 0x1000)
+        for name, value in self.INITIAL.items():
+            emu.write_register(name, value)
+        emu.write_register("pc", self.ENTRY)
+        emu.add_exit_point(self.EXIT)
+
+    def _run(self, emu, step):
+        if step:
+            for _ in range(20):
+                try:
+                    emu.step_instruction()
+                except exceptions.EmulationStop:
+                    return
+                if emu.read_register("pc") == self.EXIT:
+                    return
+            self.fail("did not reach the exit point")
+        else:
+            try:
+                emu.run()
+            except exceptions.EmulationStop:
+                pass
+
+    def _check_call(self, make_emulator):
+        for step in (False, True):
+            with self.subTest(step=step):
+                emu = make_emulator()
+                self._load(emu, self.CODE)
+                self._run(emu, step)
+                got = {name: emu.read_register(name) for name in self.EXPECTED}
+                self.assertEqual(
+                    {k: hex(v) for k, v in got.items()},
+                    {k: hex(v) for k, v in self.EXPECTED.items()},
+                )
+
+    def _check_model_return(self, make_emulator):
+        # A model returns to %o7 + 8, past the call and its delay slot.
+        emu = make_emulator()
+        code = {
+            0x1000: 0x40000000 | ((self.MODEL - 0x1000) >> 2),  # call MODEL
+            0x1004: 0x01000000,  # nop (delay slot)
+            0x1008: 0x01000000,  # exit point
+        }
+        self._load(emu, code)
+        _SPARC32SetO0(self.MODEL).apply(emu)
+        self._run(emu, step=False)
+        self.assertEqual(emu.read_register("pc"), self.EXIT)
+        self.assertEqual(emu.read_register("o0"), 0x99)
+
+    def test_platformdef(self):
+        pdef = platforms.PlatformDef.for_platform(SPARC32_PLATFORM)
+        self.assertEqual(pdef.registers["sp"].parent, "o6")
+        self.assertEqual(pdef.registers["fp"].parent, "i6")
+        self.assertLessEqual({"ret", "retl", "call", "ba,a"}, pdef.delay_slot_mnemonics)
+        self.assertIn("bne,a", pdef.conditional_branch_mnemonics)
+        self.assertNotIn("ba", pdef.conditional_branch_mnemonics)
+
+        md = capstone.Cs(pdef.capstone_arch, pdef.capstone_mode)
+        mnemonics = [i.mnemonic for i in md.disasm(self._image(self.CODE), self.ENTRY)]
+        self.assertEqual(
+            mnemonics,
+            ["call", "nop", "nop", "unimp", "save", "mov", "add", "ret", "restore"],
+        )
+
+    def test_unicorn_call(self):
+        self._check_call(lambda: emulators.UnicornEmulator(SPARC32_PLATFORM))
+
+    def test_unicorn_model_return(self):
+        self._check_model_return(lambda: emulators.UnicornEmulator(SPARC32_PLATFORM))
+
+    def test_angr_call(self):
+        self._check_call(lambda: emulators.AngrEmulator(SPARC32_PLATFORM))
+
+    def test_angr_model_return(self):
+        self._check_model_return(lambda: emulators.AngrEmulator(SPARC32_PLATFORM))
+
+    def test_angr_window_copy_fix(self):
+        # Without the fix, Ghidra's p-code hands back %l3's value for %l2
+        # and %l6's for %l7; make sure the test above would catch that.
+        from smallworld.emulators.angr.machdefs import sparc as angr_sparc
+
+        emu = emulators.AngrEmulator(SPARC32_PLATFORM)
+        self._load(emu, self.CODE)
+        with mock.patch.object(angr_sparc, "_fix_window_copies", lambda irsb: None):
+            self._run(emu, step=False)
+        self.assertEqual(emu.read_register("l2"), 0x33)
+        self.assertEqual(emu.read_register("l7"), 0x66)
+
+    def test_ghidra_call(self):
+        _ensure_pyghidra_started()
+        self._check_call(lambda: emulators.GhidraEmulator(SPARC32_PLATFORM))
+
+    def test_ghidra_model_return(self):
+        _ensure_pyghidra_started()
+        self._check_model_return(lambda: emulators.GhidraEmulator(SPARC32_PLATFORM))
+
+    def test_ghidra_window_copy_fix(self):
+        _ensure_pyghidra_started()
+        emu = emulators.GhidraEmulator(SPARC32_PLATFORM)
+        self._load(emu, self.CODE)
+        with mock.patch.object(type(emu.machdef), "fixes_pcode", False):
+            self._run(emu, step=False)
+        self.assertEqual(emu.read_register("l2"), 0x33)
+        self.assertEqual(emu.read_register("l7"), 0x66)
 
 
 class CoverageHarnessTests(unittest.TestCase):
@@ -2914,6 +3135,9 @@ class TritonMachdefTests(unittest.TestCase):
 
     def test_xtensa_raises_configuration_error(self):
         self._assert_rejects(platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE)
+
+    def test_sparc32_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.SPARC32, platforms.Byteorder.BIG)
 
 
 @unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")

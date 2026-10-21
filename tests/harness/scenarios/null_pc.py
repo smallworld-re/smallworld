@@ -58,6 +58,7 @@ _ARCHS = (
     "sh2a",
     "sh4",
     "sh4el",
+    "sparc32",
     "tricore",
     "xtensa",
 )

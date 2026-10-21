@@ -3,6 +3,7 @@ import typing
 
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
+from ghidra.program.model.pcode import PcodeOp
 
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
@@ -48,6 +49,23 @@ class GhidraMachineDef:
     # This flag indicates that this machine uses such instructions,
     # and is not safe to step in this manner
     supports_single_step: bool = True
+
+    # Does this machine correct the p-code Ghidra produces for an instruction.
+    #
+    # When set, the emulators ask `pcode_fixes()` for replacements before
+    # running each instruction's p-code.
+    fixes_pcode: bool = False
+
+    def pcode_fixes(self, code: typing.Sequence[PcodeOp]) -> typing.Dict[int, PcodeOp]:
+        """Replacements for ops in one instruction's p-code.
+
+        Arguments:
+            code: The p-code ops of the instruction about to run
+
+        Returns:
+            A map from an index in `code` to the op to run in its place.
+        """
+        return {}
 
     _registers: typing.Dict[str, typing.Optional[str]]
 
