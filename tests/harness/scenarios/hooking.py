@@ -224,6 +224,15 @@ _SPECS = {
         string_source=StringSource(register="r4"),
         puts_address=0x1002,
     ),
+    "sparc32": HookingSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="o0"),
+    ),
     "tricore": HookingSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pointer_size=4,

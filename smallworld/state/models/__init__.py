@@ -14,6 +14,7 @@ from . import (
     posix,
     powerpc,
     riscv64,
+    sparc32,
 )
 from .defaultmmio import (
     NullMemoryMappedModel,
@@ -48,4 +49,5 @@ __all__ = __model__ + [
     "posix",
     "powerpc",
     "riscv64",
+    "sparc32",
 ]

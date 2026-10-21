@@ -107,8 +107,8 @@ class SPARC32MachineDef(GhidraMachineDef):
                     slot_index = self._window_slot_add(code, defs, op.getInput(1))
                     if slot_index is not None:
                         slot_op = code[slot_index]
-                        want = int(name[1:])
-                        if slot_op.getInput(1).getOffset() != want:
+                        want_slot = int(name[1:])
+                        if slot_op.getInput(1).getOffset() != want_slot:
                             const = self.language.getAddressFactory().getConstantSpace()
                             fixes[slot_index] = PcodeOp(
                                 slot_op.getSeqnum(),
@@ -116,7 +116,7 @@ class SPARC32MachineDef(GhidraMachineDef):
                                 [
                                     slot_op.getInput(0),
                                     Varnode(
-                                        const.getAddress(want),
+                                        const.getAddress(want_slot),
                                         slot_op.getInput(1).getSize(),
                                     ),
                                 ],

@@ -186,6 +186,9 @@ from smallworld.state.models.powerpc.systemv.systemv import (
 )
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
+from smallworld.state.models.sparc32.systemv.systemv import (
+    SPARC32SysVCallingContext,
+)
 from smallworld.state.models.tls import (
     RELOCATED_TLS_MODULE,
     TlsArenaBorrower,
@@ -4841,6 +4844,98 @@ class SysVBigEndianStackIntTests(unittest.TestCase):
         self.assertEqual(
             self._roundtrip(MIPS64ELSysVCallingContext, 0x12345678), 0x12345678
         )
+
+
+class SPARC32SysVCallingContextTests(unittest.TestCase):
+    """SPARC passes arguments as a flat sequence of words: %o0-%o5, then the
+    stack from %sp + 92. An eight-byte value takes the next two words with no
+    alignment, so it can start in an odd register, or be split between %o5
+    and the first stack word."""
+
+    SP = 0x7000
+
+    def _ctx(self, types):
+        ctx = SPARC32SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.write_register("sp", self.SP)
+        return ctx, emu
+
+    def _stack_word(self, emu, offset):
+        return int.from_bytes(emu.read_memory(self.SP + offset, 4), "big")
+
+    def test_long_long_takes_the_next_two_registers_unaligned(self):
+        ctx, emu = self._ctx([ArgumentType.INT, ArgumentType.LONGLONG])
+        self.assertEqual(ctx._on_stack, [False, False])
+        self.assertEqual(ctx._arg_offset, [0, 1])
+        ctx.set_argument(1, emu, 0x1122334455667788)
+        # Big-endian: the high word comes first.
+        self.assertEqual(emu.regs["o1"], 0x11223344)
+        self.assertEqual(emu.regs["o2"], 0x55667788)
+        self.assertEqual(
+            ctx.get_argument(1, ArgumentType.LONGLONG, emu), 0x1122334455667788
+        )
+
+    def test_long_long_splits_between_o5_and_the_stack(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 5 + [ArgumentType.LONGLONG] * 2)
+        ctx.set_argument(5, emu, -2)
+        self.assertEqual(emu.regs["o5"], 0xFFFFFFFF)
+        self.assertEqual(self._stack_word(emu, 92), 0xFFFFFFFE)
+        self.assertEqual(ctx.get_argument(5, ArgumentType.LONGLONG, emu), -2)
+        # The next argument starts right after the split one's stack word.
+        self.assertTrue(ctx._on_stack[6])
+        self.assertEqual(ctx._arg_offset[6], 96)
+
+    def test_long_long_on_the_stack_is_word_aligned(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 6 + [ArgumentType.LONGLONG] * 2)
+        self.assertEqual(ctx._arg_offset[6], 92)
+        self.assertEqual(ctx._arg_offset[7], 100)
+        ctx.set_argument(7, emu, 0x0102030405060708)
+        self.assertEqual(
+            ctx.get_argument(7, ArgumentType.LONGLONG, emu), 0x0102030405060708
+        )
+
+    def test_double_travels_in_integer_words_and_splits_too(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 5 + [ArgumentType.DOUBLE])
+        ctx.set_argument(5, emu, 1.5)
+        # 1.5 is 0x3ff8000000000000.
+        self.assertEqual(emu.regs["o5"], 0x3FF80000)
+        self.assertEqual(self._stack_word(emu, 92), 0)
+        self.assertEqual(ctx.get_argument(5, ArgumentType.DOUBLE, emu), 1.5)
+
+    def test_variadic_long_long_splits_like_a_fixed_one(self):
+        ctx, emu = self._ctx([ArgumentType.POINTER])
+        emu.write_register("o1", 1)
+        emu.write_register("o2", 2)
+        emu.write_register("o3", 3)
+        emu.write_register("o4", 4)
+        emu.write_register("o5", 0x11223344)
+        emu.write_memory(self.SP + 92, (0x55667788).to_bytes(4, "big"))
+        emu.write_memory(self.SP + 96, (7).to_bytes(4, "big"))
+        varargs = ctx.get_varargs()
+        for expected in (1, 2, 3, 4):
+            self.assertEqual(varargs.get_next_argument(ArgumentType.INT, emu), expected)
+        self.assertEqual(
+            varargs.get_next_argument(ArgumentType.LONGLONG, emu), 0x1122334455667788
+        )
+        self.assertEqual(varargs.get_next_argument(ArgumentType.INT, emu), 7)
+
+    def test_returns(self):
+        ctx, emu = self._ctx([])
+        ctx.return_type = ArgumentType.LONGLONG
+        ctx.set_return_value(emu, 0x1122334455667788)
+        self.assertEqual((emu.regs["o0"], emu.regs["o1"]), (0x11223344, 0x55667788))
+        self.assertEqual(ctx.get_return_value(emu), 0x1122334455667788)
+
+        ctx.return_type = ArgumentType.INT
+        ctx.set_return_value(emu, -1)
+        self.assertEqual(emu.regs["o0"], 0xFFFFFFFF)
+        self.assertEqual(ctx.get_return_value(emu), -1)
+
+        # %f0 is not modeled.
+        ctx.return_type = ArgumentType.DOUBLE
+        with self.assertRaises(NotImplementedError):
+            ctx.set_return_value(emu, 1.0)
 
 
 class ArmHFVfpBackfillTests(unittest.TestCase):

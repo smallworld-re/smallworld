@@ -94,7 +94,12 @@ emulator, as described below.
 - **GhidraSymbolicEmulator** cannot run ``save`` or ``restore``: its Z3-backed
   state rejects the computed register addresses of the window bank.
 
-A function model returns to ``%o7 + 8``, past the call and its delay slot. Every
+A function model returns to ``%o7 + 8``, past the call and its delay slot. The
+System V C library models take their arguments from the caller's ``%o0``-``%o5``
+and the stack from ``%sp + 92``, and return in ``%o0`` (and ``%o1``); models
+that return ``float`` or ``double`` raise ``NotImplementedError``, because SPARC
+returns those in ``%f0`` and the platform does not model the floating-point
+registers. Every
 branch and jump has one delay slot; stepping one also runs the instruction after
 it, including when an annulled branch skips its delay slot.
 

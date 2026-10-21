@@ -58,6 +58,59 @@ signed_int_types = {
 }
 
 
+def _split_pair_address(
+    ctx: typing.Union["CStdCallingContext", "VariadicContext"],
+    index: int,
+    emulator: emulators.Emulator,
+) -> int:
+    """Address of the stack half of an eight-byte argument split across the
+    last argument register and the stack (see `_eight_byte_args_split`)."""
+    return emulator.read_register(ctx.platdef.sp_register) + ctx._split_args[index]
+
+
+def _read_split_pair(
+    ctx: typing.Union["CStdCallingContext", "VariadicContext"],
+    index: int,
+    emulator: emulators.Emulator,
+) -> int:
+    """Read an eight-byte argument split across a register and the stack.
+
+    The register holds the first word of the value and the stack slot the
+    second, so which is the high word follows the byte order.
+    """
+    reg_word = (
+        emulator.read_register(ctx._eight_byte_arg_regs[ctx._arg_offset[index]])
+        & ctx._int_inv_mask
+    )
+    stack_word = int.from_bytes(
+        emulator.read_memory(_split_pair_address(ctx, index, emulator), 4),
+        ctx.platform.byteorder.value,
+    )
+    if ctx.platform.byteorder == Byteorder.BIG:
+        return (reg_word << 32) | stack_word
+    return (stack_word << 32) | reg_word
+
+
+def _write_split_pair(
+    ctx: typing.Union["CStdCallingContext", "VariadicContext"],
+    index: int,
+    emulator: emulators.Emulator,
+    value: int,
+) -> None:
+    """Write an eight-byte argument split across a register and the stack."""
+    hi = (value >> 32) & ctx._int_inv_mask
+    lo = value & ctx._int_inv_mask
+    if ctx.platform.byteorder == Byteorder.BIG:
+        reg_word, stack_word = hi, lo
+    else:
+        reg_word, stack_word = lo, hi
+    emulator.write_register(ctx._eight_byte_arg_regs[ctx._arg_offset[index]], reg_word)
+    emulator.write_memory(
+        _split_pair_address(ctx, index, emulator),
+        stack_word.to_bytes(4, ctx.platform.byteorder.value),
+    )
+
+
 class CStdCallingContext(metaclass=abc.ABCMeta):
     argument_types: typing.List[ArgumentType] = []
     return_type: ArgumentType = ArgumentType.VOID
@@ -71,6 +124,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     # integer offset instead of a private FP counter.
     _fp_shares_int_regs: bool = False
 
+    # On most ABIs an eight-byte argument passed in registers takes an aligned
+    # register pair, and goes wholly to the stack once the registers run out.
+    # SPARC instead passes arguments as one sequence of words: an eight-byte
+    # value (long long, or a double) takes the next two words wherever they
+    # fall, so it can start in an odd register, and when one register is left
+    # it is split -- first word in the last register, second word in the first
+    # stack slot. When True, eight-byte arguments follow that rule.
+    _eight_byte_args_split: bool = False
+
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
 
@@ -80,6 +142,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
         self._on_stack: typing.List[bool] = list()
         self._arg_offset: typing.List[int] = list()
+        # Argument index -> stack offset of the second word, for eight-byte
+        # arguments split across a register and the stack.
+        self._split_args: typing.Dict[int, int] = dict()
 
         self.set_argument_types(self.argument_types)
 
@@ -450,6 +515,29 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             kind == ArgumentType.DOUBLE and self._soft_float
         ):
             # Eight byte int type, or double on a system without separate FP arg regs
+            if self._eight_byte_args_split:
+                regs_left = len(self._eight_byte_arg_regs) - self._int_reg_offset
+                if regs_left >= 2:
+                    # Two consecutive registers, aligned or not
+                    self._on_stack.append(False)
+                    self._arg_offset.append(self._int_reg_offset)
+                    self._int_reg_offset += 2
+                elif regs_left == 1:
+                    # First word in the last register, second on the stack
+                    self._on_stack.append(False)
+                    self._arg_offset.append(self._int_reg_offset)
+                    self._split_args[i] = self._stack_offset + self._init_stack_offset
+                    self._int_reg_offset += 1
+                    self._stack_offset += self._four_byte_stack_size
+                else:
+                    # Two consecutive stack words, aligned or not
+                    self._on_stack.append(True)
+                    self._arg_offset.append(
+                        self._stack_offset + self._init_stack_offset
+                    )
+                    self._stack_offset += self._eight_byte_stack_size
+                return
+
             if self._int_reg_offset % self._eight_byte_reg_size != 0:
                 # Align argument register for eight-byte value
                 self._int_reg_offset += 1
@@ -596,6 +684,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 else:
                     as_bytes = int.to_bytes(value, 8, "little")
                 emulator.write_memory(addr, as_bytes)
+            elif index in self._split_args:
+                # Split across the last register and the stack
+                _write_split_pair(self, index, emulator, value)
             elif self._eight_byte_reg_size == 2:
                 # Stored in a register pair
                 lo = value & self._int_inv_mask
@@ -658,6 +749,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # Stored on the stack
                 addr = emulator.read_register(sp) + arg_offset
                 emulator.write_memory(addr, as_bytes)
+            elif self._soft_float and index in self._split_args:
+                # Split across the last register and the stack
+                _write_split_pair(self, index, emulator, as_int)
             else:
                 if self._soft_float:
                     # Soft-float ABI; treated as an eight-byte int
@@ -730,6 +824,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                     intval = int.from_bytes(data, "big")
                 else:
                     intval = int.from_bytes(data, "little")
+            elif index in self._split_args:
+                # Split across the last register and the stack
+                intval = _read_split_pair(self, index, emulator)
             elif self._eight_byte_reg_size == 2:
                 # Stored in a register pair
                 lo = emulator.read_register(self._eight_byte_arg_regs[arg_offset])
@@ -795,6 +892,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                     intval = int.from_bytes(data, "big")
                 else:
                     intval = int.from_bytes(data, "little")
+            elif self._soft_float and index in self._split_args:
+                # Split across the last register and the stack
+                intval = _read_split_pair(self, index, emulator)
             else:
                 if self._soft_float:
                     # Soft-float ABI; treated as an eight-byte int
@@ -1185,6 +1285,7 @@ class VariadicContext:
         self._eight_byte_arg_regs = parent._eight_byte_arg_regs
         self._soft_float = parent._soft_float or parent._variadic_soft_float
         self._fp_shares_int_regs = parent._fp_shares_int_regs
+        self._eight_byte_args_split = parent._eight_byte_args_split
         self._floats_are_doubles = parent._floats_are_doubles
         self._float_arg_regs = parent._float_arg_regs
         self._double_arg_regs = parent._double_arg_regs
@@ -1204,6 +1305,7 @@ class VariadicContext:
 
         self._on_stack = parent._on_stack.copy()
         self._arg_offset = parent._arg_offset.copy()
+        self._split_args = parent._split_args.copy()
 
     def _next_fp_register(self, kind: ArgumentType) -> typing.Optional[int]:
         # Variadic FP arguments never use AAPCS-VFP back-filling (they either go

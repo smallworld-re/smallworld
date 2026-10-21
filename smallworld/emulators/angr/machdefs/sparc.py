@@ -153,11 +153,11 @@ def _fix_window_copies(irsb) -> None:
             if slot_index is None:
                 continue
             slot_op = ops[slot_index]
-            want = int(name[1:])
-            if slot_op.inputs[1].offset != want:
+            want_slot = int(name[1:])
+            if slot_op.inputs[1].offset != want_slot:
                 ops[slot_index] = _PatchedOp(
                     slot_op,
-                    [slot_op.inputs[0], _ConstVarnode(slot_op.inputs[1], want)],
+                    [slot_op.inputs[0], _ConstVarnode(slot_op.inputs[1], want_slot)],
                 )
 
 
@@ -212,6 +212,7 @@ class SPARC32MachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        assert hasattr(state.scratch, "exit_points")
         state.registers.store(_DECOMPILE_MODE, claripy.BVV(0, 8))
         if state.registers.load(_CWP).symbolic:
             state.registers.store(_CWP, claripy.BVV(0, 32))
