@@ -582,6 +582,8 @@ class ARMv5TMachineDef(
 
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
+    # Unicorn has no plain ARMv5T core; the ARM926 (ARMv5TEJ) is the closest.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_926
 
 
 class ARMv6KMachineDef(
@@ -640,6 +642,8 @@ class ARMv7RMachineDef(
 
     arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
+    # The R5F, unlike the R5, has the 16-register VFP this platform models.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_R5F
 
 
 class ARMv7AMachineDef(
