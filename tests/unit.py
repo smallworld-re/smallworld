@@ -98,6 +98,7 @@ from smallworld.emulators.hookable import (
     check_hookable_range,
     ranges_overlap,
 )
+from smallworld.emulators.unicorn.machdefs import ppc as ppc_machdefs
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.exceptions import UnsupportedModelError
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
@@ -4380,25 +4381,31 @@ class AngrMipsRegisterMapTests(unittest.TestCase):
 class UnicornPPC64InitTests(unittest.TestCase):
     """PPC64MachineDef.__init__ used `super(...)` without calling __init__."""
 
+    LOGGER = "smallworld.emulators.unicorn.machdefs.ppc"
+
     def test_ppc64_machdef_calls_base_init(self):
         calls = []
 
         def record_init(self, *args, **kwargs):
             calls.append((args, kwargs))
 
-        with self.assertLogs(
-            "smallworld.emulators.unicorn.machdefs.ppc", level="WARNING"
-        ):
-            with mock.patch.object(PPCMachineDef, "__init__", record_init):
-                PPC64MachineDef()
+        with mock.patch.object(PPCMachineDef, "__init__", record_init):
+            PPC64MachineDef()
         self.assertEqual(calls, [((), {})])
 
     def test_ppc64_machdef_instantiates_with_registers(self):
-        with self.assertLogs(
-            "smallworld.emulators.unicorn.machdefs.ppc", level="WARNING"
-        ):
-            machdef = PPC64MachineDef()
+        machdef = PPC64MachineDef()
         self.assertEqual(machdef.uc_reg("r0"), unicorn.ppc_const.UC_PPC_REG_0)
+
+    def test_ppc64_machdef_warns_on_unpatched_unicorn(self):
+        with mock.patch.object(ppc_machdefs, "unicorn_runs_ppc64", return_value=False):
+            with self.assertLogs(self.LOGGER, level="WARNING"):
+                PPC64MachineDef()
+
+    def test_ppc64_machdef_is_quiet_on_patched_unicorn(self):
+        with mock.patch.object(ppc_machdefs, "unicorn_runs_ppc64", return_value=True):
+            with self.assertNoLogs(self.LOGGER, level="WARNING"):
+                PPC64MachineDef()
 
 
 class SysVFloatArgRegisterTests(unittest.TestCase):

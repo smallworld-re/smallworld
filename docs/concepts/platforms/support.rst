@@ -43,6 +43,14 @@ Support for privileged operations is unknown.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
 
+**powerpc64 Unicorn:** Stock Unicorn can't run PowerPC64 code at all.
+SmallWorld's build carries two patches (``nix/patches/unicorn-ppc64-*.patch``):
+one makes an explicit PPC64 CPU model select that model rather than a PPC32 one,
+and the other starts PPC64 CPUs in hypervisor mode, without which the first
+instruction fetch faults.  The default CPU is a POWER10, running in real mode;
+the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
+With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.

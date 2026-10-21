@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `UnicornEmulator` runs PowerPC64. SmallWorld's Unicorn build is patched so
+  an explicit PPC64 CPU model selects that model instead of a PPC32 one, and so
+  PPC64 CPUs start in hypervisor mode instead of faulting on their first
+  instruction fetch. `PPC64MachineDef` now warns only when the loaded Unicorn
+  lacks those patches.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook

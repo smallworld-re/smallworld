@@ -1,0 +1,33 @@
+Start 64-bit PowerPC CPUs in hypervisor mode, as reset intends.
+
+ppc_cpu_reset() builds an MSR with HV set, but hreg_store_msr() only lets HV
+change when the current MSR already has it, and the MSR is still 0 at reset.
+The CPU therefore came up in non-hypervisor real mode.  On ISA 3.0 CPUs (the
+default POWER10, and POWER9) that mode translates every instruction fetch
+through the VRMA's hashed page table, which Unicorn never sets up, so the first
+fetch raised a Hypervisor Instruction Storage interrupt (exception 70) and no
+PPC64 code ever ran.  Unicorn's MSR register write deliberately cannot set HV,
+so callers had no way around it.
+
+Seed HV before the store; msr_mask still strips it on CPUs that lack it, and
+MSR_HVB is 0 in the PPC32 build.
+
+diff --git a/qemu/target/ppc/translate_init.inc.c b/qemu/target/ppc/translate_init.inc.c
+index d2fb197..01b154b 100644
+--- a/qemu/target/ppc/translate_init.inc.c
++++ b/qemu/target/ppc/translate_init.inc.c
+@@ -10140,6 +10140,14 @@ static void ppc_cpu_reset(CPUState *dev)
+     }
+ #endif
+ 
++    /*
++     * hreg_store_msr() only lets HV change when the MSR already has it, and
++     * the MSR is still 0 here, so the HV bit requested above was dropped.
++     * That left 64-bit Book3S CPUs in non-hypervisor real mode, where ISA 3.0
++     * translates every fetch through a hashed page table that Unicorn never
++     * sets up.  Seed HV; msr_mask still strips it on CPUs that lack it.
++     */
++    env->msr |= MSR_HVB;
+     hreg_store_msr(env, msr, 1);
+ 
+     env->nip = env->hreset_vector | env->excp_prefix;

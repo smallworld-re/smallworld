@@ -107,7 +107,7 @@ _SPECS = {
     "ppc64": UnmappedSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         load_address=0x400000,
         stack_padding_bytes=32,
     ),
@@ -154,7 +154,6 @@ _SPECS = {
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
     # Measured: Styx's SuperH2A target maps a flat 4 GiB RWX space, so none of
     # the three accesses can fault.  Single-stepping unmapped.sh2a.elf's
     # read_unmapped shows `mov.l @r1,r0` with r1=0x8000 completing and yielding

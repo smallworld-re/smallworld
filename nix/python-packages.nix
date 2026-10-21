@@ -84,8 +84,14 @@ let
         rev = "mmio_map_pc_sync";
         hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
       };
-      patchedUnicorn = pkgs.unicorn.overrideAttrs (_: {
+      patchedUnicorn = pkgs.unicorn.overrideAttrs (old: {
         src = patchedUnicornSrc;
+        # Without these, no PPC64 code runs: an explicit CPU model selects a
+        # PPC32 CPU, and the default POWER10 faults on its first fetch.
+        patches = (old.patches or [ ]) ++ [
+          ./patches/unicorn-ppc64-cpu-model.patch
+          ./patches/unicorn-ppc64-reset-hv.patch
+        ];
       });
       mkUnicornafl = pkgs.callPackage ./unicornafl-build {
         unicornLibraryPath = "${patchedUnicorn}/lib";

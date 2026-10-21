@@ -133,7 +133,7 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "call"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unexpected trap", **_SH4_CALL_SKIPS},
+        skip_reasons=_SH4_CALL_SKIPS,
         arch_kwargs={
             arch: {"signext": True}
             for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")

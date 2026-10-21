@@ -154,7 +154,7 @@ _SPECS = {
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         mid_exit_offset=16,
         load_address=0x400000,
         link_register="lr",
@@ -238,7 +238,6 @@ _SKIP_REASONS = {
     "mips64el.panda": "Waiting for panda-ng",
     "mipsel.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
-    "ppc64": "Unicorn ppc64 support buggy",
 }
 
 

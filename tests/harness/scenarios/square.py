@@ -84,7 +84,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "square"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={
             **{
                 arch: {"signext": True}

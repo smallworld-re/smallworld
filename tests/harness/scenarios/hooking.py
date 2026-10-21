@@ -169,9 +169,9 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(register="r3"),
-        stack_padding_bytes={"pcode": 16},
+        stack_padding_bytes={"unicorn": 16, "pcode": 16},
     ),
     "riscv64": HookingSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -248,9 +248,7 @@ _SPECS = {
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-_SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
-}
+_SKIP_REASONS = {}
 
 
 SCENARIO_PREFIXES = (("hooking", "hooking"),)
@@ -279,7 +277,6 @@ SCENARIO_INFO = ScenarioInfo(
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
         },
-        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),
     run_factory=assert_outputs(_hooking_expectations, stdin="foo bar baz"),
 )

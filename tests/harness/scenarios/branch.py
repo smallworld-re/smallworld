@@ -56,7 +56,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "branch"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
     run_factory=assert_outputs(
         (

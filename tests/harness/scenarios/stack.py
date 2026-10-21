@@ -373,7 +373,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "stack"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={arch: {"res": res} for arch, res in _STACK_RES.items()},
     ),
     run_factory=assert_outputs(_stack_expectations, case_sensitive=False),

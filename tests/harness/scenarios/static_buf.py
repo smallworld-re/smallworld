@@ -269,7 +269,6 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
-            "ppc64": "Unicorn ppc64 support buggy",
             "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
             **_SH4_BSR_SKIPS,
