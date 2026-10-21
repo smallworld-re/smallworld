@@ -58,6 +58,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "armv7r": ElfSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "armv8a": ElfSpec(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
         pointer_size=4,
@@ -173,6 +180,7 @@ _UNICORN_BOUND_EXITS = {
     "aarch64": 0xAC,
     "armv6k": 0x88,
     "armv7a": 0x88,
+    "armv7r": 0x88,
     "armv8a": 0x88,
     "armv8r": 0x88,
 }
@@ -230,7 +238,7 @@ def _configure_exitpoints(
         return
 
     if (
-        arch in {"aarch64", "armv6k", "armv7a", "armv8a", "armv8r"}
+        arch in {"aarch64", "armv6k", "armv7a", "armv7r", "armv8a", "armv8r"}
         and engine == "panda"
     ):
         exitpoint = entrypoint + code.get_symbol_size("_start") - 4

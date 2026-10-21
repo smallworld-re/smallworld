@@ -13,6 +13,7 @@ _ARCHS = (
     "armv7m",
     "armv8m",
     "armv7a",
+    "armv7r",
     "armv8a",
     "armv8r",
     "i386",

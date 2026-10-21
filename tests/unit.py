@@ -1560,8 +1560,7 @@ class AngrMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
         )
-        # Not supported by angr
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_angr_i386(self):
         platform = platforms.Platform(
@@ -1758,8 +1757,7 @@ class PandaMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
         )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_panda_armv7a(self):
         platform = platforms.Platform(
@@ -1984,8 +1982,7 @@ class GhidraMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
         )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_ghidra_i386(self):
         platform = platforms.Platform(

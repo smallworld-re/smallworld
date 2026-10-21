@@ -49,6 +49,7 @@ TRITON_ARCHS = frozenset(
         "armv6k",
         "armv6m",
         "armv7a",
+        "armv7r",
         "armv8a",
         "armv8r",
         "armv7m",
@@ -124,6 +125,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
     ),
     "armv7a": ArchInfo(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv7r": ArchInfo(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",

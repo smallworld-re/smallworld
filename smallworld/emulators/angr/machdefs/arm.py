@@ -826,10 +826,6 @@ class ARMv7AMachineDef(
     byteorder = Byteorder.LITTLE
 
 
-# angr does not have good enough R- or A- series support,
-# or any support for NEON that I can see.
-
-
 class ARMv8AMachineDef(
     ARMMachineMixinVFPv8,
     ARMMachineMixinVirtualization,
@@ -865,3 +861,15 @@ class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
     arch = Architecture.ARM_V8M
     byteorder = Byteorder.LITTLE
     is_thumb = True
+
+
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    angr_arch = archinfo.arch_arm.ArchARMHF()
+    arch = Architecture.ARM_V7R
+    byteorder = Byteorder.LITTLE

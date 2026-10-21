@@ -833,3 +833,14 @@ class ARMv8RMachineDef(
 class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
     arch = Architecture.ARM_V8M
     byteorder = Byteorder.LITTLE
+
+
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V7R
+    byteorder = Byteorder.LITTLE

@@ -612,3 +612,16 @@ class ARMv8RMachineDef(
     arch = Architecture.ARM_V8R
     byteorder = Byteorder.LITTLE
     cpu = "cortex-r52"
+
+
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V7R
+    byteorder = Byteorder.LITTLE
+    # The R5F, unlike the R5, has the 16-register VFP this platform models.
+    cpu = "cortex-r5f"

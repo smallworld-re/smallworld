@@ -54,6 +54,7 @@ _ARCHS = (
     "armv7m",
     "armv8m",
     "armv7a",
+    "armv7r",
     "armv8a",
     "armv8r",
     "i386",
@@ -78,6 +79,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "armv7m": {"stack_items": (_fake_return("armv7m"),)},
     "armv8m": {"stack_items": (_fake_return("armv8m"),)},
     "armv7a": {"stack_items": (_fake_return("armv7a"),)},
+    "armv7r": {"stack_items": (_fake_return("armv7r"),)},
     "armv8a": {"stack_items": (_fake_return("armv8a"),)},
     "armv8r": {"stack_items": (_fake_return("armv8r"),)},
     # i386 and m68k pass the argument on the stack rather than in a register.
@@ -125,6 +127,7 @@ _SPECS = build_specs(
         "armv7m": _ARM_ENGINES,
         "armv8m": _ARM_ENGINES,
         "armv7a": _ARM_ENGINES,
+        "armv7r": _ARM_ENGINES,
         "armv8a": _ARM_ENGINES,
         "armv8r": _ARM_ENGINES,
         "ppc": _PPC_ENGINES,

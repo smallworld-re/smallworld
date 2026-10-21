@@ -93,6 +93,14 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         engine="unicorn",
     ),
+    "armv7r": _FuzzSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+    ),
     "armv8a": _FuzzSpec(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
         pc_register="pc",
@@ -162,6 +170,14 @@ _SIMPLE_SPECS = {
     # core maps the full 4 GiB and the write would silently succeed.
     "armv7a.styx": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="styx",
+    ),
+    "armv7r.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
@@ -290,6 +306,15 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "armv7r": _FuzzSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
     "armv8a": _FuzzSpec(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
         pc_register="pc",
@@ -359,6 +384,7 @@ _FUZZ_ARCHES = (
     "armv5t",
     "armv6m",
     "armv7a",
+    "armv7r",
     "armv8a",
     "armv8r",
     "armv7m",
@@ -377,6 +403,7 @@ _AFL_EXPECTED = {
     "armv7m": ("022192:1", "023108:1", "056927:1"),
     "armv8m": ("022192:1", "023108:1", "056927:1"),
     "armv7a": ("002975:1", "022192:1", "050871:1"),
+    "armv7r": ("002975:1", "022192:1", "050871:1"),
     "armv8a": ("002975:1", "022192:1", "050871:1"),
     "armv8r": ("002975:1", "022192:1", "050871:1"),
     "m68k": ("021692:1", "022192:1", "059686:1"),
@@ -387,6 +414,7 @@ _AFL_EXPECTED = {
 
 
 _STYX_NO_ARMV8 = "Styx has no ARMv8 target"
+_STYX_NO_ARMV7R = "Styx has no ARMv7-R target"
 
 # variants_source enumerates every (variant, skip_reason) the fuzz scenarios
 # run. Engine-specific tokens (e.g. ".styx", ".styx-mpc860") select an
@@ -394,6 +422,7 @@ _STYX_NO_ARMV8 = "Styx has no ARMv8 target"
 # "ppc") default to the engine declared in the matching spec.
 _FUZZ_VARIANTS = tuple((arch, None) for arch in _FUZZ_ARCHES) + (
     ("armv7a.styx", None),
+    ("armv7r.styx", _STYX_NO_ARMV7R),
     ("armv8a.styx", _STYX_NO_ARMV8),
     ("armv8r.styx", _STYX_NO_ARMV8),
     ("armv5t.styx", None),
