@@ -1742,8 +1742,7 @@ class PandaMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
         )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_panda_riscv64(self):
         platform = platforms.Platform(

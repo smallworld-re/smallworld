@@ -119,7 +119,7 @@ _SPECS = {
         pointer_size=8,
         pc_register="pc",
         stack_pointer_register="r1",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
     ),
     "riscv64": ElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -254,6 +254,10 @@ def _configure_exitpoints(
 
     if arch == "ppc" and engine == "panda":
         machine.add_exit_point(entrypoint + 0x34)
+
+    if arch == "ppc64" and engine == "panda":
+        # Stop on _start's closing blr; PANDA faults fetching the return address.
+        machine.add_exit_point(entrypoint + code.get_symbol_size("_start") - 4)
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:

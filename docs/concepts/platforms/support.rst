@@ -51,6 +51,13 @@ instruction fetch faults.  The default CPU is a POWER10, running in real mode;
 the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
 With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
 
+**powerpc64 Panda:** SmallWorld's PANDA build is patched
+(``nix/patches/panda-qemu-ppc64-configurable.patch``) to include the
+configurable machine in the ppc64 target.  The CPU is a POWER8: POWER9 and
+POWER10 reset with the hypervisor bit clear, so their first instruction fetch
+faults, as on stock Unicorn.  An unmapped instruction fetch surfaces as a
+machine check, which SmallWorld reports as ``EmulationFetchUnmappedFailure``.
+
 **powerpc64 ABI:** SmallWorld models the ELFv2 ABI, which is what current
 toolchains (including the zig build of the test suite) emit.  For ELFv1
 binaries, which use function descriptors, the PLT relocation

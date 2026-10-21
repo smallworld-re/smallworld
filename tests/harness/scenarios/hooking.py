@@ -169,9 +169,9 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="r3"),
-        stack_padding_bytes={"unicorn": 16, "pcode": 16},
+        stack_padding_bytes={"unicorn": 16, "panda": 16, "pcode": 16},
     ),
     "riscv64": HookingSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),

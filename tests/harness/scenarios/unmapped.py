@@ -107,7 +107,7 @@ _SPECS = {
     "ppc64": UnmappedSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         load_address=0x400000,
         stack_padding_bytes=32,
     ),

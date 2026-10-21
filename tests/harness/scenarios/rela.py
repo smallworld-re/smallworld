@@ -159,7 +159,7 @@ _SPECS = {
         pointer_size=8,
         pc_register="pc",
         stack_pointer_register="sp",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="r3"),
         load_address=0x80000000,
         print_entrypoint=True,

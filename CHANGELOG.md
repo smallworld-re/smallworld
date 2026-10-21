@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `PandaEmulator` runs PowerPC64, as a POWER8. SmallWorld's PANDA build is
+  patched to build QEMU's configurable machine for the ppc64 target, and a
+  machine check, which is how the CPU reports an unmapped instruction fetch,
+  raises `EmulationFetchUnmappedFailure`.
 - PowerPC64 ELFv2 System V library models (`smallworld.state.models.powerpc64`),
   with the ELFv2 rule that a floating-point argument uses up its
   general-purpose register slot. The c99/posix, `sysv`, `funcptr`,

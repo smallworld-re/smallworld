@@ -177,7 +177,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="r3",
         stack_pointer_register="sp",
         pointer_size=8,
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
     ),
     "riscv64": ArchInfo(
         platform=PlatformSpec("RISCV64", "LITTLE"),

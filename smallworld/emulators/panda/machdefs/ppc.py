@@ -1,6 +1,13 @@
+from .... import exceptions
 from ....exceptions import UnsupportedRegisterError
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+# QEMU's PowerPC machine check exception index (target/ppc cpu.h
+# POWERPC_EXCP_MCHECK).  Server CPUs raise it when they access memory
+# nothing backs.  Unmapped loads and stores are caught before they reach
+# the CPU, so on these CPUs it signals an instruction fetch.
+_PPC_EXCP_MCHECK = 1
 
 
 class PowerPCMachineDef(PandaMachineDef):
@@ -100,11 +107,6 @@ class PowerPCMachineDef(PandaMachineDef):
     _registers = _registers | {i: i for i in _registers_identity}
     _registers = _registers | {i: None for i in _registers_unsupported}
 
-
-class PowerPC32MachineDef(PowerPCMachineDef):
-    arch = Architecture.POWERPC32
-    cpu = "ppc32"
-
     def _panda_get_spr_regs(self, panda_obj, panda_cpu):
         # HACKHACK: export something in pypanda to do this instead of duplicating.
         # We'll also be paranoid in reading this in case the upstream patch hasn't landed.
@@ -150,3 +152,23 @@ class PowerPC32MachineDef(PowerPCMachineDef):
             return name.upper() in panda_obj.arch.registers_spr.keys()
         else:
             return False
+
+
+class PowerPC32MachineDef(PowerPCMachineDef):
+    arch = Architecture.POWERPC32
+    cpu = "ppc32"
+
+
+class PowerPC64MachineDef(PowerPCMachineDef):
+    arch = Architecture.POWERPC64
+    panda_arch = "ppc64"
+    # NOTE: POWER9 and later reset with MSR[HV] clear,
+    # so their first instruction fetch faults under the ISA 3.0 VRMA.
+    cpu = "power8_v2.0"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _PPC_EXCP_MCHECK:
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        super().handle_interrupt(intno, pc)

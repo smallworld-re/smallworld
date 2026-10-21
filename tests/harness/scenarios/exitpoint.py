@@ -238,6 +238,7 @@ _SKIP_REASONS = {
     "mips64el.panda": "Waiting for panda-ng",
     "mipsel.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
+    "ppc64.panda": "Waiting for panda-ng",
 }
 
 
