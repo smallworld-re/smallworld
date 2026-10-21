@@ -4276,6 +4276,34 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         self.assertIn("movs", insn.disasm)
 
 
+class PPC64InstructionTests(unittest.TestCase):
+    """Analyses decode PowerPC64 through PPC64Instruction."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+    )
+
+    def test_from_bytes_selects_ppc64(self):
+        # ld r3, 8(r1)
+        insn = Instruction.from_bytes(bytes.fromhex("e8610008"), 0x1000, self.PLATFORM)
+        self.assertEqual(type(insn).__name__, "PPC64Instruction")
+        self.assertIn("ld r3, 8(r1)", insn.disasm)
+
+    def test_load_use_def(self):
+        insn = Instruction.from_bytes(bytes.fromhex("e8610008"), 0x1000, self.PLATFORM)
+        memory = [r for r in insn.reads if isinstance(r, BSIDMemoryReferenceOperand)]
+        self.assertIn(RegisterOperand("r1"), insn.reads)
+        self.assertEqual(insn.writes, {RegisterOperand("r3")})
+        self.assertEqual(len(memory), 1)
+        self.assertEqual(memory[0].offset, 8)
+        self.assertEqual(memory[0].size, 8)
+
+    def test_from_angr_name_selects_ppc64(self):
+        from smallworld.instructions.ppc import PPC64Instruction
+
+        self.assertEqual(PPC64Instruction.angr_arch, "PPC64")
+
+
 class X86ImmediateOperandTests(unittest.TestCase):
     """x86Instruction.reads hit `assert 1 == 0` on immediate operands."""
 
@@ -9993,6 +10021,18 @@ class MallocModelZeroCountTests(unittest.TestCase):
 
         # Allocation of 0 bytes still succeeds and returns the heap pointer.
         self.assertEqual(emu.reg_writes, [("rax", 0x10010)])
+
+
+class MallocModelRegisterTests(unittest.TestCase):
+    """MallocModel knows each supported ABI's size and result registers."""
+
+    def test_ppc64_uses_r3(self):
+        heap = _AnalysesBumpAllocator(0x10000, 0x1000)
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        model = MallocModel(0x400000, heap, platform, None, None)
+        self.assertEqual((model.arg1_reg, model.ret_reg), ("r3", "r3"))
 
 
 class _FieldDetectionProbe(field_analysis.FieldDetectionMixin):

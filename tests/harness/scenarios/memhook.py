@@ -55,6 +55,9 @@ _VARIANTS = (
     ("ppc.angr", None),
     ("ppc.panda", None),
     ("ppc.pcode", None),
+    ("ppc64", None),
+    ("ppc64.angr", None),
+    ("ppc64.pcode", None),
     ("riscv64", None),
     ("riscv64.angr", None),
     ("riscv64.pcode", None),
@@ -62,7 +65,16 @@ _VARIANTS = (
 )
 
 # Per the legacy harness, these arches print results with 8-byte fields.
-_WIDE_ARCHES = {"aarch64", "amd64", "i386", "la64", "mips64", "mips64el", "riscv64"}
+_WIDE_ARCHES = {
+    "aarch64",
+    "amd64",
+    "i386",
+    "la64",
+    "mips64",
+    "mips64el",
+    "ppc64",
+    "riscv64",
+}
 
 
 def _memhook_expectations(

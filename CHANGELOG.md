@@ -71,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checked_heap`, `rela` and `link_elf` integration cases now cover ppc64.
 - `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
   to a guest function; on PowerPC64 it also sets `r12` for the TOC.
+- `PPC64Instruction`, so analyses can decode PowerPC64; and PowerPC64 support
+  in the malloc field-detection model. The `memhook` integration cases now
+  cover ppc64.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by
