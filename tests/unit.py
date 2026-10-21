@@ -1099,6 +1099,24 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv8a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv8r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv8m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
@@ -1304,6 +1322,24 @@ class UnicornMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_unicorn_armv8a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv8r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv8m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_unicorn_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
@@ -1499,6 +1535,24 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_armv7a(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv8a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv8r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv8m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1713,6 +1767,18 @@ class PandaMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_panda_armv8a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_armv8r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_panda_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
@@ -1893,6 +1959,24 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_armv7a(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv8a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv8r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv8m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2920,6 +3004,27 @@ class TritonMachdefTests(unittest.TestCase):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8a(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8r(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8m(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
             )
         )
 
@@ -4271,6 +4376,36 @@ class ArmInstructionPlatformTests(unittest.TestCase):
 
         self.assertEqual(
             ARMV5TInstruction.platform.architecture, platforms.Architecture.ARM_V5T
+        )
+
+    def test_armv8a_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8AInstruction
+
+        self.assertEqual(
+            ARMV8AInstruction.platform.architecture, platforms.Architecture.ARM_V8A
+        )
+        self.assertEqual(
+            ARMV8AInstruction.cs_mode, capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+        )
+
+    def test_armv8r_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8RInstruction
+
+        self.assertEqual(
+            ARMV8RInstruction.platform.architecture, platforms.Architecture.ARM_V8R
+        )
+        self.assertEqual(
+            ARMV8RInstruction.cs_mode, capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+        )
+
+    def test_armv8m_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8MInstruction
+
+        self.assertEqual(
+            ARMV8MInstruction.platform.architecture, platforms.Architecture.ARM_V8M
+        )
+        self.assertEqual(
+            ARMV8MInstruction.cs_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
         )
 
     def test_armv6k_instruction_platform(self):

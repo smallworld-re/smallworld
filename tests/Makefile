@@ -20,8 +20,9 @@ AARCH64_ID := aarch64-linux-gnu.2.40
 AMD64_ID := x86_64-linux-gnu.2.40
 AMD64_MINGW_ID := x86_64-windows-gnu.2.40
 # 32-bit ARM is named by platform ID. The float ABI is implied by the
-# platform: armv5t, armv6k, armv6m, and armv7m are soft-float (gnueabi),
-# armv7a and armv7r hard-float (gnueabihf). armv6m and armv7m are Thumb-only,
+# platform: armv5t, armv6k, armv6m, armv7m, and armv8m are soft-float
+# (gnueabi); armv7a, armv7r, armv8a, and armv8r hard-float (gnueabihf).
+# armv8a is ARMv8-A in the AArch32 state. armv6m and armv7m are Thumb-only,
 # so their sources start with `.thumb`. Each is pinned to a CPU via its ASFLAGS/CFLAGS,
 # since zig otherwise targets ARMv7-A.
 ARMV5T_ID := arm-linux-gnueabi.2.40
@@ -29,6 +30,9 @@ ARMV6K_ID := arm-linux-gnueabi.2.40
 ARMV6M_ID := arm-linux-gnueabi.2.40
 ARMV7A_ID := arm-linux-gnueabihf.2.40
 ARMV7M_ID := arm-linux-gnueabi.2.40
+ARMV8A_ID := arm-linux-gnueabihf.2.40
+ARMV8M_ID := arm-linux-gnueabi.2.40
+ARMV8R_ID := arm-linux-gnueabihf.2.40
 ARMV7R_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
@@ -60,6 +64,9 @@ ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
 ARMV6M_ASM_AS := zig build-obj -target $(ARMV6M_ID)
 ARMV7A_ASM_AS := zig build-exe -target $(ARMV7A_ID)
 ARMV7M_ASM_AS := zig build-obj -target $(ARMV7M_ID)
+ARMV8A_ASM_AS := zig build-exe -target $(ARMV8A_ID)
+ARMV8M_ASM_AS := zig build-obj -target $(ARMV8M_ID)
+ARMV8R_ASM_AS := zig build-exe -target $(ARMV8R_ID)
 ARMV7R_ASM_AS := zig build-exe -target $(ARMV7R_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
@@ -87,6 +94,8 @@ ARMV5T_ELF_AS := zig build-exe -target $(ARMV5T_ID)
 ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
 ARMV7A_ELF_AS := zig build-exe -target $(ARMV7A_ID)
 ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
+ARMV8A_ELF_AS := zig build-exe -target $(ARMV8A_ID)
+ARMV8R_ELF_AS := zig build-exe -target $(ARMV8R_ID)
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
@@ -115,6 +124,9 @@ ARMV6K_OBJCOPY := zig objcopy
 ARMV6M_OBJCOPY := zig objcopy
 ARMV7A_OBJCOPY := zig objcopy
 ARMV7M_OBJCOPY := zig objcopy
+ARMV8A_OBJCOPY := zig objcopy
+ARMV8M_OBJCOPY := zig objcopy
+ARMV8R_OBJCOPY := zig objcopy
 ARMV7R_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
@@ -141,6 +153,8 @@ AMD64_CC := zig cc -target $(AMD64_ID)
 AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
 ARMV6K_CC := zig cc -target $(ARMV6K_ID)
 ARMV7A_CC := zig cc -target $(ARMV7A_ID)
+ARMV8A_CC := zig cc -target $(ARMV8A_ID)
+ARMV8R_CC := zig cc -target $(ARMV8R_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
 LA64_CC := zig cc -target $(LA64_ID) 
@@ -169,6 +183,9 @@ ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
 ARMV6M_ASFLAGS := -mcpu=cortex_m0
 ARMV7A_ASFLAGS := -mcpu=cortex_a9
 ARMV7M_ASFLAGS := -mcpu=cortex_m3
+ARMV8A_ASFLAGS := -mcpu=cortex_a53
+ARMV8M_ASFLAGS := -mcpu=cortex_m33
+ARMV8R_ASFLAGS := -mcpu=cortex_r52
 ARMV7R_ASFLAGS := -mcpu=cortex_r5
 MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
 MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
@@ -189,6 +206,8 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
 ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
 ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
+ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
+ARMV8R_CFLAGS := -marm -mcpu=cortex_r52
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
@@ -200,6 +219,8 @@ PPC_CFLAGS := -mfloat-abi=hard
 AARCH64_ELF_CFLAGS := -pie
 AMD64_ELF_CFLAGS := -pie
 ARMV7A_ELF_CFLAGS := -pie
+ARMV8A_ELF_CFLAGS := -pie
+ARMV8R_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
@@ -222,6 +243,9 @@ ARMV6K_EXT := armv6k
 ARMV6M_EXT := armv6m
 ARMV7A_EXT := armv7a
 ARMV7M_EXT := armv7m
+ARMV8A_EXT := armv8a
+ARMV8M_EXT := armv8m
+ARMV8R_EXT := armv8r
 ARMV7R_EXT := armv7r
 I386_EXT := i386
 I386_MINGW_EXT := i386
@@ -250,6 +274,9 @@ ARMV6K_SRC_EXT := $(ARMV6K_EXT)
 ARMV6M_SRC_EXT := $(ARMV6M_EXT)
 ARMV7A_SRC_EXT := $(ARMV7A_EXT)
 ARMV7M_SRC_EXT := $(ARMV7M_EXT)
+ARMV8A_SRC_EXT := $(ARMV8A_EXT)
+ARMV8M_SRC_EXT := $(ARMV8M_EXT)
+ARMV8R_SRC_EXT := $(ARMV8R_EXT)
 ARMV7R_SRC_EXT := $(ARMV7R_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
@@ -415,13 +442,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A ARMV8A ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -438,6 +465,13 @@ $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
+
+# glibc can't build for Thumb-only ARMv8-M (its syscall asm uses r7, which
+# Thumb reserves), so the one C test it runs is built freestanding.
+sysv/sysv.armv8m.elf : sysv/sysv.elf.c
+	zig cc -target thumb-freestanding-eabi -mcpu=cortex_m33 -mfloat-abi=soft $(GENERAL_CFLAGS) -ffreestanding -nostartfiles -Wl,-e,main -o $@ $<
+
+armv8m : sysv/sysv.armv8m.elf
 
 # **********************
 # *** Global Targets ***

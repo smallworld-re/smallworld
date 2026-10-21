@@ -846,6 +846,127 @@ class ARMPlatformMixinVFPEL:
         }
 
 
+class ARMPlatformMixinVFPv8(ARMPlatformMixinVFPEL):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD
+
+    This is the 32-register VFP/NEON register file of ARMv7,
+    plus the MVFR2 feature register ARMv8 adds.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Media and VFP Feature Register 2
+            "mvfr2": RegisterDef(name="mvfr2", size=4),
+        }
+
+
+class ARMPlatformMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU
+
+    prbar and prlar access whichever region prselr selects;
+    the per-region registers behind them aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Protection Region Selection Register
+            "prselr": RegisterDef(name="prselr", size=4),
+            # Protection Region Base Address Register
+            "prbar": RegisterDef(name="prbar", size=4),
+            # Protection Region Limit Address Register
+            "prlar": RegisterDef(name="prlar", size=4),
+            # Memory Attribute Indirection Register 0
+            "mair0": RegisterDef(name="mair0", size=4),
+            # Memory Attribute Indirection Register 1
+            "mair1": RegisterDef(name="mair1", size=4),
+            # Vector Base Address Register
+            "vbar": RegisterDef(name="vbar", size=4),
+        }
+
+
+class ARMPlatformMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)
+
+    ARMv8-R has Hyp mode but no MMU, so this is the ARMv7 Virtualization
+    register set without its translation-table registers,
+    plus the hypervisor's own MPU registers.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Hypervisor Stack Pointer
+            "sp_hyp": RegisterDef(name="sp_hyp", size=4),
+            # Hypervisor Saved PSR
+            "spsr_hyp": RegisterDef(name="spsr_hyp", size=4),
+            # Hypervisor Exception Link Register
+            # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+            "elr_hyp": RegisterDef(name="elr_hyp", size=4),
+            # Hyp Configuration Register
+            "hcr": RegisterDef(name="hcr", size=4),
+            # Hyp Coprocessor Trap Register
+            "hcptr": RegisterDef(name="hcptr", size=4),
+            # Hyp System Trap Register
+            "hstr": RegisterDef(name="hstr", size=4),
+            # Hyp Debug Configuration Register
+            "hdcr": RegisterDef(name="hdcr", size=4),
+            # Hyp System Control Register
+            "hsctlr": RegisterDef(name="hsctlr", size=4),
+            # Hyp Vector Base Address Register
+            "hvbar": RegisterDef(name="hvbar", size=4),
+            # Hyp Syndrome Register
+            "hsr": RegisterDef(name="hsr", size=4),
+            # Hyp Data Fault Address Register
+            "hdfar": RegisterDef(name="hdfar", size=4),
+            # Hyp Instruction Fault Address Register
+            "hifar": RegisterDef(name="hifar", size=4),
+            # Hyp Software Thread ID Register
+            "htpidr": RegisterDef(name="htpidr", size=4),
+            # Hyp Memory Attribute Indirection Register 0
+            "hmair0": RegisterDef(name="hmair0", size=4),
+            # Hyp Memory Attribute Indirection Register 1
+            "hmair1": RegisterDef(name="hmair1", size=4),
+            # Virtualization Processor ID Register
+            "vpidr": RegisterDef(name="vpidr", size=4),
+            # Virtualization Multiprocessor ID Register
+            "vmpidr": RegisterDef(name="vmpidr", size=4),
+            # Hyp Protection Region Selection Register
+            "hprselr": RegisterDef(name="hprselr", size=4),
+            # Hyp Protection Region Base Address Register
+            "hprbar": RegisterDef(name="hprbar", size=4),
+            # Hyp Protection Region Limit Address Register
+            "hprlar": RegisterDef(name="hprlar", size=4),
+            # Virtual Offset Register
+            "cntvoff": RegisterDef(name="cntvoff", size=8),
+            # Timer PL2 Control Register
+            "cnthctl": RegisterDef(name="cnthctl", size=4),
+            # PL2 Physical Timer Control Register
+            "cnthp_ctl": RegisterDef(name="cnthp_ctl", size=4),
+            # PL2 Physical Timer CompareValue Register
+            "cnthp_cval": RegisterDef(name="cnthp_cval", size=8),
+        }
+
+
+class ARMPlatformMixinV8MMainline(ARMPlatformMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs.
+
+    ARMv8-M adds stack-limit registers to the ARMv7-M register set.
+    The optional Security Extension's Non-secure register copies
+    aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Main Stack Pointer Limit Register
+            "msplim": RegisterDef(name="msplim", size=4),
+            # Process Stack Pointer Limit Register
+            "psplim": RegisterDef(name="psplim", size=4),
+        }
+
+
 class ARMv5T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian.
 
@@ -946,3 +1067,57 @@ class ARMv7A(
 
     architecture = Architecture.ARM_V7A
     ghidra_language_id = "ARM:LE:32:v7"
+
+
+class ARMv8A(
+    ARMPlatformMixinVFPv8,
+    ARMPlatformMixinVirtualization,
+    ARMPlatformMixinSecurity,
+    ARMPlatformMixinGenericTimer,
+    ARMPlatformMixinVMSA,
+    ARMPlatformMixinV7SystemControl,
+    ARMPlatformMixinBanked,
+    ARMPlatformDef,
+):
+    """Platform definition for ARMv8-A little-endian in the AArch32 state
+
+    Like ARMv7A, this assumes the Security, Virtualization,
+    and Generic Timer support, as well as FP and Advanced SIMD.
+    """
+
+    architecture = Architecture.ARM_V8A
+    # Capstone decodes ARMv8-only AArch32 instructions only in V8 mode.
+    capstone_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+    ghidra_language_id = "ARM:LE:32:v8"
+
+
+class ARMv8R(
+    ARMPlatformMixinVFPv8,
+    ARMPlatformMixinV8RHypervisor,
+    ARMPlatformMixinGenericTimer,
+    ARMPlatformMixinPMSAv8,
+    ARMPlatformMixinV7SystemControl,
+    ARMPlatformMixinBanked,
+    ARMPlatformDef,
+):
+    """Platform definition for ARMv8-R little-endian, modeled on the Cortex-R52
+
+    ARMv8-R has Hyp mode but neither an MMU nor the Security Extensions.
+    This assumes the Cortex-R52's optional Advanced SIMD.
+    """
+
+    architecture = Architecture.ARM_V8R
+    capstone_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+    ghidra_language_id = "ARM:LE:32:v8"
+
+
+class ARMv8M(ARMPlatformMixinV8MMainline, ARMPlatformDef):
+    """Platform definition for ARMv8-M Mainline little-endian
+
+    M-profile CPUs execute only Thumb, so this is a Thumb platform.
+    The optional FPU, DSP, and Security Extensions aren't modeled.
+    """
+
+    architecture = Architecture.ARM_V8M
+    capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
+    ghidra_language_id = "ARM:LE:32:v8-m"

@@ -26,6 +26,9 @@ SmallWorld currently provides basic C calling convention definitions for the fol
     - amd64
     - armel (arm v6k)
     - armhf (arm v7a)
+    - arm v8a (hard-float)
+    - arm v8r (hard-float)
+    - arm v8m (soft-float)
     - i386
     - mips
     - mipsel

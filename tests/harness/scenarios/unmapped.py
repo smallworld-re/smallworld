@@ -56,6 +56,18 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,
     ),
+    "armv8a": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8r": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
     "i386": UnmappedSpec(
         platform=PlatformSpec("X86_32", "LITTLE"),
         pc_register="eip",

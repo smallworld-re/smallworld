@@ -78,6 +78,24 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
+    "armv8a": HookingSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+    ),
+    "armv8r": HookingSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+    ),
     "i386": HookingSpec(
         platform=PlatformSpec("X86_32", "LITTLE"),
         pointer_size=4,
@@ -277,6 +295,8 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "armv6k.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv7a.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv8a.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv8r.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
         },
         extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),

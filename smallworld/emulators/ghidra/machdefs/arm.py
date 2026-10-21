@@ -650,6 +650,117 @@ class ARMMachineMixinVFPEL:
         )
 
 
+class ARMMachineMixinVFPv8(ARMMachineMixinVFPEL):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Media and VFP Feature Register 2
+                "mvfr2": "mvfr2",
+            }
+        )
+
+
+class ARMMachineMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Protection Region Selection Register
+                "prselr": None,
+                # Protection Region Base Address Register
+                "prbar": None,
+                # Protection Region Limit Address Register
+                "prlar": None,
+                # Memory Attribute Indirection Register 0
+                "mair0": None,
+                # Memory Attribute Indirection Register 1
+                "mair1": None,
+                # Vector Base Address Register
+                "vbar": None,
+            }
+        )
+
+
+class ARMMachineMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": None,
+                # Hypervisor Saved PSR
+                "spsr_hyp": None,
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": None,
+                # Hyp Configuration Register
+                "hcr": None,
+                # Hyp Coprocessor Trap Register
+                "hcptr": None,
+                # Hyp System Trap Register
+                "hstr": None,
+                # Hyp Debug Configuration Register
+                "hdcr": None,
+                # Hyp System Control Register
+                "hsctlr": None,
+                # Hyp Vector Base Address Register
+                "hvbar": None,
+                # Hyp Syndrome Register
+                "hsr": None,
+                # Hyp Data Fault Address Register
+                "hdfar": None,
+                # Hyp Instruction Fault Address Register
+                "hifar": None,
+                # Hyp Software Thread ID Register
+                "htpidr": None,
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": None,
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": None,
+                # Virtualization Processor ID Register
+                "vpidr": None,
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": None,
+                # Hyp Protection Region Selection Register
+                "hprselr": None,
+                # Hyp Protection Region Base Address Register
+                "hprbar": None,
+                # Hyp Protection Region Limit Address Register
+                "hprlar": None,
+                # Virtual Offset Register
+                "cntvoff": None,
+                # Timer PL2 Control Register
+                "cnthctl": None,
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": None,
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": None,
+            }
+        )
+
+
+class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main Stack Pointer Limit Register
+                "msplim": "msplim",
+                # Process Stack Pointer Limit Register
+                "psplim": "psplim",
+            }
+        )
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):
@@ -689,4 +800,36 @@ class ARMv7AMachineDef(
     ARMMachineDef,
 ):
     arch = Architecture.ARM_V7A
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8AMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8A
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8RMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinV8RHypervisor,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinPMSAv8,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8R
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
+    arch = Architecture.ARM_V8M
     byteorder = Byteorder.LITTLE

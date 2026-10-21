@@ -498,6 +498,83 @@ class ARMMachineMixinVFP:
         )
 
 
+class ARMMachineMixinVFPv8(ARMMachineMixinVFP):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "mvfr2": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "prselr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "prbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "prlar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "mair0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "mair1": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "sp_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "spsr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "elr_hyp": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hcptr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hstr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hdcr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hsctlr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hvbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hsr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hdfar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hifar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "htpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hmair0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hmair1": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "vmpidr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hprselr": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hprbar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "hprlar": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cntvoff": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthp_ctl": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "cnthp_cval": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
+class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "msplim": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "psplim": unicorn.arm_const.UC_ARM_REG_INVALID,
+            }
+        )
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):
@@ -579,3 +656,51 @@ class ARMv7AMachineDef(
 
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
+
+
+class ARMv8AMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    """Unicorn machine definition for ARMv8-A little-endian, AArch32 state"""
+
+    arch = Architecture.ARM_V8A
+    byteorder = Byteorder.LITTLE
+    # Unicorn has no 32-bit ARMv8-A core; its "max" model is a superset.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_MAX
+
+
+class ARMv8RMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinV8RHypervisor,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinPMSAv8,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    """Unicorn machine definition for ARMv8-R little-endian"""
+
+    arch = Architecture.ARM_V8R
+    byteorder = Byteorder.LITTLE
+    # Unicorn has no Cortex-R52; its "max" model is a superset of ARMv8-R's
+    # instruction set, though not of its PMSA memory system.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_MAX
+
+
+class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
+    """Unicorn machine definition for ARMv8-M Mainline little-endian"""
+
+    arch = Architecture.ARM_V8M
+    byteorder = Byteorder.LITTLE
+    # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
+    # it overrides uc_cpu and forces a Cortex-M33 (which this is anyway).
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M33
+    # M-profile is Thumb-only.
+    uc_mode = unicorn.UC_MODE_THUMB

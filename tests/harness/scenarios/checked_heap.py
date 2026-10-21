@@ -18,6 +18,8 @@ _ARCH_SPECS = {
     "amd64": PlatformSpec("X86_64", "LITTLE"),
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
     "armv7a": PlatformSpec("ARM_V7A", "LITTLE"),
+    "armv8a": PlatformSpec("ARM_V8A", "LITTLE"),
+    "armv8r": PlatformSpec("ARM_V8R", "LITTLE"),
     "i386": PlatformSpec("X86_32", "LITTLE"),
     "mips": PlatformSpec("MIPS32", "BIG"),
     "mips64": PlatformSpec("MIPS64", "BIG"),

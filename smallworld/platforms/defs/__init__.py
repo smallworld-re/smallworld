@@ -1,6 +1,17 @@
 from .aarch64 import AArch64
 from .amd64 import AMD64, AMD64AVX512
-from .arm import ARMv5T, ARMv6K, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
+from .arm import (
+    ARMv5T,
+    ARMv6K,
+    ARMv6M,
+    ARMv6MThumb,
+    ARMv7A,
+    ARMv7M,
+    ARMv7R,
+    ARMv8A,
+    ARMv8M,
+    ARMv8R,
+)
 from .i386 import I386
 from .loongarch import LoongArch64
 from .m68k import M68K
@@ -25,6 +36,9 @@ __all__ = [
     "ARMv6MThumb",
     "ARMv7M",
     "ARMv7R",
+    "ARMv8A",
+    "ARMv8M",
+    "ARMv8R",
     "ARMv7A",
     "I386",
     "LoongArch64",

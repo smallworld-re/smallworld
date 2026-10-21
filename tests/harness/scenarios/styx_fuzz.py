@@ -51,6 +51,22 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         heap_size=0x1000,
     ),
+    "armv8a": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv8r": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
     "armv5t": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
@@ -65,6 +81,20 @@ _SIMPLE_SPECS = {
 _AFL_SPECS = {
     "armv7a": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv8a": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv8r": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",

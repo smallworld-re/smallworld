@@ -132,6 +132,9 @@ class PcodeNamingTests(unittest.TestCase):
             ("ARM_V6K", "cpsr"),
             ("ARM_V6M", "psr"),
             ("ARM_V7M", "psr"),
+            ("ARM_V8A", "cpsr"),
+            ("ARM_V8R", "cpsr"),
+            ("ARM_V8M", "psr"),
         ):
             with self.subTest(arch=arch):
                 for flag in ("ng", "zr", "cy", "ov"):

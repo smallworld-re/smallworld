@@ -70,6 +70,26 @@ _SPECS = {
         load_address=0x400000,
         print_entrypoint=True,
     ),
+    "armv8a": RelaSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8r": RelaSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "i386": RelaSpec(
         platform=PlatformSpec("X86_32", "LITTLE"),
         pointer_size=4,
@@ -235,7 +255,7 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         stack.push_integer(0, 4, None)
     elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch == "armv7a" and engine == "panda":
+    elif arch in {"armv7a", "armv8a", "armv8r"} and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
     return stack
@@ -244,7 +264,7 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
 def _configure_exit(
     machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int
 ) -> None:
-    if arch == "armv7a" and engine == "panda":
+    if arch in {"armv7a", "armv8a", "armv8r"} and engine == "panda":
         emulator.add_exit_point(entrypoint + 40)
         return
     if arch == "ppc" and engine == "panda":
@@ -258,7 +278,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 8, None)
     elif arch in {"i386", "m68k"}:
         stack.push_integer(exitpoint, 4, None)
-    elif arch in {"aarch64", "armv6k", "armv7a", "ppc", "ppc64"}:
+    elif arch in {"aarch64", "armv6k", "armv7a", "armv8a", "armv8r", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
     elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)

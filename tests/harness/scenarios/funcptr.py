@@ -9,6 +9,8 @@ _VARIANTS = (
     ("amd64", None),
     ("armv6k", None),
     ("armv7a.pcode", None),
+    ("armv8a.pcode", None),
+    ("armv8r.pcode", None),
     ("i386", None),
     ("la64.pcode", None),
     ("mips.pcode", None),

@@ -386,6 +386,24 @@ class ArmHFErrnoResolver(ErrnoResolver):
     # armhf uses generic errno
 
 
+class ArmV8AErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-A AArch32 uses generic errno
+
+
+class ArmV8RErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-R uses generic errno
+
+
+class ArmV8MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-M uses generic errno
+
+
 class I386ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.X86_32, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

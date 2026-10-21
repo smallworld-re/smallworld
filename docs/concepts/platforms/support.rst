@@ -35,9 +35,14 @@ Specific ISA Notes
 ------------------
 
 **arm32 Unicorn:** SmallWorld runs arm-v6k on Unicorn's ARM1176 model,
-arm-v6m on its Cortex-M0, and arm-v7m on its Cortex-M3.
+arm-v6m on its Cortex-M0, arm-v7m on its Cortex-M3, and arm-v8m on its Cortex-M33.
+Unicorn has no 32-bit ARMv8-A or ARMv8-R core, so arm-v8a and arm-v8r run on
+its "max" model, which accepts a superset of their instructions.
 The other arm32 platforms use Unicorn's default model, a Cortex-A15 (ARMv7-A),
 which accepts code for older architectures but also instructions they lack.
+
+**arm-v8 PANDA:** arm-v8r runs on PANDA's Cortex-R52. PANDA's 32-bit ARM build
+has no ARMv8-A core, so arm-v8a runs on its "max" model.
 Support for privileged operations is unknown.
 
 **arm-v6k on Styx:** Styx has no ARM11 target, so arm-v6k runs on its

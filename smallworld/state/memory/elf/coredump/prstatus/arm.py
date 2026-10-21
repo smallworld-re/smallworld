@@ -55,3 +55,15 @@ class ARMv7R(ARM):
 
 class ARMv7A(ARM):
     architecture = platforms.Architecture.ARM_V7A
+
+
+class ARMv8A(ARM):
+    architecture = platforms.Architecture.ARM_V8A
+
+
+class ARMv8R(ARM):
+    architecture = platforms.Architecture.ARM_V8R
+
+
+class ARMv8M(ARM):
+    architecture = platforms.Architecture.ARM_V8M

@@ -77,8 +77,32 @@ _SIMPLE_SPECS = {
         exit_offset=52,
         engine="unicorn",
     ),
+    "armv8m": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=52,
+        engine="unicorn",
+    ),
     "armv7a": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+    ),
+    "armv8a": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+    ),
+    "armv8r": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
@@ -144,6 +168,22 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         engine="styx",
     ),
+    "armv8a.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="styx",
+    ),
+    "armv8r.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="styx",
+    ),
     "armv5t.styx": _FuzzSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
@@ -162,6 +202,14 @@ _SIMPLE_SPECS = {
     ),
     "armv7m.styx": _FuzzSpec(
         platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=52,
+        engine="styx",
+    ),
+    "armv8m.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
@@ -224,8 +272,35 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "armv8m": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=52,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
     "armv7a": _FuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
+    "armv8a": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
+    "armv8r": _FuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
@@ -284,7 +359,10 @@ _FUZZ_ARCHES = (
     "armv5t",
     "armv6m",
     "armv7a",
+    "armv8a",
+    "armv8r",
     "armv7m",
+    "armv8m",
     "m68k",
     "mips",
     "mipsel",
@@ -297,7 +375,10 @@ _AFL_EXPECTED = {
     "armv5t": ("002975:1", "022192:1", "050871:1"),
     "armv6m": ("022192:1", "023108:1", "056927:1"),
     "armv7m": ("022192:1", "023108:1", "056927:1"),
+    "armv8m": ("022192:1", "023108:1", "056927:1"),
     "armv7a": ("002975:1", "022192:1", "050871:1"),
+    "armv8a": ("002975:1", "022192:1", "050871:1"),
+    "armv8r": ("002975:1", "022192:1", "050871:1"),
     "m68k": ("021692:1", "022192:1", "059686:1"),
     "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
@@ -305,15 +386,20 @@ _AFL_EXPECTED = {
 }
 
 
+_STYX_NO_ARMV8 = "Styx has no ARMv8 target"
+
 # variants_source enumerates every (variant, skip_reason) the fuzz scenarios
 # run. Engine-specific tokens (e.g. ".styx", ".styx-mpc860") select an
 # alternate emulator from common.make_emulator; the arch-only entries (e.g.
 # "ppc") default to the engine declared in the matching spec.
 _FUZZ_VARIANTS = tuple((arch, None) for arch in _FUZZ_ARCHES) + (
     ("armv7a.styx", None),
+    ("armv8a.styx", _STYX_NO_ARMV8),
+    ("armv8r.styx", _STYX_NO_ARMV8),
     ("armv5t.styx", None),
     ("armv6m.styx", None),
     ("armv7m.styx", None),
+    ("armv8m.styx", _STYX_NO_ARMV8),
     ("ppc.styx-mpc860", None),
 )
 

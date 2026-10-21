@@ -462,6 +462,75 @@ class ARMMachineMixinVFP:
         self._registers = self._registers | {i: None for i in self._registers_vfp}
 
 
+class ARMMachineMixinVFPv8(ARMMachineMixinVFP):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "mvfr2": None,
+        }
+
+
+class ARMMachineMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "prselr": None,
+            "prbar": None,
+            "prlar": None,
+            "mair0": None,
+            "mair1": None,
+            "vbar": None,
+        }
+
+
+class ARMMachineMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "sp_hyp": None,
+            "spsr_hyp": None,
+            "elr_hyp": None,
+            "hcr": None,
+            "hcptr": None,
+            "hstr": None,
+            "hdcr": None,
+            "hsctlr": None,
+            "hvbar": None,
+            "hsr": None,
+            "hdfar": None,
+            "hifar": None,
+            "htpidr": None,
+            "hmair0": None,
+            "hmair1": None,
+            "vpidr": None,
+            "vmpidr": None,
+            "hprselr": None,
+            "hprbar": None,
+            "hprlar": None,
+            "cntvoff": None,
+            "cnthctl": None,
+            "cnthp_ctl": None,
+            "cnthp_cval": None,
+        }
+
+
+class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers = self._registers | {
+            "msplim": None,
+            "psplim": None,
+        }
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):
@@ -513,3 +582,33 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
+
+
+class ARMv8AMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8A
+    byteorder = Byteorder.LITTLE
+    # PANDA's 32-bit ARM build has no ARMv8-A core; "max" is a superset.
+    cpu = "max"
+
+
+class ARMv8RMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinV8RHypervisor,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinPMSAv8,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8R
+    byteorder = Byteorder.LITTLE
+    cpu = "cortex-r52"

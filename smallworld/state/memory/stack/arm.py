@@ -69,3 +69,27 @@ class ARMv7aStack(ARM32Stack):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
     )
+
+
+class ARMv8aStack(ARM32Stack):
+    """A stack for an ARMv8a 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv8rStack(ARM32Stack):
+    """A stack for an ARMv8r 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv8mStack(ARM32Stack):
+    """A stack for an ARMv8m 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+    )

@@ -49,6 +49,9 @@ _V6M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7R_REGS = {**_BASE_REGS, **_RA_REGS}
 _V7A_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8A_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8R_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8M_REGS = {**_BASE_REGS, **_M_REGS}
 
 
 class TritonARMMachineDef(TritonMachineDef):
@@ -103,3 +106,20 @@ class TritonARMv7RMachineDef(TritonARMMachineDef):
 class TritonARMv7AMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V7A
     _registers = _V7A_REGS
+
+
+class TritonARMv8AMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8A
+    _registers = _V8A_REGS
+
+
+class TritonARMv8RMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8R
+    _registers = _V8R_REGS
+
+
+class TritonARMv8MMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8M
+    _registers = _V8M_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True

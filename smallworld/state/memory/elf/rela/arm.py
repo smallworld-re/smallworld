@@ -1320,3 +1320,15 @@ class Armv7RElfRelocator(ArmElfRelocator):
 
 class Armv7AElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V7A
+
+
+class Armv8AElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V8A
+
+
+class Armv8RElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V8R
+
+
+class Armv8MElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V8M

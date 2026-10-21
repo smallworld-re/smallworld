@@ -44,6 +44,27 @@ _ARM32_ARCHITECTURES = frozenset(
         Architecture.ARM_V7M,
         Architecture.ARM_V7R,
         Architecture.ARM_V7A,
+        Architecture.ARM_V8A,
+        Architecture.ARM_V8R,
+        Architecture.ARM_V8M,
+    }
+)
+
+# ARM32 platforms that a soft- or hard-float ELF can explicitly request.
+# ELF's ARM flags stop distinguishing versions at EABI 5, so a request for one
+# of these wins over the default the flags imply.
+_ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V5T,
+        Architecture.ARM_V6K,
+        Architecture.ARM_V8M,
+    }
+)
+_ARM32_HARD_FLOAT_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V7A,
+        Architecture.ARM_V8A,
+        Architecture.ARM_V8R,
     }
 )
 
@@ -338,20 +359,22 @@ class ElfExecutable(Executable):
                 # unless the user specifically asks for v6.
                 if (
                     self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V6K
+                    and self.platform.architecture in _ARM32_SOFT_FLOAT_ARCHITECTURES
                 ):
-                    architecture = Architecture.ARM_V6K
-                elif (
-                    self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V5T
-                ):
-                    architecture = Architecture.ARM_V5T
+                    architecture = self.platform.architecture
                 else:
                     log.warning("Ambiguous ARM ABI version; assuming v5t")
                     architecture = Architecture.ARM_V5T
             elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
-                # This is ARMv7a, as built by gcc.
-                architecture = Architecture.ARM_V7A
+                # This is ARMv7a, as built by gcc, unless the user asks for
+                # another hard-float platform.
+                if (
+                    self.platform is not None
+                    and self.platform.architecture in _ARM32_HARD_FLOAT_ARCHITECTURES
+                ):
+                    architecture = self.platform.architecture
+                else:
+                    architecture = Architecture.ARM_V7A
             elif (
                 self.platform is not None
                 and self.platform.architecture in _ARM32_ARCHITECTURES

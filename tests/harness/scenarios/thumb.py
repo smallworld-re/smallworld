@@ -11,6 +11,8 @@ _VARIANT_ARCH_NAMES = {
     "armv5t": ("ARM_V5T",),
     "armv6k": ("ARM_V6K",),
     "armv7a": ("ARM_V7A",),
+    "armv8a": ("ARM_V8A",),
+    "armv8r": ("ARM_V8R",),
     "armv7r": ("ARM_V7R",),
 }
 

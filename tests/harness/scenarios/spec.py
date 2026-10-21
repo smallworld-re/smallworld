@@ -36,10 +36,16 @@ class ScenarioInfo:
 
 #: Skip reasons applied to every arch-table variant unless a scenario gives
 #: its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
-#: their Thumb-only code yet.
+#: their Thumb-only code yet, and Styx has no ARMv8 target.
 _DEFAULT_SKIP_REASONS = {
-    f"{arch}.panda": "PANDA has no M-profile (Cortex-M) machine configured"
-    for arch in ("armv6m", "armv7m")
+    **{
+        f"{arch}.panda": "PANDA has no M-profile (Cortex-M) machine configured"
+        for arch in ("armv6m", "armv7m", "armv8m")
+    },
+    **{
+        f"{arch}.styx": "Styx has no ARMv8 target"
+        for arch in ("armv8a", "armv8r", "armv8m")
+    },
 }
 
 

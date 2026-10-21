@@ -59,6 +59,15 @@ class Architecture(enum.Enum):
     ARM_V7A = "arm-v7a"
     """arm32 v7a"""
 
+    ARM_V8A = "arm-v8a"
+    """arm32 v8a, in the AArch32 execution state"""
+
+    ARM_V8R = "arm-v8r"
+    """arm32 v8r"""
+
+    ARM_V8M = "arm-v8m"
+    """arm32 v8m mainline"""
+
     LOONGARCH32 = "loongarch32"
     """32-bit LoongArch"""
 

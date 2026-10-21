@@ -141,9 +141,9 @@ class StyxEmulator(
         self.machdef: StyxMachineDef = StyxMachineDef.for_platform(platform)
         # Thumb-only platforms (M-profile) must keep the Thumb bit in the PC;
         # an even PC means ARM state, which faults.
-        self._thumb_only: bool = (
+        self._thumb_only: bool = bool(
             platforms.PlatformDef.for_platform(platform).capstone_mode
-            == capstone.CS_MODE_THUMB
+            & capstone.CS_MODE_THUMB
         )
         # Which Styx ``Target`` to build. Multi-core families (PowerPC) use an
         # optional ``cpu_model`` to choose; otherwise the machdef default applies.

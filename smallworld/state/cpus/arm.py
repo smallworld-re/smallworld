@@ -979,6 +979,152 @@ class ARMCPUMixinVFPEL:
         self.add(self.d31)
 
 
+class ARMCPUMixinVFPv8(ARMCPUMixinVFPEL):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD
+
+    This is the 32-register VFP/NEON register file of ARMv7,
+    plus the MVFR2 feature register ARMv8 adds.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Media and VFP Feature Register 2
+        self.mvfr2 = state.Register("mvfr2", size=4)
+        self.add(self.mvfr2)
+
+
+class ARMCPUMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU
+
+    prbar and prlar access whichever region prselr selects;
+    the per-region registers behind them aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Protection Region Selection Register
+        self.prselr = state.Register("prselr", size=4)
+        self.add(self.prselr)
+        # Protection Region Base Address Register
+        self.prbar = state.Register("prbar", size=4)
+        self.add(self.prbar)
+        # Protection Region Limit Address Register
+        self.prlar = state.Register("prlar", size=4)
+        self.add(self.prlar)
+        # Memory Attribute Indirection Register 0
+        self.mair0 = state.Register("mair0", size=4)
+        self.add(self.mair0)
+        # Memory Attribute Indirection Register 1
+        self.mair1 = state.Register("mair1", size=4)
+        self.add(self.mair1)
+        # Vector Base Address Register
+        self.vbar = state.Register("vbar", size=4)
+        self.add(self.vbar)
+
+
+class ARMCPUMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)
+
+    ARMv8-R has Hyp mode but no MMU, so this is the ARMv7 Virtualization
+    register set without its translation-table registers,
+    plus the hypervisor's own MPU registers.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Hypervisor Stack Pointer
+        self.sp_hyp = state.Register("sp_hyp", size=4)
+        self.add(self.sp_hyp)
+        # Hypervisor Saved PSR
+        self.spsr_hyp = state.Register("spsr_hyp", size=4)
+        self.add(self.spsr_hyp)
+        # Hypervisor Exception Link Register
+        # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+        self.elr_hyp = state.Register("elr_hyp", size=4)
+        self.add(self.elr_hyp)
+        # Hyp Configuration Register
+        self.hcr = state.Register("hcr", size=4)
+        self.add(self.hcr)
+        # Hyp Coprocessor Trap Register
+        self.hcptr = state.Register("hcptr", size=4)
+        self.add(self.hcptr)
+        # Hyp System Trap Register
+        self.hstr = state.Register("hstr", size=4)
+        self.add(self.hstr)
+        # Hyp Debug Configuration Register
+        self.hdcr = state.Register("hdcr", size=4)
+        self.add(self.hdcr)
+        # Hyp System Control Register
+        self.hsctlr = state.Register("hsctlr", size=4)
+        self.add(self.hsctlr)
+        # Hyp Vector Base Address Register
+        self.hvbar = state.Register("hvbar", size=4)
+        self.add(self.hvbar)
+        # Hyp Syndrome Register
+        self.hsr = state.Register("hsr", size=4)
+        self.add(self.hsr)
+        # Hyp Data Fault Address Register
+        self.hdfar = state.Register("hdfar", size=4)
+        self.add(self.hdfar)
+        # Hyp Instruction Fault Address Register
+        self.hifar = state.Register("hifar", size=4)
+        self.add(self.hifar)
+        # Hyp Software Thread ID Register
+        self.htpidr = state.Register("htpidr", size=4)
+        self.add(self.htpidr)
+        # Hyp Memory Attribute Indirection Register 0
+        self.hmair0 = state.Register("hmair0", size=4)
+        self.add(self.hmair0)
+        # Hyp Memory Attribute Indirection Register 1
+        self.hmair1 = state.Register("hmair1", size=4)
+        self.add(self.hmair1)
+        # Virtualization Processor ID Register
+        self.vpidr = state.Register("vpidr", size=4)
+        self.add(self.vpidr)
+        # Virtualization Multiprocessor ID Register
+        self.vmpidr = state.Register("vmpidr", size=4)
+        self.add(self.vmpidr)
+        # Hyp Protection Region Selection Register
+        self.hprselr = state.Register("hprselr", size=4)
+        self.add(self.hprselr)
+        # Hyp Protection Region Base Address Register
+        self.hprbar = state.Register("hprbar", size=4)
+        self.add(self.hprbar)
+        # Hyp Protection Region Limit Address Register
+        self.hprlar = state.Register("hprlar", size=4)
+        self.add(self.hprlar)
+        # Virtual Offset Register
+        self.cntvoff = state.Register("cntvoff", size=8)
+        self.add(self.cntvoff)
+        # Timer PL2 Control Register
+        self.cnthctl = state.Register("cnthctl", size=4)
+        self.add(self.cnthctl)
+        # PL2 Physical Timer Control Register
+        self.cnthp_ctl = state.Register("cnthp_ctl", size=4)
+        self.add(self.cnthp_ctl)
+        # PL2 Physical Timer CompareValue Register
+        self.cnthp_cval = state.Register("cnthp_cval", size=8)
+        self.add(self.cnthp_cval)
+
+
+class ARMCPUMixinV8MMainline(ARMCPUMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs.
+
+    ARMv8-M adds stack-limit registers to the ARMv7-M register set.
+    The optional Security Extension's Non-secure register copies
+    aren't modeled.
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Main Stack Pointer Limit Register
+        self.msplim = state.Register("msplim", size=4)
+        self.add(self.msplim)
+        # Process Stack Pointer Limit Register
+        self.psplim = state.Register("psplim", size=4)
+        self.add(self.psplim)
+
+
 class ARMv5T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
     """CPU Model for ARMv5t little-endian."""
 
@@ -1054,4 +1200,45 @@ class ARMv7A(
 
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv8A(
+    ARMCPUMixinVFPv8,
+    ARMCPUMixinVirtualization,
+    ARMCPUMixinSecurity,
+    ARMCPUMixinGenericTimer,
+    ARMCPUMixinVMSA,
+    ARMCPUMixinV7SystemControl,
+    ARMCPUMixinBanked,
+    ARM,
+):
+    """CPU Model for ARMv8-A little-endian in the AArch32 state."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv8R(
+    ARMCPUMixinVFPv8,
+    ARMCPUMixinV8RHypervisor,
+    ARMCPUMixinGenericTimer,
+    ARMCPUMixinPMSAv8,
+    ARMCPUMixinV7SystemControl,
+    ARMCPUMixinBanked,
+    ARM,
+):
+    """CPU Model for ARMv8-R little-endian."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv8M(ARMCPUMixinV8MMainline, ARM):
+    """CPU Model for ARMv8-M Mainline little-endian."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
     )
