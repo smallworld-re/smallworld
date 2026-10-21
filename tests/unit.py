@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import logging
+import math
 import os
 import pathlib
 import pickle
@@ -156,7 +157,11 @@ from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
 from smallworld.state.models.c99.string import _require_c_locale
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
-from smallworld.state.models.cstd import ArgumentType
+from smallworld.state.models.cstd import (
+    ArgumentType,
+    CStdCallingContext,
+    VariadicContext,
+)
 from smallworld.state.models.defaultmmio import (
     LogAccessModel,
     NullMemoryMappedModel,
@@ -182,6 +187,9 @@ from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
+from smallworld.state.models.powerpc64.systemv.systemv import (
+    PowerPC64SysVCallingContext,
+)
 from smallworld.state.models.powerpc.systemv.systemv import (
     PowerPCSysVCallingContext,
 )
@@ -4472,6 +4480,101 @@ class _RegisterDictEmulator:
         self.regs[name] = value
 
 
+class PowerPC64SysVCallingContextTests(unittest.TestCase):
+    """ELFv2: each argument owns a doubleword slot backed by r3-r10, and a
+    floating-point argument in f1-f13 still uses up its slot."""
+
+    A = ArgumentType
+
+    def _place(self, types, varargs=()):
+        ctx = PowerPC64SysVCallingContext()
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        if varargs:
+            ctx = VariadicContext(ctx)
+            for i, t in enumerate(varargs, start=len(types)):
+                CStdCallingContext.add_argument(ctx, i, t)
+        placed = []
+        for i, t in enumerate(list(types) + list(varargs)):
+            if ctx._on_stack[i]:
+                placed.append(f"sp+{ctx._arg_offset[i]}")
+            elif t in (self.A.FLOAT, self.A.DOUBLE) and not varargs:
+                placed.append(ctx._double_arg_regs[ctx._arg_offset[i]])
+            else:
+                placed.append(ctx._eight_byte_arg_regs[ctx._arg_offset[i]])
+        return placed
+
+    def test_fp_arguments_use_up_their_gpr_slots(self):
+        # bar() from tests/sysv: the second uint is the fourth slot, so r6.
+        A = self.A
+        types = [A.UINT, A.FLOAT, A.DOUBLE, A.UINT, A.DOUBLE, A.DOUBLE]
+        self.assertEqual(self._place(types), ["r3", "f1", "f2", "r6", "f3", "f4"])
+
+    def test_stack_arguments_follow_the_register_slots(self):
+        # The parameter save area starts 32 bytes up; its first 8 slots
+        # back r3-r10.
+        self.assertEqual(self._place([self.A.INT] * 9)[-1], "sp+96")
+
+    def test_fp_argument_past_the_gprs_still_takes_a_stack_slot(self):
+        A = self.A
+        placed = self._place([A.DOUBLE] * 9 + [A.INT])
+        self.assertEqual(placed[-2:], ["f9", "sp+104"])
+
+    def test_varargs_continue_in_gprs_then_the_stack(self):
+        # foo() from tests/sysv.
+        A = self.A
+        placed = self._place(
+            [A.ULONGLONG, A.UINT, A.ULONGLONG, A.UINT, A.ULONGLONG],
+            varargs=[A.ULONGLONG, A.UINT, A.UINT, A.ULONGLONG],
+        )
+        self.assertEqual(
+            placed, ["r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "sp+96"]
+        )
+
+    def test_int_return_is_sign_extended_and_uint_zero_extended(self):
+        ctx = PowerPC64SysVCallingContext()
+        emu = _RegisterDictEmulator()
+        ctx.return_type = self.A.INT
+        ctx._return_4_byte(emu, 0xFFFFFFFF)
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFFFFFFFFFF)
+        ctx.return_type = self.A.UINT
+        ctx._return_4_byte(emu, 0xFFFFFFFF)
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFF)
+
+    def test_float_argument_is_rounded_to_single_precision(self):
+        # PowerPC's stfs truncates a value that isn't single-precision,
+        # so the double written to f1 must already be rounded.
+        ctx = PowerPC64SysVCallingContext()
+        ctx.set_argument_types([self.A.FLOAT])
+        emu = _RegisterDictEmulator()
+        ctx.set_argument(0, emu, math.pi)
+        (f1,) = struct.unpack(">d", emu.regs["f1"].to_bytes(8, "big"))
+        (single,) = struct.unpack(">f", struct.pack(">f", math.pi))
+        self.assertEqual(f1, single)
+
+    def test_enter_function_sets_r12(self):
+        # An ELFv2 global entry point computes r2 from r12.
+        emu = _RegisterDictEmulator()
+        PowerPC64SysVCallingContext().enter_function(emu, 0x401000)
+        self.assertEqual(emu.regs, {"r12": 0x401000, "pc": 0x401000})
+
+
+class UnicornPowerPCFacilityTests(unittest.TestCase):
+    """Unicorn starts PowerPC CPUs with the FPU off; SmallWorld turns it on."""
+
+    def test_fp_facility_is_enabled(self):
+        for arch in (
+            platforms.Architecture.POWERPC32,
+            platforms.Architecture.POWERPC64,
+        ):
+            with self.subTest(arch=arch):
+                emu = emulators.UnicornEmulator(
+                    platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+                msr = emu.engine.reg_read(unicorn.ppc_const.UC_PPC_REG_MSR)
+                self.assertTrue(msr & ppc_machdefs.MSR_FP)
+
+
 class MipsReturnDoubleTests(unittest.TestCase):
     """MIPS o32 _read_return_double read f0 as the high word and f1 as low."""
 
@@ -6269,6 +6372,37 @@ class ElfPickleCompatibilityTests(unittest.TestCase):
             self.assertEqual(getattr(new, name), getattr(elf, name))
 
 
+class ElfProcessorFlagsTests(unittest.TestCase):
+    """ElfExecutable keeps the header's e_flags as processor_flags."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "rela", "rela.ppc64.elf"
+    )
+
+    def _load(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make ppc64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            return ElfExecutable(f, user_base=0x80000000)
+
+    def test_ppc64_elfv2_flags_are_kept(self):
+        # zig's powerpc64-linux-gnu emits ELFv2, which e_flags records as 2.
+        self.assertEqual(self._load().processor_flags & 0x3, 2)
+
+    def test_old_pickle_gets_zero_flags(self):
+        elf = self._load()
+        getstate = ElfExecutable.__getstate__
+
+        def old_getstate(this):
+            state = getstate(this)
+            del state["processor_flags"]
+            return state
+
+        with mock.patch.object(ElfExecutable, "__getstate__", old_getstate):
+            data = pickle.dumps(elf)
+        self.assertEqual(pickle.loads(data).processor_flags, 0)
+
+
 class ElfCoreFileMissingPlatformTests(unittest.TestCase):
     """ElfCoreFile with no resolvable platform must fail with a
     ConfigurationError, not an assert (SW-169). ignore_platform=True skips the
@@ -7126,8 +7260,9 @@ class _FakeElf:
     #: Stands in for the resolver ElfExecutable would have bound, if any.
     tlsdesc_resolver = 0
 
-    def __init__(self, address: int = 0):
+    def __init__(self, address: int = 0, processor_flags: int = 0):
         self.address = address
+        self.processor_flags = processor_flags
         self.noted: list = []
 
     def note_tlsdesc_descriptor(self, address: int) -> int:
@@ -7285,7 +7420,7 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     BE64 = b"\xff\xff\xff\xff\xff\xff\xed\xcc"
     LE64 = b"\xcc\xed\xff\xff\xff\xff\xff\xff"
 
-    def _value(self, relocator, type_):
+    def _value(self, relocator, type_, processor_flags=0):
         rela = ElfRela(
             is_rela=True,
             offset=0x2000,
@@ -7293,7 +7428,20 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
             symbol=_make_symbol(value=0, baseaddr=0),
             addend=self.ADDEND,
         )
-        return relocator._compute_value(rela, _FakeElf())
+        return relocator._compute_value(rela, _FakeElf(processor_flags=processor_flags))
+
+    def test_ppc64_elfv2_r_ppc64_jmp_slot(self):
+        # R_PPC64_JMP_SLOT == 21; ELFv2 (e_flags 2) has no function descriptors.
+        self.assertEqual(
+            self._value(PowerPC64ElfRelocator(), 21, processor_flags=2), self.BE64
+        )
+
+    def test_ppc64_elfv1_r_ppc64_jmp_slot_is_refused(self):
+        # ELFv1 (e_flags 1, or 0 for unspecified) needs a function descriptor.
+        for flags in (0, 1):
+            with self.subTest(processor_flags=flags):
+                with self.assertRaises(NotImplementedError):
+                    self._value(PowerPC64ElfRelocator(), 21, processor_flags=flags)
 
     def test_m68k_r_68k_32(self):
         # R_68K_32 == 1

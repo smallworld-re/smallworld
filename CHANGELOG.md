@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PPC64 CPUs start in hypervisor mode instead of faulting on their first
   instruction fetch. `PPC64MachineDef` now warns only when the loaded Unicorn
   lacks those patches.
+- `UnicornEmulator` enables the PowerPC floating-point, vector and VSX
+  facilities, so floating-point code no longer raises a facility-unavailable
+  interrupt.
+- PowerPC64 ELFv2 binaries relocate: `R_PPC64_JMP_SLOT` is a plain `S + A`
+  there. ELFv1 binaries, whose PLT slots hold function descriptors, still raise
+  `NotImplementedError`. `ElfExecutable.processor_flags` records the header's
+  `e_flags`.
+- ELF symbol visibility is read from the low two bits of `st_other`, so
+  PowerPC64 ELFv2 local-entry bits no longer produce an invalid visibility.
+- A `float` argument passed by a model on PowerPC is rounded to single precision
+  before being written in double format; PowerPC's `stfs` truncates anything
+  more precise.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -53,6 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PowerPC64 ELFv2 System V library models (`smallworld.state.models.powerpc64`),
+  with the ELFv2 rule that a floating-point argument uses up its
+  general-purpose register slot. The c99/posix, `sysv`, `funcptr`,
+  `checked_heap`, `rela` and `link_elf` integration cases now cover ppc64.
+- `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
+  to a guest function; on PowerPC64 it also sets `r12` for the TOC.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

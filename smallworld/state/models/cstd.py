@@ -615,6 +615,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 raise ConfigurationError(
                     f"Expected 4-byte float value for argument {index}."
                 )
+            if self._floats_are_doubles:
+                # A float passed in double format still holds a
+                # single-precision value; compiled callers round it first.
+                # PowerPC's stfs, for one, truncates anything more precise.
+                (value,) = struct.unpack("<f", struct.pack("<f", value))
             if self.platform.byteorder == Byteorder.BIG:
                 if self._floats_are_doubles:
                     as_bytes = struct.pack(">d", value)
@@ -975,6 +980,18 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         raise exceptions.ConfigurationError(
             f"Cannot read unhandled return type {self.return_type}"
         )
+
+    def enter_function(self, emulator: emulators.Emulator, address: int) -> None:
+        """Transfer control to the start of a function.
+
+        Most ABIs only need the program counter set.  Some also expect the
+        callee's address in a register, which it uses to find its data.
+
+        Arguments:
+            emulator: The emulator to set up
+            address: The function's address
+        """
+        emulator.write_register("pc", address)
 
     def set_return_address(
         self, emulator: emulators.Emulator, address: int, push=False

@@ -145,6 +145,18 @@ _SPECS = {
         argument_registers=("r3", "r4"),
         add_zero_exitpoint=True,
     ),
+    "ppc64": LinkElfSpec(
+        platform=PlatformSpec("POWERPC64", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="r1",
+        result_register="r3",
+        engines=("unicorn", "angr", "pcode"),
+        code_address=0x400000,
+        lib_address=0x800000,
+        argument_registers=("r3", "r4"),
+        add_zero_exitpoint=True,
+    ),
     "riscv64": LinkElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pointer_size=8,
@@ -180,9 +192,6 @@ _SKIP_REASONS = {
     "mips64el.angr": "Unexpected failure",
     "mips64el.panda": "Unexpected failure",
     "mips64el.pcode": "Unexpected failure",
-    "ppc64": "This test case doesn't work.",
-    "ppc64.angr": "This test case doesn't work.",
-    "ppc64.pcode": "This test case doesn't work.",
     "tricore.angr": "No C compiler",
     "tricore.panda": "No C compiler",
     "tricore.pcode": "No C compiler",
@@ -281,6 +290,12 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     elif arch in {"aarch64", "armel", "armhf", "ppc"}:
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
+    elif arch == "ppc64":
+        # An ELFv2 caller's frame header is 32 bytes: back chain, CR save,
+        # LR save, and the TOC save slot that calls through the PLT use.
+        stack.push_bytes(b"\0" * 32, "Frame header")
+        set_register(cpu, "lr", exitpoint)
+        machine.add_exit_point(exitpoint)
     elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
         machine.add_exit_point(exitpoint)
@@ -292,6 +307,10 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         set_register(cpu, argv_register, argv)
     if arch in {"mips", "mipsel"}:
         set_register(cpu, "t9", entrypoint)
+    if arch == "ppc64":
+        # An ELFv2 function's global entry point derives the TOC pointer, r2,
+        # from its own address in r12.
+        set_register(cpu, "r12", entrypoint)
     if arch == "ppc":
         if 0x70000000 not in lib._dtags:
             raise ValueError("No DT_PPC_GOT in dtags")

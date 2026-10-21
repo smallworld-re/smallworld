@@ -61,6 +61,12 @@
 #define LONG_HEX_RES LONG_HEX_4
 #define LONG_CON LONG_CON_4
 
+#elif defined(__powerpc64__)
+#define LONG_OCT_RES LONG_OCT_8
+#define LONG_DEC_RES LONG_DEC_8
+#define LONG_HEX_RES LONG_HEX_8
+#define LONG_CON LONG_CON_8
+
 #elif defined(__powerpc__)
 #define LONG_OCT_RES LONG_OCT_4
 #define LONG_DEC_RES LONG_DEC_4

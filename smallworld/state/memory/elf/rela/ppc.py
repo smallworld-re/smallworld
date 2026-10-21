@@ -44,6 +44,11 @@ class PowerPCElfRelocator(ElfRelocator):
 
 R_PPC64_ADDR64 = 38  # Write S + A as a 64-bit absolute value.
 
+# e_flags bits holding the ELF ABI version: 1 for ELFv1, 2 for ELFv2,
+# or 0 when the file doesn't say (which means ELFv1).
+EF_PPC64_ABI = 0x3
+EF_PPC64_ABI_ELFV2 = 2
+
 
 class PowerPC64ElfRelocator(PowerPCElfRelocator):
     arch = platforms.Architecture.POWERPC64
@@ -59,19 +64,20 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
         if rela.type == R_PPC64_ADDR64:
             val = rela.symbol.value + rela.symbol.baseaddr + addend
             return (val & ((1 << (self.addrsz * 8)) - 1)).to_bytes(self.addrsz, "big")
-        elif rela.type == R_PPC_JUMP_SLOT:
-            # The PowerPC64 JUMP_SLOT relocation is much more complicated.
-            # It actually fills in three 64-bit values:
+        elif (
+            rela.type == R_PPC_JUMP_SLOT
+            and (elf.processor_flags & EF_PPC64_ABI) != EF_PPC64_ABI_ELFV2
+        ):
+            # Under the ELFv1 ABI (the default when e_flags names none),
+            # a PLT slot holds a three-word function descriptor:
+            # the entry point, the TOC base, and an environment pointer.
+            # The relocation copies the target's descriptor into the slot,
+            # which needs the defining image's memory; that isn't modeled.
             #
-            # 1. The actual function address
-            # 2. The TOC base address; serves a similar purpose to the Global Pointer in MIPS.
-            # 3. An "environment" pointer, not used by C.
-            #
-            # We're currently correctly filling in 1.
-            # Entry 2. is the address of the GOT/TOC section of the containing binary + 0x8000.
-            #
-            # This requires a reference to the containing binary,
-            # which I have no idea how to pass.
-            raise NotImplementedError("R_PPC64_JUMP_SLOT not implemented")
+            # ELFv2 has no function descriptors, so its slot is a plain
+            # S + A, which the PowerPC32 code computes at our address width.
+            raise NotImplementedError(
+                "R_PPC64_JMP_SLOT is only supported for ELFv2 binaries"
+            )
         else:
             return super()._compute_value(rela, elf)

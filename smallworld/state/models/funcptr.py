@@ -53,7 +53,7 @@ class FunctionPointer:
         self.context.set_return_address(emulator, return_address, push=True)
         for i, arg in enumerate(args):
             self.context.set_argument(i, emulator, arg)
-        emulator.write_register("pc", self.address)
+        self.context.enter_function(emulator, self.address)
 
     def get_return_value(self, emulator: emulators.Emulator):
         return self.context.get_return_value(emulator)

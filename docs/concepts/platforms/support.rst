@@ -51,6 +51,14 @@ instruction fetch faults.  The default CPU is a POWER10, running in real mode;
 the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
 With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
 
+**powerpc64 ABI:** SmallWorld models the ELFv2 ABI, which is what current
+toolchains (including the zig build of the test suite) emit.  For ELFv1
+binaries, which use function descriptors, the PLT relocation
+(``R_PPC64_JMP_SLOT``) raises ``NotImplementedError``, and the library models
+don't cover ELFv1.  An ELFv2 function's
+global entry point computes the TOC pointer, ``r2``, from its own address in
+``r12``, so a harness that starts at a function must set ``r12`` to it.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.

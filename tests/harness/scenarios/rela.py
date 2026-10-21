@@ -161,7 +161,6 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(register="r3"),
-        function_descriptor_entrypoint=True,
         load_address=0x80000000,
         print_entrypoint=True,
     ),
@@ -190,9 +189,6 @@ _SPECS = {
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "ppc64": "Relocations not supported",
-    "ppc64.angr": "Relocations not supported",
-    "ppc64.pcode": "Relocations not supported",
     "tricore.angr": "No C compiler",
     "tricore.panda": "No C compiler",
     "tricore.pcode": "No C compiler",
@@ -233,7 +229,12 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
     elif arch == "ppc":
         stack.push_integer(0, 4, None)
         stack.push_integer(0, 4, None)
-    elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
+    elif arch == "ppc64":
+        # An ELFv2 caller's frame header is 32 bytes: back chain, CR save,
+        # LR save, and the TOC save slot that calls through the PLT use.
+        stack.push_bytes(b"\0" * 24, "Frame header")
+        stack.push_integer(0x7FFFFFF8, 8, "fake back chain")
+    elif arch in {"mips64", "mips64el", "la64", "riscv64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
     elif arch == "armhf" and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
@@ -312,7 +313,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     if arch in {"mips", "mipsel", "mips64", "mips64el"}:
         set_register(cpu, "t9", entrypoint)
     if arch == "ppc64":
-        set_register(cpu, "r2", 0x10027F00)
+        # An ELFv2 function's global entry point derives the TOC pointer, r2,
+        # from its own address in r12.
+        set_register(cpu, "r12", entrypoint)
 
     emulator = make_emulator(smallworld, platform, engine)
     _configure_exit(machine, emulator, cpu, code, stack, arch, engine, entrypoint)

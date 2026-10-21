@@ -10,12 +10,28 @@ from .machdef import UnicornMachineDef
 logger = logging.getLogger(__name__)
 
 
+# MSR bits for the floating-point, vector (Altivec) and VSX facilities
+MSR_FP = 1 << 13
+MSR_VEC = 1 << 25
+MSR_VSX = 1 << 23
+
+
 class PPCMachineDef(UnicornMachineDef):
     """Unicorn machine definition for powerpc"""
 
     byteorder = Byteorder.BIG
 
     uc_arch = unicorn.UC_ARCH_PPC
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        # Unicorn starts with the floating-point and vector facilities off,
+        # so their first instruction raises a facility-unavailable interrupt.
+        # Linux user space always sees them on.  CPUs that lack a facility
+        # drop its bit.
+        msr = engine.reg_read(unicorn.ppc_const.UC_PPC_REG_MSR)
+        engine.reg_write(
+            unicorn.ppc_const.UC_PPC_REG_MSR, msr | MSR_FP | MSR_VEC | MSR_VSX
+        )
 
     _registers = {
         "r0": unicorn.ppc_const.UC_PPC_REG_0,

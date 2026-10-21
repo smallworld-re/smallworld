@@ -16,6 +16,8 @@ _VARIANTS = (
     ("mips64el.pcode", None),
     ("mipsel.pcode", None),
     ("ppc.pcode", None),
+    ("ppc64", None),
+    ("ppc64.pcode", None),
     ("riscv64.pcode", None),
 )
 
