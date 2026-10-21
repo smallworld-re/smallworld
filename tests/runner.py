@@ -171,7 +171,6 @@ def _is_success_exit_unaligned_read() -> bool:
 # Emulate
 emulator: smallworld.emulators.Emulator
 if arch in (
-    smallworld.platforms.Architecture.ARM_V7A,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS64,
     smallworld.platforms.Architecture.POWERPC32,
@@ -180,6 +179,11 @@ if arch in (
     emulator = smallworld.emulators.GhidraEmulator(platform)
 else:
     emulator = smallworld.emulators.UnicornEmulator(platform)
+    if hasattr(cpu, "fpexc") and hasattr(cpu, "cpacr"):
+        # Enable the ARM FPU as an OS would for a user process. Unicorn resets
+        # ARM CPUs with it disabled, so the first VFP/NEON instruction faults.
+        cpu.cpacr.set(0x00F00000)  # Full access to coprocessors 10 and 11
+        cpu.fpexc.set(0x40000000)  # FPEXC.EN
 
 
 try:
