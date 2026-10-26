@@ -7,7 +7,9 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    code_pointer,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -68,6 +70,36 @@ _SPECS = {
         # ARMv6K has no movw, so main's constants sit in a literal pool
         # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
         mid_exit_offset=24,
+        link_register="lr",
+    ),
+    "armv5t": ExitpointSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        # ARMv5T has no movw, so main's constants sit in a literal pool
+        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
+        mid_exit_offset=24,
+        link_register="lr",
+    ),
+    "armv7m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        # main's Thumb `pop {r7, pc}` is followed by a 4-byte literal pool,
+        # so the pop is 6 bytes from the end.
+        mid_exit_offset=6,
+        link_register="lr",
+    ),
+    "armv8m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        # main's Thumb `pop {r7, pc}` is followed by a 4-byte literal pool,
+        # so the pop is 6 bytes from the end.
+        mid_exit_offset=6,
         link_register="lr",
     ),
     "armv7a": ExitpointSpec(
@@ -260,6 +292,9 @@ _SKIP_REASONS = {
     "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
     "armv6k.panda": "Waiting for panda-ng",
+    "armv5t.panda": "Waiting for panda-ng",
+    "armv7m.panda": "Waiting for panda-ng",
+    "armv8m.panda": "Waiting for panda-ng",
     "armv7a.panda": "Waiting for panda-ng",
     "armv7r.panda": "Waiting for panda-ng",
     "armv8a.panda": "Waiting for panda-ng",
@@ -326,7 +361,7 @@ def _build_machine(smallworld, arch: str, engine: str, spec: ExitpointSpec):
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
     if spec.link_register is not None:
-        set_register(cpu, spec.link_register, FAKE_EXITPOINT)
+        set_register(cpu, spec.link_register, code_pointer(arch, FAKE_EXITPOINT))
     for register_name in spec.zero_register_overrides.get(engine, ()):
         set_register(cpu, register_name, 0)
 
@@ -394,6 +429,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             return 0
 
     _, _, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
-    mid_exitpoint = _mid_exitpoint(entrypoint, code, engine, spec)
+    mid_exitpoint = _mid_exitpoint(
+        instruction_address(arch, entrypoint), code, engine, spec
+    )
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
     return 0

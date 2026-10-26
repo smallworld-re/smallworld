@@ -7,7 +7,9 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     StringSource,
+    code_pointer,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -53,6 +55,33 @@ _SPECS = {
     ),
     "armv6k": RelaSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv5t": RelaSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv7m": RelaSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv8m": RelaSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -281,7 +310,7 @@ def _configure_exit(
         emulator.add_exit_point(entrypoint + 68)
         return
 
-    exitpoint = entrypoint + code.get_symbol_size("main")
+    exitpoint = instruction_address(arch, entrypoint) + code.get_symbol_size("main")
     machine.add_exit_point(exitpoint)
 
     if arch == "amd64":
@@ -291,6 +320,9 @@ def _configure_exit(
     elif arch in {
         "aarch64",
         "armv6k",
+        "armv5t",
+        "armv7m",
+        "armv8m",
         "armv7a",
         "armv7r",
         "armv8a",
@@ -298,7 +330,7 @@ def _configure_exit(
         "ppc",
         "ppc64",
     }:
-        set_register(cpu, "lr", exitpoint)
+        set_register(cpu, "lr", code_pointer(arch, exitpoint))
     elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
 
@@ -346,7 +378,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             source=spec.string_source,
         )
     )
-    code.update_symbol_value("puts", 0x10000)
+    code.update_symbol_value("puts", code_pointer(arch, 0x10000))
 
     if arch in {"mips", "mipsel", "mips64", "mips64el"}:
         set_register(cpu, "t9", entrypoint)

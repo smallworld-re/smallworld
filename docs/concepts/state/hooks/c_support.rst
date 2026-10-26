@@ -24,8 +24,11 @@ SmallWorld currently provides basic C calling convention definitions for the fol
 - System V
     - aarch64
     - amd64
+    - arm v5t (soft-float)
     - armel (arm v6k)
     - armhf (arm v7a)
+    - arm v7m (soft-float)
+    - arm v7r (hard-float)
     - arm v8a (hard-float)
     - arm v8r (hard-float)
     - arm v8m (soft-float)

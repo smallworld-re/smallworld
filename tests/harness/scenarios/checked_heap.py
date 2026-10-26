@@ -7,16 +7,20 @@ from .common import (
     TRITON_ARCHS,
     PlatformSpec,
     TestsPath,
+    code_pointer,
     make_emulator,
     make_platform,
     split_variant,
 )
-from .spec import ScenarioInfo, VariantInfo, just_run
+from .spec import ScenarioInfo, VariantInfo, default_skip_reason, just_run
 
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
     "amd64": PlatformSpec("X86_64", "LITTLE"),
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
+    "armv5t": PlatformSpec("ARM_V5T", "LITTLE"),
+    "armv7m": PlatformSpec("ARM_V7M", "LITTLE"),
+    "armv8m": PlatformSpec("ARM_V8M", "LITTLE"),
     "armv7a": PlatformSpec("ARM_V7A", "LITTLE"),
     "armv7r": PlatformSpec("ARM_V7R", "LITTLE"),
     "armv8a": PlatformSpec("ARM_V8A", "LITTLE"),
@@ -30,7 +34,17 @@ _ARCH_SPECS = {
     "riscv64": PlatformSpec("RISCV64", "LITTLE"),
 }
 
-_NO_FIXED_LOAD_ADDRESS = {"armv6k", "mips", "mips64", "mips64el", "mipsel", "ppc"}
+_NO_FIXED_LOAD_ADDRESS = {
+    "armv6k",
+    "armv5t",
+    "armv7m",
+    "armv8m",
+    "mips",
+    "mips64",
+    "mips64el",
+    "mipsel",
+    "ppc",
+}
 _NEEDS_T9 = {"mips", "mips64", "mips64el", "mipsel"}
 _EXPECTED_ERRORS = {
     "read": ("Access uninitialized bytes at ", None),
@@ -57,7 +71,7 @@ def _checked_heap_variants() -> Sequence[VariantInfo]:
             if not _supports_engine(arch, engine):
                 continue
             variant = arch if engine == "unicorn" else f"{arch}.{engine}"
-            out.append((variant, None, {}))
+            out.append((variant, default_skip_reason(variant), {}))
     return out
 
 
@@ -136,7 +150,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     malloc_model.heap = heap
     malloc_model.allow_imprecise = True
     machine.add(malloc_model)
-    code.update_symbol_value("malloc", malloc_model._address)
+    code.update_symbol_value("malloc", code_pointer(arch, malloc_model._address))
 
     free_model = smallworld.state.models.Model.lookup(
         "free", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
@@ -144,7 +158,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     free_model.heap = heap
     free_model.allow_imprecise = True
     machine.add(free_model)
-    code.update_symbol_value("free", free_model._address)
+    code.update_symbol_value("free", code_pointer(arch, free_model._address))
 
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(0)

@@ -11,8 +11,10 @@ NATIVE_PARITY = True
 _ARCH_MATRIX = (
     ("aarch64", "AARCH64", "LITTLE"),
     ("amd64", "X86_64", "LITTLE"),
+    ("armv5t", "ARM_V5T", "LITTLE"),
     ("armv6k", "ARM_V6K", "LITTLE"),
     ("armv7a", "ARM_V7A", "LITTLE"),
+    ("armv7m", "ARM_V7M", "LITTLE"),
     ("armv7r", "ARM_V7R", "LITTLE"),
     ("armv8a", "ARM_V8A", "LITTLE"),
     ("armv8m", "ARM_V8M", "LITTLE"),
@@ -46,45 +48,49 @@ _FLOAT_RETURN_SKIPS = {
 # support, and the n64 MIPS variants (which fabs exercises end to end) stay in.
 _FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests", "C99FabsTests"}
 
-# Per-architecture skips, by function. ARMv8-M is Thumb-only, so its tests are
-# built against musl: glibc can't build for it. musl differs from the glibc ABI
-# the models implement in a few ways, measured case by case.
-_MUSL = "ARMv8-M builds against musl (glibc can't build for Thumb-only CPUs)"
+# Skips by function for platforms whose tests build against musl. The M
+# profile is Thumb-only, which glibc can't build for. musl differs from the
+# glibc ABI the models implement in a few ways, measured case by case.
+_MUSL = "M-profile tests build against musl (glibc can't build for Thumb-only CPUs)"
+_MUSL_FUNCTION_SKIPS = {
+    "ctype_tolower_loc": f"{_MUSL}, which lacks glibc-only __ctype_tolower_loc",
+    "ctype_toupper_loc": f"{_MUSL}, which lacks glibc-only __ctype_toupper_loc",
+    "__fprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __fprintf_chk",
+    "__printf_chk": f"{_MUSL}, which lacks glibc-only fortified __printf_chk",
+    "__snprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __snprintf_chk",
+    "__sprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __sprintf_chk",
+    "gets": f"{_MUSL}, which doesn't declare gets",
+    "bsd_signal": f"{_MUSL}, which doesn't declare bsd_signal",
+    "pthread_sigmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigaction": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigaddset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigdelset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigemptyset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigfillset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigpending": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigprocmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "ctime": f"{_MUSL}, whose 64-bit time_t (__ctime64) the glibc-ABI models "
+    "don't implement",
+    "difftime": f"{_MUSL}, whose 64-bit time_t (__difftime64) the glibc-ABI models "
+    "don't implement",
+    "gmtime": f"{_MUSL}, whose 64-bit time_t (__gmtime64) the glibc-ABI models "
+    "don't implement",
+    "localtime": f"{_MUSL}, whose 64-bit time_t (__localtime64) the glibc-ABI models "
+    "don't implement",
+    "mktime": f"{_MUSL}, whose 64-bit time_t (__mktime64) the glibc-ABI models "
+    "don't implement",
+    "time": f"{_MUSL}, whose 64-bit time_t (__time64) the glibc-ABI models "
+    "don't implement",
+    "dup": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
+    "open": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
+    "ctype_b_loc": f"{_MUSL}, whose ctype calls isalnum and other unmodeled "
+    "classifiers",
+}
+
+# Per-architecture skips, by function.
 _ARCH_FUNCTION_SKIPS: dict[str, dict[str, str]] = {
-    "armv8m": {
-        "ctype_tolower_loc": f"{_MUSL}, which lacks glibc-only __ctype_tolower_loc",
-        "ctype_toupper_loc": f"{_MUSL}, which lacks glibc-only __ctype_toupper_loc",
-        "__fprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __fprintf_chk",
-        "__printf_chk": f"{_MUSL}, which lacks glibc-only fortified __printf_chk",
-        "__snprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __snprintf_chk",
-        "__sprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __sprintf_chk",
-        "gets": f"{_MUSL}, which doesn't declare gets",
-        "bsd_signal": f"{_MUSL}, which doesn't declare bsd_signal",
-        "pthread_sigmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigaction": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigaddset": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigdelset": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigemptyset": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigfillset": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigpending": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "sigprocmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
-        "ctime": f"{_MUSL}, whose 64-bit time_t (__ctime64) the glibc-ABI models "
-        "don't implement",
-        "difftime": f"{_MUSL}, whose 64-bit time_t (__difftime64) the glibc-ABI models "
-        "don't implement",
-        "gmtime": f"{_MUSL}, whose 64-bit time_t (__gmtime64) the glibc-ABI models "
-        "don't implement",
-        "localtime": f"{_MUSL}, whose 64-bit time_t (__localtime64) the glibc-ABI models "
-        "don't implement",
-        "mktime": f"{_MUSL}, whose 64-bit time_t (__mktime64) the glibc-ABI models "
-        "don't implement",
-        "time": f"{_MUSL}, whose 64-bit time_t (__time64) the glibc-ABI models "
-        "don't implement",
-        "dup": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
-        "open": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
-        "ctype_b_loc": f"{_MUSL}, whose ctype calls isalnum and other unmodeled "
-        "classifiers",
-    },
+    "armv7m": _MUSL_FUNCTION_SKIPS,
+    "armv8m": _MUSL_FUNCTION_SKIPS,
 }
 
 

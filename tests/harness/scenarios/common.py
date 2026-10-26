@@ -59,6 +59,22 @@ TRITON_ARCHS = frozenset(
     }
 )
 
+#: ARM platforms that run only Thumb code. A branch or return to a code
+#: address must set its Thumb bit (bit 0), but the core executes, and reports
+#: PC, at the address with that bit clear.
+THUMB_ONLY_ARCHS = frozenset({"armv6m", "armv7m", "armv8m"})
+
+
+def code_pointer(arch: str, address: int) -> int:
+    """The value to branch or return to ``address`` with on ``arch``."""
+    return address | 1 if arch in THUMB_ONLY_ARCHS else address
+
+
+def instruction_address(arch: str, address: int) -> int:
+    """The address the core executes at for code pointer ``address``."""
+    return address & ~1 if arch in THUMB_ONLY_ARCHS else address
+
+
 ARCH_REGISTERS: dict[str, ArchInfo] = {
     "aarch64": ArchInfo(
         platform=PlatformSpec("AARCH64", "LITTLE"),

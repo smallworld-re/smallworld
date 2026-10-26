@@ -151,12 +151,14 @@ XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 AARCH64_CC := zig cc -target $(AARCH64_ID) 
 AMD64_CC := zig cc -target $(AMD64_ID)  
 AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
+ARMV5T_CC := zig cc -target $(ARMV5T_ID)
 ARMV6K_CC := zig cc -target $(ARMV6K_ID)
 ARMV7A_CC := zig cc -target $(ARMV7A_ID)
 ARMV7R_CC := zig cc -target $(ARMV7R_ID)
 ARMV8A_CC := zig cc -target $(ARMV8A_ID)
-# glibc can't build for Thumb-only ARMv8-M (its syscall asm uses r7, which
-# Thumb reserves), so its C tests build against musl instead.
+# glibc can't build for the Thumb-only M profile (its syscall asm uses r7,
+# which Thumb reserves), so their C tests build against musl instead.
+ARMV7M_CC := zig cc -target thumb-linux-musleabi
 ARMV8M_CC := zig cc -target thumb-linux-musleabi
 ARMV8R_CC := zig cc -target $(ARMV8R_ID)
 I386_CC := zig cc -target $(I386_ID) 
@@ -208,8 +210,10 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 
 # C flags
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
+ARMV5T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm926ej_s
 ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
 ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
+ARMV7M_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft
 ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
 ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
 ARMV8M_CFLAGS := -mcpu=cortex_m33 -mfloat-abi=soft
@@ -226,21 +230,27 @@ AARCH64_ELF_CFLAGS := -pie
 AMD64_ELF_CFLAGS := -pie
 ARMV7A_ELF_CFLAGS := -pie
 ARMV7R_ELF_CFLAGS := -pie
+# zig's compiler-rt needs libgcc's __sync_* atomics on ARMv5, which zig
+# doesn't ship; see arm_sync_shims.c.
+ARMV5T_ELF_LDLIBS := arm_sync_shims.c
 ARMV8A_ELF_CFLAGS := -pie
 # zig links musl statically by default, which leaves no library imports for
 # the models to replace.
+ARMV7M_ELF_CFLAGS := -dynamic
 ARMV8M_ELF_CFLAGS := -dynamic
 
 # C tests a platform can't build, by source. musl lacks these glibc-specific
 # functions, or the tests use glibc's internal types (sigset_t's members,
 # __int32_t).
-ARMV8M_C_ELF_UNBUILDABLE := \
+MUSL_C_ELF_UNBUILDABLE := \
 	c99/ctype_tolower_loc c99/ctype_toupper_loc c99/gets \
 	c99/__fprintf_chk c99/__printf_chk c99/__snprintf_chk c99/__sprintf_chk \
 	posix/bsd_signal posix/pthread_sigmask posix/sigaction posix/sigaddset \
 	posix/sigdelset posix/sigemptyset posix/sigfillset posix/sigpending \
 	posix/sigprocmask funcptr
-ARMV8M_C_ELF_EXCLUDE := $(foreach t,$(ARMV8M_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
+MUSL_C_ELF_EXCLUDE := $(foreach t,$(MUSL_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
+ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV8M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8R_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
@@ -469,7 +479,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R
 ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

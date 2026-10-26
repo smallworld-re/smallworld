@@ -10,6 +10,8 @@ _VARIANTS = tuple(
         "aarch64",
         "amd64",
         "armv6k",
+        "armv5t",
+        "armv7m",
         "armv7a",
         "armv7r",
         "armv8a",

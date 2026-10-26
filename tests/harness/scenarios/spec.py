@@ -34,8 +34,8 @@ class ScenarioInfo:
     description_factory: DescriptionFactory | None = None
 
 
-#: Skip reasons applied to every arch-table variant unless a scenario gives
-#: its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
+#: Skip reasons applied to every arch-table or explicitly listed variant
+#: unless a scenario gives its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
 #: their Thumb-only code yet, and Styx has no ARMv7-R or ARMv8 target.
 _DEFAULT_SKIP_REASONS = {
     **{
@@ -48,6 +48,11 @@ _DEFAULT_SKIP_REASONS = {
     },
     "armv7r.styx": "Styx has no ARMv7-R target",
 }
+
+
+def default_skip_reason(variant: str) -> str | None:
+    """The platform-wide skip reason for ``variant``, if it has one."""
+    return _DEFAULT_SKIP_REASONS.get(variant)
 
 
 def from_arch_table(
@@ -171,11 +176,12 @@ def from_variants(
     kwargs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> VariantsSource:
     """Variants enumerated from an explicit ``[(variant, skip_reason), ...]``
-    list. ``kwargs`` optionally attaches a per-variant kwargs dict, used by
+    list. A variant with no skip reason takes its platform-wide default, if
+    any. ``kwargs`` optionally attaches a per-variant kwargs dict, used by
     run-factories that vary expectations per variant.
     """
     kw = {variant: dict(item) for variant, item in (kwargs or {}).items()}
-    frozen = tuple((v, s) for v, s in variants)
+    frozen = tuple((v, s or default_skip_reason(v)) for v, s in variants)
 
     def _impl() -> Sequence[VariantInfo]:
         return tuple((v, s, dict(kw.get(v, {}))) for v, s in frozen)

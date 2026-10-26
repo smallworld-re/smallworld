@@ -7,7 +7,9 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     add_code_bounds,
+    code_pointer,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     load_elf_library,
     make_emulator,
@@ -61,6 +63,39 @@ _SPECS = {
     ),
     "armv6k": LinkElfSpec(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        lib_address=0x800000,
+        argument_registers=("r0", "r1"),
+        add_zero_exitpoint=True,
+    ),
+    "armv5t": LinkElfSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        lib_address=0x800000,
+        argument_registers=("r0", "r1"),
+        add_zero_exitpoint=True,
+    ),
+    "armv7m": LinkElfSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        lib_address=0x800000,
+        argument_registers=("r0", "r1"),
+        add_zero_exitpoint=True,
+    ),
+    "armv8m": LinkElfSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -307,15 +342,26 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(stack)
     string_address, argv = push_cli_argv(stack, args[0], pointer_size=spec.pointer_size)
 
-    exitpoint = entrypoint + code.get_symbol_size("main")
+    exitpoint = instruction_address(arch, entrypoint) + code.get_symbol_size("main")
     if arch == "amd64":
         stack.push_integer(exitpoint, 8, None)
         machine.add_exit_point(exitpoint)
     elif arch in {"i386", "m68k"}:
         stack.push_integer(exitpoint, 4, None)
         machine.add_exit_point(exitpoint)
-    elif arch in {"aarch64", "armv6k", "armv7a", "armv7r", "armv8a", "armv8r", "ppc"}:
-        set_register(cpu, "lr", exitpoint)
+    elif arch in {
+        "aarch64",
+        "armv6k",
+        "armv5t",
+        "armv7m",
+        "armv8m",
+        "armv7a",
+        "armv7r",
+        "armv8a",
+        "armv8r",
+        "ppc",
+    }:
+        set_register(cpu, "lr", code_pointer(arch, exitpoint))
         machine.add_exit_point(exitpoint)
     elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)

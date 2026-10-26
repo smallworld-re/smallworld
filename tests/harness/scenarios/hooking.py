@@ -69,6 +69,15 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
+    "armv5t": HookingSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+    ),
     "armv7a": HookingSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pointer_size=4,
@@ -303,6 +312,7 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={
             "armv6k.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv5t.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv7a.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv7r.styx": "Styx has no ARMv7-R target",
             "armv8a.styx": "styx function-hook semantics don't satisfy this scenario yet",
