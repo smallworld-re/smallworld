@@ -20,6 +20,7 @@ _ARCH_SPECS = {
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
     "armv5t": PlatformSpec("ARM_V5T", "LITTLE"),
     "armv7m": PlatformSpec("ARM_V7M", "LITTLE"),
+    "armv6m": PlatformSpec("ARM_V6M", "LITTLE"),
     "armv8m": PlatformSpec("ARM_V8M", "LITTLE"),
     "armv7a": PlatformSpec("ARM_V7A", "LITTLE"),
     "armv7r": PlatformSpec("ARM_V7R", "LITTLE"),

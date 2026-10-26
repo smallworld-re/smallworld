@@ -15,6 +15,7 @@ _VARIANTS = (
     ("armv6k", _skip("armv6k")),
     ("armv5t", _skip("armv5t")),
     ("armv7m", _skip("armv7m")),
+    ("armv6m", _skip("armv6m")),
     ("armv8m", _skip("armv8m")),
     ("armv7a", _skip("armv7a")),
     ("armv7r", _skip("armv7r")),

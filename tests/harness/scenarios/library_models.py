@@ -13,6 +13,7 @@ _ARCH_MATRIX = (
     ("amd64", "X86_64", "LITTLE"),
     ("armv5t", "ARM_V5T", "LITTLE"),
     ("armv6k", "ARM_V6K", "LITTLE"),
+    ("armv6m", "ARM_V6M", "LITTLE"),
     ("armv7a", "ARM_V7A", "LITTLE"),
     ("armv7m", "ARM_V7M", "LITTLE"),
     ("armv7r", "ARM_V7R", "LITTLE"),
@@ -89,6 +90,7 @@ _MUSL_FUNCTION_SKIPS = {
 
 # Per-architecture skips, by function.
 _ARCH_FUNCTION_SKIPS: dict[str, dict[str, str]] = {
+    "armv6m": _MUSL_FUNCTION_SKIPS,
     "armv7m": _MUSL_FUNCTION_SKIPS,
     "armv8m": _MUSL_FUNCTION_SKIPS,
 }

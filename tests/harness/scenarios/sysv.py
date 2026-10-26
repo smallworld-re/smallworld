@@ -12,6 +12,7 @@ _VARIANTS = tuple(
         "armv6k",
         "armv5t",
         "armv7m",
+        "armv6m",
         "armv7a",
         "armv7r",
         "armv8a",

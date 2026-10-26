@@ -158,6 +158,7 @@ ARMV7R_CC := zig cc -target $(ARMV7R_ID)
 ARMV8A_CC := zig cc -target $(ARMV8A_ID)
 # glibc can't build for the Thumb-only M profile (its syscall asm uses r7,
 # which Thumb reserves), so their C tests build against musl instead.
+ARMV6M_CC := zig cc -target thumb-linux-musleabi
 ARMV7M_CC := zig cc -target thumb-linux-musleabi
 ARMV8M_CC := zig cc -target thumb-linux-musleabi
 ARMV8R_CC := zig cc -target $(ARMV8R_ID)
@@ -212,6 +213,9 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
 ARMV5T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm926ej_s
 ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
+# lld's PLT entries are Thumb-2, so ARMv6-M code calls through addresses
+# loaded from its literal pools instead; see ARMV6M_ELF_CFLAGS.
+ARMV6M_CFLAGS := -mcpu=cortex_m0 -mfloat-abi=soft -mlong-calls
 ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
 ARMV7M_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft
 ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
@@ -238,6 +242,28 @@ ARMV8A_ELF_CFLAGS := -pie
 # the models to replace.
 ARMV7M_ELF_CFLAGS := -dynamic
 ARMV8M_ELF_CFLAGS := -dynamic
+# zig can't link a Linux program for ARMv6-M: its musl start code and its
+# compiler-rt use Thumb-2 instructions. So ARMv6-M ELFs compile for the
+# Cortex-M0, but link for the Cortex-M3 (giving Thumb-2 start code, which the
+# tests never run, as they start at main), without zig's compiler-rt, and
+# with compiler-rt built for the Cortex-M0 instead. They link as PIEs, so the
+# literal-pool addresses of library functions become dynamic relocations,
+# which the models fill in, rather than addresses of Thumb-2 PLT entries.
+#
+# These aren't realistic ARMv6-M programs (real ones are bare-metal and
+# statically linked), and they test a different linking path than the other
+# ARM platforms: imports are R_ARM_ABS32 text relocations, not GOT entries
+# (JUMP_SLOT, GLOB_DAT), every call is a literal-pool load and blx, shared
+# objects can't interpose on their own functions, and the build attributes
+# say Cortex-M3. GOT linking for the M profile is covered by ARMv7-M and
+# ARMv8-M.
+ARMV6M_ELF_CFLAGS := -dynamic -pie -Wl,-z,notext
+ARMV6M_ELF_LINK_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft -rtlib=none -Wl,--gc-sections
+ARMV6M_ELF_LDLIBS := compiler_rt.armv6m.o
+ARMV6M_ELF_DEPS := compiler_rt.armv6m.o
+# A shared object's long calls to its own functions bind directly, rather than
+# through lld's PLT, which is ARM code here.
+ARMV6M_SO_CFLAGS := -Wl,-Bsymbolic -Wl,-z,notext
 
 # C tests a platform can't build, by source. musl lacks these glibc-specific
 # functions, or the tests use glibc's internal types (sigset_t's members,
@@ -249,6 +275,7 @@ MUSL_C_ELF_UNBUILDABLE := \
 	posix/sigdelset posix/sigemptyset posix/sigfillset posix/sigpending \
 	posix/sigprocmask funcptr
 MUSL_C_ELF_EXCLUDE := $(foreach t,$(MUSL_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
+ARMV6M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8R_ELF_CFLAGS := -pie
@@ -392,8 +419,14 @@ $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
 
-%.$$($(1)_EXT).so : %.so.c
+%.$$($(1)_EXT).so : %.so.c $$($(1)_ELF_DEPS)
+ifeq ($$($(1)_ELF_LINK_CFLAGS),)
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
+else
+	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -o $$@.o $$<
+	$$($(1)_CC) $$($(1)_ELF_LINK_CFLAGS) $$($(1)_SO_CFLAGS) -shared -o $$@ $$@.o $$($(1)_ELF_LDLIBS)
+	rm $$@.o
+endif
 
 $(1)_C_GNU2_OBJS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.o.c,%.gnu2.$$($(1)_EXT).o,$$(C_GNU2_OBJ_SRCS)))
 
@@ -421,8 +454,15 @@ $(1)_C_GNU_SOS := $$(if $$($(1)_GNU_CFLAGS),$$(patsubst %.gnu.so.c,%.gnu.$$($(1)
 	$$(if $$($(1)_GNU_CFLAGS),,$$(error no general-dynamic dialect flag for $(1); refusing to build $$@))
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU_CFLAGS) -fPIC -shared -o $$@ $$<
 
-%.$$($(1)_EXT).elf : %.elf.c
+# A platform with link flags of its own compiles and links separately.
+%.$$($(1)_EXT).elf : %.elf.c $$($(1)_ELF_DEPS)
+ifeq ($$($(1)_ELF_LINK_CFLAGS),)
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$< $$($(1)_ELF_LDLIBS)
+else
+	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@.o $$<
+	$$($(1)_CC) $$($(1)_ELF_LINK_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$@.o $$($(1)_ELF_LDLIBS)
+	rm $$@.o
+endif
 
 endef
 
@@ -479,7 +519,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R
 ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -490,6 +530,14 @@ $(foreach platform,$(ASM_PLATFORMS),$(eval $(call ASM_TEMPLATE,$(platform))))
 
 # Populate the C ELF templates
 $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))
+
+# zig's compiler-rt, built for the Cortex-M0. As a freestanding build, it
+# leaves out __aeabi_read_tp, which ARMv6-M can't implement as zig does.
+# Function sections let the link drop the helpers a test doesn't use.
+ZIG_LIB = $(shell zig env | sed -n 's/^ *\.lib_dir = "\(.*\)",$$/\1/p')
+
+compiler_rt.$(ARMV6M_EXT).o :
+	zig build-obj $(ZIG_LIB)/compiler_rt.zig -target thumb-freestanding-eabi -mcpu cortex_m0 -O ReleaseSmall -fPIC -ffunction-sections -femit-bin=$@
 
 # Populate the C PE templates
 $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))

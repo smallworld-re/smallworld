@@ -92,6 +92,18 @@ _SPECS = {
         mid_exit_offset=6,
         link_register="lr",
     ),
+    "armv6m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        # main's Thumb `pop {r7, pc}` is followed by a 2-byte pad and an
+        # 8-byte literal pool (its long calls), so the pop is 12 bytes from
+        # the end.
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
     "armv8m": ExitpointSpec(
         platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pc_register="pc",
@@ -294,6 +306,7 @@ _SKIP_REASONS = {
     "armv6k.panda": "Waiting for panda-ng",
     "armv5t.panda": "Waiting for panda-ng",
     "armv7m.panda": "Waiting for panda-ng",
+    "armv6m.panda": "Waiting for panda-ng",
     "armv8m.panda": "Waiting for panda-ng",
     "armv7a.panda": "Waiting for panda-ng",
     "armv7r.panda": "Waiting for panda-ng",
