@@ -1,3 +1,5 @@
+import typing
+
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
@@ -573,7 +575,7 @@ class ArmElfRelocator(ElfRelocator):
             patched = (patched & ~(0x7F << 16)) | (((value >> 12) & 0x7F) << 16)
         return patched
 
-    def _got_base(self, rela: ElfRela, elf) -> int:
+    def _find_got_base(self, elf) -> typing.Optional[int]:
         dtags = getattr(elf, "_dtags", {})
         if DT_PLTGOT in dtags:
             return elf._rebase_file(dtags[DT_PLTGOT])
@@ -589,9 +591,29 @@ class ArmElfRelocator(ElfRelocator):
                         return elf._rebase_file(section.virtual_address)
                     if idx in section_offsets:
                         return elf.address + section_offsets[idx]
+        return None
 
-        self._missing_context(rela, "the GOT base address")
-        raise Exception("Reached an unreachable line")
+    def _got_base(self, rela: ElfRela, elf) -> int:
+        got_base = self._find_got_base(elf)
+        if got_base is None:
+            self._missing_context(rela, "the GOT base address")
+            raise Exception("Reached an unreachable line")
+        return got_base
+
+    def _got_entry(self, rela: ElfRela, elf) -> int:
+        proxy_types = (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT)
+        if self._find_got_base(elf) is None and not any(
+            r.type in proxy_types for r in rela.symbol.relas
+        ):
+            # An object file has no GOT -- building one is the linker's job --
+            # so synthesize the symbol's entry, and fill it in as GLOB_DAT
+            # would. Rewritten whenever the symbol is re-relocated.
+            slot = elf.got_slot(rela.symbol.idx)
+            elf.write_bytes(
+                slot, self._pack(self._symbol_addr(rela, include_thumb_bit=True), 4)
+            )
+            return slot
+        return self._proxy_offset(rela, proxy_types, "the symbol's GOT entry address")
 
     def _proxy_offset(self, rela: ElfRela, proxy_types, detail: str) -> int:
         offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
@@ -698,18 +720,10 @@ class ArmElfRelocator(ElfRelocator):
             orig = self._read_arm32(rela, elf)
             return self._pack_arm32((orig & 0x80000000) | (value & 0x7FFFFFFF))
         elif rela.type == R_ARM_GOT_ABS:
-            got_entry = self._proxy_offset(
-                rela,
-                (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
-                "the symbol's GOT entry address",
-            )
+            got_entry = self._got_entry(rela, elf)
             return self._pack(got_entry + self._get_data_addend(rela, elf, 4), 4)
         elif rela.type == R_ARM_GOT_PREL:
-            got_entry = self._proxy_offset(
-                rela,
-                (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
-                "the symbol's GOT entry address",
-            )
+            got_entry = self._got_entry(rela, elf)
             return self._pack(
                 got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4
             )

@@ -193,6 +193,7 @@ class ElfExecutable(Executable):
     _tlsdesc_descriptors: typing.List[int]
     _tlsdesc_got: typing.Dict[int, int]
     _tlsdesc_got_next: typing.Optional[int]
+    _got: typing.Dict[int, int]
     _tls_image: bytes
     _tls_size: int
     _tls_align: int
@@ -1295,6 +1296,30 @@ class ElfExecutable(Executable):
                 "No platform defined; cannot size a TLS descriptor"
             )
         size = 2 * PlatformDef.for_platform(self.platform).address_size
+        address = self._synthetic_got_alloc(size, "synthetic TLS descriptor")
+        self._tlsdesc_got[symbol_index] = address
+        return address
+
+    def got_slot(self, symbol_index: int) -> int:
+        """Address of the GOT entry for a symbol, creating it if needed.
+
+        For object files, which have no GOT; see `tlsdesc_got_slot`. The
+        relocator that asks for the entry fills it in, as the dynamic
+        relocation a linker would emit for it (GLOB_DAT) would. Keyed and
+        idempotent, like `tlsdesc_got_slot`.
+        """
+        if symbol_index in self._got:
+            return self._got[symbol_index]
+        if self.platform is None:
+            raise ConfigurationError("No platform defined; cannot size a GOT entry")
+        size = PlatformDef.for_platform(self.platform).address_size
+        address = self._synthetic_got_alloc(size, "synthetic GOT entry")
+        self._got[symbol_index] = address
+        return address
+
+    def _synthetic_got_alloc(self, size: int, label: str) -> int:
+        """Map `size` zeroed bytes past the loaded sections, for a GOT entry
+        no linker built, and return their address."""
         if self._tlsdesc_got_next is None:
             # Start on a page of its own rather than abutting the last
             # section: a synthetic region overlapping real content would be
@@ -1303,10 +1328,8 @@ class ElfExecutable(Executable):
         offset = self._tlsdesc_got_next
         self._tlsdesc_got_next += size
         self.size = max(self.size, offset + size)
-        self[offset] = BytesValue(b"\0" * size, "synthetic TLS descriptor")
-        address = self.address + offset
-        self._tlsdesc_got[symbol_index] = address
-        return address
+        self[offset] = BytesValue(b"\0" * size, label)
+        return self.address + offset
 
     def note_tlsdesc_descriptor(self, address: int) -> int:
         """Record a TLS descriptor and hand back the resolver it should carry.
@@ -1419,7 +1442,11 @@ class ElfExecutable(Executable):
             # linker built. Keyed by symbol so several call sites share one
             # descriptor.
             "_tlsdesc_got": dict(),
+            # Next free offset in the synthetic GOT, which also holds the
+            # ordinary GOT entries below.
             "_tlsdesc_got_next": None,
+            # Synthetic GOT entries for object files, keyed by symbol.
+            "_got": dict(),
             # PT_TLS: the module's thread-local initialization image, its
             # full size including .tbss, and its required alignment. Empty
             # when the image declares no thread-locals.

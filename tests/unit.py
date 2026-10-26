@@ -121,6 +121,7 @@ from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
+from smallworld.state.memory.elf.rela.arm import Armv7AElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
@@ -7611,6 +7612,93 @@ class ElfRelocatorTlsDescriptorQueryTests(unittest.TestCase):
             self.assertFalse(
                 relocator.is_tls_descriptor_reference(self._rela(type_)), type_
             )
+
+
+class _FakeArmObject:
+    """An object file: no GOT, so GOT entries are synthesized on request."""
+
+    _dtags: dict = {}
+    _elf = None
+    address = 0x400000
+
+    def __init__(self):
+        self.slots: dict = {}
+        self.memory: dict = {}
+
+    def got_slot(self, symbol_index: int) -> int:
+        return self.slots.setdefault(symbol_index, 0x9000 + 4 * len(self.slots))
+
+    def write_bytes(self, address: int, data: bytes) -> None:
+        self.memory[address] = data
+
+
+class ArmGotEntryRelocatorTests(unittest.TestCase):
+    """R_ARM_GOT_PREL in an object file points at a synthesized GOT entry.
+
+    An object file has no GOT, so these relocations used to refuse to load,
+    leaving PIC objects (static_rela) unloadable on every ARM-state platform.
+    """
+
+    _R_ARM_GOT_PREL = 96
+    _R_ARM_GLOB_DAT = 21
+
+    def _rela(self, symbol, offset=0x1000, addend=0):
+        rela = ElfRela(
+            is_rela=True,
+            offset=offset,
+            type=self._R_ARM_GOT_PREL,
+            symbol=symbol,
+            addend=addend,
+        )
+        symbol.relas.append(rela)
+        return rela
+
+    def test_object_file_gets_a_filled_got_entry(self):
+        relocator = Armv7AElfRelocator()
+        elf = _FakeArmObject()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        val = relocator._compute_value(self._rela(symbol, addend=-8), elf)
+        slot = elf.slots[symbol.idx]
+        # GOT(S) + A - P
+        self.assertEqual(int.from_bytes(val, "little"), slot - 8 - 0x1000)
+        # The entry holds the symbol's address, as GLOB_DAT would write it.
+        self.assertEqual(elf.memory[slot], (0x402340).to_bytes(4, "little"))
+
+    def test_call_sites_share_an_entry_that_follows_the_symbol(self):
+        # update_symbol_value re-relocates every rela of a symbol, so a
+        # rebound symbol must rewrite its one entry, not allocate another.
+        relocator = Armv7AElfRelocator()
+        elf = _FakeArmObject()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        first = self._rela(symbol, offset=0x1000)
+        second = self._rela(symbol, offset=0x1010)
+        relocator._compute_value(first, elf)
+        relocator._compute_value(second, elf)
+        self.assertEqual(len(elf.slots), 1)
+        symbol.value = 0x5000
+        relocator._compute_value(first, elf)
+        self.assertEqual(
+            elf.memory[elf.slots[symbol.idx]], (0x405000).to_bytes(4, "little")
+        )
+
+    def test_linked_image_uses_its_own_got_entry(self):
+        relocator = Armv7AElfRelocator()
+        elf = _FakeArmObject()
+        elf._dtags = {3: 0x8000}  # DT_PLTGOT
+        elf._rebase_file = lambda address: address
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        symbol.relas.append(
+            ElfRela(
+                is_rela=True,
+                offset=0x8010,
+                type=self._R_ARM_GLOB_DAT,
+                symbol=symbol,
+                addend=0,
+            )
+        )
+        val = relocator._compute_value(self._rela(symbol), elf)
+        self.assertEqual(int.from_bytes(val, "little"), 0x8010 - 0x1000)
+        self.assertEqual(elf.slots, {})
 
 
 class I386RelocatorTests(unittest.TestCase):
