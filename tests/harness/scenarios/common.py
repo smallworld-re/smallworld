@@ -53,6 +53,7 @@ TRITON_ARCHS = frozenset(
         "armv8a",
         "armv8r",
         "armv7m",
+        "armv7em",
         "armv8m",
         "i386",
         "riscv64",
@@ -62,7 +63,7 @@ TRITON_ARCHS = frozenset(
 #: ARM platforms that run only Thumb code. A branch or return to a code
 #: address must set its Thumb bit (bit 0), but the core executes, and reports
 #: PC, at the address with that bit clear.
-THUMB_ONLY_ARCHS = frozenset({"armv6m", "armv7m", "armv8m"})
+THUMB_ONLY_ARCHS = frozenset({"armv6m", "armv7m", "armv7em", "armv8m"})
 
 
 def code_pointer(arch: str, address: int) -> int:
@@ -123,6 +124,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
     ),
     "armv7m": ArchInfo(
         platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv7em": ArchInfo(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",

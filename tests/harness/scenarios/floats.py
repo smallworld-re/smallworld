@@ -19,6 +19,11 @@ _VARIANTS = (
     ("amd64.angr", None),
     ("amd64.pcode", None),
     ("amd64.triton", _TRITON_NO_FLOAT),
+    # FPv4-SP: single precision only, so its script adds floats.
+    ("armv7em", None),
+    ("armv7em.angr", None),
+    ("armv7em.pcode", None),
+    ("armv7em.triton", _TRITON_NO_FLOAT),
     ("armv7a.angr", None),
     ("armv7r.angr", None),
     ("armv8a.angr", None),

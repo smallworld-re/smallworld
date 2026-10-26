@@ -16,6 +16,7 @@ _ARCH_MATRIX = (
     ("armv6m", "ARM_V6M", "LITTLE"),
     ("armv7a", "ARM_V7A", "LITTLE"),
     ("armv7m", "ARM_V7M", "LITTLE"),
+    ("armv7em", "ARM_V7EM", "LITTLE"),
     ("armv7r", "ARM_V7R", "LITTLE"),
     ("armv8a", "ARM_V8A", "LITTLE"),
     ("armv8m", "ARM_V8M", "LITTLE"),
@@ -92,6 +93,7 @@ _MUSL_FUNCTION_SKIPS = {
 _ARCH_FUNCTION_SKIPS: dict[str, dict[str, str]] = {
     "armv6m": _MUSL_FUNCTION_SKIPS,
     "armv7m": _MUSL_FUNCTION_SKIPS,
+    "armv7em": _MUSL_FUNCTION_SKIPS,
     "armv8m": _MUSL_FUNCTION_SKIPS,
 }
 

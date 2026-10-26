@@ -80,6 +80,15 @@ _SPECS = {
         string_source=StringSource(register="r0"),
         print_entrypoint=True,
     ),
+    "armv7em": RelaSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
     "armv6m": RelaSpec(
         platform=PlatformSpec("ARM_V6M", "LITTLE"),
         pointer_size=4,
@@ -332,6 +341,7 @@ def _configure_exit(
         "armv6k",
         "armv5t",
         "armv7m",
+        "armv7em",
         "armv6m",
         "armv8m",
         "armv7a",

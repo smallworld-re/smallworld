@@ -1088,6 +1088,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv7em(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_armv7r(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
@@ -1311,6 +1317,12 @@ class UnicornMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_unicorn_armv7em(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_unicorn_armv7r(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
@@ -1530,6 +1542,12 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_armv7m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7em(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1952,6 +1970,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_armv7m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7em(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2991,6 +3015,13 @@ class TritonMachdefTests(unittest.TestCase):
             )
         )
 
+    def test_triton_armv7em(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+            )
+        )
+
     def test_triton_armv7r(self):
         self.run_test(
             platforms.Platform(
@@ -3286,6 +3317,15 @@ class StyxMachdefTests(unittest.TestCase):
         )
         machdef = self._machdef_for(platform)
         for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
+            self.assertTrue(machdef.has_register(name))
+
+    def test_armv7em_machdef_resolves_fpu(self):
+        # The Cortex-M4F target exposes its FPv4-SP registers.
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "sp", "lr", "pc", "fpscr", "s0", "s31", "d0", "d15"):
             self.assertTrue(machdef.has_register(name))
 
     def test_ppc_machdef_resolves(self):

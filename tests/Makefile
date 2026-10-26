@@ -30,6 +30,7 @@ ARMV6K_ID := arm-linux-gnueabi.2.40
 ARMV6M_ID := arm-linux-gnueabi.2.40
 ARMV7A_ID := arm-linux-gnueabihf.2.40
 ARMV7M_ID := arm-linux-gnueabi.2.40
+ARMV7EM_ID := arm-linux-gnueabihf.2.40
 ARMV8A_ID := arm-linux-gnueabihf.2.40
 ARMV8M_ID := arm-linux-gnueabi.2.40
 ARMV8R_ID := arm-linux-gnueabihf.2.40
@@ -64,6 +65,7 @@ ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
 ARMV6M_ASM_AS := zig build-obj -target $(ARMV6M_ID)
 ARMV7A_ASM_AS := zig build-exe -target $(ARMV7A_ID)
 ARMV7M_ASM_AS := zig build-obj -target $(ARMV7M_ID)
+ARMV7EM_ASM_AS := zig build-obj -target $(ARMV7EM_ID)
 ARMV8A_ASM_AS := zig build-exe -target $(ARMV8A_ID)
 ARMV8M_ASM_AS := zig build-obj -target $(ARMV8M_ID)
 ARMV8R_ASM_AS := zig build-exe -target $(ARMV8R_ID)
@@ -97,6 +99,7 @@ ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
 ARMV6M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
 ARMV7A_ELF_AS := zig build-exe -target $(ARMV7A_ID)
 ARMV7M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
+ARMV7EM_ELF_AS := zig build-exe -target thumb-freestanding-eabihf -fno-compiler-rt
 ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
 ARMV8A_ELF_AS := zig build-exe -target $(ARMV8A_ID)
 ARMV8M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
@@ -129,6 +132,7 @@ ARMV6K_OBJCOPY := zig objcopy
 ARMV6M_OBJCOPY := zig objcopy
 ARMV7A_OBJCOPY := zig objcopy
 ARMV7M_OBJCOPY := zig objcopy
+ARMV7EM_OBJCOPY := zig objcopy
 ARMV8A_OBJCOPY := zig objcopy
 ARMV8M_OBJCOPY := zig objcopy
 ARMV8R_OBJCOPY := zig objcopy
@@ -165,6 +169,7 @@ ARMV8A_CC := zig cc -target $(ARMV8A_ID)
 # which Thumb reserves), so their C tests build against musl instead.
 ARMV6M_CC := zig cc -target thumb-linux-musleabi
 ARMV7M_CC := zig cc -target thumb-linux-musleabi
+ARMV7EM_CC := zig cc -target thumb-linux-musleabihf
 ARMV8M_CC := zig cc -target thumb-linux-musleabi
 ARMV8R_CC := zig cc -target $(ARMV8R_ID)
 I386_CC := zig cc -target $(I386_ID) 
@@ -195,6 +200,8 @@ ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
 ARMV6M_ASFLAGS := -mcpu=cortex_m0
 ARMV7A_ASFLAGS := -mcpu=cortex_a9
 ARMV7M_ASFLAGS := -mcpu=cortex_m3
+# zig's cortex_m4 model has no FPU; the Cortex-M4F's FPv4-SP is vfp4d16sp.
+ARMV7EM_ASFLAGS := -mcpu=cortex_m4+vfp4d16sp
 ARMV8A_ASFLAGS := -mcpu=cortex_a53
 ARMV8M_ASFLAGS := -mcpu=cortex_m33
 ARMV8R_ASFLAGS := -mcpu=cortex_r52
@@ -223,6 +230,9 @@ ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
 ARMV6M_CFLAGS := -mcpu=cortex_m0 -mfloat-abi=soft -mlong-calls
 ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
 ARMV7M_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft
+# Without +vfp4d16sp (see ARMV7EM_ASFLAGS), zig builds soft-float code even
+# with -mfloat-abi=hard.
+ARMV7EM_CFLAGS := -mcpu=cortex_m4+vfp4d16sp -mfloat-abi=hard
 ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
 ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
 ARMV8M_CFLAGS := -mcpu=cortex_m33 -mfloat-abi=soft
@@ -246,6 +256,7 @@ ARMV8A_ELF_CFLAGS := -pie
 # zig links musl statically by default, which leaves no library imports for
 # the models to replace.
 ARMV7M_ELF_CFLAGS := -dynamic
+ARMV7EM_ELF_CFLAGS := -dynamic
 ARMV8M_ELF_CFLAGS := -dynamic
 # zig can't link a Linux program for ARMv6-M: its musl start code and its
 # compiler-rt use Thumb-2 instructions. So ARMv6-M ELFs compile for the
@@ -282,6 +293,7 @@ MUSL_C_ELF_UNBUILDABLE := \
 MUSL_C_ELF_EXCLUDE := $(foreach t,$(MUSL_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
 ARMV6M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV7EM_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8R_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
@@ -306,6 +318,7 @@ ARMV6K_EXT := armv6k
 ARMV6M_EXT := armv6m
 ARMV7A_EXT := armv7a
 ARMV7M_EXT := armv7m
+ARMV7EM_EXT := armv7em
 ARMV8A_EXT := armv8a
 ARMV8M_EXT := armv8m
 ARMV8R_EXT := armv8r
@@ -337,6 +350,7 @@ ARMV6K_SRC_EXT := $(ARMV6K_EXT)
 ARMV6M_SRC_EXT := $(ARMV6M_EXT)
 ARMV7A_SRC_EXT := $(ARMV7A_EXT)
 ARMV7M_SRC_EXT := $(ARMV7M_EXT)
+ARMV7EM_SRC_EXT := $(ARMV7EM_EXT)
 ARMV8A_SRC_EXT := $(ARMV8A_EXT)
 ARMV8M_SRC_EXT := $(ARMV8M_EXT)
 ARMV8R_SRC_EXT := $(ARMV8R_EXT)
@@ -518,13 +532,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

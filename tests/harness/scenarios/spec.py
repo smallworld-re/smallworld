@@ -40,7 +40,7 @@ class ScenarioInfo:
 _DEFAULT_SKIP_REASONS = {
     **{
         f"{arch}.panda": "PANDA has no M-profile (Cortex-M) machine configured"
-        for arch in ("armv6m", "armv7m", "armv8m")
+        for arch in ("armv6m", "armv7m", "armv7em", "armv8m")
     },
     **{
         f"{arch}.styx": "Styx has no ARMv8 target"

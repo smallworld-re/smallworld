@@ -100,6 +100,17 @@ _SPECS = {
         string_source=StringSource(register="r0"),
         puts_address=0x1002,
     ),
+    "armv7em": HookingSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        # Thumb: the fake-PLT slots are 2-byte bkpts, and test follows them.
+        pc_offset=4,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+        puts_address=0x1002,
+    ),
     "armv8m": HookingSpec(
         platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pointer_size=4,
@@ -348,6 +359,7 @@ SCENARIO_INFO = ScenarioInfo(
             "armv5t.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv6m.styx": "styx hangs on this scenario's Kinetis21 target",
             "armv7m.styx": "styx hangs on this scenario's Kinetis21 target",
+            "armv7em.styx": "styx hangs on this scenario's Kinetis21 target",
             "armv7a.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv7r.styx": "Styx has no ARMv7-R target",
             "armv8a.styx": "styx function-hook semantics don't satisfy this scenario yet",

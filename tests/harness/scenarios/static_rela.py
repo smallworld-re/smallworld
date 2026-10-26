@@ -15,6 +15,7 @@ _VARIANTS = (
     ("armv6k", None),
     ("armv5t", None),
     ("armv7m", None),
+    ("armv7em", None),
     ("armv6m", None),
     ("armv8m", None),
     ("armv7a", None),

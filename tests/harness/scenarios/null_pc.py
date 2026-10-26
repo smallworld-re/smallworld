@@ -47,6 +47,7 @@ _ARCHS = (
     "armv6k",
     "armv6m",
     "armv7m",
+    "armv7em",
     "armv8m",
     "armv7a",
     "armv7r",

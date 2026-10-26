@@ -74,6 +74,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "armv7em": ElfSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "armv8m": ElfSpec(
         platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pointer_size=4,

@@ -36,6 +36,7 @@ if arch in (
     smallworld.platforms.Architecture.ARM_V5T,
     smallworld.platforms.Architecture.ARM_V6K,
     smallworld.platforms.Architecture.ARM_V7M,
+    smallworld.platforms.Architecture.ARM_V7EM,
     smallworld.platforms.Architecture.ARM_V8M,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS32,
