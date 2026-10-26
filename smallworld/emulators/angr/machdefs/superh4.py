@@ -54,7 +54,7 @@ class SuperH4MachineDef(GhidraMachineDef):
     # (R0_BANK, GBR, PC, MACH, FPSCR, ...) this map is lowercase throughout -
     # unlike the Ghidra machdef, which talks to sleigh directly and must preserve
     # the original case.
-    _registers: typing.Dict[str, str] = {
+    _registers = {
         # *** General-Purpose Registers ***
         **{f"r{i}": f"r{i}" for i in range(0, 16)},
         # ArchPcode synthesizes `sp` and `ip`, but not `fp`/`ra`/`lr`.

@@ -210,7 +210,8 @@ angr.calling_conventions.register_syscall_cc(
 
 class XTensaMachineDef(GhidraMachineDef):
     arch = Architecture.XTENSA
-    _registers = {f"a{i}": f"a{i}" for i in range(0, 16)} | {
+    _registers: typing.Dict[str, typing.Union[str, typing.Tuple[str, int]]] = {
+        **{f"a{i}": f"a{i}" for i in range(0, 16)},
         "pc": "pc",
         "sar": "sar",
         "sp": "a1",
