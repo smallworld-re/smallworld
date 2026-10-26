@@ -329,11 +329,14 @@ class UnicornEmulator(
                     self.state = EmulatorState.EXIT
                     self.engine.emu_stop()
                     return
-
-            # On some ISAs, Unicorn will already have set PC
-            # to the interrupt handler address,
-            # which is probably garbage.  Put it back.
-            self.write_register("pc", self.curr_pc)
+                # Otherwise leave PC at the target, where a core that
+                # reports a fetch error leaves it, so the fault is reported
+                # at the address that couldn't be fetched.
+            else:
+                # On some ISAs, Unicorn will already have set PC
+                # to the interrupt handler address,
+                # which is probably garbage.  Put it back.
+                self.write_register("pc", self.curr_pc)
 
             if self.state == EmulatorState.EXIT:
                 # This is a vestigial instruction.
