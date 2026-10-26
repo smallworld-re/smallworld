@@ -92,9 +92,14 @@ AARCH64_ELF_AS := zig build-exe -target $(AARCH64_ID)
 AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
 ARMV5T_ELF_AS := zig build-exe -target $(ARMV5T_ID)
 ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
+# The M profile's assembly needs no runtime, and zig's compiler-rt doesn't
+# build for ARMv6-M (see ARMV6M_ELF_CFLAGS).
+ARMV6M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
 ARMV7A_ELF_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
 ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
 ARMV8A_ELF_AS := zig build-exe -target $(ARMV8A_ID)
+ARMV8M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
 ARMV8R_ELF_AS := zig build-exe -target $(ARMV8R_ID)
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)

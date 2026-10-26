@@ -5,9 +5,11 @@ import logging
 from typing import Sequence
 
 from .common import (
+    THUMB_ONLY_ARCHS,
     PlatformSpec,
     add_code_bounds,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -53,6 +55,27 @@ _SPECS = {
     ),
     "armv5t": ElfSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv6m": ElfSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7m": ElfSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8m": ElfSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -243,6 +266,15 @@ def _configure_exitpoints(
             exitpoint = entrypoint + code.get_symbol_size("_start") - 4
             machine.add_exit_point(exitpoint)
             stack.push_integer(exitpoint, 8, None)
+        return
+
+    if arch in THUMB_ONLY_ARCHS:
+        # Stop at _start's 2-byte `bx lr`: returning would need a Thumb-bit
+        # return address, and the M profile has no other way out.
+        exitpoint = (
+            instruction_address(arch, entrypoint) + code.get_symbol_size("_start") - 2
+        )
+        machine.add_exit_point(exitpoint)
         return
 
     if (
