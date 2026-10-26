@@ -409,11 +409,17 @@ class AngrEmulator(
                 "Reading registers not supported once execution begins."
             )
 
+        is_pc = name == "pc" or name == self.platdef.pc_register
         if name == "pc":
             name = self.platdef.pc_register
 
         off, size = self.machdef.angr_reg(name)
-        return self.state.registers.load(off, size)
+        value = self.state.registers.load(off, size)
+        if is_pc and self.machdef.is_thumb:
+            # angr addresses Thumb code with the Thumb bit set; report the
+            # address the core executes at, as the other emulators do.
+            value = value & claripy.BVV(~1 & ((1 << (size * 8)) - 1), size * 8)
+        return value
 
     def read_register_content(self, name: str) -> int:
         out = self.read_register_symbolic(name)
@@ -464,6 +470,15 @@ class AngrEmulator(
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
+        if (
+            (name == "pc" or name == self.platdef.pc_register)
+            and self.machdef.is_thumb
+            and content is not None
+        ):
+            # angr addresses Thumb code with the Thumb bit set; reads of PC
+            # clear it, so writes restore it.
+            content = content | 1
+
         if not self._initialized and content is not None:
             if name == "pc":
                 name = self.platdef.pc_register
