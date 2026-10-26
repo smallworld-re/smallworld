@@ -57,6 +57,9 @@ _ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
     {
         Architecture.ARM_V5T,
         Architecture.ARM_V6K,
+        Architecture.ARM_V6M,
+        Architecture.ARM_V6M_THUMB,
+        Architecture.ARM_V7M,
         Architecture.ARM_V8M,
     }
 )
