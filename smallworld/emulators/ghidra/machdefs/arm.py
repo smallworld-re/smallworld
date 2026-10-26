@@ -456,11 +456,11 @@ class ARMMachineMixinGenericTimer:
         )
 
 
-class ARMMachineMixinFP:
-    """Mixin for ARM CPUs with FP extensions
+class ARMMachineMixinFPD16:
+    """Mixin for ARM machine models with a 16-register FPU
 
-    This is one kind of floating-point extension
-    which offers 64-bit scalar operations.
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
     """
 
     def __init__(self):
@@ -470,14 +470,6 @@ class ARMMachineMixinFP:
                 # *** Floating point control registers ***
                 # Floating-point Status and Control Register
                 "fpscr": "fpscr",
-                # Floating-point Exception Control Register
-                "fpexc": "fpexc",
-                # Floating-point System ID Register
-                "fpsid": "fpsid",
-                # Media and VFP Feature Register 0
-                "mvfr0": "mvfr0",
-                # Media and VFP Feature Register 1
-                "mvfr1": "mvfr1",
                 # *** Floating point registers ***
                 "d0": "d0",
                 "s0": "s0",
@@ -527,6 +519,29 @@ class ARMMachineMixinFP:
                 "d15": "d15",
                 "s30": "s30",
                 "s31": "s31",
+            }
+        )
+
+
+class ARMMachineMixinFP(ARMMachineMixinFPD16):
+    """Mixin for ARM CPUs with FP extensions
+
+    This is one kind of floating-point extension
+    which offers 64-bit scalar operations.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Exception Control Register
+                "fpexc": "fpexc",
+                # Floating-point System ID Register
+                "fpsid": "fpsid",
+                # Media and VFP Feature Register 0
+                "mvfr0": "mvfr0",
+                # Media and VFP Feature Register 1
+                "mvfr1": "mvfr1",
             }
         )
 
@@ -787,6 +802,8 @@ class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
 class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
+
+
 
 
 class ARMv7AMachineDef(

@@ -329,20 +329,18 @@ class ARMMachineMixinGenericTimer:
         )
 
 
-class ARMMachineMixinFP:
-    """Mixin for ARM machine models with basic FPUs"""
+class ARMMachineMixinFPD16:
+    """Mixin for ARM machine models with a 16-register FPU
+
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
+    """
 
     def __init__(self):
         super().__init__()
         self._registers.update(
             {
                 "fpscr": unicorn.arm_const.UC_ARM_REG_FPSCR,
-                "fpexc": unicorn.arm_const.UC_ARM_REG_FPEXC,
-                "fpsid": unicorn.arm_const.UC_ARM_REG_FPSID,
-                # NOTE: Unicorn defines MVFR0/MVFR1 IDs, but as of 2.1.4
-                # they aren't backed: they read 0 and ignore writes.
-                "mvfr0": unicorn.arm_const.UC_ARM_REG_INVALID,
-                "mvfr1": unicorn.arm_const.UC_ARM_REG_INVALID,
                 "d0": unicorn.arm_const.UC_ARM_REG_D0,
                 "s0": unicorn.arm_const.UC_ARM_REG_S0,
                 "s1": unicorn.arm_const.UC_ARM_REG_S1,
@@ -391,6 +389,23 @@ class ARMMachineMixinFP:
                 "d15": unicorn.arm_const.UC_ARM_REG_D15,
                 "s30": unicorn.arm_const.UC_ARM_REG_S30,
                 "s31": unicorn.arm_const.UC_ARM_REG_S31,
+            }
+        )
+
+
+class ARMMachineMixinFP(ARMMachineMixinFPD16):
+    """Mixin for ARM machine models with basic FPUs"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                "fpexc": unicorn.arm_const.UC_ARM_REG_FPEXC,
+                "fpsid": unicorn.arm_const.UC_ARM_REG_FPSID,
+                # NOTE: Unicorn defines MVFR0/MVFR1 IDs, but as of 2.1.4
+                # they aren't backed: they read 0 and ignore writes.
+                "mvfr0": unicorn.arm_const.UC_ARM_REG_INVALID,
+                "mvfr1": unicorn.arm_const.UC_ARM_REG_INVALID,
             }
         )
 
@@ -639,6 +654,8 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M3
     # M-profile is Thumb-only.
     uc_mode = unicorn.UC_MODE_THUMB
+
+
 
 
 class ARMv7RMachineDef(

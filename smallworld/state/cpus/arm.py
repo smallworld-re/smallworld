@@ -641,12 +641,12 @@ class ARMCPUMixinGenericTimer:
         self.add(self.cntv_cval)
 
 
-class ARMCPUMixinFPEL:
-    """Mixin for little-endian ARM CPUs with a 16-register VFP
+class ARMCPUMixinFPD16:
+    """Mixin for little-endian ARM CPUs with a 16-register FPU
 
-    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
-    which offer 64-bit scalar operations on d0-d15,
-    and no Advanced SIMD (NEON).
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
+    See :class:`smallworld.platforms.defs.arm.ARMPlatformMixinFPD16`.
     """
 
     def __init__(self):
@@ -655,18 +655,6 @@ class ARMCPUMixinFPEL:
         # Floating-point Status and Control Register
         self.fpscr = state.Register("fpscr", size=4)
         self.add(self.fpscr)
-        # Floating-point Exception Control Register
-        self.fpexc = state.Register("fpexc", size=4)
-        self.add(self.fpexc)
-        # Floating-point System ID Register
-        self.fpsid = state.Register("fpsid", size=4)
-        self.add(self.fpsid)
-        # Media and VFP Feature Register 0
-        self.mvfr0 = state.Register("mvfr0", size=4)
-        self.add(self.mvfr0)
-        # Media and VFP Feature Register 1
-        self.mvfr1 = state.Register("mvfr1", size=4)
-        self.add(self.mvfr1)
 
         # *** Floating point registers ***
         self.d0 = state.Register("d0", size=8)
@@ -765,6 +753,30 @@ class ARMCPUMixinFPEL:
         self.add(self.s30)
         self.s31 = state.RegisterAlias("s31", self.d15, size=4, offset=4)
         self.add(self.s31)
+
+
+class ARMCPUMixinFPEL(ARMCPUMixinFPD16):
+    """Mixin for little-endian ARM CPUs with a 16-register VFP
+
+    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
+    which offer 64-bit scalar operations on d0-d15,
+    and no Advanced SIMD (NEON).
+    """
+
+    def __init__(self):
+        super().__init__()
+        # Floating-point Exception Control Register
+        self.fpexc = state.Register("fpexc", size=4)
+        self.add(self.fpexc)
+        # Floating-point System ID Register
+        self.fpsid = state.Register("fpsid", size=4)
+        self.add(self.fpsid)
+        # Media and VFP Feature Register 0
+        self.mvfr0 = state.Register("mvfr0", size=4)
+        self.add(self.mvfr0)
+        # Media and VFP Feature Register 1
+        self.mvfr1 = state.Register("mvfr1", size=4)
+        self.add(self.mvfr1)
 
 
 class ARMCPUMixinVFPv2(ARMCPUMixinFPEL):
@@ -1169,6 +1181,8 @@ class ARMv7M(ARMCPUMixinMMainline, ARM):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
     )
+
+
 
 
 class ARMv7R(

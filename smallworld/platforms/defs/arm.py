@@ -642,12 +642,15 @@ class ARMPlatformMixinGenericTimer:
         }
 
 
-class ARMPlatformMixinFPEL:
-    """Mixin for little-endian ARM CPUs with a 16-register VFP
+class ARMPlatformMixinFPD16:
+    """Mixin for little-endian ARM CPUs with a 16-register FPU
 
-    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
-    which offer 64-bit scalar operations on d0-d15,
-    and no Advanced SIMD (NEON).
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
+    The A- and R-profile VFPs add system registers
+    (see :class:`ARMPlatformMixinFPEL`);
+    the M profile's FPv4-SP and FPv5 keep theirs in memory-mapped
+    System Control Space registers instead.
     """
 
     def __init__(self):
@@ -656,14 +659,6 @@ class ARMPlatformMixinFPEL:
             # *** Floating point control registers ***
             # Floating-point Status and Control Register
             "fpscr": RegisterDef(name="fpscr", size=4),
-            # Floating-point Exception Control Register
-            "fpexc": RegisterDef(name="fpexc", size=4),
-            # Floating-point System ID Register
-            "fpsid": RegisterDef(name="fpsid", size=4),
-            # Media and VFP Feature Register 0
-            "mvfr0": RegisterDef(name="mvfr0", size=4),
-            # Media and VFP Feature Register 1
-            "mvfr1": RegisterDef(name="mvfr1", size=4),
             # *** Floating point registers ***
             "d0": RegisterDef(name="d0", size=8),
             "s0": RegisterAliasDef(name="s0", parent="d0", size=4, offset=0),
@@ -713,6 +708,28 @@ class ARMPlatformMixinFPEL:
             "d15": RegisterDef(name="d15", size=8),
             "s30": RegisterAliasDef(name="s30", parent="d15", size=4, offset=0),
             "s31": RegisterAliasDef(name="s31", parent="d15", size=4, offset=4),
+        }
+
+
+class ARMPlatformMixinFPEL(ARMPlatformMixinFPD16):
+    """Mixin for little-endian ARM CPUs with a 16-register VFP
+
+    This covers VFPv3-D16 and VFPv4-D16, as found on the R-series,
+    which offer 64-bit scalar operations on d0-d15,
+    and no Advanced SIMD (NEON).
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers |= {
+            # Floating-point Exception Control Register
+            "fpexc": RegisterDef(name="fpexc", size=4),
+            # Floating-point System ID Register
+            "fpsid": RegisterDef(name="fpsid", size=4),
+            # Media and VFP Feature Register 0
+            "mvfr0": RegisterDef(name="mvfr0", size=4),
+            # Media and VFP Feature Register 1
+            "mvfr1": RegisterDef(name="mvfr1", size=4),
         }
 
 
@@ -1028,6 +1045,8 @@ class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     capstone_mode = capstone.CS_MODE_THUMB
     # Ghidra's Cortex language is its Thumb-only M-profile model.
     ghidra_language_id = "ARM:LE:32:Cortex"
+
+
 
 
 class ARMv7R(
