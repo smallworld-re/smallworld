@@ -11,6 +11,7 @@ _VARIANTS = tuple(
         "amd64",
         "armv6k",
         "armv7a",
+        "armv7r",
         "armv8a",
         "armv8r",
         "i386",

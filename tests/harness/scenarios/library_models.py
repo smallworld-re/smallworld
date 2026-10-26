@@ -13,6 +13,7 @@ _ARCH_MATRIX = (
     ("amd64", "X86_64", "LITTLE"),
     ("armv6k", "ARM_V6K", "LITTLE"),
     ("armv7a", "ARM_V7A", "LITTLE"),
+    ("armv7r", "ARM_V7R", "LITTLE"),
     ("armv8a", "ARM_V8A", "LITTLE"),
     ("armv8r", "ARM_V8R", "LITTLE"),
     ("i386", "X86_32", "LITTLE"),

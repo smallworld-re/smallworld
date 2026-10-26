@@ -56,6 +56,12 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,
     ),
+    "armv7r": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
     "armv8a": UnmappedSpec(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
         pc_register="pc",

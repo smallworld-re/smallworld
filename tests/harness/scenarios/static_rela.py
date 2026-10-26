@@ -14,6 +14,7 @@ _VARIANTS = (
     ("amd64", None),
     ("armv6k", _skip("armv6k")),
     ("armv7a", _skip("armv7a")),
+    ("armv7r", _skip("armv7r")),
     ("armv8a", _skip("armv8a")),
     ("armv8r", _skip("armv8r")),
     ("i386", _skip("i386")),

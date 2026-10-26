@@ -79,6 +79,15 @@ _SPECS = {
         load_address=0x4000000,
         link_register="lr",
     ),
+    "armv7r": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
     "armv8a": ExitpointSpec(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
         pc_register="pc",
@@ -252,6 +261,7 @@ _SKIP_REASONS = {
     "amd64.panda": "Waiting for panda-ng",
     "armv6k.panda": "Waiting for panda-ng",
     "armv7a.panda": "Waiting for panda-ng",
+    "armv7r.panda": "Waiting for panda-ng",
     "armv8a.panda": "Waiting for panda-ng",
     "armv8r.panda": "Waiting for panda-ng",
     "i386.panda": "Waiting for panda-ng",
