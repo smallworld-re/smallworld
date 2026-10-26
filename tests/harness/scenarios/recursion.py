@@ -50,6 +50,7 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6k",
     "armv6m",
     "armv7m",
     "armv8m",
@@ -75,6 +76,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"stack_items": (_fake_return("aarch64"),), "stack_pointer_adjust": 8},
     "amd64": {"stack_items": (_fake_return("amd64"),)},
     "armv5t": {"stack_items": (_fake_return("armv5t"),)},
+    "armv6k": {"stack_items": (_fake_return("armv6k"),)},
     "armv6m": {"stack_items": (_fake_return("armv6m"),)},
     "armv7m": {"stack_items": (_fake_return("armv7m"),)},
     "armv8m": {"stack_items": (_fake_return("armv8m"),)},
@@ -123,6 +125,7 @@ _SPECS = build_specs(
     _ARCHS,
     engines={
         "armv5t": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
         "armv6m": _ARM_ENGINES,
         "armv7m": _ARM_ENGINES,
         "armv8m": _ARM_ENGINES,

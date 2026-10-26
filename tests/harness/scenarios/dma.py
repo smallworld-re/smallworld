@@ -35,6 +35,7 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6k",
     "armv6m",
     "armv7m",
     "armv8m",
@@ -65,6 +66,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"result_register": "w0", "argument_registers": ("x0", "x1")},
     "amd64": {"argument_registers": ("rdi", "rsi")},
     "armv5t": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
+    "armv6k": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
     "armv6m": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
     "armv7m": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
     "armv8m": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
@@ -115,6 +117,7 @@ _SPECS = build_specs(
     common={"mmio_address": 0x50014000},
     engines={
         "armv5t": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
         "armv6m": _ARM_ENGINES,
         "armv7m": _ARM_ENGINES,
         "armv8m": _ARM_ENGINES,
@@ -142,7 +145,9 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={
             "armv5t.panda": "Waiting for panda-ng fix",
+            "armv6k.panda": "Waiting for panda-ng fix",
             "armv5t.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
+            "armv6k.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "armv6m.styx": "styx Kinetis21 target lacks MMIO mapping at test addresses",
             "armv7m.styx": "styx Kinetis21 target lacks MMIO mapping at test addresses",
             "armv8m.styx": "styx Kinetis21 target lacks MMIO mapping at test addresses",

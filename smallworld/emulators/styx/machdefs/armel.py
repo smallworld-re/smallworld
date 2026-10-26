@@ -1,8 +1,8 @@
 """Styx machine definitions for 32-bit ARM ``armel`` variants.
 
-SmallWorld's soft-float ARM tests use two architectures:
+SmallWorld's soft-float A-profile ARM tests use two architectures:
   * ``ARM_V5T`` (``armv5t``) for the raw-binary scenarios (square/branch/...).
-  * ``ARM_V6K`` (``armv6k``) for the ELF/hooking/model scenarios.
+  * ``ARM_V6K`` (``armv6k``) for those and the ELF/hooking/model scenarios.
 
 Both run ARM32 code, so both map to Styx's CycloneV (Cortex-A9, supports
 ARM+Thumb). Styx has no ARMv5 or ARM11 target; the Cortex-A9 accepts a

@@ -12,6 +12,7 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv6k",
     "armv6m",
     "armv7m",
     "armv8m",
@@ -54,6 +55,7 @@ _STACKS = {
     "aarch64": _stack("aarch64"),
     "amd64": _stack("amd64"),
     "armv5t": _stack("armv5t"),
+    "armv6k": _stack("armv6k"),
     "armv6m": _stack("armv6m"),
     "armv7m": _stack("armv7m"),
     "armv8m": _stack("armv8m"),
@@ -95,6 +97,7 @@ _SPECS = build_specs(
     _ARCHS,
     engines={
         "armv5t": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
         "armv6m": _ARM_ENGINES,
         "armv7m": _ARM_ENGINES,
         "armv8m": _ARM_ENGINES,

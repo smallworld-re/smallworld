@@ -100,6 +100,13 @@ _SPECS = {
         output_registers=("r2", "r3", "r4", "r6"),
         word_size=4,
     ),
+    "armv6k": TaintSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pc_register="pc",
+        input_registers=("r0", "r1"),
+        output_registers=("r2", "r3", "r4", "r6"),
+        word_size=4,
+    ),
     "armv6m": TaintSpec(
         platform=PlatformSpec("ARM_V6M", "LITTLE"),
         pc_register="pc",
