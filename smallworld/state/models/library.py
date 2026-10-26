@@ -3,6 +3,8 @@ import itertools
 import logging
 import typing
 
+import capstone
+
 from ...emulators import Emulator
 from ...platforms import ABI, Platform, PlatformDef
 from ..memory import Memory
@@ -108,6 +110,9 @@ class ElfModelLibrary(Memory):
     def alt_names(self) -> typing.Dict[str, str]:
         raise NotImplementedError()
 
+    def _thumb_only(self) -> bool:
+        return bool(self.platdef.capstone_mode & capstone.CS_MODE_THUMB)
+
     def link(self, elf: ElfExecutable) -> None:
         for rela in itertools.chain(elf._dynamic_relas, elf._static_relas):
             sym = rela.symbol
@@ -136,7 +141,12 @@ class ElfModelLibrary(Memory):
                 )
             if model.unsupported:
                 log.warning(f"Harness requires {model.name}, which is unsupported")
-            elf.update_symbol_value(sym, model._address)
+            address = model._address
+            if self._thumb_only():
+                # On a Thumb-only CPU (M-profile), a function address must
+                # carry the Thumb bit; an even one means ARM state, which faults.
+                address |= 1
+            elf.update_symbol_value(sym, address)
 
         # The models hand out TLS storage but cannot reach the ELF; this is
         # the one place holding both, and without it every thread-local reads

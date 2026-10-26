@@ -5,6 +5,8 @@ import struct
 import typing
 from ctypes import c_int32, c_int64, c_uint32, c_uint64
 
+import capstone
+
 from smallworld import platforms, utils
 from smallworld.exceptions.exceptions import ConfigurationError
 
@@ -1024,6 +1026,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             or self.platform.architecture == platforms.Architecture.POWERPC64
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+            platdef = platforms.PlatformDef.for_platform(self.platform)
+            if platdef.capstone_mode & capstone.CS_MODE_THUMB:
+                # On a Thumb-only CPU (M-profile), a return address must carry
+                # the Thumb bit; an even one means ARM state, which faults.
+                address |= 1
             emulator.write_register("lr", address)
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH64
