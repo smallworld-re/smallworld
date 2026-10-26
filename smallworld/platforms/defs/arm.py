@@ -1047,6 +1047,23 @@ class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     ghidra_language_id = "ARM:LE:32:Cortex"
 
 
+class ARMv7EM(ARMPlatformMixinFPD16, ARMPlatformMixinMMainline, ARMPlatformDef):
+    """Platform definition for ARMv7E-M little-endian, with FPv4-SP
+
+    Modeled on the Cortex-M4F: ARMv7-M plus the DSP Extension,
+    and the single-precision FPv4-SP-D16 FPU.
+    FPv4-SP does arithmetic on s0-s31 only,
+    but moves, loads, and stores reach all of d0-d15,
+    and the hard-float ABI passes doubles in them.
+    The FPU's control registers (CPACR, FPCCR, FPCAR, FPDSCR)
+    are memory-mapped, so they aren't registers here.
+    """
+
+    architecture = Architecture.ARM_V7EM
+    capstone_mode = capstone.CS_MODE_THUMB
+    # Ghidra's Cortex language is its Thumb-only M-profile model,
+    # and includes the FPU.
+    ghidra_language_id = "ARM:LE:32:Cortex"
 
 
 class ARMv7R(

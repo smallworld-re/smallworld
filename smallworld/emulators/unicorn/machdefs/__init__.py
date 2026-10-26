@@ -5,6 +5,7 @@ from .arm import (
     ARMv6MMachineDef,
     ARMv6MThumbMachineDef,
     ARMv7AMachineDef,
+    ARMv7EMMachineDef,
     ARMv7MMachineDef,
     ARMv7RMachineDef,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "ARMv6MMachineDef",
     "ARMv6MThumbMachineDef",
     "ARMv7AMachineDef",
+    "ARMv7EMMachineDef",
     "ARMv7MMachineDef",
     "ARMv7RMachineDef",
     "i386MachineDef",

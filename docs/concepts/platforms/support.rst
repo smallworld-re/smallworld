@@ -36,6 +36,7 @@ Specific ISA Notes
 
 **arm32 Unicorn:** SmallWorld runs arm-v5t on Unicorn's ARM926 (ARMv5TEJ),
 arm-v6k on its ARM1176, arm-v6m on its Cortex-M0, arm-v7m on its Cortex-M3,
+arm-v7em on its Cortex-M4 (with its FPv4-SP FPU),
 arm-v7r on its Cortex-R5F, arm-v7a on its Cortex-A15, and arm-v8m on its
 Cortex-M33. Unicorn has no 32-bit ARMv8-A or ARMv8-R core, so arm-v8a and
 arm-v8r run on its "max" model, which accepts a superset of their instructions.

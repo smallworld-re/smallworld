@@ -49,6 +49,10 @@ class ARMv7M(ARM):
     architecture = platforms.Architecture.ARM_V7M
 
 
+class ARMv7EM(ARM):
+    architecture = platforms.Architecture.ARM_V7EM
+
+
 class ARMv7R(ARM):
     architecture = platforms.Architecture.ARM_V7R
 

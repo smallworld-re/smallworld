@@ -1328,6 +1328,10 @@ class Armv7MElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V7M
 
 
+class Armv7EMElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V7EM
+
+
 class Armv7RElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V7R
 

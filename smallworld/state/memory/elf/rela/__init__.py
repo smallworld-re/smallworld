@@ -4,6 +4,7 @@ from .arm import (
     Armv5TElfRelocator,
     Armv6MElfRelocator,
     Armv7AElfRelocator,
+    Armv7EMElfRelocator,
     Armv7MElfRelocator,
     Armv7RElfRelocator,
 )
@@ -14,11 +15,7 @@ from .mips import MIPSELElfRelocator, MIPSElfRelocator
 from .ppc import PowerPCElfRelocator
 from .rela import ElfRelocator
 from .riscv64 import RISCV64ElfRelocator
-from .superh import (
-    SH2AFPUElfRelocator,
-    SuperH4BEElfRelocator,
-    SuperH4ELElfRelocator,
-)
+from .superh import SH2AFPUElfRelocator, SuperH4BEElfRelocator, SuperH4ELElfRelocator
 from .tricore import TriCoreElfRelocator
 from .xtensa import XtensaElfRelocator
 
@@ -28,6 +25,7 @@ __all__ = [
     "Armv5TElfRelocator",
     "Armv6MElfRelocator",
     "Armv7AElfRelocator",
+    "Armv7EMElfRelocator",
     "Armv7MElfRelocator",
     "Armv7RElfRelocator",
     "I386ElfRelocator",

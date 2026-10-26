@@ -398,6 +398,12 @@ class ArmV6MErrnoResolver(ErrnoResolver):
     # ARMv6-M uses generic errno
 
 
+class ArmV7EMErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7EM, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7E-M uses generic errno
+
+
 class ArmV7MErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.ARM_V7M, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

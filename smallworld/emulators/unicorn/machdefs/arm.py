@@ -656,6 +656,17 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     uc_mode = unicorn.UC_MODE_THUMB
 
 
+class ARMv7EMMachineDef(ARMMachineMixinFPD16, ARMMachineMixinMMainline, ARMMachineDef):
+    """Unicorn machine definition for ARMv7E-M little-endian, with FPv4-SP"""
+
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
+    # NOTE: Don't add UC_MODE_MCLASS; as of Unicorn 2.1.4,
+    # it overrides uc_cpu and forces a Cortex-M33.
+    # Unicorn's Cortex-M4 has the FPU, enabled from reset.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M4
+    # M-profile is Thumb-only.
+    uc_mode = unicorn.UC_MODE_THUMB
 
 
 class ARMv7RMachineDef(

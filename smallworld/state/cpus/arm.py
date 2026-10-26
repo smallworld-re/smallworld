@@ -1183,6 +1183,12 @@ class ARMv7M(ARMCPUMixinMMainline, ARM):
     )
 
 
+class ARMv7EM(ARMCPUMixinFPD16, ARMCPUMixinMMainline, ARM):
+    """CPU Model for ARMv7E-M little-endian, with FPv4-SP."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+    )
 
 
 class ARMv7R(

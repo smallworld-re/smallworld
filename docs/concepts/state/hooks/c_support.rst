@@ -28,6 +28,7 @@ SmallWorld currently provides basic C calling convention definitions for the fol
     - armel (arm v6k)
     - arm v6m (soft-float)
     - armhf (arm v7a)
+    - arm v7em (hard-float)
     - arm v7m (soft-float)
     - arm v7r (hard-float)
     - arm v8a (hard-float)

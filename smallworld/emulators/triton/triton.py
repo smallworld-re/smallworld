@@ -104,6 +104,7 @@ _ARM32_ARCHITECTURES = frozenset(
         platforms.Architecture.ARM_V6M,
         platforms.Architecture.ARM_V6M_THUMB,
         platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
         platforms.Architecture.ARM_V7R,
         platforms.Architecture.ARM_V7A,
         platforms.Architecture.ARM_V8A,

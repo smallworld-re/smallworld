@@ -42,6 +42,7 @@ _ARM32_ARCHITECTURES = frozenset(
         Architecture.ARM_V6M,
         Architecture.ARM_V6M_THUMB,
         Architecture.ARM_V7M,
+        Architecture.ARM_V7EM,
         Architecture.ARM_V7R,
         Architecture.ARM_V7A,
         Architecture.ARM_V8A,
@@ -66,6 +67,7 @@ _ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
 _ARM32_HARD_FLOAT_ARCHITECTURES = frozenset(
     {
         Architecture.ARM_V7A,
+        Architecture.ARM_V7EM,
         Architecture.ARM_V7R,
         Architecture.ARM_V8A,
         Architecture.ARM_V8R,

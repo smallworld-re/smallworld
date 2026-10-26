@@ -53,6 +53,9 @@ class Architecture(enum.Enum):
     ARM_V7M = "arm-v7m"
     """arm32 v7m"""
 
+    ARM_V7EM = "arm-v7em"
+    """arm32 v7e-m with the FPv4-SP FPU, modeled on the Cortex-M4F"""
+
     ARM_V7R = "arm-v7r"
     """arm32 v7r"""
 

@@ -62,6 +62,14 @@ class ARMV7MInstruction(ARMInstruction):
     )
 
 
+class ARMV7EMInstruction(ARMInstruction):
+    # M-profile is Thumb-only.
+    cs_mode = capstone.CS_MODE_THUMB
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMV7RInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE

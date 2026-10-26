@@ -55,6 +55,14 @@ class ARMv7mStack(ARM32Stack):
     )
 
 
+class ARMv7emStack(ARM32Stack):
+    """A stack for an ARMv7e-m 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMv7rStack(ARM32Stack):
     """A stack for an ARMv7r 32-bit CPU"""
 

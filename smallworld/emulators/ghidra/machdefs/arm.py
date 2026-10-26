@@ -804,6 +804,9 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     byteorder = Byteorder.LITTLE
 
 
+class ARMv7EMMachineDef(ARMMachineMixinFPD16, ARMMachineMixinMMainline, ARMMachineDef):
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv7AMachineDef(

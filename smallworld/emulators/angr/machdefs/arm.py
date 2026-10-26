@@ -825,6 +825,12 @@ class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     is_thumb = True
 
 
+class ARMv7EMMachineDef(ARMMachineMixinFPD16, ARMMachineMixinMMainline, ARMMachineDef):
+    # M-profile is Thumb-only. archinfo's Cortex-M arch has the FPU registers.
+    angr_arch = archinfo.arch_arm.ArchARMCortexM()
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
+    is_thumb = True
 
 
 class ARMv7AMachineDef(

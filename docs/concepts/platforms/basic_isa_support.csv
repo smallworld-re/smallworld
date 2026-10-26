@@ -5,6 +5,7 @@ arm-v5t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6k,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7em,           **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7r,            No,         No,         No,         No,         **Yes**
 arm-v8a,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
