@@ -155,6 +155,9 @@ ARMV6K_CC := zig cc -target $(ARMV6K_ID)
 ARMV7A_CC := zig cc -target $(ARMV7A_ID)
 ARMV7R_CC := zig cc -target $(ARMV7R_ID)
 ARMV8A_CC := zig cc -target $(ARMV8A_ID)
+# glibc can't build for Thumb-only ARMv8-M (its syscall asm uses r7, which
+# Thumb reserves), so its C tests build against musl instead.
+ARMV8M_CC := zig cc -target thumb-linux-musleabi
 ARMV8R_CC := zig cc -target $(ARMV8R_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
@@ -209,6 +212,7 @@ ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
 ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
 ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
 ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
+ARMV8M_CFLAGS := -mcpu=cortex_m33 -mfloat-abi=soft
 ARMV8R_CFLAGS := -marm -mcpu=cortex_r52
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
@@ -223,6 +227,20 @@ AMD64_ELF_CFLAGS := -pie
 ARMV7A_ELF_CFLAGS := -pie
 ARMV7R_ELF_CFLAGS := -pie
 ARMV8A_ELF_CFLAGS := -pie
+# zig links musl statically by default, which leaves no library imports for
+# the models to replace.
+ARMV8M_ELF_CFLAGS := -dynamic
+
+# C tests a platform can't build, by source. musl lacks these glibc-specific
+# functions, or the tests use glibc's internal types (sigset_t's members,
+# __int32_t).
+ARMV8M_C_ELF_UNBUILDABLE := \
+	c99/ctype_tolower_loc c99/ctype_toupper_loc c99/gets \
+	c99/__fprintf_chk c99/__printf_chk c99/__snprintf_chk c99/__sprintf_chk \
+	posix/bsd_signal posix/pthread_sigmask posix/sigaction posix/sigaddset \
+	posix/sigdelset posix/sigemptyset posix/sigfillset posix/sigpending \
+	posix/sigprocmask funcptr
+ARMV8M_C_ELF_EXCLUDE := $(foreach t,$(ARMV8M_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
 ARMV8R_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
@@ -358,7 +376,7 @@ AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 define C_ELF_TEMPLATE
 
 $(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(filter-out $$($(1)_C_ELF_EXCLUDE),$$(C_ELF_SRCS)))
 $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).o : %.o.c
@@ -451,7 +469,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R
 ASM_PLATFORMS := AARCH64 AMD64 ARMV5T ARMV6K ARMV6M ARMV7A ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A ARMV7R ARMV8A ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV6K ARMV7A ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -468,13 +486,6 @@ $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
-
-# glibc can't build for Thumb-only ARMv8-M (its syscall asm uses r7, which
-# Thumb reserves), so the one C test it runs is built freestanding.
-sysv/sysv.armv8m.elf : sysv/sysv.elf.c
-	zig cc -target thumb-freestanding-eabi -mcpu=cortex_m33 -mfloat-abi=soft $(GENERAL_CFLAGS) -ffreestanding -nostartfiles -Wl,-e,main -o $@ $<
-
-armv8m : sysv/sysv.armv8m.elf
 
 # **********************
 # *** Global Targets ***
