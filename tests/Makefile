@@ -299,14 +299,13 @@ ARMV6M_ELF_DEPS := compiler_rt.armv6m.o
 ARMV6M_SO_CFLAGS := -Wl,-Bsymbolic -Wl,-z,notext
 
 # C tests a platform can't build, by source. musl lacks these glibc-specific
-# functions, or the tests use glibc's internal types (sigset_t's members,
-# __int32_t).
+# functions, or the tests use glibc's internal types (sigset_t's members).
 MUSL_C_ELF_UNBUILDABLE := \
 	c99/ctype_tolower_loc c99/ctype_toupper_loc c99/gets \
 	c99/__fprintf_chk c99/__printf_chk c99/__snprintf_chk c99/__sprintf_chk \
 	posix/bsd_signal posix/pthread_sigmask posix/sigaction posix/sigaddset \
 	posix/sigdelset posix/sigemptyset posix/sigfillset posix/sigpending \
-	posix/sigprocmask funcptr
+	posix/sigprocmask
 MUSL_C_ELF_EXCLUDE := $(foreach t,$(MUSL_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
 ARMV6M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
@@ -586,6 +585,20 @@ $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
+
+# sysv again, built as Thumb-2 for ARMv7-A, as armhf distributions build. Its
+# functions' symbols carry the Thumb bit, which a model's hook must ignore.
+ARMV7A_THUMB_ELFS := sysv/sysv.armv7a_thumb.elf
+
+# zig ignores -mthumb, and has no glibc for a thumb- target, so the source
+# (which needs only compiler headers) is compiled freestanding for Thumb, with
+# the same AAPCS-VFP ABI, and linked against glibc as ARM.
+sysv/sysv.armv7a_thumb.elf : sysv/sysv.elf.c
+	zig cc -target thumb-freestanding-eabihf -mcpu=cortex_a9 -fPIC -c $(GENERAL_CFLAGS) -o $@.o $<
+	$(ARMV7A_CC) $(ARMV7A_ELF_CFLAGS) -o $@ $@.o
+	rm $@.o
+
+armv7a : $(ARMV7A_THUMB_ELFS)
 
 # **********************
 # *** Global Targets ***

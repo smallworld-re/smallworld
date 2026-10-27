@@ -16,6 +16,8 @@ _VARIANTS = tuple(
         "armv7em",
         "armv6m",
         "armv7a",
+        # Thumb-2, so the models hook Thumb functions.
+        "armv7a_thumb",
         "armv7r",
         "armv8a",
         "armv8r",
