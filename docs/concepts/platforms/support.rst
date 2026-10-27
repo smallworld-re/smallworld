@@ -357,7 +357,8 @@ lets the guest walk an array. The contract has the same *shape* everywhere - an
 input cursor, an output cursor and a case count - but each architecture names its
 own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
 on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
-``esi``/``edi``/``ecx`` on i386 and ``rdi``/``rsi``/``rdx`` on amd64. On SuperH
+``esi``/``edi``/``ecx`` on i386, ``rdi``/``rsi``/``rdx`` on amd64 and
+``r3``/``r4``/``r5`` on PowerPC, where the kernel moves the count into ``CTR``. On SuperH
 ``r7`` additionally carries the FPSCR value that the kernel installs with
 ``lds`` - a direct register write would leave the split ``FPSCR_PR`` stale, as
 described above. A
@@ -394,7 +395,9 @@ and square root.
     :header-rows: 1
     :stub-columns: 1
 
-Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
+Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell. The
+PowerPC rows were measured at the default 3000 cases, and 32- and 64-bit PowerPC
+share one kernel and give identical results.
 
 Every skip is an upstream defect, reduced to a minimal case first:
 
@@ -424,6 +427,13 @@ Every skip is an upstream defect, reduced to a minimal case first:
   to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
   ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
+- **PowerPC single precision** is skipped under ``angr``. PowerPC computes
+  single-precision results in its double-format registers and rounds once, so
+  VEX lifts ``fadds`` and its siblings to ``Iop_AddF64r32`` and friends, and
+  ``stfs`` to ``Iop_TruncF64asF32``; angr implements none of them. PowerPC
+  square root lowers to scalar ``Iop_SqrtF64`` and is skipped under ``angr``
+  for the same reason as armhf's. Double-precision add, subtract, multiply and
+  divide pass.
 - **Panda is skipped on every non-SuperH architecture here**, always because its
   bare ``-M configurable`` machine brings the CPU up with the floating-point
   unit switched off and nothing in the harness able to switch it on. On x86-64
