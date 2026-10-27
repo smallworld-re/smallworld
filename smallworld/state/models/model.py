@@ -4,6 +4,8 @@ import logging
 import pdb
 import typing
 
+import capstone
+
 from ... import emulators, exceptions, platforms, utils
 from .. import state
 
@@ -108,6 +110,13 @@ class Model(Hook):
         self.allow_imprecise = False
 
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
+
+        if self.platdef.capstone_arch == capstone.CS_ARCH_ARM:
+            # On ARM32 a Thumb function's symbol value, and any pointer
+            # relocated to it, carries the Thumb bit, but the core executes
+            # at the even address, so a hook there would never fire. No
+            # ARM32 instruction sits at an odd address, so clear it.
+            self._address &= ~1
 
     # Flag indicating this model is unsupported.
     #
