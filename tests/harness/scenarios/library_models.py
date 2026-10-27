@@ -72,18 +72,6 @@ _MUSL_FUNCTION_SKIPS = {
     "sigfillset": f"{_MUSL}; the test reads glibc's sigset_t internals",
     "sigpending": f"{_MUSL}; the test reads glibc's sigset_t internals",
     "sigprocmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
-    "ctime": f"{_MUSL}, whose 64-bit time_t (__ctime64) the glibc-ABI models "
-    "don't implement",
-    "difftime": f"{_MUSL}, whose 64-bit time_t (__difftime64) the glibc-ABI models "
-    "don't implement",
-    "gmtime": f"{_MUSL}, whose 64-bit time_t (__gmtime64) the glibc-ABI models "
-    "don't implement",
-    "localtime": f"{_MUSL}, whose 64-bit time_t (__localtime64) the glibc-ABI models "
-    "don't implement",
-    "mktime": f"{_MUSL}, whose 64-bit time_t (__mktime64) the glibc-ABI models "
-    "don't implement",
-    "time": f"{_MUSL}, whose 64-bit time_t (__time64) the glibc-ABI models "
-    "don't implement",
     "dup": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
     "open": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
     "ctype_b_loc": f"{_MUSL}, whose ctype calls isalnum and other unmodeled "

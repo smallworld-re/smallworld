@@ -5219,6 +5219,113 @@ class Dup2ModelTests(ModelTestCase):
         self.assertTrue(fdmgr.get_fd(7).writable())
 
 
+MODELS_ARMV7M = platforms.Platform(
+    platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+)
+
+
+class ModelHookAddressTests(ModelTestCase):
+    """model.py Model: where a model hooks, given a function's address."""
+
+    def lookup(self, platform, address):
+        return state.models.Model.lookup("time", platform, MODELS_SYSV, address)
+
+    def test_arm32_clears_the_thumb_bit(self):
+        # A Thumb function's symbol value has bit 0 set, but the core executes
+        # at the even address; a hook on the odd one would never fire.
+        for arch in (
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7M,
+        ):
+            with self.subTest(arch=arch):
+                platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                self.assertEqual(self.lookup(platform, 0x10001)._address, 0x10000)
+
+    def test_arm32_keeps_an_even_address(self):
+        self.assertEqual(self.lookup(MODELS_ARMV7M, 0x10000)._address, 0x10000)
+
+    def test_other_architectures_keep_an_odd_address(self):
+        # x86 code can start at any address.
+        self.assertEqual(self.lookup(MODELS_AMD64, 0x10001)._address, 0x10001)
+
+
+class Time64ModelTests(ModelTestCase):
+    """c99/time.py __*64: the 64-bit time_t functions on a 32-bit ABI."""
+
+    # Past 2**32, so a 32-bit time_t would lose the high word.
+    BIG = 0x1_0000_0005
+
+    def setUp(self):
+        super().setUp()
+        self.emu = ModelTestEmulator(MODELS_ARMV7M)
+
+    def lookup(self, name):
+        return state.models.Model.lookup(name, MODELS_ARMV7M, MODELS_SYSV, 0x10000)
+
+    def test_time64_writes_and_returns_64_bits(self):
+        self.emu.map_memory(0x2000, 8)
+        self.emu.write_register("r0", 0x2000)
+        with mock.patch("time.time", return_value=float(self.BIG)):
+            self.lookup("__time64").model(self.emu)
+        self.assertEqual(
+            self.emu.read_memory(0x2000, 8), self.BIG.to_bytes(8, "little")
+        )
+        self.assertEqual(self.emu.read_register("r0"), self.BIG & 0xFFFFFFFF)
+        self.assertEqual(self.emu.read_register("r1"), self.BIG >> 32)
+
+    def test_difftime64_takes_64_bit_arguments(self):
+        # time1 in r0:r1, time0 in r2:r3; soft-float double back in r0:r1.
+        time0 = self.BIG - 3
+        for i, reg in enumerate(("r0", "r1")):
+            self.emu.write_register(reg, (self.BIG >> (32 * i)) & 0xFFFFFFFF)
+        for i, reg in enumerate(("r2", "r3")):
+            self.emu.write_register(reg, (time0 >> (32 * i)) & 0xFFFFFFFF)
+        self.lookup("__difftime64").model(self.emu)
+        bits = self.emu.read_register("r0") | self.emu.read_register("r1") << 32
+        self.assertEqual(struct.unpack("<d", bits.to_bytes(8, "little"))[0], 3.0)
+
+    def test_gmtime64_reads_a_64_bit_time_t(self):
+        model = self.lookup("__gmtime64")
+        model.static_buffer_address = 0x3000
+        self.emu.map_memory(0x3000, model.static_space_required)
+        self.emu.map_memory(0x2000, 8)
+        self.emu.write_memory(0x2000, self.BIG.to_bytes(8, "little"))
+        self.emu.write_register("r0", 0x2000)
+        model.model(self.emu)
+        # 2106-02-07 06:28:21 UTC
+        year = int.from_bytes(self.emu.read_memory(0x3000 + 0x14, 4), "little")
+        self.assertEqual(year + 1900, 2106)
+
+    def test_glibc_abi_platforms_have_no_time64_models(self):
+        armv5t = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        with self.assertRaises(ValueError):
+            state.models.Model.lookup("__time64", armv5t, MODELS_SYSV, 0x10000)
+
+
+class LibraryStaticBufferTests(unittest.TestCase):
+    """library.py ElfModelLibrary: static buffer layout."""
+
+    def test_static_buffers_are_aligned_and_inside_the_library(self):
+        # ctime and asctime reserve 26 bytes each; packed, the buffers after
+        # them start misaligned, which faults on ARMv6-M.
+        armv6m = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        libc = state.models.posix.libc.POSIXLibc(0x900000, armv6m, MODELS_SYSV)
+        end = libc.address + libc.get_capacity()
+        buffers = [m for m in libc.models.values() if m.static_space_required > 0]
+        self.assertGreater(len(buffers), 2)
+        for model in buffers:
+            with self.subTest(model=model.name):
+                self.assertEqual(model.static_buffer_address % 8, 0)
+                self.assertLessEqual(
+                    model.static_buffer_address + model.static_space_required, end
+                )
+
+
 class ReturnConstantModelTests(ModelTestCase):
     """returnconstant.py ReturnConstant: parametric default model."""
 

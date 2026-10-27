@@ -574,10 +574,12 @@ $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform)))
 # zig's compiler-rt, built for the Cortex-M0. As a freestanding build, it
 # leaves out __aeabi_read_tp, which ARMv6-M can't implement as zig does.
 # Function sections let the link drop the helpers a test doesn't use.
+# -fno-builtin, as zig builds its own compiler-rt: otherwise memset's loop is
+# lowered to a call to __aeabi_memset, which calls memset, and recurses.
 ZIG_LIB = $(shell zig env | sed -n 's/^ *\.lib_dir = "\(.*\)",$$/\1/p')
 
 compiler_rt.$(ARMV6M_EXT).o :
-	zig build-obj $(ZIG_LIB)/compiler_rt.zig -target thumb-freestanding-eabi -mcpu cortex_m0 -O ReleaseSmall -fPIC -ffunction-sections -femit-bin=$@
+	zig build-obj $(ZIG_LIB)/compiler_rt.zig -target thumb-freestanding-eabi -mcpu cortex_m0 -O ReleaseSmall -fPIC -ffunction-sections -fno-builtin -femit-bin=$@
 
 # Populate the C PE templates
 $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
