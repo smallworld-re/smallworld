@@ -28,6 +28,11 @@ AMD64_MINGW_ID := x86_64-windows-gnu.2.40
 ARMV4_ID := arm-linux-gnueabi.2.40
 ARMV4T_ID := arm-linux-gnueabi.2.40
 ARMV5T_ID := arm-linux-gnueabi.2.40
+# Big-endian ARMv4 and ARMv5 are BE32: lld links armeb as BE32 unless asked
+# for BE8, which these cores don't support.
+ARMV4BE_ID := armeb-linux-gnueabi.2.40
+ARMV4TBE_ID := armeb-linux-gnueabi.2.40
+ARMV5TBE_ID := armeb-linux-gnueabi.2.40
 ARMV6K_ID := arm-linux-gnueabi.2.40
 ARMV6M_ID := arm-linux-gnueabi.2.40
 ARMV7A_ID := arm-linux-gnueabihf.2.40
@@ -66,6 +71,9 @@ AMD64_ASM_AS := ./nasm_wrapper.sh
 ARMV4_ASM_AS := zig build-exe -target arm-freestanding-eabi -fno-compiler-rt
 ARMV4T_ASM_AS := zig build-exe -target $(ARMV4T_ID)
 ARMV5T_ASM_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV4BE_ASM_AS := zig build-exe -target armeb-freestanding-eabi -fno-compiler-rt
+ARMV4TBE_ASM_AS := zig build-exe -target $(ARMV4TBE_ID)
+ARMV5TBE_ASM_AS := zig build-exe -target $(ARMV5TBE_ID)
 ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
 # armv6m/armv7m build raw binaries only. build-obj skips linking, which would
 # pull in zig's Linux start code; its syscall asm uses r7, which Thumb reserves.
@@ -102,6 +110,9 @@ AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
 ARMV4_ELF_AS := zig build-exe -target arm-freestanding-eabi -fno-compiler-rt
 ARMV4T_ELF_AS := zig build-exe -target $(ARMV4T_ID)
 ARMV5T_ELF_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV4BE_ELF_AS := zig build-exe -target armeb-freestanding-eabi -fno-compiler-rt
+ARMV4TBE_ELF_AS := zig build-exe -target $(ARMV4TBE_ID)
+ARMV5TBE_ELF_AS := zig build-exe -target $(ARMV5TBE_ID)
 ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
 # The M profile's assembly needs no runtime, and zig's compiler-rt doesn't
 # build for ARMv6-M (see ARMV6M_ELF_CFLAGS).
@@ -139,6 +150,9 @@ AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
 ARMV4_OBJCOPY := zig objcopy
 ARMV4T_OBJCOPY := zig objcopy
 ARMV5T_OBJCOPY := zig objcopy
+ARMV4BE_OBJCOPY := zig objcopy
+ARMV4TBE_OBJCOPY := zig objcopy
+ARMV5TBE_OBJCOPY := zig objcopy
 ARMV6K_OBJCOPY := zig objcopy
 ARMV6M_OBJCOPY := zig objcopy
 ARMV7A_OBJCOPY := zig objcopy
@@ -173,6 +187,8 @@ AMD64_CC := zig cc -target $(AMD64_ID)
 AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
 ARMV4T_CC := zig cc -target $(ARMV4T_ID)
 ARMV5T_CC := zig cc -target $(ARMV5T_ID)
+ARMV4TBE_CC := zig cc -target $(ARMV4TBE_ID)
+ARMV5TBE_CC := zig cc -target $(ARMV5TBE_ID)
 ARMV6K_CC := zig cc -target $(ARMV6K_ID)
 ARMV7A_CC := zig cc -target $(ARMV7A_ID)
 ARMV7R_CC := zig cc -target $(ARMV7R_ID)
@@ -210,6 +226,9 @@ GENERAL_ASFLAGS := $(ASFLAGS)
 ARMV4_ASFLAGS := -mcpu=strongarm
 ARMV4T_ASFLAGS := -mcpu=arm7tdmi
 ARMV5T_ASFLAGS := -mcpu=arm926ej_s
+ARMV4BE_ASFLAGS := $(ARMV4_ASFLAGS)
+ARMV4TBE_ASFLAGS := $(ARMV4T_ASFLAGS)
+ARMV5TBE_ASFLAGS := $(ARMV5T_ASFLAGS)
 ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
 ARMV6M_ASFLAGS := -mcpu=cortex_m0
 ARMV7A_ASFLAGS := -mcpu=cortex_a9
@@ -239,6 +258,8 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
 ARMV4T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm7tdmi
 ARMV5T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm926ej_s
+ARMV4TBE_CFLAGS := $(ARMV4T_CFLAGS)
+ARMV5TBE_CFLAGS := $(ARMV5T_CFLAGS)
 ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
 # lld's PLT entries are Thumb-2, so ARMv6-M code calls through addresses
 # loaded from its literal pools instead; see ARMV6M_ELF_CFLAGS.
@@ -269,6 +290,8 @@ ARMV7R_ELF_CFLAGS := -pie
 # code and zig's compiler-rt return with bx, which it lacks.
 ARMV4T_ELF_LDLIBS := arm_sync_shims.c
 ARMV5T_ELF_LDLIBS := arm_sync_shims.c
+ARMV4TBE_ELF_LDLIBS := arm_sync_shims.c
+ARMV5TBE_ELF_LDLIBS := arm_sync_shims.c
 ARMV8A_ELF_CFLAGS := -pie
 # zig links musl statically by default, which leaves no library imports for
 # the models to replace.
@@ -332,6 +355,9 @@ AMD64_MINGW_EXT := amd64
 ARMV4_EXT := armv4
 ARMV4T_EXT := armv4t
 ARMV5T_EXT := armv5t
+ARMV4BE_EXT := armv4be
+ARMV4TBE_EXT := armv4tbe
+ARMV5TBE_EXT := armv5tbe
 ARMV6K_EXT := armv6k
 ARMV6M_EXT := armv6m
 ARMV7A_EXT := armv7a
@@ -366,6 +392,9 @@ AMD64_SRC_EXT := $(AMD64_EXT)
 ARMV4_SRC_EXT := $(ARMV4_EXT)
 ARMV4T_SRC_EXT := $(ARMV4T_EXT)
 ARMV5T_SRC_EXT := $(ARMV5T_EXT)
+ARMV4BE_SRC_EXT := $(ARMV4_EXT)
+ARMV4TBE_SRC_EXT := $(ARMV4T_EXT)
+ARMV5TBE_SRC_EXT := $(ARMV5T_EXT)
 ARMV6K_SRC_EXT := $(ARMV6K_EXT)
 ARMV6M_SRC_EXT := $(ARMV6M_EXT)
 ARMV7A_SRC_EXT := $(ARMV7A_EXT)
@@ -552,13 +581,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV4 ARMV4T ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMV4 ARMV4T ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV4T ARMV5T ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV4T ARMV5T ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

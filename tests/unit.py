@@ -1076,6 +1076,24 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv4be(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv4tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv5tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_cpu_armv6k(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
@@ -1317,6 +1335,24 @@ class UnicornMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_unicorn_armv4be(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv4tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv5tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_unicorn_armv6k(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
@@ -1554,6 +1590,24 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv4be(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv4tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv5tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 
@@ -2005,6 +2059,24 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv4be(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv4tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv5tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 
@@ -5303,6 +5375,35 @@ class Time64ModelTests(ModelTestCase):
         )
         with self.assertRaises(ValueError):
             state.models.Model.lookup("__time64", armv5t, MODELS_SYSV, 0x10000)
+
+
+class ArmDoubleWordReturnTests(ModelTestCase):
+    """armv5t/armv5tbe: a double word returns in r0:r1 as ldm would load it."""
+
+    def make(self, byteorder):
+        platform = platforms.Platform(platforms.Architecture.ARM_V5T, byteorder)
+        self.emu = ModelTestEmulator(platform)
+        return state.models.Model.lookup("time", platform, MODELS_SYSV, 0x10000)
+
+    def test_big_endian_puts_the_high_word_in_r0(self):
+        model = self.make(platforms.Byteorder.BIG)
+        model._return_8_byte(self.emu, 0x1122334455667788)
+        self.assertEqual(self.emu.read_register("r0"), 0x11223344)
+        self.assertEqual(self.emu.read_register("r1"), 0x55667788)
+        self.assertEqual(model._read_return_8_byte(self.emu), 0x1122334455667788)
+
+    def test_big_endian_double(self):
+        model = self.make(platforms.Byteorder.BIG)
+        model._return_double(self.emu, 1.0)
+        self.assertEqual(self.emu.read_register("r0"), 0x3FF00000)
+        self.assertEqual(self.emu.read_register("r1"), 0)
+        self.assertEqual(model._read_return_double(self.emu), 1.0)
+
+    def test_little_endian_puts_the_low_word_in_r0(self):
+        model = self.make(platforms.Byteorder.LITTLE)
+        model._return_8_byte(self.emu, 0x1122334455667788)
+        self.assertEqual(self.emu.read_register("r0"), 0x55667788)
+        self.assertEqual(self.emu.read_register("r1"), 0x11223344)
 
 
 class LibraryStaticBufferTests(unittest.TestCase):

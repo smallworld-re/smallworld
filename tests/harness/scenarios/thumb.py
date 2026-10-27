@@ -9,7 +9,9 @@ NATIVE_PARITY = True
 _VARIANT_ARCH_NAMES = {
     # M-profile is Thumb-only, so it can't run this ARM/Thumb interworking test.
     "armv5t": ("ARM_V5T",),
+    "armv5tbe": ("ARM_V5T",),
     "armv4t": ("ARM_V4T",),
+    "armv4tbe": ("ARM_V4T",),
     "armv6k": ("ARM_V6K",),
     "armv7a": ("ARM_V7A",),
     "armv8a": ("ARM_V8A",),
