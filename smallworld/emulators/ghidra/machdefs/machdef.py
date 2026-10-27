@@ -49,6 +49,11 @@ class GhidraMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
+    # Userops the emulator steps over instead of running,
+    # for SLEIGH that calls a userop Ghidra's emulator can't run
+    # on this language.
+    nop_userops: typing.FrozenSet[str] = frozenset()
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):
@@ -57,6 +62,13 @@ class GhidraMachineDef:
         langID = LanguageID(self.language_id)
         self.language: Language = slp.getLanguage(langID)
         assert self.language is not None
+
+    def is_nop_userop(self, op) -> bool:
+        """Whether this p-code op calls one of `nop_userops`."""
+        if not self.nop_userops or op.getOpcode() != op.CALLOTHER:
+            return False
+        name = self.language.getUserDefinedOpName(int(op.getInput(0).getOffset()))
+        return name in self.nop_userops
 
     def pcode_reg(self, name: str) -> Register:
         if name not in self._registers:

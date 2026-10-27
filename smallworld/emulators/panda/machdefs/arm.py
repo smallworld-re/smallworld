@@ -531,6 +531,24 @@ class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
         }
 
 
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+    # The StrongARM SA-1110: ARMv4, no Thumb.
+    cpu = "sa1110"
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+    # The TI925T: an ARM9 core implementing ARMv4T.
+    cpu = "ti925t"
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):

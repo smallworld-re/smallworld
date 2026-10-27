@@ -21,6 +21,18 @@ class ARMInstruction(Instruction):
         )
 
 
+class ARMV4Instruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV4TInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMV5TInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE

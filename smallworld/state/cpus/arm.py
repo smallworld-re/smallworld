@@ -1137,6 +1137,22 @@ class ARMCPUMixinV8MMainline(ARMCPUMixinMMainline):
         self.add(self.psplim)
 
 
+class ARMv4(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
+    """CPU Model for ARMv4 little-endian."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv4T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
+    """CPU Model for ARMv4t little-endian."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMv5T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
     """CPU Model for ARMv5t little-endian."""
 

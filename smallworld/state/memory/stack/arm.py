@@ -15,6 +15,22 @@ class ARM32Stack(stack.DescendingStack):
         raise NotImplementedError("Stack initialization not implemented for ARM32")
 
 
+class ARMv4Stack(ARM32Stack):
+    """A stack for an ARMv4 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMv4tStack(ARM32Stack):
+    """A stack for an ARMv4t 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMv5tStack(ARM32Stack):
     """A stack for an ARMv5t 32-bit CPU"""
 

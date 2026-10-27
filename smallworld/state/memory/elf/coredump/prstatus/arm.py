@@ -29,6 +29,14 @@ class ARM(PrStatus):
     ]
 
 
+class ARMv4(ARM):
+    architecture = platforms.Architecture.ARM_V4
+
+
+class ARMv4T(ARM):
+    architecture = platforms.Architecture.ARM_V4T
+
+
 class ARMv5T(ARM):
     architecture = platforms.Architecture.ARM_V5T
 

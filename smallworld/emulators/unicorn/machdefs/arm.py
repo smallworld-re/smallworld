@@ -600,6 +600,28 @@ class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
         )
 
 
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    """Unicorn machine definition for ARMv4 little-endian"""
+
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+    # The StrongARM SA-1110: ARMv4, no Thumb.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_SA1110
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    """Unicorn machine definition for ARMv4T little-endian"""
+
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+    # The TI925T: an ARM9 core implementing ARMv4T.
+    uc_cpu = unicorn.arm_const.UC_CPU_ARM_TI925T
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):

@@ -99,6 +99,8 @@ _ARM32_CONDITION_CODES = {
 # SmallWorld architectures that use Triton's ARM32 target (all little-endian).
 _ARM32_ARCHITECTURES = frozenset(
     {
+        platforms.Architecture.ARM_V4,
+        platforms.Architecture.ARM_V4T,
         platforms.Architecture.ARM_V5T,
         platforms.Architecture.ARM_V6K,
         platforms.Architecture.ARM_V6M,

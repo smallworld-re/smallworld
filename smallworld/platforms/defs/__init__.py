@@ -1,6 +1,8 @@
 from .aarch64 import AArch64
 from .amd64 import AMD64, AMD64AVX512
 from .arm import (
+    ARMv4,
+    ARMv4T,
     ARMv5T,
     ARMv6K,
     ARMv6M,
@@ -31,6 +33,8 @@ __all__ = [
     "AArch64",
     "AMD64",
     "AMD64AVX512",
+    "ARMv4",
+    "ARMv4T",
     "ARMv5T",
     "ARMv6K",
     "ARMv6M",

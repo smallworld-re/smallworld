@@ -703,6 +703,8 @@ class UnicornEmulator(
     def _check_arm32_platform(self):
         """Check for ARM32 platform architecture"""
         return self.platform.architecture in [
+            platforms.Architecture.ARM_V4,
+            platforms.Architecture.ARM_V4T,
             platforms.Architecture.ARM_V5T,
             platforms.Architecture.ARM_V6K,
             platforms.Architecture.ARM_V6M,

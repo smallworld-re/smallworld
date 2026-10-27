@@ -776,6 +776,26 @@ class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
         )
 
 
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+
+    # `mov pc, <shift>` calls the SetThumbMode macro, and so the setISAMode
+    # userop, even in the v4 language, which has no Thumb and no TMode
+    # context register; Ghidra's emulator then fails on the null context.
+    # With no Thumb state it's a no-op.
+    nop_userops = frozenset({"setISAMode"})
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):

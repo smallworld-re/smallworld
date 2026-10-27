@@ -1312,6 +1312,14 @@ class ArmElfRelocator(ElfRelocator):
             )
 
 
+class Armv4ElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V4
+
+
+class Armv4TElfRelocator(ArmElfRelocator):
+    arch = platforms.Architecture.ARM_V4T
+
+
 class Armv5TElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V5T
 

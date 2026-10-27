@@ -767,6 +767,8 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 # and the next iteration's stepPcodeOp() executes the
                 # CBRANCH normally on the concrete side.
                 self._maybe_fork_on_symbolic_cbranch(op)
+            elif self.machdef.is_nop_userop(op):
+                skip = True
 
     def step_block(self) -> None:
         raise NotImplementedError("Block stepping not supported for symbolic emulator")

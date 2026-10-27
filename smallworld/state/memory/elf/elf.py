@@ -37,6 +37,8 @@ EF_ARM_EABI_VER5 = 0x05000000
 
 _ARM32_ARCHITECTURES = frozenset(
     {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
         Architecture.ARM_V5T,
         Architecture.ARM_V6K,
         Architecture.ARM_V6M,
@@ -56,6 +58,8 @@ _ARM32_ARCHITECTURES = frozenset(
 # of these wins over the default the flags imply.
 _ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
     {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
         Architecture.ARM_V5T,
         Architecture.ARM_V6K,
         Architecture.ARM_V6M,

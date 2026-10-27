@@ -38,6 +38,12 @@ class Architecture(enum.Enum):
     POWERPC64 = "powerpc64"
     """64-bit PowerPC"""
 
+    ARM_V4 = "arm-v4"
+    """arm32 v4, modeled on the StrongARM SA-1110; ARM state only, no Thumb"""
+
+    ARM_V4T = "arm-v4t"
+    """arm32 v4t, modeled on the ARM7TDMI and TI925T"""
+
     ARM_V5T = "arm-v5t"
     """arm32 v5t"""
 

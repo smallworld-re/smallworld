@@ -43,6 +43,8 @@ _BASE_REGS = {
 _M_REGS = {"psr": "apsr"}
 _RA_REGS = {"cpsr": "apsr"}
 
+_V4_REGS = {**_BASE_REGS, **_RA_REGS}
+_V4T_REGS = {**_BASE_REGS, **_RA_REGS}
 _V5T_REGS = {**_BASE_REGS, **_RA_REGS}
 _V6K_REGS = {**_BASE_REGS, **_RA_REGS}
 _V6M_REGS = {**_BASE_REGS, **_M_REGS}
@@ -69,6 +71,16 @@ class TritonARMMachineDef(TritonMachineDef):
     # so they never reach the run loop's unmodelled-instruction handling.
     syscall_mnemonics = {"svc", "swi"}
     syscall_number_register = "r7"
+
+
+class TritonARMv4MachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V4
+    _registers = _V4_REGS
+
+
+class TritonARMv4TMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V4T
+    _registers = _V4T_REGS
 
 
 class TritonARMv5TMachineDef(TritonARMMachineDef):

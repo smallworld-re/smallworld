@@ -540,6 +540,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         skip = True
 
                     # This is not a memory access.  No need to break
+                elif self.machdef.is_nop_userop(op):
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

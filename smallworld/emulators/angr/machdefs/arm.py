@@ -785,6 +785,22 @@ class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
         )
 
 
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+
+
 class ARMv5TMachineDef(
     ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
 ):

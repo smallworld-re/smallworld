@@ -6,7 +6,7 @@ SmallWorld's soft-float A-profile ARM tests use two architectures:
 
 Both run ARM32 code, so both map to Styx's CycloneV (Cortex-A9, supports
 ARM+Thumb). Styx has no ARMv5 or ARM11 target; the Cortex-A9 accepts a
-superset of their instructions. ``ARM_V6M`` and ``ARM_V7M`` map to Kinetis21
+superset of their instructions. ``ARM_V4`` and ``ARM_V4T`` map there too. ``ARM_V6M`` and ``ARM_V7M`` map to Kinetis21
 (Cortex-M4F), the closest Styx target to a Cortex-M0 or M3. The user-visible
 ARM register file matches between the two. ``ARM_V7EM`` is the Cortex-M4F
 itself, FPU registers included.
@@ -47,6 +47,30 @@ _BASE_REGS = {
     "apsr": ArmRegister.Apsr,
     "spsr": ArmRegister.Spsr,
 }
+
+
+class StyxARMv4MachineDef(StyxMachineDef):
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+    # Styx has no ARMv4 target; the Cortex-A9 accepts a superset.
+    target = Target.CycloneV
+    backend = Backend.Unicorn
+    address_size = 4
+    pc_register = "pc"
+    lr_register = "lr"
+    _registers = dict(_BASE_REGS)
+
+
+class StyxARMv4TMachineDef(StyxMachineDef):
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+    # Styx has no ARMv4T target; the Cortex-A9 accepts a superset.
+    target = Target.CycloneV
+    backend = Backend.Unicorn
+    address_size = 4
+    pc_register = "pc"
+    lr_register = "lr"
+    _registers = dict(_BASE_REGS)
 
 
 class StyxARMv5TMachineDef(StyxMachineDef):

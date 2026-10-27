@@ -984,6 +984,30 @@ class ARMPlatformMixinV8MMainline(ARMPlatformMixinMMainline):
         }
 
 
+class ARMv4(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):
+    """Platform definition for ARMv4 little-endian.
+
+    Modeled on the StrongARM SA-1110. ARMv4 has no Thumb state,
+    so no ``bx``, ``blx``, ``clz``, or ``bkpt``.
+    Its cp15 system control registers are the ARMv5 set.
+    """
+
+    architecture = Architecture.ARM_V4
+    ghidra_language_id = "ARM:LE:32:v4"
+
+
+class ARMv4T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):
+    """Platform definition for ARMv4t little-endian.
+
+    Modeled on the ARM7TDMI and TI925T: ARMv4 plus 16-bit Thumb,
+    entered through ``bx`` (ARMv4T has no ``blx``).
+    Its cp15 system control registers are the ARMv5 set.
+    """
+
+    architecture = Architecture.ARM_V4T
+    ghidra_language_id = "ARM:LE:32:v4t"
+
+
 class ARMv5T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian.
 
