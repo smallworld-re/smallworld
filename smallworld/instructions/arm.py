@@ -39,6 +39,29 @@ class ARMV5TInstruction(ARMInstruction):
     )
 
 
+class ARMBEInstruction(ARMInstruction):
+    # BE32: instructions are big-endian, like data.
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_BIG_ENDIAN
+
+
+class ARMV4BEInstruction(ARMBEInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+    )
+
+
+class ARMV4TBEInstruction(ARMBEInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+    )
+
+
+class ARMV5TBEInstruction(ARMBEInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+    )
+
+
 class ARMV6KInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE

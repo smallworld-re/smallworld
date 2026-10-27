@@ -633,6 +633,31 @@ class ARMv5TMachineDef(
     uc_cpu = unicorn.arm_const.UC_CPU_ARM_926
 
 
+# Big-endian ARMv4 and ARMv5 are BE32, which is what Unicorn's big-endian
+# mode implements: instructions are fetched big-endian, like data.
+
+
+class ARMv4BEMachineDef(ARMv4MachineDef):
+    """Unicorn machine definition for ARMv4 big-endian (BE32)"""
+
+    byteorder = Byteorder.BIG
+    uc_mode = unicorn.UC_MODE_ARM | unicorn.UC_MODE_BIG_ENDIAN
+
+
+class ARMv4TBEMachineDef(ARMv4TMachineDef):
+    """Unicorn machine definition for ARMv4T big-endian (BE32)"""
+
+    byteorder = Byteorder.BIG
+    uc_mode = unicorn.UC_MODE_ARM | unicorn.UC_MODE_BIG_ENDIAN
+
+
+class ARMv5TBEMachineDef(ARMv5TMachineDef):
+    """Unicorn machine definition for ARMv5T big-endian (BE32)"""
+
+    byteorder = Byteorder.BIG
+    uc_mode = unicorn.UC_MODE_ARM | unicorn.UC_MODE_BIG_ENDIAN
+
+
 class ARMv6KMachineDef(
     ARMMachineMixinVFPv2,
     ARMMachineMixinSecurity,

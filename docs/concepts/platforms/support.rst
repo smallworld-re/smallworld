@@ -45,6 +45,13 @@ arm-v8r run on its "max" model, which accepts a superset of their instructions.
 **arm-v4 PANDA:** arm-v4 runs on PANDA's StrongARM SA-1110, and arm-v4t on its
 TI925T.
 
+**Big-endian arm32:** arm-v4, arm-v4t and arm-v5t also come big-endian
+(``Byteorder.BIG``), as BE32: instructions are big-endian, like data, as on
+those cores. They run on Unicorn, angr and Ghidra (its ``ARM:BE:32`` languages).
+SmallWorld configures no big-endian ARM machine for PANDA or Styx, and Triton
+has no big-endian ARM. ARMv6 and later use BE8 instead, with little-endian
+instructions; SmallWorld doesn't support big-endian ARMv6 or later yet.
+
 **arm-v8 PANDA:** arm-v8r runs on PANDA's Cortex-R52. PANDA's 32-bit ARM build
 has no ARMv8-A core, so arm-v8a runs on its "max" model.
 Support for privileged operations is unknown.

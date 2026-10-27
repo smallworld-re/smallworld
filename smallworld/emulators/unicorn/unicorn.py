@@ -763,11 +763,12 @@ class UnicornEmulator(
         # We use CPSR to determine if unicorn was previously in thumb
         # mode and set the low bit to 1 to maintain it. We also set
         # the mode of the disassembler.
+        endian = self.platdef.capstone_mode & capstone.CS_MODE_BIG_ENDIAN
         if self.get_thumb() or pc & 1:
             pc |= 1
-            self.disassembler.mode = capstone.CS_MODE_THUMB
+            self.disassembler.mode = capstone.CS_MODE_THUMB | endian
         else:
-            self.disassembler.mode = capstone.CS_MODE_ARM
+            self.disassembler.mode = capstone.CS_MODE_ARM | endian
 
         return pc
 

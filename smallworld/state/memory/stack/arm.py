@@ -39,6 +39,30 @@ class ARMv5tStack(ARM32Stack):
     )
 
 
+class ARMv4BEStack(ARM32Stack):
+    """A stack for a big-endian ARMv4 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+    )
+
+
+class ARMv4tBEStack(ARM32Stack):
+    """A stack for a big-endian ARMv4t 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+    )
+
+
+class ARMv5tBEStack(ARM32Stack):
+    """A stack for a big-endian ARMv5t 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+    )
+
+
 class ARMv6kStack(ARM32Stack):
     """A stack for an ARMv6k 32-bit CPU"""
 

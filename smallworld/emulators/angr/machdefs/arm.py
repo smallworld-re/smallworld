@@ -809,6 +809,25 @@ class ARMv5TMachineDef(
     byteorder = Byteorder.LITTLE
 
 
+# Big-endian ARMv4 and ARMv5 are BE32: archinfo's big-endian ARM fetches
+# instructions big-endian too.
+
+
+class ARMv4BEMachineDef(ARMv4MachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
+class ARMv4TBEMachineDef(ARMv4TMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
+class ARMv5TBEMachineDef(ARMv5TMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
 class ARMv6KMachineDef(
     ARMMachineMixinVFPv2,
     ARMMachineMixinSecurity,

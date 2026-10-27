@@ -1161,6 +1161,30 @@ class ARMv5T(ARMCPUMixinV5SystemControl, ARMCPUMixinBanked, ARM):
     )
 
 
+class ARMv4BE(ARMv4):
+    """CPU Model for ARMv4 big-endian (BE32)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
+    )
+
+
+class ARMv4TBE(ARMv4T):
+    """CPU Model for ARMv4t big-endian (BE32)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+    )
+
+
+class ARMv5TBE(ARMv5T):
+    """CPU Model for ARMv5t big-endian (BE32)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+    )
+
+
 class ARMv6K(
     ARMCPUMixinVFPv2,
     ARMCPUMixinSecurity,

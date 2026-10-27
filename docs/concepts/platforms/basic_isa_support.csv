@@ -4,6 +4,9 @@ amd64,              **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v4,             **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v4t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v5t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v4-be,          **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v4t-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v5t-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
 arm-v6k,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**

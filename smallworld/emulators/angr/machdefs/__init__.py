@@ -1,8 +1,11 @@
 from .aarch64 import AArch64MachineDef
 from .amd64 import AMD64MachineDef
 from .arm import (
+    ARMv4BEMachineDef,
     ARMv4MachineDef,
+    ARMv4TBEMachineDef,
     ARMv4TMachineDef,
+    ARMv5TBEMachineDef,
     ARMv5TMachineDef,
     ARMv6MMachineDef,
     ARMv6MThumbMachineDef,
@@ -29,6 +32,9 @@ __all__ = [
     "ARMv4MachineDef",
     "ARMv4TMachineDef",
     "ARMv5TMachineDef",
+    "ARMv4BEMachineDef",
+    "ARMv4TBEMachineDef",
+    "ARMv5TBEMachineDef",
     "ARMv6MMachineDef",
     "ARMv6MThumbMachineDef",
     "ARMv7EMMachineDef",

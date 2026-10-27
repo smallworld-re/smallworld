@@ -1324,6 +1324,22 @@ class Armv5TElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V5T
 
 
+# Big-endian ARMv4 and ARMv5 are BE32, so instructions are packed big-endian
+# too, like data.
+
+
+class Armv4BEElfRelocator(Armv4ElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv4TBEElfRelocator(Armv4TElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv5TBEElfRelocator(Armv5TElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
 class Armv6KElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V6K
 

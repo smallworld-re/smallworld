@@ -1,8 +1,11 @@
 from .aarch64 import AArch64Stack
 from .amd64 import AMD64Stack
 from .arm import (
+    ARMv4BEStack,
     ARMv4Stack,
+    ARMv4tBEStack,
     ARMv4tStack,
+    ARMv5tBEStack,
     ARMv5tStack,
     ARMv6mStack,
     ARMv7aStack,
@@ -30,6 +33,9 @@ __all__ = __stack__ + [
     "ARMv4Stack",
     "ARMv4tStack",
     "ARMv5tStack",
+    "ARMv4BEStack",
+    "ARMv4tBEStack",
+    "ARMv5tBEStack",
     "ARMv6mStack",
     "ARMv7emStack",
     "ARMv7mStack",

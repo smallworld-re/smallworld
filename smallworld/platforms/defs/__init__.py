@@ -2,8 +2,11 @@ from .aarch64 import AArch64
 from .amd64 import AMD64, AMD64AVX512
 from .arm import (
     ARMv4,
+    ARMv4BE,
     ARMv4T,
+    ARMv4TBE,
     ARMv5T,
+    ARMv5TBE,
     ARMv6K,
     ARMv6M,
     ARMv6MThumb,
@@ -36,6 +39,9 @@ __all__ = [
     "ARMv4",
     "ARMv4T",
     "ARMv5T",
+    "ARMv4BE",
+    "ARMv4TBE",
+    "ARMv5TBE",
     "ARMv6K",
     "ARMv6M",
     "ARMv6MThumb",

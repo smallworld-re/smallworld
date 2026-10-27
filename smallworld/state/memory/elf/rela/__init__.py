@@ -1,8 +1,11 @@
 from .aarch64 import AArch64ElfRelocator
 from .amd64 import AMD64ElfRelocator
 from .arm import (
+    Armv4BEElfRelocator,
     Armv4ElfRelocator,
+    Armv4TBEElfRelocator,
     Armv4TElfRelocator,
+    Armv5TBEElfRelocator,
     Armv5TElfRelocator,
     Armv6MElfRelocator,
     Armv7AElfRelocator,
@@ -27,6 +30,9 @@ __all__ = [
     "Armv4ElfRelocator",
     "Armv4TElfRelocator",
     "Armv5TElfRelocator",
+    "Armv4BEElfRelocator",
+    "Armv4TBEElfRelocator",
+    "Armv5TBEElfRelocator",
     "Armv6MElfRelocator",
     "Armv7AElfRelocator",
     "Armv7EMElfRelocator",

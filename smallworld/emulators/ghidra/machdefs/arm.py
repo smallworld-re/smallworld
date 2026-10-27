@@ -803,6 +803,22 @@ class ARMv5TMachineDef(
     byteorder = Byteorder.LITTLE
 
 
+# Big-endian ARMv4 and ARMv5 are BE32; the platforms name Ghidra's ARM:BE
+# languages, whose instructions are big-endian too.
+
+
+class ARMv4BEMachineDef(ARMv4MachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv4TBEMachineDef(ARMv4TMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv5TBEMachineDef(ARMv5TMachineDef):
+    byteorder = Byteorder.BIG
+
+
 class ARMv6KMachineDef(
     ARMMachineMixinVFPv2,
     ARMMachineMixinSecurity,

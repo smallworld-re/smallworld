@@ -1018,6 +1018,34 @@ class ARMv5T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatfor
     ghidra_language_id = "ARM:LE:32:v5t"
 
 
+# Big-endian ARMv4 and ARMv5 are BE32: instructions are big-endian, like data.
+# (ARMv6 and later use BE8, where instructions stay little-endian.)
+
+
+class ARMv4BE(ARMv4):
+    """Platform definition for ARMv4 big-endian (BE32)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:BE:32:v4"
+    capstone_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_BIG_ENDIAN
+
+
+class ARMv4TBE(ARMv4T):
+    """Platform definition for ARMv4t big-endian (BE32)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:BE:32:v4t"
+    capstone_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_BIG_ENDIAN
+
+
+class ARMv5TBE(ARMv5T):
+    """Platform definition for ARMv5t big-endian (BE32)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:BE:32:v5t"
+    capstone_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_BIG_ENDIAN
+
+
 class ARMv6K(
     ARMPlatformMixinVFPv2,
     ARMPlatformMixinSecurity,
