@@ -2,12 +2,18 @@ from ....c99 import (
     Asctime,
     Clock,
     Ctime,
+    Ctime64,
     Difftime,
+    Difftime64,
     Gmtime,
+    Gmtime64,
     Localtime,
+    Localtime64,
     Mktime,
+    Mktime64,
     Strftime,
     Time,
+    Time64,
 )
 from ..systemv import ArmV8MSysVModel
 
@@ -48,6 +54,30 @@ class ArmV8MSysVClock(Clock, ArmV8MSysVModel):
     pass
 
 
+class ArmV8MSysVTime64(Time64, ArmV8MSysVModel):
+    pass
+
+
+class ArmV8MSysVLocaltime64(Localtime64, ArmV8MSysVModel):
+    pass
+
+
+class ArmV8MSysVGmtime64(Gmtime64, ArmV8MSysVModel):
+    pass
+
+
+class ArmV8MSysVCtime64(Ctime64, ArmV8MSysVModel):
+    pass
+
+
+class ArmV8MSysVDifftime64(Difftime64, ArmV8MSysVModel):
+    pass
+
+
+class ArmV8MSysVMktime64(Mktime64, ArmV8MSysVModel):
+    pass
+
+
 __all__ = [
     "ArmV8MSysVTime",
     "ArmV8MSysVLocaltime",
@@ -58,4 +88,10 @@ __all__ = [
     "ArmV8MSysVDifftime",
     "ArmV8MSysVMktime",
     "ArmV8MSysVClock",
+    "ArmV8MSysVTime64",
+    "ArmV8MSysVLocaltime64",
+    "ArmV8MSysVGmtime64",
+    "ArmV8MSysVCtime64",
+    "ArmV8MSysVDifftime64",
+    "ArmV8MSysVMktime64",
 ]
