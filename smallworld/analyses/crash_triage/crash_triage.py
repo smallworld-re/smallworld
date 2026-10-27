@@ -384,7 +384,10 @@ class CrashTriage(analysis.Analysis):
         # We can look at the default jumpkind for this block
         # to tell us
 
-        if vex.jumpkind == "Ijk_Ret":
+        if vex.jumpkind == "Ijk_Boring" and self._is_arm_link_call(state, pc, vex.size):
+            log.debug("Caused by an unbounded indirect function call.")
+            return "call"
+        elif vex.jumpkind == "Ijk_Ret":
             log.debug("Caused by an unbounded return.")
             return "return"
         elif vex.jumpkind == "Ijk_Call":
@@ -396,6 +399,19 @@ class CrashTriage(analysis.Analysis):
         else:
             log.error(f"Unexpected cause: {vex.jumpkind}")
             return "unknown"
+
+    def _is_arm_link_call(self, state: angr.SimState, pc: int, size: int) -> bool:
+        # ARM before v5 has no blx, so an indirect call is
+        # `mov lr, pc` then `bx rN` (or `mov pc, rN`). Vex lifts the
+        # pair as a call, but stepping one instruction at a time lifts
+        # the branch alone, as a plain jump. It's a call if lr already
+        # holds the address just past the branch.
+        if not state.arch.name.startswith("ARM"):
+            return False
+        lr = state.regs.lr
+        if lr.symbolic:
+            return False
+        return state.solver.eval(lr) == (pc & ~1) + size
 
     def _diagnose_unconstrained(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
