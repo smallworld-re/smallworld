@@ -13,6 +13,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv4",
+    "armv4t",
     "armv6k",
     "armv6m",
     "armv7m",
@@ -50,6 +52,8 @@ _SPECS = build_specs(
     _ARCHS,
     engines={
         "armv5t": _ARM_ENGINES,
+        "armv4": _ARM_ENGINES,
+        "armv4t": _ARM_ENGINES,
         "armv6k": _ARM_ENGINES,
         "armv6m": _ARM_ENGINES,
         "armv7m": _ARM_ENGINES,

@@ -82,6 +82,16 @@ _SPECS = {
         mid_exit_offset=24,
         link_register="lr",
     ),
+    "armv4t": ExitpointSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode"),
+        # As on ARMv5T, but ARMv4T can't pop into pc and switch state, so
+        # main returns with `pop {fp, lr}; bx lr`: one more instruction.
+        mid_exit_offset=28,
+        link_register="lr",
+    ),
     "armv7m": ExitpointSpec(
         platform=PlatformSpec("ARM_V7M", "LITTLE"),
         pc_register="pc",
@@ -315,6 +325,7 @@ _SKIP_REASONS = {
     "amd64.panda": "Waiting for panda-ng",
     "armv6k.panda": "Waiting for panda-ng",
     "armv5t.panda": "Waiting for panda-ng",
+    "armv4t.panda": "Waiting for panda-ng",
     "armv7m.panda": "Waiting for panda-ng",
     "armv7em.panda": "Waiting for panda-ng",
     "armv6m.panda": "Waiting for panda-ng",

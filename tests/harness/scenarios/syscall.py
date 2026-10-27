@@ -9,6 +9,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv4",
+    "armv4t",
     "armv6k",
     "armv6m",
     "armv7m",

@@ -19,6 +19,7 @@ _ARCH_SPECS = {
     "amd64": PlatformSpec("X86_64", "LITTLE"),
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
     "armv5t": PlatformSpec("ARM_V5T", "LITTLE"),
+    "armv4t": PlatformSpec("ARM_V4T", "LITTLE"),
     "armv7m": PlatformSpec("ARM_V7M", "LITTLE"),
     "armv7em": PlatformSpec("ARM_V7EM", "LITTLE"),
     "armv6m": PlatformSpec("ARM_V6M", "LITTLE"),
@@ -39,6 +40,7 @@ _ARCH_SPECS = {
 _NO_FIXED_LOAD_ADDRESS = {
     "armv6k",
     "armv5t",
+    "armv4t",
     "armv7m",
     "armv7em",
     "armv8m",

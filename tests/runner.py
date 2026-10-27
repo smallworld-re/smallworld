@@ -33,6 +33,7 @@ machine.add(cpu)
 filepath = pathlib.Path(__file__).parent / args.path
 
 if arch in (
+    smallworld.platforms.Architecture.ARM_V4T,
     smallworld.platforms.Architecture.ARM_V5T,
     smallworld.platforms.Architecture.ARM_V6K,
     smallworld.platforms.Architecture.ARM_V7M,

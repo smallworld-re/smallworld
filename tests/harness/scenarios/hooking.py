@@ -78,6 +78,24 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
+    "armv4": HookingSpec(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+    ),
+    "armv4t": HookingSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        string_source=StringSource(register="r0"),
+    ),
     "armv6m": HookingSpec(
         platform=PlatformSpec("ARM_V6M", "LITTLE"),
         pointer_size=4,
@@ -357,6 +375,8 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "armv6k.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv5t.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv4.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armv4t.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armv6m.styx": "styx hangs on this scenario's Kinetis21 target",
             "armv7m.styx": "styx hangs on this scenario's Kinetis21 target",
             "armv7em.styx": "styx hangs on this scenario's Kinetis21 target",

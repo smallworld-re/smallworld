@@ -20,6 +20,8 @@ _ARCHS = (
     "aarch64",
     "amd64",
     "armv5t",
+    "armv4",
+    "armv4t",
     "armv6k",
     "armv6m",
     "armv7m",
@@ -74,6 +76,8 @@ _SPECS = build_specs(
         "aarch64": _ENGINES_UNICORN_PANDA,
         "amd64": _ENGINES_UNICORN_PANDA,
         "armv5t": _ENGINES_UNICORN_PANDA,
+        "armv4": _ENGINES_UNICORN_PANDA,
+        "armv4t": _ENGINES_UNICORN_PANDA,
         "armv6k": _ENGINES_UNICORN_PANDA,
         "armv6m": _ENGINES_UNICORN_PANDA,
         "armv7m": _ENGINES_UNICORN_PANDA,
@@ -108,6 +112,11 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "amd64": "Interrupt hook doesn't fire",
             "i386": "Interrupt hook doesn't fire",
+            # No bkpt before ARMv5, so these trap on an undefined instruction,
+            # as x86 does with ud2. Measured: Unicorn stops with
+            # UC_ERR_INSN_INVALID instead of reporting an interrupt.
+            "armv4": "Unicorn stops on undefined instructions; ARMv4 has no bkpt",
+            "armv4t": "Unicorn stops on undefined instructions; ARMv4T has no bkpt",
         },
     ),
     run_factory=just_run(),

@@ -1058,6 +1058,18 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv4t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
@@ -1284,6 +1296,18 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_amd64_avx512(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv4t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1515,6 +1539,18 @@ class AngrMachdefTests(unittest.TestCase):
         # Not supported by angr
         self.assertRaises(ValueError, self.run_test, platform)
 
+    def test_angr_armv4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv4t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
@@ -1741,6 +1777,18 @@ class PandaMachdefTests(unittest.TestCase):
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
 
+    def test_panda_armv4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_armv4t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_panda_armv5t(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
@@ -1941,6 +1989,18 @@ class GhidraMachdefTests(unittest.TestCase):
         )
         # Not supported by ghidra
         self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_armv4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv4t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
     def test_ghidra_armv5t(self):
         platform = platforms.Platform(
@@ -2977,6 +3037,20 @@ class TritonMachdefTests(unittest.TestCase):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv4(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv4t(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
             )
         )
 
