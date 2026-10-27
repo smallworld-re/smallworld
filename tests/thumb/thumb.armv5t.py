@@ -37,8 +37,15 @@ for arch in [
     emulator = smallworld.emulators.UnicornEmulator(platform)
     machine = smallworld.state.Machine()
     cpu: ARM = smallworld.state.cpus.CPU.for_platform(platform)
+    # Reroll until we get a CPU instance where, iterating over registers, we
+    # get CPSR before PC. Registers hash by id, so the order follows their
+    # addresses; keep each rejected CPU alive, or the next one reuses its
+    # memory, gets the same order, and the loop never ends.
+    rejected = []
     while not is_cpu_register_order_bad(cpu):
-        # reroll until we get a CPU instance where when we iterate over registers, we get CPSR before PC
+        if len(rejected) > 1000:
+            raise Exception("No CPU with CPSR before PC in 1000 tries")
+        rejected.append(cpu)
         cpu = smallworld.state.cpus.CPU.for_platform(platform)
     code = smallworld.state.memory.code.Executable.from_filepath(
         "thumb/thumb.armv5t.bin", address=0x1000
