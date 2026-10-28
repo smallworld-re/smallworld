@@ -9369,6 +9369,34 @@ class GhidraSymbolicWriteHookByteOrderTests(unittest.TestCase):
         self.assertEqual(value.concrete_value, 0x11223344)
 
 
+_GHIDRA_CONCRETE_THEN_SYMBOLIC = """
+from smallworld import emulators, platforms
+
+platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
+emulators.ghidra.GhidraEmulator(platform)
+emulators.ghidra.GhidraSymbolicEmulator(platform)
+"""
+
+
+class GhidraEmulatorStartOrderTests(unittest.TestCase):
+    """A GhidraSymbolicEmulator must work after a GhidraEmulator started the JVM.
+
+    The SymbolicSummaryZ3 native libraries can only be registered before the
+    JVM starts, so the concrete factory has to prepare them too. This needs a
+    fresh JVM, so it runs in a subprocess.
+    """
+
+    def test_symbolic_after_concrete(self):
+        cmd = ["python3", "-c", _GHIDRA_CONCRETE_THEN_SYMBOLIC]
+        result = subprocess.run(
+            wrap_python_command(cmd),
+            cwd=os.path.abspath(os.path.dirname(__file__)),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+
+
 class GhidraSymbolicRegisterLabelTests(unittest.TestCase):
     """write_register_label must preserve the register's concrete byte side.
 
