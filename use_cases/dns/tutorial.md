@@ -66,18 +66,18 @@ Our goal for this exercise is to figure out the structure of argument 1,
 which we'll call `buf`, and argument 4, which we'll call `msg`.
 
 First, we set up some smallworld boilerplate.
-This configures logging, as well as the hinter
-that will let us see the output from our analysis. 
+This configures logging,
+which will let us see the output from our analysis.
 
 ```python
 import logging
 import pathlib
 
 import smallworld
+from smallworld.analyses.field_detection import FieldDetectionAnalysis
 
-# Set up logging and hinting
+# Set up logging
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 log = logging.getLogger("smallworld")
 ```
@@ -163,14 +163,14 @@ machine.add(gdata)
 # **** NOTE ****
 # For now, this is treated as one big empty space.
 # We will fill it with fields later
-gdata[0] = smallworld.state.EmptyValue(48, None, "msg")
+gdata[0] = smallworld.state.SymbolicValue(48, None, None, "msg")
 
 # Input buffer
 #
 # **** NOTE ****
 # For now, this is treated as one big empty space.
 # We will fill it with fields later
-gdata[48] = smallworld.state.EmptyValue(512, None, "buf")
+gdata[48] = smallworld.state.SymbolicValue(512, None, None, "buf")
 
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
@@ -230,9 +230,9 @@ Since we defined `msg` as 512 homogenous bytes, it didn't expect to see a field 
 We can redefine msg as the following
 
 ```python
-gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
-gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
-gdata[24] = smallworld.state.EmptyValue(24, None, "msg.unk-0x18")
+gdata[0] = smallworld.state.SymbolicValue(16, None, None, "msg.unk-0x0")
+gdata[16] = smallworld.state.SymbolicValue(8, None, None, "msg.a")
+gdata[24] = smallworld.state.SymbolicValue(24, None, None, "msg.unk-0x18")
 ```
 
 We're not sure what `msg.a` is, but we know it's very likely a field.
@@ -255,11 +255,11 @@ In fact, four iterations tell us the same thing;
 the program writes zero to four 8-byte fields right next to each other:
 
 ```python
-gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
-gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
-gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
-gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
-gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
+gdata[0] = smallworld.state.SymbolicValue(16, None, None, "msg.unk-0x0")
+gdata[16] = smallworld.state.SymbolicValue(8, None, None, "msg.a")
+gdata[24] = smallworld.state.SymbolicValue(8, None, None, "msg.b")
+gdata[32] = smallworld.state.SymbolicValue(8, None, None, "msg.c")
+gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 ```
 
 Some more iterations, and we start decoding both `buf` and `msg.unk-0x0`,
@@ -267,25 +267,25 @@ which I've decided to call `msg.hdr`, since I suspect it's the
 part of the struct representing the DNS header:
 
 ```python
-gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
-gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
-gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.c")
-gdata[6] = smallworld.state.EmptyValue(2, None, "msg.hdr.d")
-gdata[8] = smallworld.state.EmptyValue(2, None, "msg.hdr.e")
-gdata[10] = smallworld.state.EmptyValue(2, None, "msg.hdr.f")
+gdata[0] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.a")
+gdata[2] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.b")
+gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.c")
+gdata[6] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.d")
+gdata[8] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.e")
+gdata[10] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.f")
 # NOTE: 4 bytes of padding here; never referenced
-gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
-gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
-gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
-gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
+gdata[16] = smallworld.state.SymbolicValue(8, None, None, "msg.a")
+gdata[24] = smallworld.state.SymbolicValue(8, None, None, "msg.b")
+gdata[32] = smallworld.state.SymbolicValue(8, None, None, "msg.c")
+gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 # Input buffer
-gdata[48] = smallworld.state.EmptyValue(2, None, "buf.a")
-gdata[50] = smallworld.state.EmptyValue(2, None, "buf.b")
-gdata[52] = smallworld.state.EmptyValue(2, None, "buf.c")
-gdata[54] = smallworld.state.EmptyValue(2, None, "buf.d")
-gdata[56] = smallworld.state.EmptyValue(2, None, "buf.e")
-gdata[58] = smallworld.state.EmptyValue(2, None, "buf.f")
-gdata[60] = smallworld.state.EmptyValue(500, None, "buf")
+gdata[48] = smallworld.state.SymbolicValue(2, None, None, "buf.a")
+gdata[50] = smallworld.state.SymbolicValue(2, None, None, "buf.b")
+gdata[52] = smallworld.state.SymbolicValue(2, None, None, "buf.c")
+gdata[54] = smallworld.state.SymbolicValue(2, None, None, "buf.d")
+gdata[56] = smallworld.state.SymbolicValue(2, None, None, "buf.e")
+gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.f")
+gdata[60] = smallworld.state.SymbolicValue(500, None, None, "buf")
 ```
 
 You've now made it to the code contained in `dns_1.py`.
@@ -378,7 +378,7 @@ Let's take this one line at a time:
 Let's update our harness:
 
 ```python
-gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.a.len")
+gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.a.len")
 ...
 gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.msg.a.len")
 ```
