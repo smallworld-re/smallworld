@@ -35,14 +35,14 @@ from .spec import ScenarioInfo, from_variants, just_run
 
 NATIVE_PARITY = True
 
-_VARIANT = "mcs51.pcode"
+_VARIANTS = ("mcs51.angr", "mcs51.pcode")
 
 SCENARIO_INFOS = tuple(
     ScenarioInfo(
         prefix=name,
         scenario=name,
         tags=("scenario", name),
-        variants_source=from_variants(((_VARIANT, None),)),
+        variants_source=from_variants(tuple((v, None) for v in _VARIANTS)),
         run_factory=just_run(),
     )
     for name in ("mcs51_spaces", "mcs51_flags")
@@ -50,7 +50,7 @@ SCENARIO_INFOS = tuple(
 
 
 def can_run(scenario: str, variant: str) -> bool:
-    return scenario in ("mcs51_spaces", "mcs51_flags") and variant == _VARIANT
+    return scenario in ("mcs51_spaces", "mcs51_flags") and variant in _VARIANTS
 
 
 def _run(
@@ -80,6 +80,10 @@ def _run(
     machine.add(code)
     cpu.pc.set(code.address)
     cpu.sp.set(0x07)
+    # The 8051 resets PSW and the accumulator to zero.  Set them, so angr
+    # does not treat the bits the program reads back as unconstrained.
+    cpu.psw.set(0)
+    cpu.acc.set(0)
 
     for base, size in (
         (MCS51_IDATA_BASE, 0x100),

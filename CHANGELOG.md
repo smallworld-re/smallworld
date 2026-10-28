@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tables. Test binaries are assembled with SDCC. SmallWorld's Nix environment
   patches Ghidra's 8051 language (`nix/patches/ghidra-8051.patch`) so that
   arithmetic flags, bit addressing and `mov sp,#n` behave as on hardware.
+- The Intel 8051 on the angr backend, through angr's p-code engine. An 8051
+  engine maps the 8051's address spaces onto the same flat map as the Ghidra
+  backend and implements its user-defined operations, and the Nix
+  environment applies the same 8051 patch to pypcode's copy of the language.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

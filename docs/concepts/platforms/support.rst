@@ -230,21 +230,24 @@ hook:
   no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
   is architecturally prohibited on SuperH anyway, but assemblers accept it.
 
-**mcs51:** The Intel 8051 runs on Ghidra only, and is a prototype. It is a Harvard
-machine whose code, external RAM (XDATA), internal RAM and special function
-registers are separate address spaces. SmallWorld lays them side by side in one
-flat map, which ``smallworld.platforms.defs.mcs51`` defines: code at 0x00000,
-XDATA at 0x10000, internal RAM at 0x20000, SFRs at 0x20100 and Ghidra's bit space
-at 0x20200. Map memory and hook accesses at those flat addresses; registers
-still hold the CPU's own 8- and 16-bit values, so SP of 0x60 means flat address
-0x20060. Ghidra's stock 8051 language is written for decompilation and emulates
-arithmetic and bit addressing wrongly, so SmallWorld's Nix environment ships
-Ghidra with ``nix/patches/ghidra-8051.patch`` applied (see ``nix/ghidra.nix``):
-the carry out of ``addc``/``subb``, the auxiliary carry and overflow flags, the
-user flag F0, bit addressing and ``mov sp,#n`` all follow the hardware there. A
-Ghidra without the patch fails the ``mcs51_flags`` scenario. Two gaps remain:
-R0-R7 are standalone registers rather than the register bank in internal RAM
-that PSW's RS bits select, and the parity flag is never computed.
+**mcs51:** The Intel 8051 runs on Ghidra and angr, and is a prototype. It is a
+Harvard machine whose code, external RAM (XDATA), internal RAM and special
+function registers are separate address spaces. SmallWorld lays them side by
+side in one flat map, which ``smallworld.platforms.defs.mcs51`` defines: code at
+0x00000, XDATA at 0x10000, internal RAM at 0x20000, SFRs at 0x20100 and Ghidra's
+bit space at 0x20200. Map memory and hook accesses at those flat addresses;
+registers still hold the CPU's own 8- and 16-bit values, so SP of 0x60 means
+flat address 0x20060. Both backends run Ghidra's 8051 language - angr through
+pypcode's copy of it - and SmallWorld's 8051 angr engine maps the 8051's spaces
+onto the same flat map. That language is written for decompilation and emulates
+arithmetic and bit addressing wrongly, so SmallWorld's Nix environment applies
+``nix/patches/ghidra-8051.patch`` to both copies (see ``nix/ghidra.nix`` and the
+``pypcode`` entry in ``overrides.nix``): the carry out of ``addc``/``subb``, the
+auxiliary carry and overflow flags, the user flag F0, bit addressing and
+``mov sp,#n`` all follow the hardware there. A Ghidra or pypcode without the
+patch fails the ``mcs51_flags`` scenario. Two gaps remain: R0-R7 are standalone
+registers rather than the register bank in internal RAM that PSW's RS bits
+select, and the parity flag is never computed.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.

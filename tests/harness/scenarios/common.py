@@ -152,7 +152,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="dptr",
         stack_pointer_register="sp",
         pointer_size=2,
-        engines=("pcode",),
+        engines=("angr", "pcode"),
     ),
     "msp430": ArchInfo(
         platform=PlatformSpec("MSP430", "LITTLE"),
