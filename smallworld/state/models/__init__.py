@@ -1,5 +1,6 @@
 from . import (
     aarch64,
+    aarch64be,
     amd64,
     armv4t,
     armv4tbe,
@@ -50,6 +51,7 @@ __all__ = __model__ + [
     "SparseMemoryMappedModel",
     "ReturnConstant",
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv4t",
     "armv4tbe",

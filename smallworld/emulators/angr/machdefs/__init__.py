@@ -1,4 +1,4 @@
-from .aarch64 import AArch64MachineDef
+from .aarch64 import AArch64BEMachineDef, AArch64MachineDef
 from .amd64 import AMD64MachineDef
 from .arm import (
     ARMv4BEMachineDef,
@@ -26,6 +26,7 @@ from .xtensa import XTensaBEMachineDef, XTensaELMachineDef
 
 __all__ = [
     "AArch64MachineDef",
+    "AArch64BEMachineDef",
     "AMD64MachineDef",
     "AngrMachineDef",
     "ARMv4MachineDef",

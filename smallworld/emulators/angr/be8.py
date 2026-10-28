@@ -1,9 +1,10 @@
-"""Lifting BE8 ARM code with VEX.
+"""Lifting big-endian ARM code with little-endian instructions with VEX.
 
 Big-endian ARMv6 and later are BE8: data is big-endian, but instructions
-are little-endian. VEX's ARM guest has one byte order for both, and a
-big-endian guest will not decode single-precision VFP, so lift from a
-little-endian guest and then make every load and store big-endian.
+are little-endian. Big-endian AArch64 is the same. VEX's ARM guests have one
+byte order for both, and the big-endian ones will not decode single-precision
+VFP (ARM) or anything at all (AArch64), so lift from a little-endian guest
+and then make every load and store big-endian.
 """
 
 import angr
@@ -25,7 +26,16 @@ def be8_arch() -> archinfo.Arch:
     return arch
 
 
-_LIFT_ARCH = archinfo.ArchARMEL()
+def aarch64_be_arch() -> archinfo.Arch:
+    """archinfo's AArch64 with big-endian data and little-endian instructions"""
+    arch = archinfo.ArchAArch64(archinfo.Endness.BE)
+    arch.instruction_endness = archinfo.Endness.LE
+    # VEX lays out its guest state little-endian whatever the guest.
+    arch.register_endness = archinfo.Endness.LE
+    # Capstone sees the instructions as they are, little-endian.
+    arch.cs_mode = arch.cs_mode - archinfo.arch._capstone.CS_MODE_BIG_ENDIAN
+    return arch
+
 
 _MEMORY_STMTS = (
     pyvex.stmt.Store,
@@ -49,14 +59,28 @@ def make_big_endian(irsb: pyvex.IRSB) -> None:
                 expr.end = archinfo.Endness.BE
 
 
-class BE8Engine(UberEngine):
-    """angr's VEX engine, lifting BE8 code"""
+class _LittleEndianLiftEngine(UberEngine):
+    """angr's VEX engine, lifting for `lift_arch` and making memory big-endian"""
+
+    lift_arch: archinfo.Arch
 
     def lift_vex(self, *args, **kwargs):
-        kwargs["arch"] = _LIFT_ARCH
+        kwargs["arch"] = self.lift_arch
         irsb = super().lift_vex(*args, **kwargs)
         make_big_endian(irsb)
         return irsb
+
+
+class BE8Engine(_LittleEndianLiftEngine):
+    """angr's VEX engine, lifting BE8 code"""
+
+    lift_arch = archinfo.ArchARMEL()
+
+
+class AArch64BEEngine(_LittleEndianLiftEngine):
+    """angr's VEX engine, lifting big-endian AArch64 code"""
+
+    lift_arch = archinfo.ArchAArch64()
 
 
 class SimCCARMLinuxSyscall(angr.calling_conventions.SimCCARMLinuxSyscall):
@@ -92,4 +116,11 @@ for _os in ("default", "Linux"):
     angr.calling_conventions.register_syscall_cc("ARMEL", _os, SimCCARMLinuxSyscall)
 
 
-__all__ = ["BE8Engine", "SimCCARMLinuxSyscall", "be8_arch", "make_big_endian"]
+__all__ = [
+    "AArch64BEEngine",
+    "BE8Engine",
+    "SimCCARMLinuxSyscall",
+    "aarch64_be_arch",
+    "be8_arch",
+    "make_big_endian",
+]

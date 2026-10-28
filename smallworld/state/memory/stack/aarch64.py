@@ -17,3 +17,11 @@ class AArch64Stack(stack.DescendingStack):
     @classmethod
     def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
         raise NotImplementedError("Stack initialization not implemented for AArch64")
+
+
+class AArch64BEStack(AArch64Stack):
+    """A stack for a big-endian ARM 64-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.BIG
+    )

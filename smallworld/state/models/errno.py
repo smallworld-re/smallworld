@@ -368,6 +368,11 @@ class AArch64ErrnoResolver(ErrnoResolver):
     # aarch64 uses generic errno
 
 
+class AArch64BEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
 class AMD64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

@@ -298,3 +298,14 @@ class AArch64MachineDef(UnicornMachineDef):
         # Vector registers
         # TODO: Figure out how to model these
     }
+
+
+class AArch64BEMachineDef(AArch64MachineDef):
+    """Unicorn machine definition for big-endian aarch64
+
+    Unicorn's big-endian AArch64 fetches little-endian instructions, as
+    AArch64 always does, and makes data accesses big-endian.
+    """
+
+    byteorder = Byteorder.BIG
+    uc_mode = unicorn.UC_MODE_ARM | unicorn.UC_MODE_BIG_ENDIAN

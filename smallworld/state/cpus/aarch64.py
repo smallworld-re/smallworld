@@ -556,3 +556,11 @@ class AArch64(cpu.CPU):
         self.add(self.b31)
         # Vector registers
         # TODO: Figure out how to model these
+
+
+class AArch64BE(AArch64):
+    """CPU Model for big-endian aarch64."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.BIG
+    )

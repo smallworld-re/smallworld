@@ -287,3 +287,7 @@ class AArch64MachineDef(GhidraMachineDef):
         "h31": "h31",
         "b31": "b31",
     }
+
+
+class AArch64BEMachineDef(AArch64MachineDef):
+    byteorder = Byteorder.BIG

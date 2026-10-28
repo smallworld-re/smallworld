@@ -1,4 +1,4 @@
-from .aarch64 import AArch64Stack
+from .aarch64 import AArch64BEStack, AArch64Stack
 from .amd64 import AMD64Stack
 from .arm import (
     ARMv4BEStack,
@@ -29,6 +29,7 @@ from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
     "AArch64Stack",
+    "AArch64BEStack",
     "AMD64Stack",
     "ARMv4Stack",
     "ARMv4tStack",

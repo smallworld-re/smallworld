@@ -1,6 +1,7 @@
 import archinfo
 
 from ....platforms import Architecture, Byteorder
+from ..be8 import AArch64BEEngine, aarch64_be_arch
 from .machdef import AngrMachineDef
 
 
@@ -291,3 +292,11 @@ class AArch64MachineDef(AngrMachineDef):
         "h31": "h31",
         "b31": "b31",
     }
+
+
+class AArch64BEMachineDef(AArch64MachineDef):
+    # VEX lifts big-endian AArch64 through AArch64BEEngine, which lifts for a
+    # little-endian guest and makes memory big-endian.
+    angr_arch = aarch64_be_arch()
+    angr_engine = AArch64BEEngine
+    byteorder = Byteorder.BIG

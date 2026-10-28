@@ -62,8 +62,14 @@ Unicorn, PANDA and Styx run all of them. Ghidra and angr don't run the
 saturating instructions: Ghidra saturates after the 32-bit result has already
 wrapped, and angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
 
-**aarch64:** aarch64 is little-endian only; SmallWorld has no big-endian
-AArch64 (``aarch64_be``).
+**Big-endian aarch64:** aarch64 also comes big-endian (``Byteorder.BIG``), as
+``aarch64_be``: data is big-endian, but instructions stay little-endian, as
+they always are on AArch64. Unicorn runs it in its big-endian mode, which
+fetches little-endian instructions; angr lifts through VEX's little-endian
+AArch64 guest, as VEX's big-endian one decodes nothing, then makes each load
+and store big-endian; and Ghidra uses its ``AARCH64:BE:64:v8A`` language.
+SmallWorld configures no big-endian AArch64 machine for PANDA, and Triton has
+no big-endian AArch64.
 
 **Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
 addressing), ARMv6 without the K extensions or ARMv6T2 (ARM1156, the first with

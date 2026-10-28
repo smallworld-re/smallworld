@@ -1,4 +1,4 @@
-from .aarch64 import AArch64
+from .aarch64 import AArch64, AArch64BE
 from .amd64 import AMD64, AMD64AVX512
 from .arm import (
     ARMv4,
@@ -38,6 +38,7 @@ from .xtensa import Xtensa, XtensaBE
 
 __all__ = [
     "AArch64",
+    "AArch64BE",
     "AMD64",
     "AMD64AVX512",
     "ARMv4",

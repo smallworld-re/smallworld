@@ -1228,3 +1228,19 @@ class AArch64ElfRelocator(ElfRelocator):
                 f"Unknown relocation type for {self._symbol_name(rela)}: "
                 f"{hex(rela.type)}"
             )
+
+
+class AArch64BEElfRelocator(AArch64ElfRelocator):
+    """Relocator for big-endian aarch64.
+
+    Data is big-endian, but instructions are always little-endian, even in
+    object files, so instruction relocations stay little-endian.
+    """
+
+    byteorder = platforms.Byteorder.BIG
+
+    def _pack_insn(self, value: int) -> bytes:
+        return (value & 0xFFFFFFFF).to_bytes(4, "little")
+
+    def _read_insn(self, rela: ElfRela, elf) -> int:
+        return elf.read_int(rela.offset, 4, platforms.Byteorder.LITTLE)
