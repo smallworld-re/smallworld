@@ -39,7 +39,7 @@ for arch in [
     # get CPSR before PC. Registers hash by id, so the order follows their
     # addresses; keep each rejected CPU alive, or the next one reuses its
     # memory, gets the same order, and the loop never ends.
-    rejected = []
+    rejected: list[ARM] = []
     while not is_cpu_register_order_bad(cpu):
         if len(rejected) > 1000:
             raise Exception("No CPU with CPSR before PC in 1000 tries")
