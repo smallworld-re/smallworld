@@ -128,6 +128,15 @@ SPECS: Dict[str, TestFloatSpec] = {
         setup={"f32": dict(_SETUP), "f64": dict(_SETUP)},
         kernels=KERNELS,
     ),
+    "armv7abe": TestFloatSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        engines=("unicorn", "angr", "pcode", "panda", "styx"),
+        in_register="r0",
+        out_register="r1",
+        count_register="r2",
+        setup={"f32": dict(_SETUP), "f64": dict(_SETUP)},
+        kernels=KERNELS,
+    ),
 }
 
 

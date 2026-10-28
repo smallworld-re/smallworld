@@ -62,6 +62,15 @@ _SPECS = {
         string_source=StringSource(register="r0"),
         print_entrypoint=True,
     ),
+    "armv6kbe": RelaSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
     "armv5t": RelaSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pointer_size=4,
@@ -145,8 +154,28 @@ _SPECS = {
         load_address=0x400000,
         print_entrypoint=True,
     ),
+    "armv7abe": RelaSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "armv7r": RelaSpec(
         platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv7rbe": RelaSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -165,8 +194,28 @@ _SPECS = {
         load_address=0x400000,
         print_entrypoint=True,
     ),
+    "armv8abe": RelaSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "armv8r": RelaSpec(
         platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8rbe": RelaSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -340,7 +389,20 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         stack.push_integer(0, 4, None)
     elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch in {"armv7a", "armv7r", "armv8a", "armv8r"} and engine == "panda":
+    elif (
+        arch
+        in {
+            "armv7a",
+            "armv7abe",
+            "armv7r",
+            "armv7rbe",
+            "armv8a",
+            "armv8abe",
+            "armv8r",
+            "armv8rbe",
+        }
+        and engine == "panda"
+    ):
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
     return stack
@@ -349,7 +411,20 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
 def _configure_exit(
     machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int
 ) -> None:
-    if arch in {"armv7a", "armv7r", "armv8a", "armv8r"} and engine == "panda":
+    if (
+        arch
+        in {
+            "armv7a",
+            "armv7abe",
+            "armv7r",
+            "armv7rbe",
+            "armv8a",
+            "armv8abe",
+            "armv8r",
+            "armv8rbe",
+        }
+        and engine == "panda"
+    ):
         emulator.add_exit_point(entrypoint + 40)
         return
     if arch == "ppc" and engine == "panda":
@@ -366,6 +441,7 @@ def _configure_exit(
     elif arch in {
         "aarch64",
         "armv6k",
+        "armv6kbe",
         "armv5t",
         "armv5tbe",
         "armv4t",
@@ -375,9 +451,13 @@ def _configure_exit(
         "armv6m",
         "armv8m",
         "armv7a",
+        "armv7abe",
         "armv7r",
+        "armv7rbe",
         "armv8a",
+        "armv8abe",
         "armv8r",
+        "armv8rbe",
         "ppc",
         "ppc64",
     }:

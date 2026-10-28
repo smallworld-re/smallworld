@@ -44,15 +44,25 @@ _DEFAULT_SKIP_REASONS = {
     },
     **{
         f"{arch}.styx": "Styx has no ARMv8 target"
-        for arch in ("armv8a", "armv8r", "armv8m")
+        for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m")
     },
     "armv7r.styx": "Styx has no ARMv7-R target",
+    "armv7rbe.styx": "Styx has no ARMv7-R target",
     # Big-endian ARM runs on Unicorn, angr and Ghidra. Triton has no
     # big-endian ARM (see TRITON_ARCHS), and SmallWorld configures no
     # big-endian ARM machine for PANDA or Styx.
     **{
         f"{arch}.{engine}": f"No big-endian ARM machine is configured for {name}"
-        for arch in ("armv4be", "armv4tbe", "armv5tbe")
+        for arch in (
+            "armv4be",
+            "armv4tbe",
+            "armv5tbe",
+            "armv6kbe",
+            "armv7abe",
+            "armv7rbe",
+            "armv8abe",
+            "armv8rbe",
+        )
         for engine, name in (("panda", "PANDA"), ("styx", "Styx"))
     },
 }

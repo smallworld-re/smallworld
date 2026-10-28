@@ -17,6 +17,7 @@ import zlib
 from typing import Sequence
 
 from .common import (
+    TRITON_ARCHS,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -32,7 +33,9 @@ _ENGINES = ("unicorn", "angr", "pcode", "triton", "panda", "styx")
 
 _PLATFORMS = {
     "armv8a": PlatformSpec("ARM_V8A", "LITTLE"),
+    "armv8abe": PlatformSpec("ARM_V8A", "BIG"),
     "armv8r": PlatformSpec("ARM_V8R", "LITTLE"),
+    "armv8rbe": PlatformSpec("ARM_V8R", "BIG"),
     "armv8m": PlatformSpec("ARM_V8M", "LITTLE"),
 }
 
@@ -77,35 +80,53 @@ _PCODE_NO_STACKLIMIT = (
 # family -> (archs, [(argument, expected r0)], skip reasons)
 _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] = {
     "v8_acqrel": (
-        ("armv8a", "armv8r", "armv8m"),
+        ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m"),
         ((5, 2 * 5 + 1), (100, 2 * 100 + 1)),
         {
             f"{arch}.triton": _TRITON_NO_ACQREL
-            for arch in ("armv8a", "armv8r", "armv8m")
+            for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m")
         },
     ),
     "v8_crc32": (
-        ("armv8a", "armv8r"),
+        ("armv8a", "armv8abe", "armv8r", "armv8rbe"),
         tuple((arg, _crc32_expected(arg)) for arg in (5, 0x12345678)),
         {
-            **{f"{arch}.angr": _ANGR_NO_CRC32 for arch in ("armv8a", "armv8r")},
-            **{f"{arch}.pcode": _PCODE_NO_CRC32 for arch in ("armv8a", "armv8r")},
-            **{f"{arch}.triton": _TRITON_NO_DECODE for arch in ("armv8a", "armv8r")},
+            **{
+                f"{arch}.angr": _ANGR_NO_CRC32
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
+            **{
+                f"{arch}.pcode": _PCODE_NO_CRC32
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
+            **{
+                f"{arch}.triton": _TRITON_NO_DECODE
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
         },
     ),
     "v8_fp": (
-        ("armv8a", "armv8r"),
+        ("armv8a", "armv8abe", "armv8r", "armv8rbe"),
         ((5, 6), (2, 3)),
         {
             **{
                 f"{arch}.panda": "PANDA's ARM CPU starts with the VFP unit "
                 "inaccessible, and enabling it needs a privileged CPACR write "
                 "the harness cannot make"
-                for arch in ("armv8a", "armv8r")
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
             },
-            **{f"{arch}.angr": _ANGR_NO_MAXNUM for arch in ("armv8a", "armv8r")},
-            **{f"{arch}.pcode": _PCODE_NO_V8FP for arch in ("armv8a", "armv8r")},
-            **{f"{arch}.triton": _TRITON_NO_FLOAT for arch in ("armv8a", "armv8r")},
+            **{
+                f"{arch}.angr": _ANGR_NO_MAXNUM
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
+            **{
+                f"{arch}.pcode": _PCODE_NO_V8FP
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
+            **{
+                f"{arch}.triton": _TRITON_NO_FLOAT
+                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
+            },
         },
     ),
     "v8m_stacklimit": (
@@ -120,7 +141,18 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
 }
 
 _SPECS = {
-    family: {arch: _Spec(_PLATFORMS[arch]) for arch in archs}
+    family: {
+        arch: _Spec(
+            _PLATFORMS[arch],
+            # Triton has no big-endian ARM.
+            (
+                _ENGINES
+                if arch in TRITON_ARCHS
+                else tuple(e for e in _ENGINES if e != "triton")
+            ),
+        )
+        for arch in archs
+    }
     for family, (archs, _, _) in _FAMILIES.items()
 }
 

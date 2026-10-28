@@ -53,6 +53,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "armv6kbe": ElfSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "armv5t": ElfSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pointer_size=4,
@@ -130,8 +137,22 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "armv7abe": ElfSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "armv7r": ElfSpec(
         platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7rbe": ElfSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -144,8 +165,22 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "armv8abe": ElfSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "armv8r": ElfSpec(
         platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8rbe": ElfSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -251,6 +286,7 @@ _SKIP_REASONS = {
 _UNICORN_BOUND_EXITS = {
     "aarch64": 0xAC,
     "armv6k": 0x88,
+    "armv6kbe": 0x88,
     "armv5t": 0x88,
     "armv5tbe": 0x88,
     "armv4": 0x88,
@@ -258,9 +294,13 @@ _UNICORN_BOUND_EXITS = {
     "armv4t": 0x88,
     "armv4tbe": 0x88,
     "armv7a": 0x88,
+    "armv7abe": 0x88,
     "armv7r": 0x88,
+    "armv7rbe": 0x88,
     "armv8a": 0x88,
+    "armv8abe": 0x88,
     "armv8r": 0x88,
+    "armv8rbe": 0x88,
 }
 
 
@@ -329,6 +369,7 @@ def _configure_exitpoints(
         in {
             "aarch64",
             "armv6k",
+            "armv6kbe",
             "armv5t",
             "armv5tbe",
             "armv4",
@@ -336,9 +377,13 @@ def _configure_exitpoints(
             "armv4t",
             "armv4tbe",
             "armv7a",
+            "armv7abe",
             "armv7r",
+            "armv7rbe",
             "armv8a",
+            "armv8abe",
             "armv8r",
+            "armv8rbe",
         }
         and engine == "panda"
     ):

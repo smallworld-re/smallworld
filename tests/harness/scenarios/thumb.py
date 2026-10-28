@@ -13,10 +13,15 @@ _VARIANT_ARCH_NAMES = {
     "armv4t": ("ARM_V4T",),
     "armv4tbe": ("ARM_V4T",),
     "armv6k": ("ARM_V6K",),
+    "armv6kbe": ("ARM_V6K",),
     "armv7a": ("ARM_V7A",),
+    "armv7abe": ("ARM_V7A",),
     "armv8a": ("ARM_V8A",),
+    "armv8abe": ("ARM_V8A",),
     "armv8r": ("ARM_V8R",),
+    "armv8rbe": ("ARM_V8R",),
     "armv7r": ("ARM_V7R",),
+    "armv7rbe": ("ARM_V7R",),
 }
 
 _VARIANTS = tuple((variant, None) for variant in _VARIANT_ARCH_NAMES)

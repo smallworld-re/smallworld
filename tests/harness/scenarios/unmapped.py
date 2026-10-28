@@ -50,6 +50,11 @@ _SPECS = {
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
     ),
+    "armv6kbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
     "armv5t": UnmappedSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
@@ -97,8 +102,20 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,
     ),
+    "armv7abe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
     "armv7r": UnmappedSpec(
         platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv7rbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,
@@ -109,8 +126,20 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,
     ),
+    "armv8abe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
     "armv8r": UnmappedSpec(
         platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8rbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,

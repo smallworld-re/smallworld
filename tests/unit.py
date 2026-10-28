@@ -1094,6 +1094,36 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_armv6kbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv7abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv7rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv8abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv8rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_cpu_armv6k(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
@@ -1353,6 +1383,36 @@ class UnicornMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_unicorn_armv6kbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv7abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv7rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv8abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv8rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_unicorn_armv6k(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
@@ -1608,6 +1668,36 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_armv5tbe(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv6kbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv8abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_armv8rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 
@@ -2077,6 +2167,36 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_armv5tbe(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6kbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv8abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv8rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 
@@ -5375,6 +5495,72 @@ class Time64ModelTests(ModelTestCase):
         )
         with self.assertRaises(ValueError):
             state.models.Model.lookup("__time64", armv5t, MODELS_SYSV, 0x10000)
+
+
+class BE8Tests(unittest.TestCase):
+    """Big-endian ARMv6 and later: little-endian code, big-endian data."""
+
+    def test_angr_makes_memory_big_endian(self):
+        import archinfo
+        import pyvex
+
+        from smallworld.emulators.angr.be8 import make_big_endian
+
+        # ldr r0, [r1]; str r0, [r2]; vldr s0, [r0]
+        code = bytes.fromhex("000091e5000082e5000a90ed")
+        irsb = pyvex.lift(code, 0x1000, archinfo.ArchARMEL())
+        make_big_endian(irsb)
+        make_big_endian(irsb)
+        ends = [s.end for s in irsb.statements if isinstance(s, pyvex.stmt.Store)]
+        ends += [e.end for e in irsb.expressions if isinstance(e, pyvex.expr.Load)]
+        self.assertEqual(len(ends), 3)
+        self.assertEqual(set(ends), {archinfo.Endness.BE})
+
+    def test_unicorn_holds_cpsr_e(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        emu = emulators.UnicornEmulator(platform)
+        self.assertTrue(emu.read_register("cpsr") & (1 << 9))
+        # A harness writing CPSR mustn't make data little-endian.
+        emu.write_register("cpsr", 0x1D3)
+        self.assertEqual(emu.read_register("cpsr") & (1 << 9), 1 << 9)
+
+    def test_ghidra_q_registers_hold_d_registers_in_order(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        emu = emulators.GhidraEmulator(platform)
+        # d0 is q0's low half, as on hardware, not Ghidra's high half.
+        emu.write_register_content("q0", 0x1111111122222222_3333333344444444)
+        self.assertEqual(emu.read_register_content("d0"), 0x3333333344444444)
+        self.assertEqual(emu.read_register_content("d1"), 0x1111111122222222)
+        emu.write_register_content("d1", 0x5555555566666666)
+        self.assertEqual(
+            emu.read_register_content("q0"), 0x5555555566666666_3333333344444444
+        )
+
+    def test_ghidra_symbolic_q_register_halves(self):
+        import claripy
+
+        from smallworld.emulators.ghidra.machdefs import GhidraMachineDef
+
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        machdef = GhidraMachineDef.for_platform(platform)
+        bv = claripy.BVV(0x1111111122222222_3333333344444444, 128)
+        swapped = machdef.fix_register_bv("q0", bv)
+        self.assertEqual(swapped.concrete_value, 0x3333333344444444_1111111122222222)
+        self.assertIs(machdef.fix_register_bv("d0", bv), bv)
+
+    def test_unicorn_little_endian_leaves_cpsr_e_clear(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.write_register("cpsr", 0x1D3)
+        self.assertEqual(emu.read_register("cpsr") & (1 << 9), 0)
 
 
 class ArmDoubleWordReturnTests(ModelTestCase):

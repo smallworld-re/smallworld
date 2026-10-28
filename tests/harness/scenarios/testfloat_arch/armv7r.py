@@ -128,6 +128,15 @@ SPECS: Dict[str, TestFloatSpec] = {
         setup={"f32": dict(_SETUP), "f64": dict(_SETUP)},
         kernels=KERNELS,
     ),
+    "armv7rbe": TestFloatSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        engines=("unicorn", "angr", "pcode", "panda", "styx"),
+        in_register="r0",
+        out_register="r1",
+        count_register="r2",
+        setup={"f32": dict(_SETUP), "f64": dict(_SETUP)},
+        kernels=KERNELS,
+    ),
 }
 
 
@@ -175,7 +184,9 @@ SUPPORT = ArchSupport(
     specs=SPECS,
     variant_skips={
         "armv7r.panda": _PANDA_NO_VFP,
+        "armv7rbe.panda": _PANDA_NO_VFP,
         "armv7r.styx": "Styx has no ARMv7-R target",
+        "armv7rbe.styx": "Styx has no ARMv7-R target",
     },
     function_skip=function_skip,
 )

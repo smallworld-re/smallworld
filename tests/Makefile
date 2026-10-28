@@ -42,6 +42,13 @@ ARMV8A_ID := arm-linux-gnueabihf.2.40
 ARMV8M_ID := arm-linux-gnueabi.2.40
 ARMV8R_ID := arm-linux-gnueabihf.2.40
 ARMV7R_ID := arm-linux-gnueabihf.2.40
+# Big-endian ARMv6 and later are BE8: lld links armeb for them as BE8, with
+# code little-endian and data big-endian.
+ARMV6KBE_ID := armeb-linux-gnueabi.2.40
+ARMV7ABE_ID := armeb-linux-gnueabihf.2.40
+ARMV7RBE_ID := armeb-linux-gnueabihf.2.40
+ARMV8ABE_ID := armeb-linux-gnueabihf.2.40
+ARMV8RBE_ID := armeb-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
 LA64_ID := loongarch64-linux-gnu.2.40
@@ -85,6 +92,11 @@ ARMV8A_ASM_AS := zig build-exe -target $(ARMV8A_ID)
 ARMV8M_ASM_AS := zig build-obj -target $(ARMV8M_ID)
 ARMV8R_ASM_AS := zig build-exe -target $(ARMV8R_ID)
 ARMV7R_ASM_AS := zig build-exe -target $(ARMV7R_ID)
+ARMV6KBE_ASM_AS := zig build-exe -target $(ARMV6KBE_ID)
+ARMV7ABE_ASM_AS := zig build-exe -target $(ARMV7ABE_ID)
+ARMV7RBE_ASM_AS := zig build-exe -target $(ARMV7RBE_ID)
+ARMV8ABE_ASM_AS := zig build-exe -target $(ARMV8ABE_ID)
+ARMV8RBE_ASM_AS := zig build-exe -target $(ARMV8RBE_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
@@ -124,6 +136,11 @@ ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
 ARMV8A_ELF_AS := zig build-exe -target $(ARMV8A_ID)
 ARMV8M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
 ARMV8R_ELF_AS := zig build-exe -target $(ARMV8R_ID)
+ARMV6KBE_ELF_AS := zig build-exe -target $(ARMV6KBE_ID)
+ARMV7ABE_ELF_AS := zig build-exe -target $(ARMV7ABE_ID)
+ARMV7RBE_ELF_AS := zig build-exe -target $(ARMV7RBE_ID)
+ARMV8ABE_ELF_AS := zig build-exe -target $(ARMV8ABE_ID)
+ARMV8RBE_ELF_AS := zig build-exe -target $(ARMV8RBE_ID)
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
@@ -162,6 +179,11 @@ ARMV8A_OBJCOPY := zig objcopy
 ARMV8M_OBJCOPY := zig objcopy
 ARMV8R_OBJCOPY := zig objcopy
 ARMV7R_OBJCOPY := zig objcopy
+ARMV6KBE_OBJCOPY := zig objcopy
+ARMV7ABE_OBJCOPY := zig objcopy
+ARMV7RBE_OBJCOPY := zig objcopy
+ARMV8ABE_OBJCOPY := zig objcopy
+ARMV8RBE_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
@@ -200,6 +222,11 @@ ARMV7M_CC := zig cc -target thumb-linux-musleabi
 ARMV7EM_CC := zig cc -target thumb-linux-musleabihf
 ARMV8M_CC := zig cc -target thumb-linux-musleabi
 ARMV8R_CC := zig cc -target $(ARMV8R_ID)
+ARMV6KBE_CC := zig cc -target $(ARMV6KBE_ID)
+ARMV7ABE_CC := zig cc -target $(ARMV7ABE_ID)
+ARMV7RBE_CC := zig cc -target $(ARMV7RBE_ID)
+ARMV8ABE_CC := zig cc -target $(ARMV8ABE_ID)
+ARMV8RBE_CC := zig cc -target $(ARMV8RBE_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
 LA64_CC := zig cc -target $(LA64_ID) 
@@ -239,6 +266,11 @@ ARMV8A_ASFLAGS := -mcpu=cortex_a53
 ARMV8M_ASFLAGS := -mcpu=cortex_m33
 ARMV8R_ASFLAGS := -mcpu=cortex_r52
 ARMV7R_ASFLAGS := -mcpu=cortex_r5
+ARMV6KBE_ASFLAGS := $(ARMV6K_ASFLAGS)
+ARMV7ABE_ASFLAGS := $(ARMV7A_ASFLAGS)
+ARMV7RBE_ASFLAGS := $(ARMV7R_ASFLAGS)
+ARMV8ABE_ASFLAGS := $(ARMV8A_ASFLAGS)
+ARMV8RBE_ASFLAGS := $(ARMV8R_ASFLAGS)
 MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
 MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
 XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
@@ -273,6 +305,15 @@ ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
 ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
 ARMV8M_CFLAGS := -mcpu=cortex_m33 -mfloat-abi=soft
 ARMV8R_CFLAGS := -marm -mcpu=cortex_r52
+ARMV6KBE_CFLAGS := $(ARMV6K_CFLAGS)
+# At -O0, LLVM's FastISel passes a variadic double from a VFP register in
+# r2:r3 low word first even on big-endian, where AAPCS puts the high word
+# first; SelectionDAG gets it right, so use that.
+BE8_HF_CFLAGS := -mllvm -fast-isel=false
+ARMV7ABE_CFLAGS := $(ARMV7A_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV7RBE_CFLAGS := $(ARMV7R_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV8ABE_CFLAGS := $(ARMV8A_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV8RBE_CFLAGS := $(ARMV8R_CFLAGS) $(BE8_HF_CFLAGS)
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
@@ -335,6 +376,10 @@ ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV7EM_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
 ARMV8R_ELF_CFLAGS := -pie
+ARMV7ABE_ELF_CFLAGS := -pie
+ARMV7RBE_ELF_CFLAGS := -pie
+ARMV8ABE_ELF_CFLAGS := -pie
+ARMV8RBE_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
@@ -367,6 +412,11 @@ ARMV8A_EXT := armv8a
 ARMV8M_EXT := armv8m
 ARMV8R_EXT := armv8r
 ARMV7R_EXT := armv7r
+ARMV6KBE_EXT := armv6kbe
+ARMV7ABE_EXT := armv7abe
+ARMV7RBE_EXT := armv7rbe
+ARMV8ABE_EXT := armv8abe
+ARMV8RBE_EXT := armv8rbe
 I386_EXT := i386
 I386_MINGW_EXT := i386
 LA64_EXT := la64
@@ -404,6 +454,11 @@ ARMV8A_SRC_EXT := $(ARMV8A_EXT)
 ARMV8M_SRC_EXT := $(ARMV8M_EXT)
 ARMV8R_SRC_EXT := $(ARMV8R_EXT)
 ARMV7R_SRC_EXT := $(ARMV7R_EXT)
+ARMV6KBE_SRC_EXT := $(ARMV6K_EXT)
+ARMV7ABE_SRC_EXT := $(ARMV7A_EXT)
+ARMV7RBE_SRC_EXT := $(ARMV7R_EXT)
+ARMV8ABE_SRC_EXT := $(ARMV8A_EXT)
+ARMV8RBE_SRC_EXT := $(ARMV8R_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
 M68K_SRC_EXT := $(M68K_EXT)
@@ -581,13 +636,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMV4T ARMV5T ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMV4T ARMV5T ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
