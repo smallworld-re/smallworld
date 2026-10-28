@@ -44,6 +44,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "aarch64be": StaticBufferSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        result_register="w0",
+        model_register="x0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "amd64": StaticBufferSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",

@@ -15,6 +15,7 @@ _PANDA_NG = "Waiting for panda-ng"
 
 _LOAD_VARIANTS = (
     ("aarch64", None),
+    ("aarch64be", _NIX_SYSROOT.format("aarch64be")),
     ("amd64", None),
     ("armv6k", _NIX_SYSROOT.format("armv6k")),
     ("armv6kbe", _NIX_SYSROOT.format("armv6kbe")),
@@ -45,9 +46,12 @@ _LOAD_VARIANTS = (
 
 _ACTUATE_VARIANTS = (
     ("aarch64", None),
+    ("aarch64be", _NIX_SYSROOT.format("aarch64be")),
     ("aarch64.angr", None),
+    ("aarch64be.angr", _NIX_SYSROOT.format("aarch64be")),
     ("aarch64.panda", _PANDA_NG),
     ("aarch64.pcode", None),
+    ("aarch64be.pcode", _NIX_SYSROOT.format("aarch64be")),
     ("aarch64.triton", None),
     ("amd64", None),
     ("amd64.angr", "Problem loading rflags"),

@@ -48,6 +48,7 @@ def _fake_return(arch: str, label: str = "fake return address") -> StackItem:
 
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -85,6 +86,10 @@ _ARCHS = (
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"stack_items": (_fake_return("aarch64"),), "stack_pointer_adjust": 8},
+    "aarch64be": {
+        "stack_items": (_fake_return("aarch64be"),),
+        "stack_pointer_adjust": 8,
+    },
     "amd64": {"stack_items": (_fake_return("amd64"),)},
     "armv5t": {"stack_items": (_fake_return("armv5t"),)},
     "armv5tbe": {"stack_items": (_fake_return("armv5tbe"),)},

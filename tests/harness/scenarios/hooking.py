@@ -48,6 +48,15 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="x0"),
     ),
+    "aarch64be": HookingSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+    ),
     "amd64": HookingSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pointer_size=8,

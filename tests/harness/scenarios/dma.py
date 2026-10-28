@@ -33,6 +33,7 @@ class DMASpec:
 
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -75,6 +76,7 @@ _ARCHS = (
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"result_register": "w0", "argument_registers": ("x0", "x1")},
+    "aarch64be": {"result_register": "w0", "argument_registers": ("x0", "x1")},
     "amd64": {"argument_registers": ("rdi", "rsi")},
     "armv5t": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
     "armv5tbe": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},

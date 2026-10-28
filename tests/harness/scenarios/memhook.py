@@ -8,9 +8,12 @@ NATIVE_PARITY = True
 
 _VARIANTS = (
     ("aarch64", None),
+    ("aarch64be", None),
     ("aarch64.angr", None),
+    ("aarch64be.angr", None),
     ("aarch64.panda", None),
     ("aarch64.pcode", None),
+    ("aarch64be.pcode", None),
     ("aarch64.triton", None),
     ("amd64", None),
     ("amd64.angr", None),
@@ -135,7 +138,16 @@ _VARIANTS = (
 )
 
 # Per the legacy harness, these arches print results with 8-byte fields.
-_WIDE_ARCHES = {"aarch64", "amd64", "i386", "la64", "mips64", "mips64el", "riscv64"}
+_WIDE_ARCHES = {
+    "aarch64",
+    "aarch64be",
+    "amd64",
+    "i386",
+    "la64",
+    "mips64",
+    "mips64el",
+    "riscv64",
+}
 
 
 def _memhook_expectations(

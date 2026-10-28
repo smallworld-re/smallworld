@@ -16,6 +16,7 @@ _BE8_OBJECTS = "BE8 object files hold big-endian code that only the linker conve
 
 _VARIANTS = (
     ("aarch64", _skip("aarch64")),
+    ("aarch64be", _skip("aarch64be")),
     ("amd64", None),
     ("armv6k", None),
     ("armv6kbe", _BE8_OBJECTS),

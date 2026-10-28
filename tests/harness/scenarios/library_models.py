@@ -10,6 +10,7 @@ NATIVE_PARITY = True
 
 _ARCH_MATRIX = (
     ("aarch64", "AARCH64", "LITTLE"),
+    ("aarch64be", "AARCH64", "BIG"),
     ("amd64", "X86_64", "LITTLE"),
     ("armv5t", "ARM_V5T", "LITTLE"),
     ("armv5tbe", "ARM_V5T", "BIG"),

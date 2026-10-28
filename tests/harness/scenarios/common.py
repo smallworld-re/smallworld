@@ -88,6 +88,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=_ENGINES_ALL,
     ),
+    "aarch64be": ArchInfo(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
     "amd64": ArchInfo(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",

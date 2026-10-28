@@ -42,6 +42,7 @@ class NullPcSpec:
 # msp430 is intentionally excluded (its binary does not do what we want).
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",

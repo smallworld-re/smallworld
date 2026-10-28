@@ -5515,6 +5515,56 @@ class BE8Tests(unittest.TestCase):
         self.assertEqual(emu.read_register("cpsr") & (1 << 9), 0)
 
 
+class AArch64BETests(unittest.TestCase):
+    """Big-endian aarch64: little-endian code, big-endian data."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.BIG
+    )
+
+    # mov x0, #0x1122; movk x0, #0x3344, lsl #16; str x0, [x1];
+    # ldr w2, [x1]; fmov s0, w0; str s0, [x1, #8]
+    code = bytes.fromhex("402482d28068a6f2200000f9220040b90000271e200800bd")
+
+    def run_code(self, emulator):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(self.code, address=0x1000))
+        machine.add(state.memory.Memory(0x2000, 0x100))
+        cpu.pc.set(0x1000)
+        cpu.x1.set(0x2000)
+        emulator.add_exit_point(0x1000 + len(self.code))
+        final = machine.emulate(emulator)
+        return final.get_cpu(), emulator.read_memory(0x2000, 12)
+
+    def check(self, emulator):
+        cpu, data = self.run_code(emulator)
+        self.assertEqual(data, bytes.fromhex("000000003344112233441122"))
+        # The 32-bit load reads x0's high half, which comes first.
+        self.assertEqual(cpu.w2.get(), 0)
+
+    def test_unicorn_stores_big_endian(self):
+        self.check(emulators.UnicornEmulator(self.platform))
+
+    def test_angr_stores_big_endian(self):
+        self.check(emulators.AngrEmulator(self.platform))
+
+    def test_ghidra_stores_big_endian(self):
+        self.check(emulators.GhidraEmulator(self.platform))
+
+    def test_relocator_keeps_instructions_little_endian(self):
+        from smallworld.state.memory.elf.rela import AArch64BEElfRelocator
+
+        relocator = AArch64BEElfRelocator()
+        self.assertEqual(relocator._pack_insn(0x94000001), bytes.fromhex("01000094"))
+        self.assertEqual(relocator._pack(0x1122, 4), bytes.fromhex("00001122"))
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.platform, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64be")
+
+
 class ArmDoubleWordReturnTests(ModelTestCase):
     """armv5t/armv5tbe: a double word returns in r0:r1 as ldm would load it."""
 

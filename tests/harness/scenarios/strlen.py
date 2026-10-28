@@ -36,6 +36,7 @@ class StrlenSpec:
 
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",

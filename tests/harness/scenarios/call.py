@@ -10,6 +10,7 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -64,6 +65,7 @@ def _stack(arch: str, **overrides: Any) -> StackSpec:
 # its prologue with no fake return because the test binary uses the link reg.
 _STACKS = {
     "aarch64": _stack("aarch64"),
+    "aarch64be": _stack("aarch64be"),
     "amd64": _stack("amd64"),
     "armv5t": _stack("armv5t"),
     "armv5tbe": _stack("armv5tbe"),

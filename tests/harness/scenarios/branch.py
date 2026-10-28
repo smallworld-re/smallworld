@@ -10,6 +10,7 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64be",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -82,7 +83,10 @@ _SPECS = build_specs(
         "ppc": _PPC_ENGINES,
     },
     # branch prints the 32-bit view on aarch64 so the boolean fits.
-    per_arch={"aarch64": {"result_register": "w0"}},
+    per_arch={
+        "aarch64": {"result_register": "w0"},
+        "aarch64be": {"result_register": "w0"},
+    },
 )
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
