@@ -83,6 +83,9 @@ class Architecture(enum.Enum):
     MSP430X = "msp430x"
     """TI msp430x"""
 
+    MCS51 = "mcs51"
+    """Intel MCS-51 (8051)"""
+
 
 class Byteorder(enum.Enum):
     """Endianness."""

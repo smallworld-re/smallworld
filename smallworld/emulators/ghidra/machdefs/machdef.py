@@ -1,4 +1,5 @@
 import abc
+import enum
 import typing
 
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
@@ -6,6 +7,45 @@ from ghidra.program.model.lang import Language, LanguageID, Register
 
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
+
+
+class _UserOpEnumMeta(enum.EnumMeta):
+    # Let `opnum in SomeUserOp` test raw userop numbers.
+    def __contains__(cls, obj):
+        if isinstance(obj, int):
+            return obj in cls._value2member_map_
+        return super().__contains__(obj)
+
+
+class GhidraUserOp(enum.IntEnum, metaclass=_UserOpEnumMeta):
+    """Base for a machine's table of SLEIGH user-defined operations.
+
+    Each member is the operation's number, followed by its name, a handler
+    and a description, as in the angr backend's Xtensa and LoongArch tables.
+    The handler is called as ``handler(emulator, op)`` with the CALLOTHER
+    p-code op, in place of running it, and must perform the operation itself.
+    """
+
+    def __new__(
+        cls, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
+    ):
+        obj = int.__new__(cls, val)
+        obj._value_ = val
+        obj.short_name = name
+        obj.handler = handler
+        obj.description = desc
+        return obj
+
+    def __init__(
+        self, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
+    ):
+        self._value_: int = val
+        self.short_name: str = name
+        self.handler: typing.Any = handler
+        self.description: str = desc
+
+    def __repr__(self):
+        return f"{hex(self.value)}: {self.short_name} - {self.description}"
 
 
 class GhidraMachineDef:
@@ -48,6 +88,23 @@ class GhidraMachineDef:
     # This flag indicates that this machine uses such instructions,
     # and is not safe to step in this manner
     supports_single_step: bool = True
+
+    #: Address spaces SmallWorld's flat memory map covers, as
+    #: (Ghidra space name, flat base address, size).  None means the
+    #: language's default space alone, at flat address 0, which is every
+    #: von Neumann machine.  A Harvard machine such as the 8051 lists each of
+    #: its spaces, and the emulator translates between the two.  The default
+    #: (code) space must sit at flat address 0, so the program counter is a
+    #: flat address too.
+    address_spaces: typing.Optional[typing.Tuple[typing.Tuple[str, int, int], ...]] = (
+        None
+    )
+
+    #: The SLEIGH user-defined operations (CALLOTHER) this machine
+    #: implements in Python, as a :class:`GhidraUserOp` enum, for operations
+    #: the language leaves to its host and Ghidra's emulator does not
+    #: provide.  None means the emulator runs CALLOTHER ops as Ghidra does.
+    userops: typing.Optional[typing.Type["GhidraUserOp"]] = None
 
     _registers: typing.Dict[str, typing.Optional[str]]
 

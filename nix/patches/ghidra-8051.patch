@@ -1,0 +1,148 @@
+Fix Ghidra's Intel 8051 language for emulation.
+
+Ghidra's 8051 specification targets decompilation and gets these wrong when
+emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
+
+- ADDC and SUBB fold the carry into the operand in one byte, so an operand of
+  0xFF with the carry set wraps to 0 and the carry or borrow out is lost.
+- ADD, ADDC and SUBB never set AC or OV, so DA A misadjusts and signed
+  overflow goes undetected.
+- Arithmetic and logic instructions write invented N and Z flags into PSW bits
+  5 and 1, which are the user flags F0 and F1.
+- Bit instructions use a separate byte per bit (BIT_OPS "BIT_ADDRS") instead of
+  the bits of internal RAM 0x20-0x2F and of the SFRs.
+- SP has no direct-address alias, so `mov sp,#n` writes SFR 0x81 and leaves SP
+  alone.
+
+--- a/Ghidra/Processors/8051/data/languages/8051_main.sinc
++++ b/Ghidra/Processors/8051/data/languages/8051_main.sinc
+@@ -1,8 +1,11 @@
+ # sleigh specification file for Intel 8051
+ 
+ #@define BIT_OPS "PCODEOPS"
+-#@define BIT_OPS "SHIFTS" 
+-@define BIT_OPS "BIT_ADDRS"
++# SmallWorld: SHIFTS, so bit instructions read and write the bits of internal
++# RAM 0x20-0x2F and of the SFRs, as the hardware does, rather than a separate
++# byte per bit.
++@define BIT_OPS "SHIFTS"
++#@define BIT_OPS "BIT_ADDRS"
+ 
+ # It's sometimes clearer for decompilation to omit the pushing and
+ # restoring of the return value for function calls.
+@@ -380,23 +383,42 @@
+ # PSW = PSW | ((op1 < op2) << 7);
+ #}
+ 
+-macro addflags(op1, op2) {   # Flags set by add instructions
+-$(CY) = (carry(op1,op2));        # Check for carry
+- #OV = (scarry(op1,op2));      # Check for signed carry
+-}
+-
+-macro subflags(op1, op2) {   # Flags set by sub instructions
+-$(CY) = (op1 < op2);        # Check for carry
+- #OV = sborrow(op1,op2);      # Check for signed carry
++# SmallWorld: CY, AC and OV for op1 + op2 + cin and op1 - op2 - cin.  The
++# carry-in is a separate operand: folding it into op2 first, in one byte,
++# wraps 0xFF + 1 to 0 and loses the carry or borrow out.
++macro addflags(op1, op2, cin) {   # Flags set by add instructions
++ local a:2 = zext(op1);
++ local b:2 = zext(op2);
++ local c:2 = zext(cin);
++ local wide:2 = a + b + c;
++ $(CY) = wide > 0xff;
++ $(AC) = ((a & 0xf) + (b & 0xf) + c) > 0xf;
++ local sa:2 = sext(op1);
++ local sb:2 = sext(op2);
++ local swide:2 = sa + sb + c;
++ $(OV) = (swide s> 0x7f) || (swide s< 0xff80);
++}
++
++macro subflags(op1, op2, cin) {   # Flags set by sub instructions
++ local a:2 = zext(op1);
++ local b:2 = zext(op2);
++ local c:2 = zext(cin);
++ $(CY) = a < (b + c);
++ $(AC) = (a & 0xf) < ((b & 0xf) + c);
++ local sa:2 = sext(op1);
++ local sb:2 = sext(op2);
++ local swide:2 = sa - sb - c;
++ $(OV) = (swide s> 0x7f) || (swide s< 0xff80);
+ }
+ 
+ macro compflags(op1, op2) {  # Flags set by the compare instructions
+ $(CY) = (op1 < op2);        # Check for carry
+ }
+ 
+-macro resultflags(op1) { # Set N,Z flag for results
+- $(N) = op1 s< 0;
+- $(Z) = op1 == 0;
++# SmallWorld: the 8051 has no N or Z flag.  PSW bits 5 and 1, which $(N) and
++# $(Z) name, are the user flags F0 and F1, so writing them corrupts program
++# state.
++macro resultflags(op1) {
+ }
+ 
+ macro push8(val) {
+@@ -620,6 +642,11 @@
+ Direct:  "A"       is bank=1 & direct=0xE0 	{ export ACC; }
+ Direct:  B         is bank=1 & direct=0xF0 & B  { export B;  }
+ Direct:  DPL       is bank=1 & direct=0x82 & DPL 	{ export DPL; }
++# SmallWorld: SP is a register too; without this, `mov sp,#n` writes SFR 0x81.
++# Only where SP is one byte wide, as a direct operand is.
++@if defined(MCS51) || defined(MCS80390) || defined(CIP51)
++Direct:  SP        is bank=1 & direct=0x81 & SP  { export SP; }
++@endif
+ Direct:  DPH       is bank=1 & direct=0x83 & DPH  { export DPH;  }
+ @if defined(MCS80390)
+ Direct:  DPX       is bank=1 & direct=0x93 & DPX  { export DPX;  }
+@@ -640,6 +667,9 @@
+ Direct2: "A"       is bank2=1 & direct2=0xE0	{ export ACC; }
+ Direct2:  B        is bank2=1 & direct2=0xF0 & B  { export B;  }
+ Direct2:  DPL      is bank2=1 & direct2=0x82 & DPL 	{ export DPL; }
++@if defined(MCS51) || defined(MCS80390) || defined(CIP51)
++Direct2:  SP       is bank2=1 & direct2=0x81 & SP  { export SP; }
++@endif
+ Direct2:  DPH      is bank2=1 & direct2=0x83 & DPH  { export DPH;  }
+ @if defined(MCS80390)
+ Direct2:  DPX      is bank2=1 & direct2=0x93 & DPX  { export DPX;  }
+@@ -704,15 +734,15 @@
+ :ACALL  Addr11 is  $(GROUP1) & aaddrfill=1 & aoplo=1 & Addr11   { ret:2 = inst_next; push16(ret); call Addr11; }
+ @endif
+ 
+-:ADD Areg,rn      is $(GROUP2) & ophi=2          & Areg & rnfill=1 & rn 	 { addflags(ACC,rn); ACC = ACC + rn; resultflags(ACC); }
+-:ADD Areg,Direct  is $(GROUP1) & ophi=2 & oplo=5 & Areg; Direct  { addflags(ACC,Direct); ACC = ACC + Direct; resultflags(ACC); }
+-:ADD Areg,Ri      is $(GROUP2) & ophi=2          & Areg & rifill=3 & Ri	 { addflags(ACC,Ri); ACC = ACC + Ri; resultflags(ACC); }
+-:ADD Areg,Data    is $(GROUP1) & ophi=2 & oplo=4 & Areg; Data    { addflags(ACC,Data); ACC = ACC + Data; resultflags(ACC); }
+-
+-:ADDC Areg,rn     is $(GROUP2) & ophi=3          & Areg & rnfill=1 & rn	   { tmp:1 =$(CY)+ rn; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Direct is $(GROUP1) & ophi=3 & oplo=5 & Areg; Direct    { tmp:1 =$(CY)+ Direct; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Ri     is $(GROUP2) & ophi=3          & Areg & rifill=3 & Ri	   { tmp:1 =$(CY)+ Ri; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Data   is $(GROUP1) & ophi=3 & oplo=4 & Areg; Data      {  tmp:1 =$(CY)+ Data; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
++:ADD Areg,rn      is $(GROUP2) & ophi=2          & Areg & rnfill=1 & rn 	 { local v:1 = rn; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Direct  is $(GROUP1) & ophi=2 & oplo=5 & Areg; Direct  { local v:1 = Direct; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Ri      is $(GROUP2) & ophi=2          & Areg & rifill=3 & Ri	 { local v:1 = Ri; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Data    is $(GROUP1) & ophi=2 & oplo=4 & Areg; Data    { local v:1 = Data; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++
++:ADDC Areg,rn     is $(GROUP2) & ophi=3          & Areg & rnfill=1 & rn	   { local v:1 = rn; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Direct is $(GROUP1) & ophi=3 & oplo=5 & Areg; Direct    { local v:1 = Direct; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Ri     is $(GROUP2) & ophi=3          & Areg & rifill=3 & Ri	   { local v:1 = Ri; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Data   is $(GROUP1) & ophi=3 & oplo=4 & Areg; Data      { local v:1 = Data; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
+ 
+ #TODO: which GROUP does AJMP belong to ??
+ @if defined(MCS80390)
+@@ -946,10 +976,10 @@
+ 
+ :SJMP Rel8        is $(GROUP1) & ophi=8 & oplo=0; Rel8			{ goto Rel8; }
+ 
+-:SUBB Areg,rn     is $(GROUP2) & ophi=9 & rnfill=1 & rn & Areg				{  tmp : 1 = rn+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Direct is $(GROUP1) & ophi=9 & oplo=5 & Areg; Direct	{  tmp:1 = Direct+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Ri     is $(GROUP2) & ophi=9 & Areg & rifill=3 & Ri				{  local tmp = Ri+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Data   is $(GROUP1) & ophi=9 & oplo=4 & Areg; Data	{ tmp:1 = Data+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
++:SUBB Areg,rn     is $(GROUP2) & ophi=9 & rnfill=1 & rn & Areg				{ local v:1 = rn; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Direct is $(GROUP1) & ophi=9 & oplo=5 & Areg; Direct	{ local v:1 = Direct; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Ri     is $(GROUP2) & ophi=9 & Areg & rifill=3 & Ri				{ local v:1 = Ri; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Data   is $(GROUP1) & ophi=9 & oplo=4 & Areg; Data	{ local v:1 = Data; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
+ 
+ :SWAP  Areg       is $(GROUP1) & ophi=12 & oplo=4 & Areg		{ ACC = (ACC>>4) | (ACC<<4); }
+ 

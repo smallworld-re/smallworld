@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `GhidraEmulator` no longer drops a write to a fixed memory address. When an
+  instruction stored to a constant address, which p-code expresses as a COPY
+  into a memory varnode, the backend ran the write hooks and then skipped the
+  op, so the store never happened.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -47,6 +51,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "install the [emu-triton] extra" error is reachable again.
 
 ### Added
+
+- A prototype of the Intel 8051 (`Architecture.MCS51`) on the Ghidra backend,
+  with `square`, `branch`, `mcs51_spaces` and `mcs51_flags` integration cases.
+  The 8051's separate address spaces share one flat SmallWorld memory map,
+  which `GhidraMachineDef.address_spaces` describes and the Ghidra emulator
+  translates; `GhidraMachineDef.userops` lets a machine implement SLEIGH
+  user-defined operations in Python, following the angr backend's Xtensa
+  tables. Test binaries are assembled with SDCC. SmallWorld's Nix environment
+  patches Ghidra's 8051 language (`nix/patches/ghidra-8051.patch`) so that
+  arithmetic flags, bit addressing and `mov sp,#n` behave as on hardware.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

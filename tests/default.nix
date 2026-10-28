@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  sdcc,
   superHBinutils,
   tricoreGcc,
   xtensaGcc,
@@ -23,6 +24,8 @@ stdenv.mkDerivation {
     tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
+    # Assembles the 8051 tests; see mcs51_asm.sh.
+    sdcc
   ];
   buildInputs = [
     pkgsCross.m68k.glibc

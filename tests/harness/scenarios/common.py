@@ -143,6 +143,17 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=_ENGINES_ALL,
     ),
+    # The 8051's argument and result live in the 16-bit DPTR,
+    # so the integer scenarios have room for their inputs.
+    "mcs51": ArchInfo(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        arg_register="dptr",
+        result_register="dptr",
+        stack_pointer_register="sp",
+        pointer_size=2,
+        engines=("pcode",),
+    ),
     "msp430": ArchInfo(
         platform=PlatformSpec("MSP430", "LITTLE"),
         pc_register="pc",

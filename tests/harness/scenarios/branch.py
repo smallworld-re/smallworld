@@ -16,6 +16,7 @@ _ARCHS = (
     "i386",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "mips64",

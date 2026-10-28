@@ -46,6 +46,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # The default address space is fixed for the emulator's lifetime;
         # cache it so per-pcode-op handlers don't re-cross the JPype boundary.
         self._default_space = self.machdef.language.getDefaultSpace()
+        self._init_address_spaces()
         # Set up the context configuration.
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
@@ -80,6 +81,68 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self._mem_write_hooks: typing.Dict[
             typing.Tuple[int, int], typing.Callable[[Emulator, int, int, bytes], None]
         ] = dict()
+
+    def _init_address_spaces(self) -> None:
+        # The address spaces SmallWorld's flat memory map covers, as
+        # (space, flat base, size, width of an offset in bytes); a size of
+        # None covers everything.  See GhidraMachineDef.address_spaces.
+        self._spaces: typing.List[
+            typing.Tuple[typing.Any, int, typing.Optional[int], int]
+        ] = []
+        if self.machdef.address_spaces is None:
+            self._spaces.append(
+                (self._default_space, 0, None, self.platdef.address_size)
+            )
+        else:
+            factory = self.machdef.language.getAddressFactory()
+            for name, base, size in self.machdef.address_spaces:
+                space = factory.getAddressSpace(name)
+                if space is None:
+                    raise exceptions.ConfigurationError(
+                        f"{self.machdef.language_id} has no address space {name}"
+                    )
+                self._spaces.append((space, base, size, space.getPointerSize()))
+            if not any(
+                space == self._default_space and base == 0
+                for space, base, _, _ in self._spaces
+            ):
+                raise exceptions.ConfigurationError(
+                    f"The default address space of {self.machdef.language_id} "
+                    "must sit at flat address 0"
+                )
+        self._spaces_by_id = {
+            space.getSpaceID(): (space, base) for space, base, _, _ in self._spaces
+        }
+
+    def _to_space(self, address: int, size: int) -> typing.Tuple[typing.Any, int, int]:
+        """Translate a flat address to (space, offset, offset width)."""
+        for space, base, span, width in self._spaces:
+            if span is None:
+                return space, address, width
+            if base <= address < base + span:
+                if address + size > base + span:
+                    raise exceptions.ConfigurationError(
+                        f"Access of {size} bytes at {hex(address)} runs off the "
+                        f"end of address space {space.getName()}"
+                    )
+                return space, address - base, width
+        raise exceptions.ConfigurationError(
+            f"{hex(address)} is in no address space of {self.platform}"
+        )
+
+    def _offset_bytes(self, offset: int, width: int) -> typing.Any:
+        if self.platform.byteorder is platforms.Byteorder.BIG:
+            return self.bytes_py_to_java(offset.to_bytes(width, "big"))
+        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+            return self.bytes_py_to_java(offset.to_bytes(width, "little"))
+        else:
+            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
+
+    def _mapped_space(
+        self, space_id: int
+    ) -> typing.Optional[typing.Tuple[typing.Any, int]]:
+        """The (space, flat base) for a Ghidra space ID, if the flat map covers it."""
+        return self._spaces_by_id.get(space_id)
 
     @property
     def _thread(self) -> PcodeThread:
@@ -135,19 +198,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # Get the thread's memory state
         shared = self._emu.getSharedState()
 
-        if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
-        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
-        else:
-            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
-
-        # Get the data out of the default address space
-        # NOTE: Ghidra can support machines with multiple address spaces.
-        # SmallWorld does not.
+        # Find the address space this flat address belongs to;
+        # on most machines that's the default space.
+        space, offset, width = self._to_space(address, size)
         val = shared.getVar(
-            self.machdef.language.getDefaultSpace(),
-            self.bytes_py_to_java(addr_bytes),
+            space,
+            self._offset_bytes(offset, width),
             size,
             False,
             shared.Reason.INSPECT,
@@ -171,19 +227,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
         shared = self._emu.getSharedState()
 
         val = self.bytes_py_to_java(content)
-        if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
-        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
-        else:
-            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
-        # Get the data out of the default address space
-        # NOTE: Ghidra can support machines with multiple address spaces.
-        # SmallWorld does not.
+        # Find the address space this flat address belongs to;
+        # on most machines that's the default space.
+        space, offset, width = self._to_space(address, len(content))
         shared.setVar(
-            self.machdef.language.getDefaultSpace(),
-            self.bytes_py_to_java(addr_bytes),
+            space,
+            self._offset_bytes(offset, width),
             len(content),
             False,
             val,
@@ -288,21 +338,29 @@ class GhidraEmulator(AbstractGhidraEmulator):
             )
 
     def _process_read_breakpoint(
-        self, addr_var: Varnode, out_var: Varnode, direct=False
+        self,
+        addr_var: Varnode,
+        out_var: Varnode,
+        direct=False,
+        space: typing.Optional[typing.Tuple[typing.Any, int]] = None,
     ) -> None:
         state = self._thread.getState()
 
         # Get the address out of the emulator
         if direct:
             # This is referencing a fixed address
-            addr = addr_var.getAddress().getOffset()
+            offset = addr_var.getAddress().getOffset()
         else:
             # This is referencing an address stored in a varnode
             addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
             if self.platform.byteorder is platforms.Byteorder.BIG:
-                addr = int.from_bytes(addr_bytes, "big")
+                offset = int.from_bytes(addr_bytes, "big")
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-                addr = int.from_bytes(addr_bytes, "little")
+                offset = int.from_bytes(addr_bytes, "little")
+
+        # Hooks and the memory map see flat addresses.
+        addr_space, base = space if space is not None else (self._default_space, 0)
+        addr = base + offset
 
         self._require_mapped(
             addr,
@@ -313,8 +371,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         )
 
         # Dereference the address to get the original data
-        addr_space = self._default_space
-        addr_addr = addr_space.getAddress(addr)
+        addr_addr = addr_space.getAddress(offset)
         data_var = Varnode(addr_addr, out_var.getSize())
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
 
@@ -340,6 +397,31 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # Thus, this handler must fully replace the behavior of LOAD.
         state.setVar(out_var, self.bytes_py_to_java(data))
 
+    def _byteorder_name(self) -> typing.Literal["big", "little"]:
+        return "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+
+    def _read_varnode(self, var: Varnode) -> int:
+        """Read a p-code varnode as an unsigned integer."""
+        state = self._thread.getState()
+        val = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+        return int.from_bytes(self.bytes_java_to_py(val), self._byteorder_name())
+
+    def _write_varnode(self, var: Varnode, value: int) -> None:
+        """Write an integer to a p-code varnode, truncated to its size."""
+        size = var.getSize()
+        data = (value & ((1 << (size * 8)) - 1)).to_bytes(size, self._byteorder_name())
+        self._thread.getState().setVar(var, self.bytes_py_to_java(data))
+
+    def _process_userop(self, op) -> None:
+        # Mirrors the angr backend's userop tables: look the op up in the
+        # machine's GhidraUserOp enum and let its handler perform it.
+        assert self.machdef.userops is not None
+        opnum = int(op.getInputs()[0].getOffset())
+        if opnum not in self.machdef.userops:
+            raise exceptions.EmulationError(f"Undefined user op {hex(opnum)}")
+        userop = self.machdef.userops(opnum)
+        userop.handler(self, op)
+
     def hook_memory_read(
         self,
         start: int,
@@ -364,21 +446,28 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self._mem_reads_hook = None
 
     def _process_write_breakpoint(
-        self, addr_var: Varnode, data_var: Varnode, direct=False
+        self,
+        addr_var: Varnode,
+        data_var: Varnode,
+        direct=False,
+        space: typing.Optional[typing.Tuple[typing.Any, int]] = None,
     ) -> None:
         state = self._thread.getState()
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
 
         if direct:
             # This is referencing a fixed address.
-            addr = addr_var.getAddress().getOffset()
+            offset = addr_var.getAddress().getOffset()
         else:
             # This is referencing an address stored in a varnode.
             addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
             if self.platform.byteorder is platforms.Byteorder.BIG:
-                addr = int.from_bytes(addr_bytes, "big")
+                offset = int.from_bytes(addr_bytes, "big")
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-                addr = int.from_bytes(addr_bytes, "little")
+                offset = int.from_bytes(addr_bytes, "little")
+
+        # Hooks and the memory map see flat addresses.
+        addr = (space[1] if space is not None else 0) + offset
 
         self._require_mapped(
             addr,
@@ -479,25 +568,32 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 code = frame.getCode()
                 op = code[frame.index()]
                 opcode = op.getOpcode()
-                if opcode == op.STORE:
+                if opcode == op.CALLOTHER and self.machdef.userops is not None:
+                    # A user-defined operation; the machine definition's
+                    # handler performs it in place of the op.
+                    self._process_userop(op)
+                    skip = True
+                elif opcode == op.STORE:
                     # This is a STORE opcode; could trigger a "write" hook
-                    _, addr_var, data_var = op.getInputs()
-                    self._process_write_breakpoint(addr_var, data_var)
+                    space_var, addr_var, data_var = op.getInputs()
+                    space = self._mapped_space(space_var.getAddress().getOffset())
+                    if space is None and self.machdef.address_spaces is None:
+                        # Single-space machines treat every store as
+                        # a store to the default space.
+                        space = (self._default_space, 0)
+                    if space is not None:
+                        self._process_write_breakpoint(addr_var, data_var, space=space)
                 elif opcode == op.LOAD:
                     # This is a LOAD opcode; could trigger a "read" hook
-                    addr_space = self._default_space
-                    default_id = addr_space.getSpaceID()
-
                     space_var, addr_var = op.getInputs()
                     out_var = op.getOutput()
 
-                    space_id = space_var.getAddress().getOffset()
-
-                    # Only trigger breakpoints on the primary address space.
+                    # Only trigger breakpoints on the spaces SmallWorld maps.
                     # Ghidra uses a scratch address space for some operations.
                     # You very rarely see loads/stores to it, but they happen.
-                    if space_id == default_id:
-                        self._process_read_breakpoint(addr_var, out_var)
+                    space = self._mapped_space(space_var.getAddress().getOffset())
+                    if space is not None:
+                        self._process_read_breakpoint(addr_var, out_var, space=space)
                         # Skip the actual LOAD opcode
                         # The read breakpoint handler will mimic its behavior;
                         # running the op normally will clobber a custom value
@@ -508,28 +604,47 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     # It's used if copying directly between two varnodes,
                     # without having to compute an address.
                     # It could be a
-                    addr_space = self._default_space
-
                     in_var = op.getInputs()[0]
                     out_var = op.getOutput()
 
-                    in_space = in_var.getAddress().getAddressSpace()
-                    out_space = out_var.getAddress().getAddressSpace()
+                    in_space = self._mapped_space(
+                        in_var.getAddress().getAddressSpace().getSpaceID()
+                    )
+                    out_space = self._mapped_space(
+                        out_var.getAddress().getAddressSpace().getSpaceID()
+                    )
 
-                    if in_space == addr_space and out_space == addr_space:
-                        # This is a read and write in a single opcode.
-                        # Can't quite handle it; neither can most ISAs.
-                        raise NotImplementedError(
-                            f"RAM-to-RAM copy from {in_var} to {out_var}"
+                    if in_space is not None and out_space is not None:
+                        if self.machdef.address_spaces is None:
+                            # This is a read and write in a single opcode.
+                            # Can't quite handle it; neither can most ISAs.
+                            raise NotImplementedError(
+                                f"RAM-to-RAM copy from {in_var} to {out_var}"
+                            )
+                        # Harvard machines move between their spaces
+                        # directly (8051 `mov direct, direct`).  The read
+                        # handler performs the copy, writing the (possibly
+                        # hooked) data into out_var, and then the write
+                        # hooks see what landed there.
+                        self._process_read_breakpoint(
+                            in_var, out_var, direct=True, space=in_space
                         )
-                    elif in_space == addr_space:
+                        self._process_write_breakpoint(
+                            out_var, out_var, direct=True, space=out_space
+                        )
+                        skip = True
+                    elif in_space is not None:
                         # This is a read from memory
-                        self._process_read_breakpoint(in_var, out_var, direct=True)
+                        self._process_read_breakpoint(
+                            in_var, out_var, direct=True, space=in_space
+                        )
                         skip = True
-                    elif out_space == addr_space:
-                        # This is a write to memory
-                        self._process_write_breakpoint(out_var, in_var, direct=True)
-                        skip = True
+                    elif out_space is not None:
+                        # This is a write to memory.  Write hooks only
+                        # observe, so let the op run and perform the write.
+                        self._process_write_breakpoint(
+                            out_var, in_var, direct=True, space=out_space
+                        )
 
                     # This is not a memory access.  No need to break
 

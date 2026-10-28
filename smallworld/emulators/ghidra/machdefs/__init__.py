@@ -4,7 +4,8 @@ from .arm import ARMv5TMachineDef, ARMv6MMachineDef, ARMv7AMachineDef, ARMv7MMac
 from .i386 import i386MachineDef
 from .loongarch import LoongArch64MachineDef
 from .m68k import M68KMachineDef
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, GhidraUserOp
+from .mcs51 import MCS51MachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
@@ -25,6 +26,7 @@ __all__ = [
     "i386MachineDef",
     "LoongArch64MachineDef",
     "M68KMachineDef",
+    "MCS51MachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
     "MIPSBEMachineDef",
@@ -32,6 +34,7 @@ __all__ = [
     "MSP430MachineDef",
     "MSP430XMachineDef",
     "GhidraMachineDef",
+    "GhidraUserOp",
     "PowerPC32MachineDef",
     "PowerPC64MachineDef",
     "RISCV64MachineDef",
