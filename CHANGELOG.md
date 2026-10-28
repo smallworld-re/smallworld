@@ -65,6 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   engine maps the 8051's address spaces onto the same flat map as the Ghidra
   backend and implements its user-defined operations, and the Nix
   environment applies the same 8051 patch to pypcode's copy of the language.
+- The `dma`, `call`, `hooking`, `stack`, `static_buf`, `null_pc`,
+  `exitpoint` and `unmapped` integration cases cover the 8051 on angr and
+  Ghidra. `MCS51Stack` models its upward-growing stack in internal RAM, and
+  `Model` returns from 8051 function hooks. angr machine definitions can
+  supply `function_return_address` for a return address angr's calling
+  conventions cannot describe; the 8051's lives in internal RAM.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

@@ -330,6 +330,9 @@ class StringSource:
     stack_offset: int = 0
     pointer_size: int = 8
     byteorder: str = "little"
+    # Added to the pointer read, for platforms whose pointers are offsets into
+    # one of several address spaces (the 8051) rather than flat addresses.
+    address_base: int = 0
 
 
 _EMULATOR_NAMES = {
@@ -378,6 +381,27 @@ def make_emulator(smallworld, platform, engine: str):
 
 def set_register(cpu, name: str, value: int) -> None:
     getattr(cpu, name).set(value)
+
+
+def make_stack(smallworld, platform, base: int = 0x2000, size: int = 0x4000):
+    """Create a scenario's stack, and the adjustment from its pointer to SP.
+
+    Returns ``(stack, adjust)``; set the stack pointer register to
+    ``stack.get_pointer() + adjust``.  Most platforms put the stack where the
+    scenario asks, and SP holds its flat address.  The 8051's stack lives in its
+    256 bytes of internal RAM - above the register banks and bit-addressable
+    bytes at 0x00-0x2F - and SP holds an offset into that RAM.
+    """
+    if platform.architecture == smallworld.platforms.Architecture.MCS51:
+        from smallworld.platforms.defs.mcs51 import MCS51_IDATA_BASE
+
+        base, size, adjust = MCS51_IDATA_BASE + 0x30, 0xD0, -MCS51_IDATA_BASE
+    else:
+        adjust = 0
+    return (
+        smallworld.state.memory.stack.Stack.for_platform(platform, base, size),
+        adjust,
+    )
 
 
 def load_raw_code(smallworld, family: str, arch: str, *, address: int = 0x1000):
@@ -496,11 +520,11 @@ def read_c_string(emulator, address: int) -> bytes:
 
 def resolve_string_pointer(emulator, source: StringSource) -> int:
     if source.register is not None:
-        return emulator.read_register(source.register)
+        return source.address_base + emulator.read_register(source.register)
     if source.stack_pointer_register is None:
         raise ValueError("string source must read from a register or stack slot")
     stack_pointer = emulator.read_register(source.stack_pointer_register)
-    return read_pointer(
+    return source.address_base + read_pointer(
         emulator,
         stack_pointer + source.stack_offset,
         pointer_size=source.pointer_size,

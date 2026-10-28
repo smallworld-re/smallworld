@@ -84,3 +84,24 @@ MCS51_XDATA_BASE = 0x10000
 MCS51_IDATA_BASE = 0x20000
 MCS51_SFR_BASE = 0x20100
 MCS51_BITS_BASE = 0x20200
+
+
+def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
+    """Read the return address an 8051 call left on the stack.
+
+    LCALL and ACALL push the return address low byte first onto a stack that
+    grows up through internal RAM, so SP points at its high byte.  SP is an
+    offset into internal RAM, not a flat address.
+
+    Arguments:
+        emulator: The emulator to read from.
+        pop: Whether to also pop the return address, as RET does.
+
+    Returns:
+        The return address.
+    """
+    sp = emulator.read_register("sp")
+    ret = int.from_bytes(emulator.read_memory(MCS51_IDATA_BASE + sp - 1, 2), "little")
+    if pop:
+        emulator.write_register("sp", (sp - 2) & 0xFF)
+    return ret

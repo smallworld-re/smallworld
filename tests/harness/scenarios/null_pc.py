@@ -11,6 +11,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -48,6 +49,7 @@ _ARCHS = (
     "i386",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "mips64",
@@ -62,7 +64,11 @@ _ARCHS = (
     "xtensa",
 )
 
-_SPECS = build_specs(NullPcSpec, _ARCHS)
+_SPECS = build_specs(
+    NullPcSpec,
+    _ARCHS,
+    per_arch={"mcs51": {"fake_return": 0xFFFF, "fake_return_size": 2}},
+)
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
@@ -141,13 +147,13 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(code)
     set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
     if spec.stack_padding_bytes:
         # PowerPC keeps ABI scratch data above SP; reserve it first if needed.
         stack.push_bytes(b"\0" * spec.stack_padding_bytes, None)
     stack.push_integer(spec.fake_return, spec.fake_return_size, "fake return address")
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     emulator = make_emulator(smallworld, platform, engine)
     if engine == "angr" and isinstance(emulator, smallworld.emulators.AngrEmulator):

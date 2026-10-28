@@ -28,6 +28,11 @@ class HookHandler(angr.SimProcedure):
     def run(self, *args, callback, parent):
         emu = ConcreteAngrEmulator(self.state, parent)
         callback(emu)
+        ret = parent.machdef.function_return_address(emu)
+        if ret is not None:
+            # The machine pops its own return address; don't let angr try.
+            self.inhibit_autoret = True
+            self.jump(ret)
         return None
 
 

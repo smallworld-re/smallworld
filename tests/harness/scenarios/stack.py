@@ -10,6 +10,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -305,6 +306,21 @@ _SPECS = {
         ),
         stack_arguments=((0xCCCCCCCC, 4),),
     ),
+    "mcs51": StackCaseSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        result_register="acc",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r7", 0x11),
+            ("r6", 0x01),
+            ("r5", 0x22),
+            ("r4", 0x01),
+        ),
+        stack_arguments=((0x44, 1),),
+        # The guard's address is outside the 8051's stack, in internal RAM.
+        add_stack_guard=False,
+    ),
     "tricore": StackCaseSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -346,6 +362,8 @@ NATIVE_PARITY = True
 _STACK_RES = {
     "aarch64": "0xffffffff",
     "la64": "0xffff",
+    # 0x44 + 0x11 + 0x22
+    "mcs51": "0x77",
     "mips": "0xaaaa",
     "mips64": "0xffff",
     "mips64el": "0xffff",
@@ -407,7 +425,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(code)
     set_register(cpu, spec.pc_register, code.address)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
 
     for register, value in spec.register_arguments:
@@ -422,7 +440,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     set_register(
         cpu,
         spec.stack_pointer_register,
-        stack.get_pointer() + spec.stack_pointer_adjust,
+        stack.get_pointer() + stack_adjust + spec.stack_pointer_adjust,
     )
 
     emulator = make_emulator(smallworld, platform, engine)

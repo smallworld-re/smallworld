@@ -10,6 +10,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -31,6 +32,10 @@ class StaticBufferSpec:
     model_address: int | None = None
     model_code_offset: int | None = None
     exit_offset: int | None = None
+    fake_return_size: int = 8
+    # Subtracted from the buffer's flat address to give the pointer the model
+    # returns, for platforms whose pointers are offsets into an address space.
+    model_pointer_base: int = 0
 
 
 _SPECS = {
@@ -230,6 +235,19 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    # The buffer's flat address, 0x10000, is XDATA offset 0 on the 8051.
+    "mcs51": StaticBufferSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        result_register="dptr",
+        model_register="dptr",
+        engines=("angr", "pcode"),
+        entry_offset=1,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+        fake_return_size=2,
+        model_pointer_base=0x10000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -305,15 +323,19 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     code = load_raw_code(smallworld, "static_buf", arch)
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
 
     set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
-    stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+    stack.push_integer(
+        0xFFFFFFFF & ((1 << (8 * spec.fake_return_size)) - 1),
+        spec.fake_return_size,
+        "fake return address",
+    )
     set_register(
         cpu,
         spec.stack_pointer_register,
-        stack.get_pointer() + spec.stack_pointer_adjust,
+        stack.get_pointer() + stack_adjust + spec.stack_pointer_adjust,
     )
 
     static_buffer_address = 0x10000
@@ -341,7 +363,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
                 ),
             )
             emulator.write_memory(static_buffer_address, data)
-            emulator.write_register(spec.model_register, static_buffer_address)
+            emulator.write_register(
+                spec.model_register, static_buffer_address - spec.model_pointer_base
+            )
 
     foobar = FoobarModel(model_address)
     foobar.static_buffer_address = static_buffer_address

@@ -13,6 +13,7 @@ from .common import (
     make_gets_model,
     make_platform,
     make_puts_model,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -116,6 +117,17 @@ _SPECS = {
             byteorder="big",
         ),
         puts_address=0x1002,
+    ),
+    # The buffer is in internal RAM, and r0 holds its offset there.
+    "mcs51": HookingSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pointer_size=2,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=2,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r0", address_base=0x20000),
+        puts_address=0x1001,
     ),
     "mips": HookingSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -315,17 +327,19 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     code = load_raw_code(smallworld, "hooking", arch)
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(
-        platform, spec.stack_base, 0x4000
-    )
+    stack, stack_adjust = make_stack(smallworld, platform, spec.stack_base, 0x4000)
     machine.add(stack)
     padding = spec.stack_padding_bytes.get(engine, 0)
     if padding:
         stack.push_bytes(b"\0" * padding, "Scratch space")
 
     set_register(cpu, spec.pc_register, code.address + spec.pc_offset)
-    stack.push_integer(0xFFFFFFFF, spec.pointer_size, "fake return address")
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    stack.push_integer(
+        0xFFFFFFFF & ((1 << (8 * spec.pointer_size)) - 1),
+        spec.pointer_size,
+        "fake return address",
+    )
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if not install_tricore_panda_hooking_compatibility(
         arch,

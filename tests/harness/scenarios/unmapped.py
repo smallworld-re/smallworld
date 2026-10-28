@@ -9,8 +9,10 @@ from .common import (
     PlatformSpec,
     enroll_triton,
     load_elf_code,
+    load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     run_case_subprocess,
     set_register,
     split_variant,
@@ -29,6 +31,9 @@ class UnmappedSpec:
     stack_pointer_register: str = "sp"
     entrypoint_registers: tuple[str, ...] = ()
     stack_padding_bytes: int = 0
+    # Platforms with no ELF toolchain load unmapped.<arch>.bin instead, and
+    # enter each routine at these offsets into it.
+    raw_offsets: dict[str, int] | None = None
 
 
 _SPECS = {
@@ -73,6 +78,13 @@ _SPECS = {
         pc_register="pc",
         engines=("unicorn", "pcode"),
         load_address=0x40000,
+    ),
+    # SDCC writes no ELF; see unmapped.mcs51.s for the offsets.
+    "mcs51": UnmappedSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+        raw_offsets={"read_unmapped": 0, "write_unmapped": 5, "fetch_unmapped": 10},
     ),
     "mips": UnmappedSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -198,21 +210,24 @@ def _build_machine(smallworld, arch: str, engine: str, spec: UnmappedSpec):
     cpu = smallworld.state.cpus.CPU.for_platform(platform)
     machine.add(cpu)
 
-    code = load_elf_code(
-        smallworld,
-        "unmapped",
-        arch,
-        platform,
-        address=spec.load_address,
-    )
+    if spec.raw_offsets is not None:
+        code = load_raw_code(smallworld, "unmapped", arch)
+    else:
+        code = load_elf_code(
+            smallworld,
+            "unmapped",
+            arch,
+            platform,
+            address=spec.load_address,
+        )
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
     if spec.stack_padding_bytes:
         # PowerPC keeps ABI scratch data above SP, so the old tests reserved it first.
         stack.push_bytes(b"\0" * spec.stack_padding_bytes, None)
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if engine in ("unicorn", "triton"):
         # Neither backend will start without somewhere to stop: Unicorn needs an
@@ -235,7 +250,10 @@ def _run_operation(
     expected_exception,
 ) -> None:
     machine, cpu, platform, code = _build_machine(smallworld, arch, engine, spec)
-    entrypoint = code.get_symbol_value(symbol)
+    if spec.raw_offsets is not None:
+        entrypoint = code.address + spec.raw_offsets[symbol]
+    else:
+        entrypoint = code.get_symbol_value(symbol)
     set_register(cpu, spec.pc_register, entrypoint)
     for register_name in spec.entrypoint_registers:
         set_register(cpu, register_name, entrypoint)

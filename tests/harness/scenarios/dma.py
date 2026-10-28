@@ -39,6 +39,7 @@ _ARCHS = (
     "i386",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "mips64",
@@ -63,6 +64,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "i386": {"argument_registers": ("edi", "esi")},
     "la64": {"argument_registers": ("a0", "a1")},
     "m68k": {"argument_registers": ("d0", "d1")},
+    # The divider sits in XDATA at 0x5000, flat address 0x15000.
+    "mcs51": {"argument_registers": ("r7", "r5"), "mmio_address": 0x15000},
     "mips": {"argument_registers": ("a0", "a1")},
     "mipsel": {"argument_registers": ("a0", "a1")},
     "mips64": {"argument_registers": ("a0", "a1")},

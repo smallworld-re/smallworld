@@ -5,6 +5,7 @@ import pdb
 import typing
 
 from ... import emulators, exceptions, platforms, utils
+from ...platforms.defs.mcs51 import mcs51_return_address
 from .. import state
 
 logger = logging.getLogger(__name__)
@@ -298,6 +299,9 @@ class Model(Hook):
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
+        elif self.platform.architecture == platforms.Architecture.MCS51:
+            # 8051: pop the return address from the stack in internal RAM.
+            return mcs51_return_address(emulator, pop=pop)
 
         raise exceptions.ConfigurationError(
             f"Don't know how to return for {self.platform.architecture}"

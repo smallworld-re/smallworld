@@ -6,7 +6,7 @@ import claripy
 from angr.errors import AngrError
 
 from ....platforms import Architecture, Byteorder
-from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES
+from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES, mcs51_return_address
 from .machdef import GhidraMachineDef
 
 # The 8051 keeps code, external RAM, internal RAM, SFRs and Ghidra's bit space
@@ -173,6 +173,12 @@ class MCS51MachineDef(GhidraMachineDef):
         "r6": "r6",
         "r7": "r7",
     }
+
+    def function_return_address(self, emulator: typing.Any) -> typing.Optional[int]:
+        # The return address is in internal RAM, which no angr calling
+        # convention can describe: the stack grows up, and SP is an offset
+        # into a space angr does not know.
+        return mcs51_return_address(emulator, pop=True)
 
     def __init__(self):
         super().__init__()

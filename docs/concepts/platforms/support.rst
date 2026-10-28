@@ -248,6 +248,9 @@ auxiliary carry and overflow flags, the user flag F0, bit addressing and
 patch fails the ``mcs51_flags`` scenario. Two gaps remain: R0-R7 are standalone
 registers rather than the register bank in internal RAM that PSW's RS bits
 select, and the parity flag is never computed.
+The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
+SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
+low byte first, as ``lcall`` pushes a return address.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
