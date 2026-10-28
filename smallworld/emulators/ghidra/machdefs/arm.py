@@ -900,3 +900,37 @@ class ARMv7RMachineDef(
 ):
     arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
+
+
+# Big-endian ARMv6 and later are BE8; the platforms name Ghidra's ARM:LEBE
+# languages, with little-endian instructions and big-endian data.
+#
+# Those languages keep the little-endian register layout in a big-endian
+# register space, so d0 is the high half of q0, not the low half. That is
+# fixed up for q registers, but Ghidra's own semantics still put s0 in the
+# high half of d0, so code that mixes s and d views of a register runs
+# wrong there.
+_Q_REGISTERS = frozenset(f"q{i}" for i in range(16))
+
+
+class ARMv6KBEMachineDef(ARMv6KMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv7ABEMachineDef(ARMv7AMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS
+
+
+class ARMv7RBEMachineDef(ARMv7RMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv8ABEMachineDef(ARMv8AMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS
+
+
+class ARMv8RBEMachineDef(ARMv8RMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS

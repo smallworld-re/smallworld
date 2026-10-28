@@ -16,6 +16,11 @@ arm-v7r,            No,         No,         No,         No,         **Yes**
 arm-v8a,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v8m,            **Yes**,    **Yes**,    No,         No,         **Yes**
 arm-v8r,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v6k-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v7a-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v7r-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v8a-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v8r-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
 i386,               **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 la64,               **Yes**,    **Yes**,    No Support, No,         No Support
 m68k,               No,         **Yes**,    No Support, No,         **Yes**

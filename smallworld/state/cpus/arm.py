@@ -1302,3 +1302,43 @@ class ARMv8M(ARMCPUMixinV8MMainline, ARM):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
     )
+
+
+class ARMv6KBE(ARMv6K):
+    """CPU Model for ARM6K big-endian (BE8)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+    )
+
+
+class ARMv7ABE(ARMv7A):
+    """CPU Model for ARM7-A big-endian (BE8)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+    )
+
+
+class ARMv7RBE(ARMv7R):
+    """CPU Model for ARM7-R big-endian (BE8)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+    )
+
+
+class ARMv8ABE(ARMv8A):
+    """CPU Model for ARM8-A big-endian (BE8)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+    )
+
+
+class ARMv8RBE(ARMv8R):
+    """CPU Model for ARM8-R big-endian (BE8)."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+    )

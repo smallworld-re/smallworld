@@ -105,18 +105,28 @@ class ArmV7RSysVCallingContext(CStdCallingContext):
         """Read a four-byte returned value"""
         return emulator.read_register("r0")
 
+    # A double-word value is returned in r0 and r1 as if loaded from memory
+    # by ldm, so on a big-endian CPU r0 holds the high word.
+    def _pair_registers(self) -> typing.Tuple[str, str]:
+        """The registers holding the low and high words of a double word"""
+        if self.platform.byteorder == platforms.Byteorder.BIG:
+            return ("r1", "r0")
+        return ("r0", "r1")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         lo = val & self._int_inv_mask
         hi = val >> 32 & self._int_inv_mask
 
-        emulator.write_register("r0", lo)
-        emulator.write_register("r1", hi)
+        lo_reg, hi_reg = self._pair_registers()
+        emulator.write_register(lo_reg, lo)
+        emulator.write_register(hi_reg, hi)
 
     def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
         """Read an eight-byte returned value"""
-        lo = emulator.read_register("r0")
-        hi = emulator.read_register("r1")
+        lo_reg, hi_reg = self._pair_registers()
+        lo = emulator.read_register(lo_reg)
+        hi = emulator.read_register(hi_reg)
 
         return lo + (hi << 32)
 

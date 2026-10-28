@@ -35,6 +35,8 @@ SmallWorld currently provides basic C calling convention definitions for the fol
     - arm v7r (hard-float)
     - arm v8a (hard-float)
     - arm v8r (hard-float)
+    - arm v6k big-endian (BE8, soft-float)
+    - arm v7a, v7r, v8a and v8r big-endian (BE8, hard-float)
     - arm v8m (soft-float)
     - i386
     - mips

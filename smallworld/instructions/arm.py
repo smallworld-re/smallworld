@@ -131,3 +131,37 @@ class ARMV8MInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
     )
+
+
+# BE8: instructions are little-endian, so these decode as their
+# little-endian counterparts do.
+
+
+class ARMV6KBEInstruction(ARMV6KInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+    )
+
+
+class ARMV7ABEInstruction(ARMV7AInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+    )
+
+
+class ARMV7RBEInstruction(ARMV7RInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+    )
+
+
+class ARMV8ABEInstruction(ARMV8AInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+    )
+
+
+class ARMV8RBEInstruction(ARMV8RInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+    )

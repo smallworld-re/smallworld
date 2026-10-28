@@ -97,6 +97,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Get the register value in bytes
         val = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        val = self.machdef.fix_register_bytes(name, self.bytes_java_to_py(val))
 
         if self.platform.byteorder is platforms.Byteorder.LITTLE:
             return int.from_bytes(val, "little")
@@ -136,6 +137,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             val = value_unsigned.to_bytes(size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
+        val = self.machdef.fix_register_bytes(name, val)
 
         state.setVar(reg, self.bytes_py_to_java(val))
 

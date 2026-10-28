@@ -1,6 +1,7 @@
 import archinfo
 
 from ....platforms import Architecture, Byteorder
+from ..be8 import BE8Engine, be8_arch
 from .machdef import AngrMachineDef
 
 
@@ -931,3 +932,37 @@ class ARMv7RMachineDef(
     angr_arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
+
+
+# Big-endian ARMv6 and later are BE8: VEX lifts them through BE8Engine,
+# which lifts for a little-endian guest and makes memory big-endian.
+
+
+class ARMv6KBEMachineDef(ARMv6KMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv7ABEMachineDef(ARMv7AMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv7RBEMachineDef(ARMv7RMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv8ABEMachineDef(ARMv8AMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv8RBEMachineDef(ARMv8RMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG

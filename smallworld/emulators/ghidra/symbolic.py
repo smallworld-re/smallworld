@@ -313,7 +313,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             raise exceptions.SymbolicValueError(
                 f"Register {name} contains a symbolic value"
             )
-        return self._int_from_bytes(concrete)
+        return self._int_from_bytes(
+            self.machdef.fix_register_bytes(name, self.bytes_java_to_py(concrete))
+        )
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if name == "pc":
@@ -328,6 +330,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
         else:
             bv = self._sym_to_claripy(sym)
+        bv = self.machdef.fix_register_bv(name, bv)
         if bv.size() < expected_bits:
             bv = claripy.ZeroExt(expected_bits - bv.size(), bv)
         elif bv.size() > expected_bits:
@@ -347,6 +350,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()
+        if name in self.machdef.swapped_halves:
+            if isinstance(value, int):
+                value = claripy.BVV(value & ((1 << size_bits) - 1), size_bits)
+            value = self.machdef.fix_register_bv(name, value)
 
         def _concrete_bytes(intval: int) -> bytes:
             # Mask to handle negative ints via two's-complement wraparound.
@@ -414,8 +421,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
         sym = pair.getRight()
         if sym is None:
-            return claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
-        return self._sym_to_claripy(sym)
+            bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
+        else:
+            bv = self._sym_to_claripy(sym)
+        return self.machdef.fix_register_bv(name, bv)
 
     # ------------------------------------------------------------------
     # Memory I/O

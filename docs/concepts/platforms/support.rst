@@ -49,8 +49,22 @@ TI925T.
 (``Byteorder.BIG``), as BE32: instructions are big-endian, like data, as on
 those cores. They run on Unicorn, angr and Ghidra (its ``ARM:BE:32`` languages).
 SmallWorld configures no big-endian ARM machine for PANDA or Styx, and Triton
-has no big-endian ARM. ARMv6 and later use BE8 instead, with little-endian
-instructions; SmallWorld doesn't support big-endian ARMv6 or later yet.
+has no big-endian ARM.
+
+arm-v6k, arm-v7a, arm-v7r, arm-v8a and arm-v8r come big-endian as BE8, as
+ARMv6 and later do: data is big-endian, but instructions stay little-endian.
+Unicorn runs them on its little-endian cores with CPSR.E, which makes data
+accesses big-endian, held set; angr lifts through VEX's little-endian ARM
+guest, as VEX's big-endian one decodes no single-precision VFP, then makes
+each load and store big-endian; and Ghidra uses its ``ARM:LEBE:32``
+languages, which exist for v7 and v8 only, so arm-v6k-be uses the v7 one.
+Those languages lay out the FPU registers for little-endian in a big-endian
+register file, so Ghidra treats s0 as the high half of d0, not the low half.
+SmallWorld corrects the q registers' halves, but Ghidra runs code wrong that
+writes a register as one width and reads it as another. A BE8 object
+file still holds its code big-endian, as only the linker converts it, so
+SmallWorld can't run code straight from one. SmallWorld doesn't support
+big-endian M-profile.
 
 **arm-v8 PANDA:** arm-v8r runs on PANDA's Cortex-R52. PANDA's 32-bit ARM build
 has no ARMv8-A core, so arm-v8a runs on its "max" model.

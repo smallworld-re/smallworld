@@ -1374,3 +1374,28 @@ class Armv8RElfRelocator(ArmElfRelocator):
 
 class Armv8MElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V8M
+
+
+# Big-endian ARMv6 and later are BE8. A linked BE8 image holds its code
+# little-endian, but needs only data relocations, which are big-endian.
+# Object files hold their code big-endian until the linker converts it.
+
+
+class Armv6KBEElfRelocator(Armv6KElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv7ABEElfRelocator(Armv7AElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv7RBEElfRelocator(Armv7RElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv8ABEElfRelocator(Armv8AElfRelocator):
+    byteorder = platforms.Byteorder.BIG
+
+
+class Armv8RBEElfRelocator(Armv8RElfRelocator):
+    byteorder = platforms.Byteorder.BIG

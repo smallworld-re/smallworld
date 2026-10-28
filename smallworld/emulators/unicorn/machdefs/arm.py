@@ -3,6 +3,9 @@ import unicorn
 from ....platforms import Architecture, Byteorder
 from .machdef import UnicornMachineDef
 
+# CPSR.E: data accesses are big-endian.
+CPSR_E = 1 << 9
+
 
 class ARMMachineDef(UnicornMachineDef):
     """Base Unicorn machine definition for 32-bit ARM"""
@@ -794,3 +797,43 @@ class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
     uc_cpu = unicorn.arm_const.UC_CPU_ARM_CORTEX_M33
     # M-profile is Thumb-only.
     uc_mode = unicorn.UC_MODE_THUMB
+
+
+# Big-endian ARMv6 and later are BE8: Unicorn's little-endian core, which
+# fetches little-endian instructions, with CPSR.E set, which makes data
+# accesses big-endian. (Unicorn's big-endian mode is BE32.)
+
+
+class ARMv6KBEMachineDef(ARMv6KMachineDef):
+    """Unicorn machine definition for ARM6K big-endian (BE8)"""
+
+    byteorder = Byteorder.BIG
+    cpsr_fixed_bits = CPSR_E
+
+
+class ARMv7ABEMachineDef(ARMv7AMachineDef):
+    """Unicorn machine definition for ARM7-A big-endian (BE8)"""
+
+    byteorder = Byteorder.BIG
+    cpsr_fixed_bits = CPSR_E
+
+
+class ARMv7RBEMachineDef(ARMv7RMachineDef):
+    """Unicorn machine definition for ARM7-R big-endian (BE8)"""
+
+    byteorder = Byteorder.BIG
+    cpsr_fixed_bits = CPSR_E
+
+
+class ARMv8ABEMachineDef(ARMv8AMachineDef):
+    """Unicorn machine definition for ARM8-A big-endian (BE8)"""
+
+    byteorder = Byteorder.BIG
+    cpsr_fixed_bits = CPSR_E
+
+
+class ARMv8RBEMachineDef(ARMv8RMachineDef):
+    """Unicorn machine definition for ARM8-R big-endian (BE8)"""
+
+    byteorder = Byteorder.BIG
+    cpsr_fixed_bits = CPSR_E

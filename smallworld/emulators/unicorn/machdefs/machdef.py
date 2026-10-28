@@ -30,6 +30,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
     uc_cpu: typing.Optional[int] = None
     """The Unicorn CPU ID, if needed"""
 
+    cpsr_fixed_bits: int = 0
+    """ARM CPSR bits the platform holds set, such as E on a BE8 CPU"""
+
     @property
     @abc.abstractmethod
     def uc_mode(self) -> int:

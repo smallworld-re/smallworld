@@ -141,3 +141,43 @@ class ARMv8mStack(ARM32Stack):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
     )
+
+
+class ARMv6kBEStack(ARM32Stack):
+    """A stack for a big-endian ARM6K 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+    )
+
+
+class ARMv7aBEStack(ARM32Stack):
+    """A stack for a big-endian ARM7-A 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+    )
+
+
+class ARMv7rBEStack(ARM32Stack):
+    """A stack for a big-endian ARM7-R 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+    )
+
+
+class ARMv8aBEStack(ARM32Stack):
+    """A stack for a big-endian ARM8-A 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+    )
+
+
+class ARMv8rBEStack(ARM32Stack):
+    """A stack for a big-endian ARM8-R 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+    )

@@ -1,6 +1,7 @@
 import abc
 import typing
 
+import claripy
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
 
@@ -54,6 +55,11 @@ class GhidraMachineDef:
     # on this language.
     nop_userops: typing.FrozenSet[str] = frozenset()
 
+    # Registers whose halves Ghidra holds in the opposite order to the
+    # architecture, for a language that lays out its registers for the other
+    # byte order.
+    swapped_halves: typing.FrozenSet[str] = frozenset()
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):
@@ -80,6 +86,23 @@ class GhidraMachineDef:
         reg = self.language.getRegister(self._registers[name])
         assert reg is not None, name
         return reg
+
+    def fix_register_bytes(self, name: str, data: bytes) -> bytes:
+        """Convert a register's bytes between Ghidra's order and ours
+
+        This is its own inverse, so it serves for reads and writes.
+        """
+        if name not in self.swapped_halves:
+            return data
+        half = len(data) // 2
+        return data[half:] + data[:half]
+
+    def fix_register_bv(self, name: str, bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:
+        """:meth:`fix_register_bytes` for a symbolic value"""
+        if name not in self.swapped_halves:
+            return bv
+        half = bv.size() // 2
+        return claripy.Concat(bv[half - 1 : 0], bv[bv.size() - 1 : half])
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

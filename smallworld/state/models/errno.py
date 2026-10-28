@@ -648,4 +648,29 @@ class RiscV64ErrnoResolver(ErrnoResolver):
     # riscv64 uses the generic errno list
 
 
+class ArmV6KBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6K, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
 __all__ = ["ErrnoResolver"]

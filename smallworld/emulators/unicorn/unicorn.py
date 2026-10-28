@@ -85,6 +85,11 @@ class UnicornEmulator(
             self.platdef.capstone_arch, self.platdef.capstone_mode
         )
         self.disassembler.detail = True
+        if self.machdef.cpsr_fixed_bits:
+            cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+            self.engine.reg_write(
+                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | self.machdef.cpsr_fixed_bits
+            )
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
@@ -470,6 +475,10 @@ class UnicornEmulator(
 
         if name == "pc":
             content = self._handle_thumb_interwork(content)
+        elif name == "cpsr":
+            # Keep the bits the platform holds set: a harness writing CPSR
+            # mustn't switch a BE8 CPU's data accesses to little-endian.
+            content |= self.machdef.cpsr_fixed_bits
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
         if reg == 0:

@@ -1209,3 +1209,43 @@ class ARMv8M(ARMPlatformMixinV8MMainline, ARMPlatformDef):
     architecture = Architecture.ARM_V8M
     capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
     ghidra_language_id = "ARM:LE:32:v8-m"
+
+
+# Big-endian ARMv6 and later are BE8: data is big-endian, but instructions
+# stay little-endian. Ghidra's BE8 languages are v7 and v8 only, so ARMv6K
+# uses the v7 one, which accepts a superset of its instructions.
+
+
+class ARMv6KBE(ARMv6K):
+    """Platform definition for ARM6K big-endian (BE8)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:LEBE:32:v7LEInstruction"
+
+
+class ARMv7ABE(ARMv7A):
+    """Platform definition for ARM7-A big-endian (BE8)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:LEBE:32:v7LEInstruction"
+
+
+class ARMv7RBE(ARMv7R):
+    """Platform definition for ARM7-R big-endian (BE8)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:LEBE:32:v7LEInstruction"
+
+
+class ARMv8ABE(ARMv8A):
+    """Platform definition for ARM8-A big-endian (BE8)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:LEBE:32:v8LEInstruction"
+
+
+class ARMv8RBE(ARMv8R):
+    """Platform definition for ARM8-R big-endian (BE8)."""
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "ARM:LEBE:32:v8LEInstruction"
