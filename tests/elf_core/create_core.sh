@@ -39,8 +39,7 @@ elif [ "$platform" = "mips64el" ]; then
 elif [ "$platform" = "ppc" ]; then
     sysroot=$PPC_SYSROOT
 elif [ "$platform" = "ppc64" ]; then
-    echo "FIXME: Something is horribly wrong with ppc64 ld.so"
-    exit 0
+    sysroot=$PPC64_SYSROOT
 fi
 
 

@@ -10,12 +10,6 @@ smallworld.logging.setup_logging(level=logging.INFO)
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
-# We don't technically support the ppc64 ABI, but the ppc32 ABI is close
-# Please don't try this at home.
-hookplatform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
-)
-
 
 # Create a machine
 machine = smallworld.state.Machine()
@@ -42,7 +36,9 @@ with open(filename, "rb") as f:
 # I can't get my system to dump the executable segments.
 origname = filename.replace(".core", "")
 with open(origname, "rb") as f:
-    orig = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    orig = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=code.address
+    )
 
 # The core file reserves space before the true load address for its metadata.
 code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
@@ -53,10 +49,10 @@ nop = b"\x60\x00\x00\x00"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
-# puts address recovered from manual RE
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x5C0
+# Hook the local PLT call stub for puts in the restored text page.
+puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x820
 puts = smallworld.state.models.Model.lookup(
-    "puts", hookplatform, smallworld.platforms.ABI.SYSTEMV, puts_addr
+    "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 

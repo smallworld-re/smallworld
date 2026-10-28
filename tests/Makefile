@@ -399,6 +399,14 @@ $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform)))
 # Populate the C PE templates
 $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
+# elf_core runs its binary on a real glibc under qemu-user to get a core dump.
+# zig's powerpc64-linux-gnu emits ELFv2 code but binds ELFv1 glibc symbol
+# versions (puts@GLIBC_2.3), and ELFv2 glibc starts at GLIBC_2.17, so no glibc
+# can load the result.  Nix's ELFv2 cross gcc builds against the glibc
+# create_core.sh runs it on.
+PPC64_GLIBC_CC := powerpc64-unknown-linux-gnuabielfv2-gcc
+elf_core/elf_core.ppc64.elf: PPC64_CC := $(PPC64_GLIBC_CC)
+
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
 

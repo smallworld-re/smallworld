@@ -85,6 +85,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to a guest function; on PowerPC64 it also sets `r12` for the TOC.
 - `interrupt`, `fuzz` (including AFL) and `static_rela` integration cases for
   PowerPC64.
+- `elf_core` integration cases for PowerPC64. Its test binary is built with
+  Nix's ELFv2 cross gcc rather than zig, whose `powerpc64-linux-gnu` target
+  binds ELFv1 glibc symbol versions that the ELFv2 glibc used for the core
+  dump does not provide.
 - `PPC64Instruction`, so analyses can decode PowerPC64; and PowerPC64 support
   in the malloc field-detection model. The `memhook` integration cases now
   cover ppc64.
