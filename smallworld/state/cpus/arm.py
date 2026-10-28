@@ -1207,14 +1207,6 @@ class ARMv6M(ARMCPUMixinM, ARM):
     )
 
 
-class ARMv6MThumb(ARMv6M):
-    """CPU Model for ARMv6-M little-endian in thumb mode."""
-
-    platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-    )
-
-
 class ARMv7M(ARMCPUMixinMMainline, ARM):
     """CPU Model for ARMv7-M little-endian."""
 

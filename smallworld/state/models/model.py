@@ -285,7 +285,6 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.ARM_V5T
             or self.platform.architecture == platforms.Architecture.ARM_V6K
             or self.platform.architecture == platforms.Architecture.ARM_V6M
-            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
             or self.platform.architecture == platforms.Architecture.ARM_V7A
             or self.platform.architecture == platforms.Architecture.ARM_V7M
             or self.platform.architecture == platforms.Architecture.ARM_V7EM

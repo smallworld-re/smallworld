@@ -49,10 +49,6 @@ class ARMv6M(ARM):
     architecture = platforms.Architecture.ARM_V6M
 
 
-class ARMv6MThumb(ARM):
-    architecture = platforms.Architecture.ARM_V6M_THUMB
-
-
 class ARMv7M(ARM):
     architecture = platforms.Architecture.ARM_V7M
 

@@ -883,7 +883,6 @@ class ThumbUseDefBackendTests(unittest.TestCase):
 
         for arch in (
             Architecture.ARM_V6M,
-            Architecture.ARM_V6M_THUMB,
             Architecture.ARM_V7M,
         ):
             with self.subTest(arch=arch):

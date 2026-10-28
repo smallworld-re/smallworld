@@ -79,14 +79,6 @@ class ARMv6mStack(ARM32Stack):
     )
 
 
-class ARMv6mThumbStack(ARM32Stack):
-    """A stack for an ARMv6mThumb 32-bit CPU"""
-
-    platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-    )
-
-
 class ARMv7mStack(ARM32Stack):
     """A stack for an ARMv7m 32-bit CPU"""
 

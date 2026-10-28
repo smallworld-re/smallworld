@@ -100,10 +100,6 @@ class TritonARMv6MMachineDef(TritonARMMachineDef):
     is_thumb = True
 
 
-class TritonARMv6MThumbMachineDef(TritonARMv6MMachineDef):
-    arch = Architecture.ARM_V6M_THUMB
-
-
 class TritonARMv7MMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V7M
     _registers = _V7M_REGS

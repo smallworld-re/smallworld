@@ -849,10 +849,6 @@ class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     is_thumb = True
 
 
-class ARMv6MThumbMachineDef(ARMv6MMachineDef):
-    arch = Architecture.ARM_V6M_THUMB
-
-
 class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     # M-profile is Thumb-only.
     angr_arch = archinfo.arch_arm.ArchARMCortexM()

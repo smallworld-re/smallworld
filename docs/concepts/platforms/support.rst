@@ -50,11 +50,6 @@ so Baseline code should run on arm-v8m. Mainline is more permissive, though:
 it runs instructions outside Baseline's subset, and unaligned loads and
 stores, where a Cortex-M23 would fault.
 
-**arm-v6m-thumb:** an older name for arm-v6m, from before arm-v6m ran Thumb
-code. They now run on the same Unicorn and angr machines, but only Unicorn,
-angr and Triton define arm-v6m-thumb, and no integration test uses it, so
-prefer arm-v6m.
-
 **ARMv8.1-M:** SmallWorld doesn't support ARMv8.1-M (Cortex-M55 and M85),
 as Unicorn has no core for it, so it has neither the M-Profile Vector
 Extension (Helium) nor low-overhead loops.

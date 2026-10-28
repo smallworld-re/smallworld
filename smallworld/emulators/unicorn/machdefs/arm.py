@@ -687,13 +687,6 @@ class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     uc_mode = unicorn.UC_MODE_THUMB
 
 
-class ARMv6MThumbMachineDef(ARMv6MMachineDef):
-    """Unicorn machine definition for ARMv6-M little-endian, THUMB ISA"""
-
-    arch = Architecture.ARM_V6M_THUMB
-    uc_mode = unicorn.UC_MODE_THUMB
-
-
 class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 

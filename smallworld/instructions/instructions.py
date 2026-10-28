@@ -276,7 +276,7 @@ class Instruction(metaclass=abc.ABCMeta):
 
     #: Whether the Ghidra-pcode backend can analyze this instruction format.
     #: False where the platform's SLEIGH language needs a non-default
-    #: context register the analysis does not set (ARMV6MThumbInstruction).
+    #: context register the analysis does not set.
     #: Such a platform still has a ghidra_language_id for its emulator.
     supports_pcode_use_def: bool = True
 

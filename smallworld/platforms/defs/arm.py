@@ -1076,16 +1076,6 @@ class ARMv6M(ARMPlatformMixinM, ARMPlatformDef):
     ghidra_language_id = "ARM:LE:32:Cortex"
 
 
-class ARMv6MThumb(ARMv6M):
-    """Platform definition for ARMv6m little-endian in thumb mode.
-
-    Equivalent to ARMv6M, which is itself Thumb-only;
-    kept for compatibility.
-    """
-
-    architecture = Architecture.ARM_V6M_THUMB
-
-
 class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     """Platform definition for ARMv7m little-endian
 

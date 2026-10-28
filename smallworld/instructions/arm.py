@@ -76,13 +76,6 @@ class ARMV6MInstruction(ARMInstruction):
     )
 
 
-class ARMV6MThumbInstruction(ARMInstruction):
-    cs_mode = capstone.CS_MODE_THUMB
-    platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-    )
-
-
 class ARMV7AInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE

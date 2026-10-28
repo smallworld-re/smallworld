@@ -717,7 +717,6 @@ class UnicornEmulator(
             platforms.Architecture.ARM_V5T,
             platforms.Architecture.ARM_V6K,
             platforms.Architecture.ARM_V6M,
-            platforms.Architecture.ARM_V6M_THUMB,
             platforms.Architecture.ARM_V7A,
             platforms.Architecture.ARM_V7M,
             platforms.Architecture.ARM_V7EM,

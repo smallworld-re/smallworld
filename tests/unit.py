@@ -1136,12 +1136,6 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
-    def test_cpu_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
     def test_cpu_armv7m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
@@ -1422,12 +1416,6 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_armv6m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1713,12 +1701,6 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
-    def test_angr_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
     def test_angr_armv7m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
@@ -1950,13 +1932,6 @@ class PandaMachdefTests(unittest.TestCase):
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
-
-    def test_panda_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_panda_armv7m(self):
         platform = platforms.Platform(
@@ -2212,13 +2187,6 @@ class GhidraMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
-    def test_ghidra_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
     def test_ghidra_armv7m(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
@@ -2376,10 +2344,10 @@ class PlatformDefMetadataTests(unittest.TestCase):
         platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
         return platforms.PlatformDef.for_platform(platform)
 
-    def test_armv6m_thumb_uses_thumb_capstone_mode(self):
+    def test_armv6m_uses_thumb_capstone_mode(self):
         # SW-081: the Thumb platform inherited CS_MODE_ARM, so a disassembler
         # built from capstone_mode decoded ARM instead of Thumb.
-        pdef = self._pdef(platforms.Architecture.ARM_V6M_THUMB)
+        pdef = self._pdef(platforms.Architecture.ARM_V6M)
         self.assertEqual(pdef.capstone_mode, capstone.CS_MODE_THUMB)
 
     def test_armv7r_has_v7_ghidra_language_id(self):
@@ -3264,13 +3232,6 @@ class TritonMachdefTests(unittest.TestCase):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-            )
-        )
-
-    def test_triton_armv6m_thumb(self):
-        self.run_test(
-            platforms.Platform(
-                platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
             )
         )
 
@@ -4673,7 +4634,7 @@ class MemoryHookRangeTests(unittest.TestCase):
 
 
 class ArmInstructionPlatformTests(unittest.TestCase):
-    """ARMV5TInstruction claimed ARM_V6M; ARMV6MThumbInstruction was missing."""
+    """ARMV5TInstruction claimed ARM_V6M."""
 
     def test_armv5t_instruction_platform(self):
         from smallworld.instructions.arm import ARMV5TInstruction
@@ -4728,22 +4689,13 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         )
         self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB)
 
-    def test_armv6m_thumb_instruction(self):
-        from smallworld.instructions.arm import ARMV6MThumbInstruction
-
-        self.assertEqual(
-            ARMV6MThumbInstruction.platform.architecture,
-            platforms.Architecture.ARM_V6M_THUMB,
-        )
-        self.assertEqual(ARMV6MThumbInstruction.cs_mode, capstone.CS_MODE_THUMB)
-
     def test_from_bytes_decodes_thumb(self):
         thumb = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
         # movs r0, #1 in thumb encoding
         insn = Instruction.from_bytes(b"\x01\x20", 0x1000, thumb)
-        self.assertEqual(type(insn).__name__, "ARMV6MThumbInstruction")
+        self.assertEqual(type(insn).__name__, "ARMV6MInstruction")
         self.assertIn("movs", insn.disasm)
 
 
