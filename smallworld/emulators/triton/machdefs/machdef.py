@@ -94,6 +94,13 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
     clean stop rather than an execution fault.
     """
 
+    nop_mnemonics: typing.Set[str] = set()
+    """Hint instruction mnemonics with no architectural effect on this arch.
+
+    Triton implements no semantics for these and reports them as undefined
+    instructions, so the run loop matches on the mnemonic and steps over them.
+    """
+
     syscall_mnemonics: typing.Set[str] = set()
     """Instruction mnemonics that request a system call on this architecture.
 

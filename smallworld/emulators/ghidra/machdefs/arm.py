@@ -3,6 +3,11 @@ from .machdef import GhidraMachineDef
 
 
 class ARMMachineDef(GhidraMachineDef):
+    # The preload hints (pld, pldw, pli) have no architectural effect.
+    nop_userops = frozenset(
+        {"HintPreloadData", "HintPreloadDataForWrite", "HintPreloadInstruction"}
+    )
+
     def __init__(self):
         super().__init__()
         self._registers = {
@@ -786,7 +791,7 @@ class ARMv4MachineDef(
     # userop, even in the v4 language, which has no Thumb and no TMode
     # context register; Ghidra's emulator then fails on the null context.
     # With no Thumb state it's a no-op.
-    nop_userops = frozenset({"setISAMode"})
+    nop_userops = ARMMachineDef.nop_userops | {"setISAMode"}
 
 
 class ARMv4TMachineDef(

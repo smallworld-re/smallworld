@@ -69,6 +69,8 @@ class TritonARMMachineDef(TritonMachineDef):
     interrupt_mnemonics = {"svc", "swi"}
     # No halt_mnemonics: Triton's ARM32 target does model wfi/wfe (as no-ops),
     # so they never reach the run loop's unmodelled-instruction handling.
+    # The preload hints are unconditional, so they need no condition handling.
+    nop_mnemonics = {"pld", "pldw", "pli"}
     syscall_mnemonics = {"svc", "swi"}
     syscall_number_register = "r7"
 

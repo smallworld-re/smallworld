@@ -340,6 +340,9 @@ class TritonEmulator(
         what is left over is reported as an execution failure.
         """
         mnemonic = self._canonical_mnemonic(self._mnemonic(inst))
+        if mnemonic in self.machdef.nop_mnemonics:
+            self.write_register_content("pc", pc + inst.getSize())
+            return
         if mnemonic in self.machdef.halt_mnemonics:
             if not self._arm32_condition_holds(self._mnemonic(inst)):
                 # A predicated halt whose condition is false: a no-op.
