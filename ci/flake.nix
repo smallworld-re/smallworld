@@ -141,6 +141,36 @@
           crossSystem.config = "sparc-unknown-linux-gnu";
         }).buildPackages.binutils-unwrapped;
 
+      # The C tests need a full gcc and glibc, which nixpkgs does not build for
+      # 32-bit SPARC out of the box: its glibc platform list stops at V9, even
+      # though upstream glibc still supports V8 CPUs with CAS, such as LEON.
+      # Target LEON3 so gcc emits V8 code and glibc's atomics have CAS. gcc's
+      # libitm uses V9 instructions on SPARC and fails to assemble for LEON,
+      # so leave it out, and libsanitizer with it; no test needs either.
+      mkSparcPkgs =
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnsupportedSystem = true;
+          crossSystem = {
+            config = "sparc-unknown-linux-gnu";
+            gcc.cpu = "leon3";
+          };
+        };
+      mkSparcGcc =
+        system:
+        let
+          sparcPkgs = mkSparcPkgs system;
+        in
+        sparcPkgs.buildPackages.wrapCC (
+          sparcPkgs.buildPackages.gcc.cc.overrideAttrs (old: {
+            configureFlags = (old.configureFlags or [ ]) ++ [
+              "--disable-libitm"
+              "--disable-libsanitizer"
+            ];
+          })
+        );
+
       mkTricoreGcc =
         system:
         let
@@ -207,10 +237,14 @@
           tricoreGcc = mkTricoreGcc system;
           superHBinutils = mkSuperHBinutils system;
           sparcBinutils = mkSparcBinutils system;
+          sparcGcc = mkSparcGcc system;
+          sparcGlibc = (mkSparcPkgs system).glibc;
 
           tests = pkgs.callPackage ../tests {
             inherit
               sparcBinutils
+              sparcGcc
+              sparcGlibc
               superHBinutils
               tricoreGcc
               xtensaGcc

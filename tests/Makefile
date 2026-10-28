@@ -138,6 +138,7 @@ MSP430X_CC := zig cc -target $(MSP430X_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
 RISCV64_CC := zig cc -target $(RISCV64_ID)
+SPARC32_CC := $(SPARC32_ID)-gcc
 TRICORE_CC := $(TRICORE_ID)-gcc
 XTENSA_CC := $(XTENSA_ID)-gcc
 
@@ -184,8 +185,10 @@ RISCV64_ELF_CFLAGS := -pie
 XTENSA_ELF_CFLAGS := -pie
 
 # Extra link libraries, per architecture. Most toolchains resolve libm
-# implicitly (or fold fabs and friends inline), but m68k-gcc needs it linked.
+# implicitly (or fold fabs and friends inline), but m68k-gcc and sparc-gcc
+# need it linked.
 M68K_ELF_LDLIBS := -lm
+SPARC32_ELF_LDLIBS := -lm
 
 # ***************************
 # *** Template Parameters ***
@@ -393,7 +396,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIP
 ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SPARC32 TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 SPARC32
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

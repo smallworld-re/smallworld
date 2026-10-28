@@ -5,6 +5,8 @@
   gdb,
   qemu-user,
   sparcBinutils,
+  sparcGcc,
+  sparcGlibc,
   superHBinutils,
   tricoreGcc,
   xtensaGcc,
@@ -21,6 +23,7 @@ stdenv.mkDerivation {
     qemu-user
     gdb
     sparcBinutils
+    sparcGcc
     superHBinutils
     tricoreGcc
     xtensaGcc
@@ -30,6 +33,7 @@ stdenv.mkDerivation {
     pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
+    sparcGlibc
   ];
   env = {
     AMD64_SYSROOT = x86_64_glibc_path;

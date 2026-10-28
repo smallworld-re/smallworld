@@ -22,6 +22,7 @@ _ARCH_MATRIX = (
     ("mips64el", "MIPS64", "LITTLE"),
     ("ppc", "POWERPC32", "BIG"),
     ("riscv64", "RISCV64", "LITTLE"),
+    ("sparc32", "SPARC32", "BIG"),
 )
 
 _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MATRIX}
@@ -35,6 +36,8 @@ _FLOAT_RETURN_SKIPS = {
     "m68k": "m68k float/double return is not modeled (NotImplementedError)",
     "mips": "Unicorn does not expose the f0 FP register for MIPS32",
     "mipsel": "Unicorn does not expose the f0 FP register for MIPS32",
+    "sparc32": "SPARC returns floats in %f0, which the SPARC32 platform does not "
+    "model (NotImplementedError)",
 }
 
 # fabs both takes a double argument and returns one, so it needs exactly the

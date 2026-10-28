@@ -65,6 +65,9 @@ machine.add(stack)
 fake_return_address = 0x7FFFFFF0
 stack.push_integer(fake_return_address, 8, "fake return address")
 machine.add_exit_point(fake_return_address)
+if arch == smallworld.platforms.Architecture.SPARC32:
+    # SPARC returns through %o7, to %o7 + 8, past the call and its delay slot.
+    cpu.o7.set(fake_return_address - 8)
 
 # Configure the stack pointer
 sp = stack.get_pointer()

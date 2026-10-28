@@ -69,8 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that pass an eight-byte argument in the next two argument words without
   alignment, splitting it between the last register and the stack when one
   register is left. SPARC32 binds `R_SPARC_JMP_SLOT` the way glibc does, by
-  rewriting the PLT entry. Floating-point returns are not supported on SPARC32
-  yet, since `%f0` is not modeled.
+  rewriting the PLT entry, and ignores `R_SPARC_NONE`. Floating-point returns
+  are not supported on SPARC32 yet, since `%f0` is not modeled. The C
+  library-model tests run on SPARC32, built with a LEON3-targeted gcc and
+  glibc from nixpkgs (without libitm, whose SPARC code needs V9).
+- `UnicornMachineDef.configure_engine()`, a hook for adjusting a new engine's
+  processor state. SPARC32 uses it to enable the FPU (`%psr.EF`), which
+  Unicorn's CPU reset leaves disabled.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

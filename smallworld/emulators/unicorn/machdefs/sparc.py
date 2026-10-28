@@ -5,6 +5,10 @@ from ....platforms import Architecture, Byteorder
 from ....platforms.defs.sparc import SPARC_WINDOW_REGISTERS
 from .machdef import UnicornMachineDef
 
+# %psr after reset, but with the FPU enabled: EF (bit 12) and S (bit 7),
+# CWP 0, traps disabled.
+_PSR_FPU_ENABLED = 0x1080
+
 
 class SPARC32MachineDef(UnicornMachineDef):
     """Unicorn machine definition for 32-bit SPARC V8 (LEON3).
@@ -17,7 +21,8 @@ class SPARC32MachineDef(UnicornMachineDef):
 
     Unicorn 2.1.4 does not support %npc or %y (writes fail with
     UC_ERR_ARG), and reading %psr crashes the process, so the processor
-    state register is not exposed at all.
+    state register is not exposed at all.  Writing it works, though, and
+    `configure_engine` uses that to enable the FPU.
     """
 
     arch = Architecture.SPARC32
@@ -39,3 +44,10 @@ class SPARC32MachineDef(UnicornMachineDef):
         "npc": 0,
         "y": 0,
     }
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        # The CPU resets with the FPU disabled (PSR.EF clear), so the first
+        # FP instruction raises an fp_disabled trap.  gcc-built code routinely
+        # uses FP registers, even to pass a double to a variadic function,
+        # and a real program's startup code would have enabled the FPU.
+        engine.reg_write(sparc_const.UC_SPARC_REG_PSR, _PSR_FPU_ENABLED)

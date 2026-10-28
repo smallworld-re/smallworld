@@ -3,6 +3,7 @@ from .....exceptions import ConfigurationError
 from ..structs import ElfRela
 from .rela import ElfRelocator
 
+R_SPARC_NONE = 0  # No relocation; this entry is a marker only.
 R_SPARC_32 = 3
 R_SPARC_COPY = 19
 R_SPARC_GLOB_DAT = 20
@@ -24,7 +25,9 @@ class SPARC32ElfRelocator(ElfRelocator):
         if not rela.is_rela:
             raise ConfigurationError("Using Rels.  Need to be careful")
 
-        if rela.type in (R_SPARC_32, R_SPARC_GLOB_DAT, R_SPARC_UA32):
+        if rela.type == R_SPARC_NONE:
+            return b""
+        elif rela.type in (R_SPARC_32, R_SPARC_GLOB_DAT, R_SPARC_UA32):
             # S + A, a plain 32-bit word.
             val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
             return (val & 0xFFFFFFFF).to_bytes(4, "big")

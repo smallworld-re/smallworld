@@ -55,6 +55,17 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def configure_engine(self, engine: typing.Any) -> None:
+        """Adjust a newly created Unicorn engine's processor state
+
+        Called once, before any memory or register is set, for state
+        Unicorn's CPU reset leaves unsuitable for running user code.
+
+        Arguments:
+            engine: the `unicorn.Uc` instance
+        """
+        pass
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt
 
