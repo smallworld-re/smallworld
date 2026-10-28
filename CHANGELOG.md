@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Model` returns from 8051 function hooks. angr machine definitions can
   supply `function_return_address` for a return address angr's calling
   conventions cannot describe; the 8051's lives in internal RAM.
+- An `mcs51_diff` integration scenario that checks the 8051 against an
+  independent simulator, SDCC's ucsim_51. Five programs covering arithmetic,
+  logic, data movement, bit instructions and branches run from a random
+  starting state, and their final registers, internal RAM, SFRs and XDATA are
+  compared with the results `tests/mcs51_diff/generate.py` recorded from
+  ucsim_51. They match on angr and Ghidra, except for the parity flag, which
+  the comparison leaves out.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

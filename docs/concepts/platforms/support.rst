@@ -251,6 +251,10 @@ select, and the parity flag is never computed.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
 SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
 low byte first, as ``lcall`` pushes a return address.
+The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
+ucsim_51: its programs run from a random starting state and must end in the
+state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;
+rerun it after changing a program, and review the diff.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
