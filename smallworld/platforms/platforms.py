@@ -51,7 +51,7 @@ class Architecture(enum.Enum):
     """arm32 v6k, modeled on the ARM1176"""
 
     ARM_V6M = "arm-v6m"
-    """arm32 v6m, ARM isa"""
+    """arm32 v6m, Thumb only, as M-profile has no ARM state"""
 
     ARM_V6M_THUMB = "arm-v6m-thumb"
     """arm32 v6m, THUMB isa"""
