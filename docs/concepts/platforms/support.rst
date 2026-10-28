@@ -56,8 +56,11 @@ Extension (Helium) nor low-overhead loops.
 
 **ARMv5TE:** arm-v5t runs on Unicorn's ARM926, an ARMv5TEJ core, and Ghidra's
 v5t language includes the 5E extensions, so both decode ARMv5TE's DSP
-instructions (``qadd``, ``smla<x><y>``, ``ldrd`` and the like). No test
-covers them, though, so treat them as untested.
+instructions (``qadd``, ``smla<x><y>``, ``ldrd`` and the like). Tests cover
+the saturating arithmetic, halfword multiplies and doubleword loads and stores.
+Unicorn, PANDA and Styx run all of them. Ghidra and angr don't run the
+saturating instructions: Ghidra saturates after the 32-bit result has already
+wrapped, and angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
 
 **aarch64:** aarch64 is little-endian only; SmallWorld has no big-endian
 AArch64 (``aarch64_be``).
