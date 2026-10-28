@@ -9,7 +9,7 @@ arm-v7r,            No,         No,         No,         No,         **Yes**
 i386,               **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 la32,               **Yes**,    **Yes**,    No Support, No,         No Support
 la64,               **Yes**,    **Yes**,    No Support, No,         No Support
-m68k,               No,         **Yes**,    No Support, No,         **Yes**
+m68k,               **Yes**,    **Yes**,    No Support, No,         **Yes**
 mips32r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips32r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips64r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
