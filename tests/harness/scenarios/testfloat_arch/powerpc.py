@@ -128,10 +128,16 @@ KERNELS: Dict[str, Kernel] = {
     ),
 }
 
+# PANDA is listed without a local measurement; CI is where it gets scored.  If
+# its POWER CPU comes up with MSR[FP] clear, as PANDA's x86 and ARM CPUs leave
+# their FPUs off, every loop faults on its first `lfs`/`lfd` and wants a skip
+# like `armhf.panda`'s.
+_ENGINES = ("unicorn", "angr", "pcode", "panda")
+
 SPECS: Dict[str, TestFloatSpec] = {
     "ppc": TestFloatSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
-        engines=("unicorn", "angr", "pcode"),
+        engines=_ENGINES,
         in_register="r3",
         out_register="r4",
         count_register="r5",
@@ -140,7 +146,7 @@ SPECS: Dict[str, TestFloatSpec] = {
     ),
     "ppc64": TestFloatSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
-        engines=("unicorn", "angr", "pcode"),
+        engines=_ENGINES,
         in_register="r3",
         out_register="r4",
         count_register="r5",

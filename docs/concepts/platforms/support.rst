@@ -434,7 +434,7 @@ Every skip is an upstream defect, reduced to a minimal case first:
   square root lowers to scalar ``Iop_SqrtF64`` and is skipped under ``angr``
   for the same reason as armhf's. Double-precision add, subtract, multiply and
   divide pass.
-- **Panda is skipped on every non-SuperH architecture here**, always because its
+- **Panda is skipped on x86 and armhf**, always because its
   bare ``-M configurable`` machine brings the CPU up with the floating-point
   unit switched off and nothing in the harness able to switch it on. On x86-64
   the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
@@ -445,6 +445,10 @@ Every skip is an upstream defect, reduced to a minimal case first:
   ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
   the exception because its FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
+- **PowerPC under Panda** is listed but has not been measured locally, so it
+  has no row in the table above; CI runs it. If Panda's POWER CPU comes up with
+  ``MSR[FP]`` clear, every loop faults on its first load and it needs the same
+  kind of skip as armhf.
 
 Panda passes all ten functions on all three SuperH platforms, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in
