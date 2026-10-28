@@ -1,5 +1,9 @@
+import logging
+
 from ... import platforms
 from .typing import AbstractGhidraEmulator, AbstractGhidraSymbolicEmulator
+
+logger = logging.getLogger(__name__)
 
 
 def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
@@ -27,6 +31,17 @@ def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
     import pyghidra
 
     if not pyghidra.started():
+        # The JVM can only pick up the SymbolicSummaryZ3 extension when it
+        # first starts, so prepare it now in case a GhidraSymbolicEmulator is
+        # created later in this process. The concrete emulator does not need
+        # it, so carry on without it if it is unavailable.
+        from . import symz3_loader
+
+        try:
+            symz3_loader.prepare_extension()
+        except (RuntimeError, NotImplementedError, OSError) as e:
+            logger.debug(f"not preparing the SymbolicSummaryZ3 extension: {e}")
+
         pyghidra.start()
 
     from .ghidra import GhidraEmulator as Emu
