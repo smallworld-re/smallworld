@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there. ELFv1 binaries, whose PLT slots hold function descriptors, still raise
   `NotImplementedError`. `ElfExecutable.processor_flags` records the header's
   `e_flags`.
+- PowerPC64 relocatable objects (`.o`) load: the TOC-relative, PC-relative
+  and `bl` relocations a compiler emits are applied, and the linker-defined
+  `.TOC.` symbol is set to the TOC base. `ElfExecutable.toc_base` records it.
 - ELF symbol visibility is read from the low two bits of `st_other`, so
   PowerPC64 ELFv2 local-entry bits no longer produce an invalid visibility.
 - A `float` argument passed by a model on PowerPC is rounded to single precision
@@ -80,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `checked_heap`, `rela` and `link_elf` integration cases now cover ppc64.
 - `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
   to a guest function; on PowerPC64 it also sets `r12` for the TOC.
+- `interrupt`, `fuzz` (including AFL) and `static_rela` integration cases for
+  PowerPC64.
 - `PPC64Instruction`, so analyses can decode PowerPC64; and PowerPC64 support
   in the malloc field-detection model. The `memhook` integration cases now
   cover ppc64.

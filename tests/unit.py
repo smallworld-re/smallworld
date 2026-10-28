@@ -7503,6 +7503,74 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
         self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
 
 
+class PowerPC64ObjectRelocationTests(unittest.TestCase):
+    """The relocations a PowerPC64 relocatable object needs, from the
+    `static_rela` scenario: TOC-relative and PC-relative 16-bit fields, and
+    the 24-bit displacement of `bl`."""
+
+    P = 0x400000
+
+    class _Elf:
+        def __init__(self, existing: bytes, toc_base=0x418000):
+            self.address = 0x400000
+            self.processor_flags = 2
+            self.toc_base = toc_base
+            self._existing = existing
+
+        def read_int(self, address, size, byteorder):
+            return int.from_bytes(self._existing[:size], "big")
+
+    def _value(self, type_, symval, existing=b"\0\0\0\0", toc_base=0x418000):
+        rela = ElfRela(
+            is_rela=True,
+            offset=self.P,
+            type=type_,
+            symbol=_make_symbol(value=symval, baseaddr=0),
+            addend=0,
+        )
+        return PowerPC64ElfRelocator()._compute_value(
+            rela, self._Elf(existing, toc_base)
+        )
+
+    def test_rel16_halves(self):
+        # S - P = 0x18000: lo is 0x8000, which `addi` sign-extends to
+        # -0x8000, so ha rounds the high half up to 2 where hi says 1.
+        symval = self.P + 0x18000
+        self.assertEqual(self._value(250, symval), b"\x80\x00")  # REL16_LO
+        self.assertEqual(self._value(251, symval), b"\x00\x01")  # REL16_HI
+        self.assertEqual(self._value(252, symval), b"\x00\x02")  # REL16_HA
+
+    def test_toc16_is_relative_to_the_toc_base(self):
+        # TOC16_HA/LO of TOC - 0x10: ha 0, lo 0xFFF0.
+        self.assertEqual(self._value(50, 0x418000 - 0x10), b"\x00\x00")
+        self.assertEqual(self._value(48, 0x418000 - 0x10), b"\xff\xf0")
+
+    def test_toc16_lo_ds_keeps_the_opcode_bits(self):
+        # `lwa` is DS-form with XO = 2 in the field's low two bits.
+        self.assertEqual(
+            self._value(64, 0x418000 + 0x8008, existing=b"\x00\x02"), b"\x80\x0a"
+        )
+
+    def test_toc16_overflow_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(47, 0x418000 + 0x8000)
+
+    def test_toc16_without_a_toc_base_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(48, 0x418000, toc_base=None)
+
+    def test_rel24_fills_the_branch_displacement(self):
+        # `bl` (0x48000001) back to 0x10000 from P.
+        self.assertEqual(
+            self._value(10, 0x10000, existing=b"\x48\x00\x00\x01"),
+            ((0x48000001 | ((0x10000 - self.P) & 0x03FFFFFC))).to_bytes(4, "big"),
+        )
+
+    def test_rel24_out_of_range_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(10, self.P + (1 << 25), existing=b"\x48\x00\x00\x01")
+
+
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
     """DTPOFF relocations write a TLS-BLOCK offset, not an address.
 
