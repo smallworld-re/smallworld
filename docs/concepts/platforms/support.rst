@@ -63,9 +63,13 @@ covers them, though, so treat them as untested.
 AArch64 (``aarch64_be``).
 
 **Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
-addressing), ARMv6 without the K extensions, ARMv6T2 (ARM1156, the first with
-Thumb-2) or ARMv6Z as platforms of their own; arm-v6k covers most ARMv6 code,
-but not Thumb-2. Nor does it run ARMv6 in BE32 mode, only in BE8.
+addressing), ARMv6 without the K extensions or ARMv6T2 (ARM1156, the first with
+Thumb-2) as platforms of their own; arm-v6k covers most ARMv6 code, but not
+Thumb-2. Nor does it run ARMv6 in BE32 mode, only in BE8.
+
+**ARMv6Z:** arm-v6k covers ARMv6Z too, as its Unicorn core, the ARM1176, is an
+ARMv6KZ core. ARMv6Z adds the Security Extensions, whose one instruction,
+``smc``, Unicorn and Ghidra decode but angr does not.
 
 **arm-v4 PANDA:** arm-v4 runs on PANDA's StrongARM SA-1110, and arm-v4t on its
 TI925T.
