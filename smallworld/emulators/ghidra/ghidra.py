@@ -525,6 +525,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
+        self.machdef.update_derived_state(self)
 
         # Check for instruction hooks.
         # TODO: Should instruction hooks override the instruction?
@@ -647,6 +648,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         )
 
                     # This is not a memory access.  No need to break
+
+        self.machdef.update_derived_state(self)
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

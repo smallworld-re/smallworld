@@ -81,7 +81,36 @@ class MCS51UserOp(enum.IntEnum, metaclass=_UpdatedEnumMeta):
 
 
 class MCS51EnginePcode(angr.engines.UberEnginePcode):
-    """angr's p-code engine, with the 8051's address spaces on a flat map."""
+    """angr's p-code engine, with the 8051's address spaces on a flat map.
+
+    It also keeps the parity flag current, which Ghidra's 8051 language never
+    computes: the hardware derives it from the accumulator on every cycle.
+    """
+
+    def _update_parity(self) -> None:
+        acc = typing.cast(claripy.ast.bv.BV, self.state.regs.acc)
+        parity = acc[0]
+        for bit in range(1, 8):
+            parity = parity ^ acc[bit]
+        psw = typing.cast(claripy.ast.bv.BV, self.state.regs.psw)
+        # Concatenate rather than mask and OR: claripy simplifies a later
+        # extract of PSW's other bits (the carry, say) through a Concat, so a
+        # symbolic accumulator leaves them concrete.
+        self.state.regs.psw = claripy.Concat(psw[7:1], parity)
+
+    def _writes_acc_or_psw(self, varnode) -> bool:
+        # ACC, which the flag is computed from, and PSW, which holds it.
+        if varnode.space.name != "register":
+            return False
+        registers = self.project.arch.registers
+        start, end = varnode.offset, varnode.offset + varnode.size
+        return any(start <= registers[name][0] < end for name in ("acc", "psw"))
+
+    def handle_pcode_block(self, irsb) -> None:
+        # Recompute on entry, in case the state was set up with a stale flag;
+        # _set_value keeps it current from there.
+        self._update_parity()
+        super().handle_pcode_block(irsb)
 
     def _flat_address(self, space_name: str, offset):
         base = _SPACE_BASES[space_name]
@@ -99,6 +128,8 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             )
             return
         super()._set_value(varnode, value)
+        if self._writes_acc_or_psw(varnode):
+            self._update_parity()
 
     def _get_value(self, varnode):
         if varnode.space.name in _SPACE_BASES:

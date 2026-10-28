@@ -1,5 +1,5 @@
 from ....platforms import Architecture, Byteorder
-from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES
+from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES, mcs51_psw_with_parity
 from .machdef import GhidraMachineDef, GhidraUserOp
 
 
@@ -38,6 +38,13 @@ class MCS51MachineDef(GhidraMachineDef):
 
     address_spaces = MCS51_ADDRESS_SPACES
     userops = MCS51UserOp
+
+    def update_derived_state(self, emulator) -> None:
+        # Ghidra's 8051 language never computes the parity flag.
+        psw = emulator.read_register("psw")
+        new_psw = mcs51_psw_with_parity(psw, emulator.read_register("acc"))
+        if new_psw != psw:
+            emulator.write_register("psw", new_psw)
 
     _registers = {
         "pc": "PC",

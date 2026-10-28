@@ -49,7 +49,8 @@ SFR_ACC = 0xE0
 SFR_B = 0xF0
 
 # PSW bits the random state leaves clear: the register bank select (RS1, RS0),
-# since the programs run in bank 0, and parity, which the hardware computes.
+# since the programs run in bank 0, and parity, which the hardware computes
+# from the accumulator rather than taking.
 PSW_FIXED_BITS = 0x18 | 0x01
 
 

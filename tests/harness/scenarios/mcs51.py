@@ -21,7 +21,7 @@ it starts failing, suspect first that Ghidra loaded its stock 8051 language
 ``language.getLanguageDescription().getSlaFile()``.
 
 Still not modeled: register banks (R0-R7 are standalone registers, not internal
-RAM 0x00-0x1F selected by PSW's RS bits) and the parity flag.
+RAM 0x00-0x1F selected by PSW's RS bits).
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ def _run_spaces(variant: str) -> int:
     return _run("mcs51_spaces", variant, lambda cpu, emu: setup(cpu, emu), checks)
 
 
-# PSW bits: CY 0x80, AC 0x40, F0 0x20, OV 0x04.
+# PSW bits: CY 0x80, AC 0x40, F0 0x20, OV 0x04, P 0x01 (parity of A).
 def _run_flags(variant: str) -> int:
     from smallworld.platforms.defs.mcs51 import MCS51_IDATA_BASE
 
@@ -167,11 +167,11 @@ def _run_flags(variant: str) -> int:
             "idata[0x20] (setb 0x03)": (idata(0x20), 0x08),
             "r7 (setb ACC.7)": (cpu.r7.get(), 0x80),
             "r6 (psw after 0xFF + 1)": (cpu.r6.get(), 0xC0),
-            "r5 (psw after 1 + 0xFF + CY)": (cpu.r5.get(), 0xC0),
+            "r5 (psw after 1 + 0xFF + CY)": (cpu.r5.get(), 0xC1),
             "r4 (1 + 0xFF + CY)": (cpu.r4.get(), 0x01),
             "r3 (0x10 - 0xFF - CY)": (cpu.r3.get(), 0x10),
-            "r2 (psw after 0x10 - 0xFF - CY)": (cpu.r2.get(), 0xC0),
-            "r1 (psw after 0x7F + 1, F0 set)": (cpu.r1.get(), 0x64),
+            "r2 (psw after 0x10 - 0xFF - CY)": (cpu.r2.get(), 0xC1),
+            "r1 (psw after 0x7F + 1, F0 set)": (cpu.r1.get(), 0x65),
             "r0 (da a after 19 + 28)": (cpu.r0.get(), 0x47),
         }
 

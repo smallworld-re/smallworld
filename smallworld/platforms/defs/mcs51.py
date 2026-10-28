@@ -105,3 +105,13 @@ def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
     if pop:
         emulator.write_register("sp", (sp - 2) & 0xFF)
     return ret
+
+
+#: PSW's parity flag, P: set when the accumulator holds an odd number of ones.
+#: The hardware recomputes it from ACC on every cycle, so it is read-only.
+MCS51_PSW_PARITY = 0x01
+
+
+def mcs51_psw_with_parity(psw: int, acc: int) -> int:
+    """PSW with its parity flag recomputed from the accumulator."""
+    return (psw & ~MCS51_PSW_PARITY) | (bin(acc & 0xFF).count("1") & 1)

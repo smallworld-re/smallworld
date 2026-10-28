@@ -5,8 +5,7 @@ Each program in ``tests/mcs51_diff`` runs from a random starting state, and
 simulator, run as an 8052 - says it ends, in ``<program>.json``.  This scenario
 loads the same starting state into SmallWorld, runs the program, and compares:
 
-* A, B, SP, DPTR and R0-R7;
-* PSW, except the parity flag (bit 0), which SmallWorld does not compute;
+* A, B, SP, DPTR, PSW and R0-R7;
 * internal RAM 0x08-0xFF.  0x00-0x07 is register bank 0, which SmallWorld
   models as the registers R0-R7 compared above, not as memory;
 * every SFR that SmallWorld does not model as a register;
@@ -42,7 +41,6 @@ _REGISTER_SFRS = {
     0xE0: "acc",
     0xF0: "b",
 }
-_PSW_PARITY = 0x01
 
 SCENARIO_INFOS = tuple(
     ScenarioInfo(
@@ -124,9 +122,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     for address, register in _REGISTER_SFRS.items():
         wanted = sfr(final["sfr"], address)
         actual = getattr(final_cpu, register).get()
-        if register == "psw":
-            wanted &= ~_PSW_PARITY
-            actual &= ~_PSW_PARITY
         compare(register, actual, wanted)
     for i in range(8):
         compare(f"r{i}", getattr(final_cpu, f"r{i}").get(), final["iram"][i])

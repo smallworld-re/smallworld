@@ -76,8 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   logic, data movement, bit instructions and branches run from a random
   starting state, and their final registers, internal RAM, SFRs and XDATA are
   compared with the results `tests/mcs51_diff/generate.py` recorded from
-  ucsim_51. They match on angr and Ghidra, except for the parity flag, which
-  the comparison leaves out.
+  ucsim_51. They match on angr and Ghidra.
+- The 8051's parity flag, PSW bit 0, on angr and Ghidra. Ghidra's 8051
+  language never computes it, so both backends recompute it from the
+  accumulator around every instruction; `GhidraMachineDef` gains
+  `update_derived_state` for state a language leaves out.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

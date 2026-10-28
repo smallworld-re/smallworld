@@ -2,18 +2,13 @@
     ; Part of the mcs51_diff scenario; see harness/scenarios/mcs51_diff.py.
     ; It starts from a random state (registers, PSW flags, internal RAM
     ; 0x20-0xFF and XDATA 0x0000-0x00FF) and the scenario compares where it
-    ; ends against ucsim_51.  SNAP saves A, and PSW without the parity bit,
-    ; which SmallWorld does not compute, to internal RAM.  Programs stay out
-    ; of internal RAM 0x08-0x1F and leave the register bank alone; SmallWorld
-    ; does not model banks.
+    ; ends against ucsim_51.  SNAP saves A and PSW to internal RAM.  Programs
+    ; stay out of internal RAM 0x08-0x1F and leave the register bank alone;
+    ; SmallWorld does not model banks.
 
     .macro SNAP slot
     mov     slot, a
-    push    acc
-    mov     a, psw
-    anl     a, #0xFE
-    mov     slot+1, a
-    pop     acc
+    mov     slot+1, psw
     .endm
 
     .area CSEG (CODE)

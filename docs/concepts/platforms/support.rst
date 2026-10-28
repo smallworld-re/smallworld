@@ -245,9 +245,11 @@ arithmetic and bit addressing wrongly, so SmallWorld's Nix environment applies
 ``pypcode`` entry in ``overrides.nix``): the carry out of ``addc``/``subb``, the
 auxiliary carry and overflow flags, the user flag F0, bit addressing and
 ``mov sp,#n`` all follow the hardware there. A Ghidra or pypcode without the
-patch fails the ``mcs51_flags`` scenario. Two gaps remain: R0-R7 are standalone
-registers rather than the register bank in internal RAM that PSW's RS bits
-select, and the parity flag is never computed.
+patch fails the ``mcs51_flags`` scenario. The language never computes the
+parity flag either, so both backends recompute it from the accumulator around
+every instruction, as the hardware does every cycle. One gap remains: R0-R7 are
+standalone registers rather than the register bank in internal RAM that PSW's
+RS bits select.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
 SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
 low byte first, as ``lcall`` pushes a return address.

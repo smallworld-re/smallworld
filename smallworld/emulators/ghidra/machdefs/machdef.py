@@ -108,6 +108,19 @@ class GhidraMachineDef:
 
     _registers: typing.Dict[str, typing.Optional[str]]
 
+    def update_derived_state(self, emulator: typing.Any) -> None:
+        """Recompute machine state the SLEIGH language leaves out.
+
+        Called before and after every instruction, so state the hardware
+        derives continuously from other state - such as the 8051's parity
+        flag, a function of the accumulator - is current whenever an
+        instruction or the user reads it.  Most machines have none.
+
+        Arguments:
+            emulator: The emulator.
+        """
+        pass
+
     def __init__(self):
         # Load the Pcode language definition
         slp = SleighLanguageProvider.getSleighLanguageProvider()
