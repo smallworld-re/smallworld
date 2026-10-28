@@ -50,6 +50,28 @@ so Baseline code should run on arm-v8m. Mainline is more permissive, though:
 it runs instructions outside Baseline's subset, and unaligned loads and
 stores, where a Cortex-M23 would fault.
 
+**arm-v6m-thumb:** an older name for arm-v6m, from before arm-v6m ran Thumb
+code. They now run on the same Unicorn and angr machines, but only Unicorn,
+angr and Triton define arm-v6m-thumb, and no integration test uses it, so
+prefer arm-v6m.
+
+**ARMv8.1-M:** SmallWorld doesn't support ARMv8.1-M (Cortex-M55 and M85),
+as Unicorn has no core for it, so it has neither the M-Profile Vector
+Extension (Helium) nor low-overhead loops.
+
+**ARMv5TE:** arm-v5t runs on Unicorn's ARM926, an ARMv5TEJ core, and Ghidra's
+v5t language includes the 5E extensions, so both decode ARMv5TE's DSP
+instructions (``qadd``, ``smla<x><y>``, ``ldrd`` and the like). No test
+covers them, though, so treat them as untested.
+
+**aarch64:** aarch64 is little-endian only; SmallWorld has no big-endian
+AArch64 (``aarch64_be``).
+
+**Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
+addressing), ARMv6 without the K extensions, ARMv6T2 (ARM1156, the first with
+Thumb-2) or ARMv6Z as platforms of their own; arm-v6k covers most ARMv6 code,
+but not Thumb-2. Nor does it run ARMv6 in BE32 mode, only in BE8.
+
 **arm-v4 PANDA:** arm-v4 runs on PANDA's StrongARM SA-1110, and arm-v4t on its
 TI925T.
 
