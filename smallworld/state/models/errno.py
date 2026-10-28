@@ -374,16 +374,16 @@ class AMD64ErrnoResolver(ErrnoResolver):
     # amd64 uses generic errno
 
 
-class ArmELErrnoResolver(ErrnoResolver):
+class ArmV6KErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.ARM_V6K, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armel uses generic errno
+    # ARMv6K uses generic errno
 
 
-class ArmHFErrnoResolver(ErrnoResolver):
+class ArmV7AErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.ARM_V7A, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armhf uses generic errno
+    # ARMv7-A uses generic errno
 
 
 class ArmV4TErrnoResolver(ErrnoResolver):

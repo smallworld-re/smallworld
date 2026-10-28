@@ -150,7 +150,7 @@ from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrxfrm,
 )
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
-from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVCallingContext
+from smallworld.state.models.armv7a.systemv.systemv import ArmV7ASysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
@@ -3526,7 +3526,7 @@ class StyxMachdefTests(unittest.TestCase):
     def _machdef_for(self, platform):
         return emulators.styx.machdefs.StyxMachineDef.for_platform(platform)
 
-    def test_armhf_machdef_resolves(self):
+    def test_armv7a_machdef_resolves(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
         )
@@ -3535,10 +3535,10 @@ class StyxMachdefTests(unittest.TestCase):
         for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
             self.assertTrue(
                 machdef.has_register(name),
-                msg=f"armhf machdef missing register '{name}'",
+                msg=f"armv7a machdef missing register '{name}'",
             )
 
-    def test_armel_machdef_resolves(self):
+    def test_armv5t_machdef_resolves(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
         )
@@ -4873,14 +4873,14 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
             MIPS64SysVCallingContext._double_arg_regs,
         )
 
-    def test_armhf_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
+    def test_armv7a_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
         # AAPCS-VFP passes floats in s0-s15 (16) and doubles in d0-d7 (8); the
         # lists were truncated to 7 each.
         self.assertEqual(
-            ArmHFSysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
+            ArmV7ASysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
         )
         self.assertEqual(
-            ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+            ArmV7ASysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
         )
 
 
@@ -5051,8 +5051,8 @@ class SysVBigEndianStackIntTests(unittest.TestCase):
         )
 
 
-class ArmHFVfpBackfillTests(unittest.TestCase):
-    """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
+class ArmV7AVfpBackfillTests(unittest.TestCase):
+    """AAPCS-VFP back-fill allocation for ARMv7-A hard-float FP args (SW-093).
 
     ARM's d(k) register aliases the s-pair s(2k):s(2k+1). A double takes the
     lowest free even pair; a float takes the lowest free single register,
@@ -5062,7 +5062,7 @@ class ArmHFVfpBackfillTests(unittest.TestCase):
 
     @staticmethod
     def _place(types):
-        ctx = ArmHFSysVCallingContext()
+        ctx = ArmV7ASysVCallingContext()
         for i, t in enumerate(types):
             ctx.add_argument(i, t)
         placed = []

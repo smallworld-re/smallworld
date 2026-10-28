@@ -397,7 +397,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         arguments consume one register-file entry apiece. Architectures whose
         single- and double-precision registers physically overlap (ARM
         AAPCS-VFP) override this to model back-filling; see
-        ArmHFSysVCallingContext.
+        ArmV7ASysVCallingContext.
         """
         if kind == ArgumentType.FLOAT:
             if self._fp_shares_int_regs:

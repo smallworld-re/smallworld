@@ -1,5 +1,5 @@
 from ..... import platforms
-from ...armel.systemv.systemv import ArmELSysVCallingContext
+from ...armv6k.systemv.systemv import ArmV6KSysVCallingContext
 from ...cstd import CStdModel
 from ...posix.filedesc import POSIXFileDescriptorManager
 
@@ -11,7 +11,7 @@ class FileDescriptorManager(POSIXFileDescriptorManager):
     abi = platforms.ABI.SYSTEMV
 
 
-class ArmV6KBESysVCallingContext(ArmELSysVCallingContext):
+class ArmV6KBESysVCallingContext(ArmV6KSysVCallingContext):
     """The ARM GNU EABI on a big-endian (BE8) ARMv6K CPU"""
 
     platform = platforms.Platform(

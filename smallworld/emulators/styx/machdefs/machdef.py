@@ -114,7 +114,7 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
         except Exception as e:
             raise exceptions.ConfigurationError(
                 f"Styx has no target for {platform.architecture}:{platform.byteorder}. "
-                f"32-bit ARM (armhf/armel), 32-bit PowerPC (ppc, big-endian only - "
+                f"32-bit ARM (except ARMv7-R and ARMv8), 32-bit PowerPC (ppc, big-endian only - "
                 f"Styx has no 64-bit PowerPC core) and SH-2A-FPU (big-endian only, "
                 f"as that is the only SH-2A model Ghidra's sleigh provides) are the "
                 f"supported families at this time. SH-4 (both endiannesses) is also "

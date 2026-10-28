@@ -51,7 +51,7 @@ cpu.sp.set(sp)
 called: set[str] = set()
 
 
-class Foo(smallworld.state.models.armhf.systemv.systemv.ArmHFSysVModel):
+class Foo(smallworld.state.models.armv7a.systemv.systemv.ArmV7ASysVModel):
     name = "foo"
 
     argument_types = [
@@ -140,7 +140,7 @@ machine.add(foo_model)
 foo_model.allow_imprecise = True
 
 
-class Bar(smallworld.state.models.armhf.systemv.systemv.ArmHFSysVModel):
+class Bar(smallworld.state.models.armv7a.systemv.systemv.ArmV7ASysVModel):
     name = "bar"
     argument_types = [
         smallworld.state.models.cstd.ArgumentType.UINT,

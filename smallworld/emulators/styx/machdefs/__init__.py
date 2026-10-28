@@ -1,6 +1,6 @@
 # Importing the concrete subclasses for the side effect of registering them with StyxMachineDef.for_platform().
-from . import armel  # noqa: F401
-from . import armhf  # noqa: F401
+from . import arm  # noqa: F401
+from . import armv7a  # noqa: F401
 from . import powerpc  # noqa: F401
 from . import superh  # noqa: F401
 from . import superh4  # noqa: F401

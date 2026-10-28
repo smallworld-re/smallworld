@@ -13,7 +13,7 @@ Notable differences from the Unicorn / Ghidra backends:
   the builder. Once built, registration order doesn't matter — hooks and
   writes are routed straight through to the live processor.
 - **No symbolic values**: ``SymbolicValueError`` for any ``claripy`` input.
-- **Limited target set**: 32-bit ARM (armhf/armel), 32-bit PowerPC (ppc),
+- **Limited target set**: 32-bit ARM (except ARMv7-R and ARMv8), 32-bit PowerPC (ppc),
   SH-2A-FPU and SH-4 are supported; anything else raises
   ``ConfigurationError``. For PowerPC an optional ``cpu_model`` selects the Styx
   core (``"ppc405"`` default, or ``"mpc860"``). SH-2A-FPU is the one target with

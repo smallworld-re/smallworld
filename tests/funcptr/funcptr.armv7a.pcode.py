@@ -4,7 +4,7 @@ import typing
 from enum import Enum
 
 import smallworld
-from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVModel
+from smallworld.state.models.armv7a.systemv.systemv import ArmV7ASysVModel
 from smallworld.state.models.cstd import ArgumentType, CStdModel
 from smallworld.state.models.funcptr import FunctionPointer
 
@@ -67,7 +67,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(ArmHFSysVModel, CStdModel):
+class TestModel(ArmV7ASysVModel, CStdModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
