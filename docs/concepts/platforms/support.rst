@@ -42,6 +42,14 @@ arm-v7r on its Cortex-R5F, arm-v7a on its Cortex-A15, and arm-v8m on its
 Cortex-M33. Unicorn has no 32-bit ARMv8-A or ARMv8-R core, so arm-v8a and
 arm-v8r run on its "max" model, which accepts a superset of their instructions.
 
+**ARMv8-M Baseline:** arm-v8m is ARMv8-M Mainline. SmallWorld doesn't support
+ARMv8-M Baseline (Cortex-M23) explicitly, as no engine models it: Unicorn has
+no Cortex-M23, and Ghidra's one ``ARM:LE:32:v8-m`` language serves both
+profiles. Baseline's instructions and registers are a subset of Mainline's,
+so Baseline code should run on arm-v8m. Mainline is more permissive, though:
+it runs instructions outside Baseline's subset, and unaligned loads and
+stores, where a Cortex-M23 would fault.
+
 **arm-v4 PANDA:** arm-v4 runs on PANDA's StrongARM SA-1110, and arm-v4t on its
 TI925T.
 
