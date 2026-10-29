@@ -82,8 +82,12 @@ emulator, as described below.
   hook is installed, which SmallWorld always does, and a CPU stopped at an exit
   address reports ``pc`` as the address after it. SmallWorld's build carries
   ``nix/patches/unicorn-sparc-dynamic-npc-hook.patch`` and
-  ``nix/patches/unicorn-sparc-exit-pc.patch`` to fix them. The ``recursion``
-  scenario nests deeper than 8 windows, so it is skipped on Unicorn.
+  ``nix/patches/unicorn-sparc-exit-pc.patch`` to fix them. **SPARC32 on
+  Unicorn therefore requires SmallWorld's nix environment.** A pip install
+  gets upstream Unicorn from PyPI, without the patches; there, creating a
+  SPARC32 ``UnicornEmulator`` raises ``ConfigurationError``, and the angr and
+  Ghidra backends still work. The ``recursion`` scenario nests deeper than 8
+  windows, so it is skipped on Unicorn.
 - **angr** and **Ghidra** use Ghidra's model, which copies the current window to
   and from a backing bank on ``save`` and ``restore``, with no window limit and
   no traps. Ghidra 12.1.2's copy stores ``%l3`` in ``%l2``'s slot and restores

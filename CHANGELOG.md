@@ -56,8 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   relocation, and function-model returns (to `%o7 + 8`). Only the registers
   visible through the current register window are modeled. The bundled Unicorn
   is patched so SPARC indirect jumps work while a code hook is installed and a
-  stopped CPU reports the right pc, and the angr and Ghidra backends correct
-  Ghidra's register-window copy, which loses `%l2` and `%l7` across a call.
+  stopped CPU reports the right pc. Upstream Unicorn, as a pip install gets
+  it, lacks those patches, so SPARC32 on Unicorn needs SmallWorld's nix
+  environment; elsewhere, creating a SPARC32 `UnicornEmulator` raises
+  `ConfigurationError`. The angr and Ghidra backends need no patches; they
+  correct Ghidra's register-window copy, which loses `%l2` and `%l7` across a
+  call.
   The test suite builds SPARC binaries with GNU binutils (zig can assemble
   SPARC but not link it) and runs the branch, call, delay, dma, elf, null_pc,
   recursion, square, stack, static_buf and strlen scenarios on it.

@@ -2147,6 +2147,25 @@ class _SPARC32SetO0(state.models.Model):
         emulator.write_register("o0", 0x99)
 
 
+class UnicornSPARCPatchTests(unittest.TestCase):
+    """Unicorn SPARC32 needs SmallWorld's translator patches, which upstream
+    Unicorn (and its PyPI wheel) lacks."""
+
+    def test_bundled_unicorn_has_fixes(self):
+        from smallworld.emulators.unicorn.machdefs import sparc
+
+        self.assertTrue(sparc.unicorn_has_sparc_fixes())
+
+    def test_unpatched_unicorn_is_refused(self):
+        from smallworld.emulators.unicorn.machdefs import sparc
+
+        with mock.patch.object(sparc, "unicorn_has_sparc_fixes", return_value=False):
+            with self.assertRaisesRegex(
+                exceptions.ConfigurationError, "unicorn-sparc-dynamic-npc-hook"
+            ):
+                emulators.UnicornEmulator(SPARC32_PLATFORM)
+
+
 class SPARC32Tests(unittest.TestCase):
     """SPARC register windows and returns behave alike on every backend.
 
