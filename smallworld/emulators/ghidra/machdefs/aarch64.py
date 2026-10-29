@@ -6,6 +6,9 @@ class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
 
+    # yield, sev and sevl have no architectural effect on a single core.
+    nop_userops = frozenset({"Yield", "SendEvent", "SendEventLocally"})
+
     _registers = {
         # *** General Purpose Registers ***
         "x0": "x0",

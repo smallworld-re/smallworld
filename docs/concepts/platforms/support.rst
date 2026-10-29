@@ -69,7 +69,10 @@ pointer authentication and BTI. Unicorn and PANDA run it on their "max" models,
 which accept a superset of its instructions, and Ghidra's AARCH64 language
 decodes them, though not ``sqrdmlah``. angr can't decode any of them, and Triton
 runs only ``ldapr`` and its relatives, so both run only ARMv8.0 code on
-aarch64-v8.5a. An ELF header doesn't record the architecture version, so
+aarch64-v8.5a. The pointer authentication hints that ``-mbranch-protection``
+emits, such as ``paciasp`` and ``autiasp``, run on every engine, but angr,
+Ghidra and Triton step over them without signing, so a signed ``lr`` reads
+unsigned there. An ELF header doesn't record the architecture version, so
 SmallWorld loads an AArch64 ELF as aarch64 unless asked for aarch64-v8.5a.
 No engine here runs SVE.
 
