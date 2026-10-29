@@ -1,5 +1,15 @@
+import typing
+
+from .... import utils
 from ....platforms import Architecture, Byteorder
-from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES, mcs51_psw_with_parity
+from ....platforms.defs.mcs51 import (
+    MCS51_ADDRESS_SPACES,
+    MCS51_IDATA_BASE,
+    MCS51_PSW_BANK_SELECT,
+    MCS51_PSW_BANK_SHIFT,
+    MCS51_REGISTER_BANKS_SIZE,
+    mcs51_psw_with_parity,
+)
 from .machdef import GhidraMachineDef, GhidraUserOp
 
 
@@ -39,12 +49,64 @@ class MCS51MachineDef(GhidraMachineDef):
     address_spaces = MCS51_ADDRESS_SPACES
     userops = MCS51UserOp
 
+    def __init__(self):
+        super().__init__()
+        # The bank PSW selected, and R0-R7, at the last register bank sync;
+        # None until the first.
+        self._synced_bank: typing.Optional[typing.Tuple[int, typing.List[int]]] = None
+
     def update_derived_state(self, emulator) -> None:
+        self._sync_register_bank(emulator)
         # Ghidra's 8051 language never computes the parity flag.
         psw = emulator.read_register("psw")
         new_psw = mcs51_psw_with_parity(psw, emulator.read_register("acc"))
         if new_psw != psw:
             emulator.write_register("psw", new_psw)
+
+    def _sync_register_bank(self, emulator) -> None:
+        """Keep R0-R7 in step with the register bank PSW selects.
+
+        On the 8051, R0-R7 are eight bytes of internal RAM, in one of four
+        banks that PSW's RS bits select; compiled code reaches them through
+        those addresses too (`push ar7`).  Ghidra's language makes them
+        standalone registers, so this syncs the two around every instruction:
+        a register that changed since the last sync (by an instruction, a hook
+        or a model) is written to its bank, then R0-R7 are reloaded from the
+        bank PSW now selects.  At the first sync the registers win, so a
+        caller's R0-R7 land in the selected bank.
+
+        Banks are only modeled when internal RAM 0x00-0x1F is mapped;
+        otherwise R0-R7 are plain registers.
+        """
+        mapped = utils.RangeCollection()
+        for region in emulator.get_memory_map():
+            mapped.add_range(region)
+        if mapped.get_missing_ranges(
+            (MCS51_IDATA_BASE, MCS51_IDATA_BASE + MCS51_REGISTER_BANKS_SIZE)
+        ):
+            return
+
+        registers = [emulator.read_register(f"r{n}") for n in range(8)]
+        if self._synced_bank is None:
+            changed_bank, changed = None, list(range(8))
+        else:
+            changed_bank, old = self._synced_bank
+            changed = [n for n in range(8) if registers[n] != old[n]]
+        bank = (emulator.read_register("psw") & MCS51_PSW_BANK_SELECT) >> (
+            MCS51_PSW_BANK_SHIFT
+        )
+        if changed_bank is None:
+            changed_bank = bank
+        for n in changed:
+            emulator.write_memory(
+                MCS51_IDATA_BASE + changed_bank * 8 + n, bytes([registers[n]])
+            )
+
+        values = list(emulator.read_memory(MCS51_IDATA_BASE + bank * 8, 8))
+        for n in range(8):
+            if values[n] != registers[n]:
+                emulator.write_register(f"r{n}", values[n])
+        self._synced_bank = (bank, values)
 
     _registers = {
         "pc": "PC",

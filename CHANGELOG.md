@@ -81,6 +81,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   language never computes it, so both backends recompute it from the
   accumulator around every instruction; `GhidraMachineDef` gains
   `update_derived_state` for state a language leaves out.
+- 8051 register banks on angr and Ghidra: R0-R7 follow the bank PSW's RS bits
+  select in internal RAM 0x00-0x1F, so code that reaches them by address, as
+  SDCC's does (`push ar7`), or switches banks runs as on hardware. The
+  `mcs51_diff` scenario gains a `banks` program and compares all of internal
+  RAM.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

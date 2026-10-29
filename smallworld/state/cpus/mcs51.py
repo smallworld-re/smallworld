@@ -7,8 +7,10 @@ class MCS51(cpu.CPU):
     """CPU state for the Intel MCS-51 (8051).
 
     R0-R7 are the working registers of the current bank.  On real hardware
-    they live in internal RAM at 0x00-0x1F, selected by PSW's RS bits; here,
-    as in Ghidra's model, they are registers of their own.
+    they live in internal RAM at 0x00-0x1F, in the bank PSW's RS bits select.
+    When internal RAM 0x00-0x1F is mapped, the emulators keep these registers
+    and that bank in step, and these values are written into the selected
+    bank when emulation starts; otherwise they are registers of their own.
     """
 
     platform = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)

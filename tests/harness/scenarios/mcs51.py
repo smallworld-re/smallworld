@@ -19,9 +19,6 @@ Ghidra, it fails, which makes it the check that the patched language loaded: if
 it starts failing, suspect first that Ghidra loaded its stock 8051 language
 (see ``nix/ghidra.nix``), and check which ``8051.sla`` Ghidra reports with
 ``language.getLanguageDescription().getSlaFile()``.
-
-Still not modeled: register banks (R0-R7 are standalone registers, not internal
-RAM 0x00-0x1F selected by PSW's RS bits).
 """
 
 from __future__ import annotations

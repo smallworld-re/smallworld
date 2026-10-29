@@ -5,13 +5,12 @@ Each program in ``tests/mcs51_diff`` runs from a random starting state, and
 simulator, run as an 8052 - says it ends, in ``<program>.json``.  This scenario
 loads the same starting state into SmallWorld, runs the program, and compares:
 
-* A, B, SP, DPTR, PSW and R0-R7;
-* internal RAM 0x08-0xFF.  0x00-0x07 is register bank 0, which SmallWorld
-  models as the registers R0-R7 compared above, not as memory;
+* A, B, SP, DPTR and PSW;
+* R0-R7, against the register bank the final PSW selects;
+* all of internal RAM, register banks included;
 * every SFR that SmallWorld does not model as a register;
 * XDATA 0x0000-0x00FF.
 
-The programs stay in register bank 0, since SmallWorld does not model banks.
 ucsim is not hardware: a difference here needs checking against the 8051
 manual before it is called a SmallWorld bug.
 """
@@ -98,8 +97,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         if register not in ("dpl", "dph"):
             getattr(cpu, register).set(sfr(initial["sfr"], address))
     cpu.dptr.set((sfr(initial["sfr"], 0x83) << 8) | sfr(initial["sfr"], 0x82))
+    bank = (sfr(initial["sfr"], 0xD0) >> 3) & 3
     for i in range(8):
-        getattr(cpu, f"r{i}").set(initial["iram"][i])
+        getattr(cpu, f"r{i}").set(initial["iram"][bank * 8 + i])
 
     xdata = initial["xdata"] + b"\0" * (0x10000 - len(initial["xdata"]))
     for base, content in (
@@ -123,11 +123,16 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         wanted = sfr(final["sfr"], address)
         actual = getattr(final_cpu, register).get()
         compare(register, actual, wanted)
+    bank = (sfr(final["sfr"], 0xD0) >> 3) & 3
     for i in range(8):
-        compare(f"r{i}", getattr(final_cpu, f"r{i}").get(), final["iram"][i])
+        compare(
+            f"r{i} (bank {bank})",
+            getattr(final_cpu, f"r{i}").get(),
+            final["iram"][bank * 8 + i],
+        )
 
     iram = emulator.read_memory(MCS51_IDATA_BASE, 0x100)
-    for address in range(0x08, 0x100):
+    for address in range(0x00, 0x100):
         compare(f"iram[{address:#04x}]", iram[address], final["iram"][address])
     sfrs = emulator.read_memory(MCS51_SFR_BASE + 0x80, 0x80)
     for address in range(0x80, 0x100):

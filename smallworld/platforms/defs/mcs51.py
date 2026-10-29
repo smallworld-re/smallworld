@@ -107,6 +107,12 @@ def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
     return ret
 
 
+#: R0-R7 are a bank of eight bytes in internal RAM; PSW's RS1 and RS0 bits
+#: select one of four banks, at internal RAM 0x00, 0x08, 0x10 and 0x18.
+MCS51_PSW_BANK_SELECT = 0x18
+MCS51_PSW_BANK_SHIFT = 3
+MCS51_REGISTER_BANKS_SIZE = 0x20
+
 #: PSW's parity flag, P: set when the accumulator holds an odd number of ones.
 #: The hardware recomputes it from ACC on every cycle, so it is read-only.
 MCS51_PSW_PARITY = 0x01

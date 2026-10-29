@@ -247,9 +247,13 @@ auxiliary carry and overflow flags, the user flag F0, bit addressing and
 ``mov sp,#n`` all follow the hardware there. A Ghidra or pypcode without the
 patch fails the ``mcs51_flags`` scenario. The language never computes the
 parity flag either, so both backends recompute it from the accumulator around
-every instruction, as the hardware does every cycle. One gap remains: R0-R7 are
-standalone registers rather than the register bank in internal RAM that PSW's
-RS bits select.
+every instruction, as the hardware does every cycle. Nor does it model register
+banks: on the 8051, R0-R7 are eight bytes of internal RAM 0x00-0x1F in the bank
+PSW's RS bits select, and compiled code reaches them by address too (SDCC's
+``push ar7``). When internal RAM 0x00-0x1F is mapped, both backends keep R0-R7
+and the selected bank in step around every instruction, and the ``cpu.r0`` to
+``cpu.r7`` a machine starts with are written into the bank PSW selects;
+otherwise R0-R7 are plain registers.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
 SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
 low byte first, as ``lcall`` pushes a return address.

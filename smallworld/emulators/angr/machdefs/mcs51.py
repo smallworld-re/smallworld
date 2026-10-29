@@ -3,10 +3,19 @@ import typing
 
 import angr
 import claripy
+import pypcode
 from angr.errors import AngrError
 
+from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
-from ....platforms.defs.mcs51 import MCS51_ADDRESS_SPACES, mcs51_return_address
+from ....platforms.defs.mcs51 import (
+    MCS51_ADDRESS_SPACES,
+    MCS51_IDATA_BASE,
+    MCS51_PSW_BANK_SELECT,
+    MCS51_PSW_BANK_SHIFT,
+    MCS51_REGISTER_BANKS_SIZE,
+    mcs51_return_address,
+)
 from .machdef import GhidraMachineDef
 
 # The 8051 keeps code, external RAM, internal RAM, SFRs and Ghidra's bit space
@@ -80,12 +89,100 @@ class MCS51UserOp(enum.IntEnum, metaclass=_UpdatedEnumMeta):
     NOP = 0x01, "nop", handle_nop, "No Operation"
 
 
+# Ops that hand the state to a successor, or copy it for one.
+_EXIT_OPS = {
+    pypcode.OpCode.BRANCH,
+    pypcode.OpCode.CBRANCH,
+    pypcode.OpCode.BRANCHIND,
+    pypcode.OpCode.CALL,
+    pypcode.OpCode.CALLIND,
+    pypcode.OpCode.RETURN,
+}
+
+# Where a path's last register bank sync is kept: (bank, R0-R7).
+_SYNCED_BANK = "mcs51_register_bank"
+
+
 class MCS51EnginePcode(angr.engines.UberEnginePcode):
     """angr's p-code engine, with the 8051's address spaces on a flat map.
 
-    It also keeps the parity flag current, which Ghidra's 8051 language never
-    computes: the hardware derives it from the accumulator on every cycle.
+    It also keeps two kinds of state current that Ghidra's 8051 language
+    leaves out: the parity flag, which the hardware derives from the
+    accumulator on every cycle, and R0-R7 as the register bank PSW selects in
+    internal RAM.
     """
+
+    # The instruction whose start the last register bank sync was for.
+    _synced_insn: typing.Optional[int] = None
+
+    def _sync_register_bank(self) -> None:
+        """Keep R0-R7 in step with the register bank PSW selects.
+
+        On the 8051, R0-R7 are eight bytes of internal RAM, in one of four
+        banks that PSW's RS bits select; compiled code reaches them through
+        those addresses too (`push ar7`).  Ghidra's language makes them
+        standalone registers, so this syncs the two at every instruction
+        boundary: a register that changed since the last sync (by an
+        instruction, a hook or a model) is written to its bank, then R0-R7 are
+        reloaded from the bank PSW now selects.  At a path's first sync the
+        registers win, so a caller's R0-R7 land in the selected bank.
+
+        Banks are only modeled when internal RAM 0x00-0x1F is mapped;
+        otherwise R0-R7 are plain registers.  The internal RAM accesses here
+        skip angr's inspection, so they do not trigger memory hooks.
+        """
+        state = self.state
+        memory_map = getattr(state.scratch, "memory_map", None)
+        if memory_map is None or memory_map.get_missing_ranges(
+            (MCS51_IDATA_BASE, MCS51_IDATA_BASE + MCS51_REGISTER_BANKS_SIZE)
+        ):
+            return
+
+        psw = typing.cast(claripy.ast.bv.BV, state.regs.psw)
+        banks = state.solver.eval_upto(
+            (psw & MCS51_PSW_BANK_SELECT) >> MCS51_PSW_BANK_SHIFT, 2
+        )
+        if len(banks) != 1:
+            raise EmulationError("The 8051 register bank select bits are symbolic")
+        bank = banks[0]
+
+        registers = [getattr(state.regs, f"r{n}") for n in range(8)]
+        globals_map = typing.cast(typing.MutableMapping[str, typing.Any], state.globals)
+        synced = globals_map.get(_SYNCED_BANK)
+        if synced is None:
+            changed_bank, changed = bank, list(range(8))
+        else:
+            changed_bank, old = synced
+            changed = [n for n in range(8) if not registers[n].identical(old[n])]
+        for n in changed:
+            state.memory.store(
+                MCS51_IDATA_BASE + changed_bank * 8 + n,
+                registers[n],
+                inspect=False,
+                disable_actions=True,
+            )
+
+        values = [
+            state.memory.load(
+                MCS51_IDATA_BASE + bank * 8 + n, 1, inspect=False, disable_actions=True
+            )
+            for n in range(8)
+        ]
+        for n in range(8):
+            setattr(state.regs, f"r{n}", values[n])
+        globals_map[_SYNCED_BANK] = (bank, tuple(values))
+
+    def _execute_current_op(self) -> None:
+        # Sync at each instruction boundary, and before an op that passes the
+        # state on, so every successor sees the instruction's writes.
+        op = self._current_op
+        assert op is not None
+        if self.state.scratch.ins_addr != self._synced_insn:
+            self._synced_insn = self.state.scratch.ins_addr
+            self._sync_register_bank()
+        elif op.opcode in _EXIT_OPS:
+            self._sync_register_bank()
+        super()._execute_current_op()
 
     def _update_parity(self) -> None:
         acc = typing.cast(claripy.ast.bv.BV, self.state.regs.acc)
@@ -107,10 +204,13 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         return any(start <= registers[name][0] < end for name in ("acc", "psw"))
 
     def handle_pcode_block(self, irsb) -> None:
-        # Recompute on entry, in case the state was set up with a stale flag;
-        # _set_value keeps it current from there.
+        # Recompute parity on entry, in case the state was set up with a stale
+        # flag; _set_value keeps it current from there.
         self._update_parity()
+        self._synced_insn = None
         super().handle_pcode_block(irsb)
+        # The block's fall-through successor is this same state.
+        self._sync_register_bank()
 
     def _flat_address(self, space_name: str, offset):
         base = _SPACE_BASES[space_name]
