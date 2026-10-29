@@ -11,7 +11,7 @@ from .i386 import I386ElfRelocator
 from .loongarch import LoongArch32ElfRelocator, LoongArch64ElfRelocator
 from .m68k import M68KElfRelocator
 from .mips import MIPSELElfRelocator, MIPSElfRelocator
-from .ppc import PowerPCElfRelocator
+from .ppc import PowerPCElfRelocator, PowerPCVLEElfRelocator
 from .rela import ElfRelocator
 from .riscv64 import RISCV64ElfRelocator
 from .superh import (
@@ -39,6 +39,7 @@ __all__ = [
     "MIPSElfRelocator",
     "MIPSELElfRelocator",
     "PowerPCElfRelocator",
+    "PowerPCVLEElfRelocator",
     "RISCV64ElfRelocator",
     "SH2AFPUElfRelocator",
     "SuperH4BEElfRelocator",

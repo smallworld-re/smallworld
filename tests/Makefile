@@ -101,6 +101,7 @@ SH2_ELF_AS := ./$(SH_ID)-elfasm
 SH1_ELF_AS := ./$(SH_ID)-elfasm
 TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
 V850_ELF_AS := ./$(V850_ID)-elfasm
+PPCVLE_ELF_AS := ./$(PPCVLE_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands

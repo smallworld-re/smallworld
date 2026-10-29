@@ -128,6 +128,12 @@ as ``powerpc32``.
 - **Unicorn and PANDA** (QEMU) have no VLE decoder, and Capstone cannot
   disassemble VLE, so analyses that disassemble with Capstone do not work on it.
 
+The ELF header doesn't distinguish VLE from standard PowerPC code, so the ELF
+loader reads the ``SHF_PPC_VLE`` flag binutils puts on VLE code sections. A
+file with any VLE section loads as ``powerpc32-vle``, since the e200 language
+decodes both encodings. VLE's own code relocations (``R_PPC_VLE_*``) are not
+handled, so load a linked executable rather than an object file.
+
 The test suite assembles VLE with GNU binutils (``as -mvle``), since zig's LLVM
 assembler has no VLE support.
 

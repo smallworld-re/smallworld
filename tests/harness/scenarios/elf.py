@@ -121,6 +121,15 @@ _SPECS = {
         stack_pointer_register="r1",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    # The loader tells VLE from plain PowerPC32 by the SHF_PPC_VLE section
+    # flag, and refuses a platform that disagrees with it.
+    "ppcvle": ElfSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="r1",
+        engines=("angr",),
+    ),
     "ppc64": ElfSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pointer_size=8,

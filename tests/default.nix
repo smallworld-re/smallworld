@@ -59,6 +59,7 @@ stdenv.mkDerivation {
     ln -sf elf_wrapper.sh v850-elf-elfasm
     # zig cannot assemble PowerPC VLE; GNU as does, given -mvle.
     ln -sf asm_wrapper.sh powerpc-none-eabi-asm
+    ln -sf elf_wrapper.sh powerpc-none-eabi-elfasm
 
     make -j$(nproc)
     cd elf_core

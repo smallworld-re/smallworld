@@ -47,6 +47,9 @@ _V850_RH850_WARNING = (
     "or run as different V850 instructions"
 )
 
+# Section flag marking PowerPC code in the Variable Length Encoding.
+SHF_PPC_VLE = 0x10000000
+
 # SuperH-specific flag values.
 #
 # EM_SH covers every SuperH generation, and they are not binary compatible with
@@ -226,6 +229,15 @@ def _v800_architecture(elf, requested):
     )
 
 
+def _ppc_architecture(elf, requested):
+    # PowerPC 32-bit. The header doesn't distinguish VLE; its code sections
+    # are flagged instead. A file mixing VLE and standard code (as the e200z7
+    # runs) is VLE too: the e200 language decodes both.
+    if any(section.flags & SHF_PPC_VLE for section in elf.sections):
+        return Architecture.POWERPC32_VLE
+    return Architecture.POWERPC32
+
+
 # The architecture detector for each e_machine value.
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
@@ -237,7 +249,7 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     ),
     # TODO: There are more MIPS parameters than just word size
     EM_MIPS: _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64),
-    EM_PPC: _fixed_architecture(Architecture.POWERPC32),
+    EM_PPC: _ppc_architecture,
     EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
     EM_RISCV: _architecture_by_class(
         None, Architecture.RISCV64, "RISC-V 32-bit isn't supported"

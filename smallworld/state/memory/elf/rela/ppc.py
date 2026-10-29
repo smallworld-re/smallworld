@@ -43,6 +43,22 @@ class PowerPCElfRelocator(ElfRelocator):
             )
 
 
+class PowerPCVLEElfRelocator(PowerPCElfRelocator):
+    """Relocator for PowerPC VLE.
+
+    VLE uses the standard 32-bit data relocations. Its code relocations
+    (R_PPC_VLE_*) are not handled, as only a final link resolves them.
+    """
+
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+            )
+        }
+    )
+
+
 R_PPC64_ADDR64 = 38  # Write S + A as a 64-bit absolute value.
 
 
