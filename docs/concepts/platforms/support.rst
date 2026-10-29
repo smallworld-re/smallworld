@@ -66,8 +66,9 @@ wrapped, and angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
 AArch64 core, which rejects the instructions later versions added.
 aarch64-v8.5a adds those of ARMv8.1-A to ARMv8.5-A, such as the LSE atomics,
 pointer authentication and BTI. Unicorn and PANDA run it on their "max" models,
-which accept a superset of its instructions, and Ghidra's AARCH64 language
-decodes them, though not ``sqrdmlah``. angr can't decode any of them, and Triton
+which accept a superset of its instructions, and Ghidra runs them on its
+AARCH64 language, though its ``sqrdmlah`` and ``sqrdmlsh`` don't set FPSR.QC
+when they saturate. angr can't decode any of them, and Triton
 runs only ``ldapr`` and its relatives, so both run only ARMv8.0 code on
 aarch64-v8.5a. The pointer authentication hints that ``-mbranch-protection``
 emits, such as ``paciasp`` and ``autiasp``, run on every engine, but angr,

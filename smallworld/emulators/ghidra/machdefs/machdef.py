@@ -8,6 +8,9 @@ from ghidra.program.model.lang import Language, LanguageID, Register
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
 
+Userop = typing.Callable[[typing.Any, str, typing.Sequence[int]], typing.Optional[int]]
+"""A userop SmallWorld runs itself: ``(emulator, mnemonic, args) -> output``."""
+
 
 class GhidraMachineDef:
     """Container class for ghdra architecture-specific definitions"""
@@ -55,6 +58,13 @@ class GhidraMachineDef:
     # on this language.
     nop_userops: typing.FrozenSet[str] = frozenset()
 
+    # Userops SmallWorld runs itself, for SLEIGH that calls a userop Ghidra's
+    # emulator can't run on this language. Each maps to a function taking the
+    # emulator, the instruction's mnemonic and the userop's arguments as
+    # unsigned integers, and returning its output's value, or None for a
+    # userop with no output.
+    userops: typing.Mapping[str, Userop] = {}
+
     # Registers whose halves Ghidra holds in the opposite order to the
     # architecture, for a language that lays out its registers for the other
     # byte order.
@@ -69,12 +79,25 @@ class GhidraMachineDef:
         self.language: Language = slp.getLanguage(langID)
         assert self.language is not None
 
+    def userop_name(self, op) -> typing.Optional[str]:
+        """The name of the userop this p-code op calls, if it calls one."""
+        if op.getOpcode() != op.CALLOTHER:
+            return None
+        return str(self.language.getUserDefinedOpName(int(op.getInput(0).getOffset())))
+
     def is_nop_userop(self, op) -> bool:
         """Whether this p-code op calls one of `nop_userops`."""
-        if not self.nop_userops or op.getOpcode() != op.CALLOTHER:
+        if not self.nop_userops:
             return False
-        name = self.language.getUserDefinedOpName(int(op.getInput(0).getOffset()))
-        return name in self.nop_userops
+        return self.userop_name(op) in self.nop_userops
+
+    def userop(self, op) -> typing.Optional["Userop"]:
+        """The implementation of the userop this p-code op calls, if SmallWorld
+        has one."""
+        if not self.userops:
+            return None
+        name = self.userop_name(op)
+        return None if name is None else self.userops.get(name)
 
     def pcode_reg(self, name: str) -> Register:
         if name not in self._registers:

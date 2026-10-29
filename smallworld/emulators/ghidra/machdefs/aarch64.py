@@ -1,5 +1,8 @@
+import typing
+
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, Userop
+from .userops import neon_sqrdml_as_h
 
 
 class AArch64MachineDef(GhidraMachineDef):
@@ -8,6 +11,7 @@ class AArch64MachineDef(GhidraMachineDef):
 
     # yield, sev and sevl have no architectural effect on a single core.
     nop_userops = frozenset({"Yield", "SendEvent", "SendEventLocally"})
+    userops: typing.Mapping[str, Userop] = {"NEON_sqrdml_as_h": neon_sqrdml_as_h}
 
     _registers = {
         # *** General Purpose Registers ***

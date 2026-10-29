@@ -544,6 +544,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     # This is not a memory access.  No need to break
                 elif self.machdef.is_nop_userop(op):
                     skip = True
+                elif self.machdef.userop(op) is not None:
+                    self._run_userop(op)
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)
@@ -552,6 +555,31 @@ class GhidraEmulator(AbstractGhidraEmulator):
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             raise exceptions.EmulationBounds()
+
+    def _run_userop(self, op) -> None:
+        """Run a userop SmallWorld implements, in place of Ghidra's emulator."""
+        userop = self.machdef.userop(op)
+        assert userop is not None
+        byteorder: typing.Literal["little", "big"] = (
+            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+        )
+        state = self._thread.getState()
+        args = []
+        for var in op.getInputs()[1:]:
+            mask = (1 << (var.getSize() * 8)) - 1
+            if var.isConstant():
+                args.append(int(var.getOffset()) & mask)
+            else:
+                data = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+                args.append(int.from_bytes(self.bytes_java_to_py(data), byteorder))
+        mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
+        result = userop(self, mnemonic, args)
+        out_var = op.getOutput()
+        if out_var is not None:
+            assert result is not None
+            size = out_var.getSize()
+            data = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
+            state.setVar(out_var, self.bytes_py_to_java(data))
 
     def step_block(self) -> None:
         raise NotImplementedError("Not sure how to step by block.")

@@ -1,5 +1,14 @@
+import typing
+
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, Userop
+from .userops import (
+    crc32_calc,
+    get_main_stack_pointer_limit,
+    get_process_stack_pointer_limit,
+    set_main_stack_pointer_limit,
+    set_proc_stack_pointer_limit,
+)
 
 
 class ARMMachineDef(GhidraMachineDef):
@@ -7,6 +16,7 @@ class ARMMachineDef(GhidraMachineDef):
     nop_userops = frozenset(
         {"HintPreloadData", "HintPreloadDataForWrite", "HintPreloadInstruction"}
     )
+    userops: typing.Mapping[str, Userop] = {"Crc32Calc": crc32_calc}
 
     def __init__(self):
         super().__init__()
@@ -768,6 +778,14 @@ class ARMMachineMixinV8RHypervisor:
 
 class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
     """Abstract class for ARMv8-M Mainline CPUs."""
+
+    userops: typing.Mapping[str, Userop] = {
+        **ARMMachineDef.userops,
+        "setMainStackPointerLimit": set_main_stack_pointer_limit,
+        "setProcStackPointerLimit": set_proc_stack_pointer_limit,
+        "getMainStackPointerLimit": get_main_stack_pointer_limit,
+        "getProcessStackPointerLimit": get_process_stack_pointer_limit,
+    }
 
     def __init__(self):
         super().__init__()
