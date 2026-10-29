@@ -1,15 +1,31 @@
+import typing
+
 import capstone
 
 from smallworld import platforms
 
 from .bsid import BSIDMemoryReferenceOperand
-from .instructions import Instruction, MemoryReferenceOperand
+from .instructions import Instruction, MemoryReferenceOperand, _log_fallback_once
 
 
 class ARMInstruction(Instruction):
     angr_arch = "ARM"
     cs_arch = capstone.CS_ARCH_ARM
     cs_mode = capstone.CS_MODE_ARM
+
+    def _pcode_platdef(self) -> typing.Optional[platforms.PlatformDef]:
+        # A Thumb instruction on a platform that also runs A32 can't use the
+        # pcode backend: the platform's language decodes A32 by default, and
+        # the analysis has no way to select Thumb.
+        if self._instruction._cs.mode & capstone.CS_MODE_THUMB and not (
+            self.cs_mode & capstone.CS_MODE_THUMB
+        ):
+            _log_fallback_once(
+                f"Thumb instructions on {self.platform} can't use the pcode "
+                f"backend; using Capstone"
+            )
+            return None
+        return super()._pcode_platdef()
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         return BSIDMemoryReferenceOperand(

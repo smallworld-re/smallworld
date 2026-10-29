@@ -636,7 +636,7 @@ class CrashTriage(analysis.Analysis):
         bad_op = None
 
         disas = self._disassemble(emu, pc)
-        insn = instructions.Instruction.from_capstone(disas)
+        insn = instructions.Instruction.from_capstone(disas, platform=self.platform)
         ops = insn.reads if is_read else insn.writes
         for op in ops:
             if isinstance(op, instructions.BSIDMemoryReferenceOperand):

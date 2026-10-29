@@ -924,7 +924,7 @@ class UnicornEmulator(
             # on arm32, update disassembler for ARM vs Thumb
             _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
-            i = instructions.Instruction.from_capstone(insns[0])
+            i = instructions.Instruction.from_capstone(insns[0], platform=self.platform)
         except:
             # looks like that code is not available
             i = None
@@ -1005,7 +1005,9 @@ class UnicornEmulator(
                     insn = insns[0]
 
                     prev_mnem = insn.mnemonic
-                    prev_i = instructions.Instruction.from_capstone(insn)
+                    prev_i = instructions.Instruction.from_capstone(
+                        insn, platform=self.platform
+                    )
                     # A fetch fault's responsible operand is where the branch
                     # sends the next instruction fetch -- [t9] for jr $t9 --
                     # which is a fetch, not one of the branch's data reads.

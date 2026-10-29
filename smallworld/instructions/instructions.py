@@ -205,12 +205,29 @@ class Instruction(metaclass=abc.ABCMeta):
         cls,
         instruction: capstone.CsInsn,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
+        platform: typing.Optional[Platform] = None,
     ) -> "Instruction":
         """Construct from an existing Capstone instruction.
 
         Arguments:
             instruction: An existing Capstone instruction.
+            platform: The platform the instruction runs on. Without it, the
+                format is the first whose Capstone architecture and mode
+                match, which is ambiguous where several platforms share
+                them (every 32-bit ARM platform that runs A32, say).
         """
+        if platform is not None:
+            try:
+                return utils.find_subclass(
+                    cls,
+                    check=lambda x: x.platform == platform,
+                    instruction=instruction.bytes,
+                    address=instruction.address,
+                    _instruction=instruction,
+                    use_def_backend=use_def_backend,
+                )
+            except ValueError:
+                raise ValueError(f"No instruction format for {platform}")
         try:
             return utils.find_subclass(
                 cls,
