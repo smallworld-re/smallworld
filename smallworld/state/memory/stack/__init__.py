@@ -20,6 +20,7 @@ from .superh import (
 )
 from .tricore import TriCoreStack
 from .v850 import V850Stack
+from .x86_16 import X86RealModeStack
 from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
@@ -32,6 +33,7 @@ __all__ = __stack__ + [
     "ARMv7aStack",
     "X86Stack",
     "LoongArch32Stack",
+    "X86RealModeStack",
     "LoongArch64Stack",
     "M68KStack",
     "MIPSBEStack",

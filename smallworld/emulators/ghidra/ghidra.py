@@ -42,6 +42,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
+        self._ram_address_size: int = (
+            self.machdef.ram_address_size or self.platdef.address_size
+        )
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
         # The default address space is fixed for the emulator's lifetime;
@@ -137,9 +140,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
         shared = self._emu.getSharedState()
 
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
+            addr_bytes = address.to_bytes(self._ram_address_size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
+            addr_bytes = address.to_bytes(self._ram_address_size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
@@ -173,9 +176,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         val = self.bytes_py_to_java(content)
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
+            addr_bytes = address.to_bytes(self._ram_address_size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
+            addr_bytes = address.to_bytes(self._ram_address_size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
@@ -287,6 +290,34 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 self.read_register("pc"),
                 address=missing[0][0],
             )
+
+    def _process_userop(self, op: typing.Any) -> bool:
+        """Evaluate a user op the machine definition models.
+
+        Returns:
+            True if the op was evaluated, and must be skipped
+        """
+        name = self.machdef.language.getUserDefinedOpName(
+            int(op.getInput(0).getOffset())
+        )
+        state = self._thread.getState()
+        byteorder: typing.Literal["little", "big"] = (
+            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+        )
+        inputs = [
+            int.from_bytes(
+                state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT), byteorder
+            )
+            for var in op.getInputs()[1:]
+        ]
+        result = self.machdef.evaluate_userop(str(name), inputs)
+        if result is None:
+            return False
+        out_var = op.getOutput()
+        size = out_var.getSize()
+        value = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
+        state.setVar(out_var, self.bytes_py_to_java(value))
+        return True
 
     def _process_read_breakpoint(
         self, addr_var: Varnode, out_var: Varnode, direct=False
@@ -547,6 +578,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         skip = True
 
                     # This is not a memory access.  No need to break
+                elif opcode == op.CALLOTHER:
+                    # This is a user op; the machine may model it.
+                    skip = self._process_userop(op)
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

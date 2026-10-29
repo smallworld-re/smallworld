@@ -11,6 +11,10 @@ class Architecture(enum.Enum):
     Values are lowercase, kebab-case.
     """
 
+    X86_16 = "x86-16"
+    """16-bit x86 in real mode, with the 80386's 32-bit operand and address
+    prefixes."""
+
     X86_32 = "x86-32"
     """32-bit x86 supporting SSE extensions."""
 

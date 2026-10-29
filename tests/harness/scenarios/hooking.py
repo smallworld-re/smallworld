@@ -32,6 +32,7 @@ class HookingSpec:
     gets_address: int = 0x1000
     puts_address: int = 0x1004
     stack_base: int = 0x2000
+    fake_return: int = 0xFFFFFFFF
     stack_padding_bytes: dict[str, int] = dataclasses.field(default_factory=dict)
     tricore_panda_callsite_offsets: dict[str, int] = dataclasses.field(
         default_factory=dict
@@ -282,6 +283,22 @@ _SPECS = {
         engines=("angr", "pcode"),
         string_source=StringSource(register="r6"),
     ),
+    "x86_16": HookingSpec(
+        platform=PlatformSpec("X86_16", "LITTLE"),
+        pointer_size=2,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=2,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(
+            stack_pointer_register="sp",
+            stack_offset=2,
+            pointer_size=2,
+            byteorder="little",
+        ),
+        puts_address=0x1001,
+        fake_return=0xFFFF,
+    ),
     "xtensa": HookingSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -372,7 +389,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         stack.push_bytes(b"\0" * padding, "Scratch space")
 
     set_register(cpu, spec.pc_register, code.address + spec.pc_offset)
-    stack.push_integer(0xFFFFFFFF, spec.pointer_size, "fake return address")
+    stack.push_integer(spec.fake_return, spec.pointer_size, "fake return address")
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
     if not install_tricore_panda_hooking_compatibility(

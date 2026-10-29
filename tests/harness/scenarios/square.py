@@ -35,6 +35,7 @@ _ARCHS = (
     "sh4el",
     "tricore",
     "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -98,7 +99,7 @@ SCENARIO_INFO = ScenarioInfo(
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
+            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x", "x86_16")},
         },
     ),
     run_factory=assert_outputs(_square_expectations),

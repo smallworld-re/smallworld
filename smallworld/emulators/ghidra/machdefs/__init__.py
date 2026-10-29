@@ -14,6 +14,7 @@ from .superh import SH1MachineDef, SH2AFPUMachineDef, SH2MachineDef
 from .superh4 import SuperH4BEMachineDef, SuperH4ELMachineDef
 from .tricore import TriCoreMachineDef
 from .v850 import V850MachineDef
+from .x86_16 import X86RealModeMachineDef
 from .xtensa import XTensaMachineDef
 
 __all__ = [
@@ -44,5 +45,6 @@ __all__ = [
     "SuperH4ELMachineDef",
     "TriCoreMachineDef",
     "V850MachineDef",
+    "X86RealModeMachineDef",
     "XTensaMachineDef",
 ]

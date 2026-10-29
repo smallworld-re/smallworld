@@ -181,6 +181,24 @@ for some of the extensions, so I haven't tested anywhere near all of them.
 Also, the standards for this ISA are still being developed,
 so some things like the syscall convention are something of a guess.
 
+**x86-16:** ``Architecture.X86_16`` is x86 real mode, as the 80386 runs it:
+16-bit code that may still use the 32-bit registers through the operand-size
+prefix. ``pc`` is the linear address of the next instruction, ``cs * 16 + ip``,
+and is a register of its own rather than an alias of ``eip``, which holds only
+the offset into the code segment. Set the segment registers and ``pc``; the
+emulator derives ``ip`` from them. The CPU's segment registers start at 0.
+Use ``X86RealModeStack.get_segment()`` and ``get_offset()`` to load ``ss`` and
+``sp``.
+
+- **Unicorn** models segmentation faithfully.
+- **angr and Ghidra** both run Ghidra's ``x86:LE:16:Real Mode`` language. It
+  infers the code segment from the linear pc as ``(pc >> 4) & 0xf000``. As a
+  result, code must run from a segment that starts on a 64 KiB boundary (a cs
+  that is a multiple of 0x1000, such as ``0000:7c00``). Elsewhere, near calls
+  push the wrong return offset. Ghidra then faults on the return, but angr
+  carries on and silently computes a wrong result.
+- Neither PANDA nor Triton supports real mode yet.
+
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
 *sh1* and *sh2* are SH-1 and SH-2, big-endian. Each runs on Ghidra's own

@@ -49,6 +49,10 @@ class GhidraMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
+    # Size in bytes of an offset into the default address space, where that
+    # differs from the platform's pointer size (`PlatformDef.address_size`).
+    ram_address_size: typing.Optional[int] = None
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):
@@ -68,6 +72,20 @@ class GhidraMachineDef:
         reg = self.language.getRegister(self._registers[name])
         assert reg is not None, name
         return reg
+
+    def evaluate_userop(
+        self, name: str, inputs: typing.List[int]
+    ) -> typing.Optional[int]:
+        """Evaluate a sleigh user op that Ghidra's emulator does not provide.
+
+        Arguments:
+            name: The user op's name
+            inputs: The values of its inputs, after the op index
+
+        Returns:
+            The value of its output, or None to leave the op to Ghidra
+        """
+        return None
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

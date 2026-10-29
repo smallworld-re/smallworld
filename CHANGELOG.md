@@ -109,6 +109,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   branch inside their own p-code, such as `efscfsi` (see the platform support
   notes). The test suite assembles VLE with GNU binutils, since zig's
   assembler cannot.
+- `Architecture.X86_16`, x86 real mode, on the Unicorn, angr and Ghidra
+  backends. `pc` is the linear address `cs * 16 + ip`. angr and Ghidra use
+  Ghidra's real-mode language, which only handles code segments that start on
+  a 64 KiB boundary; Unicorn handles any segment. `X86RealModeStack` gives the
+  `ss:sp` for its stack.
+- `UnicornMachineDef.pc_from_engine()`/`pc_to_engine()`, for machines whose
+  program counter register is not the linear pc.
+- `GhidraMachineDef.evaluate_userop()`, for sleigh user ops that Ghidra's
+  emulator does not provide, and `GhidraMachineDef.ram_address_size`, for
+  machines whose RAM offsets are wider than their pointers.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

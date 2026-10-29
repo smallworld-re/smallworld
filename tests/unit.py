@@ -998,6 +998,7 @@ UNIT_TEST_PLATFORMS = {
     "sh4el": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
     "tricore": (platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE),
     "v850": (platforms.Architecture.V850, platforms.Byteorder.LITTLE),
+    "x86_16": (platforms.Architecture.X86_16, platforms.Byteorder.LITTLE),
     "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
 }
 
@@ -1124,6 +1125,45 @@ class CPUTests(unittest.TestCase):
             0,
             msg=f"CPU for {platform} did not include the following registers: {all_regs}",
         )
+
+
+class X86RealModeTests(unittest.TestCase):
+    platform = platforms.Platform(
+        platforms.Architecture.X86_16, platforms.Byteorder.LITTLE
+    )
+
+    def test_stack_segment(self):
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x9C00, 0x2000)
+        stack.push_integer(0x1234, 2, None)
+        self.assertEqual(stack.get_pointer(), 0xBBFE)
+        self.assertEqual(stack.get_segment(), 0x09C0)
+        self.assertEqual(stack.get_offset(), 0x1FFE)
+
+    def test_stack_must_fit_a_segment(self):
+        for address, size in ((0x9C08, 0x1000), (0x10000, 0x10010)):
+            with self.assertRaises(ValueError):
+                state.memory.stack.Stack.for_platform(self.platform, address, size)
+
+    def test_unicorn_pc_is_linear(self):
+        emu = emulators.UnicornEmulator(self.platform)
+        emu.write_register("cs", 0x07C0)
+        emu.write_register("pc", 0x7C05)
+        self.assertEqual(emu.read_register("ip"), 5)
+        self.assertEqual(emu.read_register("pc"), 0x7C05)
+        with self.assertRaises(exceptions.AnalysisError):
+            # Beyond the 64 KiB segment at 0x7c00
+            emu.write_register("pc", 0x17C00)
+
+    def test_cpu_applies_pc_after_ip(self):
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        self.assertEqual(cpu.ss.get(), 0)
+        cpu.cs.set(0x07C0)
+        cpu.ip.set(0x1234)
+        cpu.pc.set(0x7C05)
+        emu = emulators.UnicornEmulator(self.platform)
+        cpu.apply(emu)
+        self.assertEqual(emu.read_register("ip"), 5)
+        self.assertEqual(emu.read_register("pc"), 0x7C05)
 
 
 @platform_tests(
@@ -1313,6 +1353,7 @@ class M68KAngrTests(unittest.TestCase):
                 "ppcvle",
                 "riscv64",
                 "v850",
+                "x86_16",
                 "xtensa",
             )
         },

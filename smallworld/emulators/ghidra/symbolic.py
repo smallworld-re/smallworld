@@ -88,6 +88,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
+        self._ram_address_size: int = (
+            self.machdef.ram_address_size or self.platdef.address_size
+        )
 
         self._jctx: Z3Context = Z3Context()
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
@@ -201,7 +204,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def _addr_bytes(self, address: int) -> typing.Any:
         return self.bytes_py_to_java(
-            address.to_bytes(self.platdef.address_size, self._byteorder_str())
+            address.to_bytes(self._ram_address_size, self._byteorder_str())
         )
 
     def _addr_pair(self, address: int) -> typing.Any:
@@ -212,7 +215,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         offset, so we materialize a concrete-only address as a pair where the
         symbolic side is a numeric SymValueZ3 of the same bitwidth.
         """
-        size_bits = self.platdef.address_size * 8
+        size_bits = self._ram_address_size * 8
         addr_bytes = self._addr_bytes(address)
         addr_sym = self._make_sym_value(address, size_bits)
         return JPair.of(addr_bytes, addr_sym)

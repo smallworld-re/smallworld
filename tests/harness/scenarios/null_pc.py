@@ -64,10 +64,15 @@ _ARCHS = (
     "sh4el",
     "tricore",
     "v850",
+    "x86_16",
     "xtensa",
 )
 
-_SPECS = build_specs(NullPcSpec, _ARCHS)
+_SPECS = build_specs(
+    NullPcSpec,
+    _ARCHS,
+    per_arch={"x86_16": {"fake_return": 0xFFFF, "fake_return_size": 2}},
+)
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)

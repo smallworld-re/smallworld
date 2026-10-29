@@ -20,6 +20,7 @@ from .mips import (
 from .ppc import PPC32MachineDef, PPC64MachineDef
 from .riscv64 import RISCV64MachineDef
 from .tricore import TriCoreMachineDef
+from .x86_16 import X86RealModeMachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -40,5 +41,6 @@ __all__ = [
     "PPC64MachineDef",
     "RISCV64MachineDef",
     "TriCoreMachineDef",
+    "X86RealModeMachineDef",
     "UnicornMachineDef",
 ]

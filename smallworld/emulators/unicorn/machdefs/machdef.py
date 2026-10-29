@@ -55,6 +55,30 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def pc_from_engine(self, engine: typing.Any, value: int) -> int:
+        """Convert the engine's program counter register to SmallWorld's pc.
+
+        Arguments:
+            engine: The Unicorn engine
+            value: The contents of the register that `pc` maps to
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the engine's program counter register.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The value to write to the register that `pc` maps to
+        """
+        return pc
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt
 
