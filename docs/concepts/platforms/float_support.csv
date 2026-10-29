@@ -1,14 +1,13 @@
 ,                               angr,       ghidra,     panda,      styx,       unicorn
-aarch64 scalar,                 **Yes**,    **Yes**,    No,         No,         **Yes**
-aarch64 vector,                 Untested,   Untested,   No,         No,         Untested
+aarch64 scalar,                 **Yes**,    **Yes**,    **Yes**,    No Support, **Yes**
+aarch64 vector,                 Untested,   Untested,   Untested,   No Support, Untested
 amd64 x87,                      No,         No,         No,         No,         No
 amd64 mmx,                      No,         No,         No,         No,         No
 amd64 sse,                      **Yes**,    **Yes**,    No,         No,         **Yes**
 amd64 avx2,                     **Yes**,    **Yes**,    No,         No,         **Yes**
 amd64 avx512,                   No Support, Untested,   No,         No,         Untested
-arm-v7 double scalar,           **Yes**,    **Yes**,    **Yes**,    Untested,   **Yes**
+arm-v7 double scalar,           **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v7e-m single scalar,        **Yes**,    **Yes**,    No,         Untested,   **Yes**
-arm-v7 quad scalar,             No Support, Untested,   Untested,   Untested,   Untested
 arm-v7 double vector,           Untested,   Untested,   Untested,   Untested,   Untested
 arm-v7 quad vector,             No Support, Untested,   Untested,   Untested,   Untested
 i386 x87,                       No,         No,         No,         No,         No

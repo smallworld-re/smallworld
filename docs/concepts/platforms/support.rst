@@ -356,10 +356,11 @@ The entries mean the following:
 A few notes:
 
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
-- Panda exposes the ARM VFP and Advanced SIMD registers, and ``cpacr``, which
-  gates access to them; like Unicorn, it starts with the FPU disabled, so set
-  ``cpacr`` and ``fpexc`` as an OS would. On most other architectures it
-  would need to be modified to expose the FPU registers.
+- Panda exposes the ARM and AArch64 FP and SIMD registers, and ``cpacr`` and
+  ``cpacr_el1``, which gate access to them. On ARM it starts with the FPU
+  disabled, as Unicorn does, so set ``cpacr`` and ``fpexc`` as an OS would.
+  On most other architectures it would need to be modified to expose the
+  FPU registers.
 - Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
 - **angr cannot do floating point on any Pcode-backed architecture.** In
   ``angr/engines/pcode/behavior.py`` every ``OpBehaviorFloat*`` class - add,
