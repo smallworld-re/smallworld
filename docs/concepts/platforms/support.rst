@@ -121,7 +121,9 @@ Variable Length Encoding. VLE re-encodes the PowerPC instruction set in 16- and
 as ``powerpc32``.
 
 - **angr** runs it on Ghidra's ``PowerPC:BE:32:e200`` language, as pypcode
-  ships it, rather than on VEX, which has no VLE decoder.
+  ships it, rather than on VEX, which has no VLE decoder. ``se_sc`` and
+  ``e_sc`` reach syscall hooks, with the number in ``r0`` and arguments in
+  ``r3`` to ``r8``, as on ``powerpc32``.
 - **Ghidra** 12.1.2, the version SmallWorld's nix environment provides, does
   not have the e200 language yet. Its only VLE languages are the 64-bit Power
   ISA 3.0 ones, whose registers and arithmetic are 64-bit.

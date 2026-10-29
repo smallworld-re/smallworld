@@ -101,8 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Architecture.POWERPC32_VLE`, PowerPC e200 with the Variable Length
   Encoding, on the angr backend through Ghidra's e200 p-code language. Ghidra
   12.1.2 itself lacks that language, and Unicorn, PANDA and Capstone have no
-  VLE support. The ELF loader recognizes VLE executables by the section flag
-  binutils sets on VLE code. The test suite assembles VLE with GNU binutils,
+  VLE support. `se_sc` and `e_sc` reach angr's syscall hooks. The ELF loader
+  recognizes VLE executables by the section flag binutils sets on VLE code. The test suite assembles VLE with GNU binutils,
   since zig's assembler cannot.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
