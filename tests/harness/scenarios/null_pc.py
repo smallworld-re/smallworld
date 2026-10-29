@@ -42,6 +42,7 @@ class NullPcSpec:
 # msp430 is intentionally excluded (its binary does not do what we want).
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "amd64",
     "armv5t",
@@ -93,6 +94,7 @@ _SPECS = enroll_triton(_SPECS)
 _SKIP_REASONS = {
     "ppc64": "Unicorn ppc64 support buggy",
     "aarch64.panda": "Waiting for panda-ng",
+    "aarch64v85a.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
     "armv5t.panda": "Waiting for panda-ng",
     "armv5tbe.panda": "Waiting for panda-ng",

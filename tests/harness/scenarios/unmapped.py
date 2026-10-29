@@ -38,6 +38,12 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
     ),
+    "aarch64v85a": UnmappedSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x400000,
+    ),
     "aarch64be": UnmappedSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pc_register="pc",

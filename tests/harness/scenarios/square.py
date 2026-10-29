@@ -11,6 +11,7 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "amd64",
     "armv5t",

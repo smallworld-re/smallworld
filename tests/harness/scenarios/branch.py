@@ -10,6 +10,7 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "amd64",
     "armv5t",
@@ -85,6 +86,7 @@ _SPECS = build_specs(
     # branch prints the 32-bit view on aarch64 so the boolean fits.
     per_arch={
         "aarch64": {"result_register": "w0"},
+        "aarch64v85a": {"result_register": "w0"},
         "aarch64be": {"result_register": "w0"},
     },
 )

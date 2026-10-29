@@ -12,12 +12,16 @@ _TRITON_NO_FLOAT = "Triton implements no floating-point instruction semantics"
 
 _VARIANTS = (
     ("aarch64", None),
+    ("aarch64v85a", None),
     ("aarch64be", None),
     ("aarch64.angr", None),
+    ("aarch64v85a.angr", None),
     ("aarch64be.angr", None),
     ("aarch64.pcode", None),
+    ("aarch64v85a.pcode", None),
     ("aarch64be.pcode", None),
     ("aarch64.triton", _TRITON_NO_FLOAT),
+    ("aarch64v85a.triton", _TRITON_NO_FLOAT),
     ("amd64", None),
     ("amd64.angr", None),
     ("amd64.pcode", None),

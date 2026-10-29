@@ -86,6 +86,13 @@ _SPECS = {
         output_registers=("x2", "x3", "x4", "x6"),
         word_size=8,
     ),
+    "aarch64v85a": TaintSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        input_registers=("x0", "x1"),
+        output_registers=("x2", "x3", "x4", "x6"),
+        word_size=8,
+    ),
     "amd64": TaintSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",

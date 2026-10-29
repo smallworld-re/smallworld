@@ -12,6 +12,10 @@ platform=`echo "$1" | cut -d. -f2-2`
 qemu_bin="qemu-$platform"
 if [ "$platform" = "aarch64" ]; then
     sysroot=$AARCH64_SYSROOT
+elif [ "$platform" = "aarch64v85a" ]; then
+    # QEMU's user-mode default CPU, "max", runs ARMv8.5-A code.
+    sysroot=$AARCH64_SYSROOT
+    qemu_bin="qemu-aarch64"
 elif [ "$platform" = "amd64" ]; then
     sysroot=$AMD64_SYSROOT
     qemu_bin="qemu-x86_64"

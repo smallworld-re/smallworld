@@ -44,6 +44,7 @@ _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
 TRITON_ARCHS = frozenset(
     {
         "aarch64",
+        "aarch64v85a",
         "amd64",
         "armv5t",
         "armv4",
@@ -81,6 +82,15 @@ def instruction_address(arch: str, address: int) -> int:
 ARCH_REGISTERS: dict[str, ArchInfo] = {
     "aarch64": ArchInfo(
         platform=PlatformSpec("AARCH64", "LITTLE"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "aarch64v85a": ArchInfo(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
         pc_register="pc",
         arg_register="x0",
         result_register="x0",

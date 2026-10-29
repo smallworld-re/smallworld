@@ -16,6 +16,7 @@ from .spec import ScenarioInfo, VariantInfo, default_skip_reason, just_run
 
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
+    "aarch64v85a": PlatformSpec("AARCH64_V8_5A", "LITTLE"),
     "aarch64be": PlatformSpec("AARCH64", "BIG"),
     "amd64": PlatformSpec("X86_64", "LITTLE"),
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),

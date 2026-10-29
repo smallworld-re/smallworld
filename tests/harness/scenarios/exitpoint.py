@@ -53,6 +53,15 @@ _SPECS = {
         load_address=0x400000,
         link_register="lr",
     ),
+    "aarch64v85a": ExitpointSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        result_register="x0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="lr",
+    ),
     "aarch64be": ExitpointSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pc_register="pc",
@@ -397,6 +406,7 @@ _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
     "aarch64.panda": "Waiting for panda-ng",
+    "aarch64v85a.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
     "armv6k.panda": "Waiting for panda-ng",
     "armv6kbe.panda": "Waiting for panda-ng",

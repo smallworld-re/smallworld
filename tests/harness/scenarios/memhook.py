@@ -8,13 +8,18 @@ NATIVE_PARITY = True
 
 _VARIANTS = (
     ("aarch64", None),
+    ("aarch64v85a", None),
     ("aarch64be", None),
     ("aarch64.angr", None),
+    ("aarch64v85a.angr", None),
     ("aarch64be.angr", None),
     ("aarch64.panda", None),
+    ("aarch64v85a.panda", None),
     ("aarch64.pcode", None),
+    ("aarch64v85a.pcode", None),
     ("aarch64be.pcode", None),
     ("aarch64.triton", None),
+    ("aarch64v85a.triton", None),
     ("amd64", None),
     ("amd64.angr", None),
     ("amd64.panda", None),
@@ -140,6 +145,7 @@ _VARIANTS = (
 # Per the legacy harness, these arches print results with 8-byte fields.
 _WIDE_ARCHES = {
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "amd64",
     "i386",

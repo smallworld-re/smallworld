@@ -36,6 +36,14 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         engine="unicorn",
     ),
+    "aarch64v85a": _FuzzSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        exit_offset=92,
+        engine="unicorn",
+    ),
     "aarch64be": _FuzzSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pc_register="pc",
@@ -452,6 +460,15 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "aarch64v85a": _FuzzSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        exit_offset=92,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
     "aarch64be": _FuzzSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pc_register="pc",
@@ -698,6 +715,7 @@ NATIVE_PARITY = True
 _FUZZ_ARCHES = (
     "amd64",
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "armv5t",
     "armv5tbe",
@@ -728,6 +746,7 @@ _FUZZ_ARCHES = (
 _AFL_EXPECTED = {
     "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
     "aarch64": ("002975:1", "022192:1", "039638:1", "050871:1"),
+    "aarch64v85a": ("002975:1", "022192:1", "039638:1", "050871:1"),
     "aarch64be": ("002975:1", "022192:1", "039638:1", "050871:1"),
     "armv5t": ("002975:1", "022192:1", "050871:1"),
     "armv5tbe": ("002975:1", "022192:1", "050871:1"),

@@ -6,6 +6,7 @@ NATIVE_PARITY = True
 
 _VARIANTS = (
     ("aarch64", None),
+    ("aarch64v85a", None),
     ("aarch64be", None),
     ("amd64", None),
     ("armv6k", None),

@@ -18,6 +18,7 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
     "aarch64be",
     "amd64",
     "armv5t",
@@ -83,6 +84,7 @@ _SPECS = build_specs(
     _ARCHS,
     engines={
         "aarch64": _ENGINES_UNICORN_PANDA,
+        "aarch64v85a": _ENGINES_UNICORN_PANDA,
         "aarch64be": _ENGINES_UNICORN_PANDA,
         "amd64": _ENGINES_UNICORN_PANDA,
         "armv5t": _ENGINES_UNICORN_PANDA,

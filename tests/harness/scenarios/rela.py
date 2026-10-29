@@ -44,6 +44,15 @@ _SPECS = {
         string_source=StringSource(register="x0"),
         load_address=0x400000,
     ),
+    "aarch64v85a": RelaSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+        load_address=0x400000,
+    ),
     "aarch64be": RelaSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pointer_size=8,
@@ -449,6 +458,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 4, None)
     elif arch in {
         "aarch64",
+        "aarch64v85a",
         "aarch64be",
         "armv6k",
         "armv6kbe",

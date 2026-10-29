@@ -5565,6 +5565,60 @@ class AArch64BETests(unittest.TestCase):
         self.assertEqual(type(model).__module__.split(".")[3], "aarch64be")
 
 
+class AArch64V85ATests(unittest.TestCase):
+    """aarch64-v8.5a: the ARMv8.1-ARMv8.5 instructions, apart from aarch64."""
+
+    v85a = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+    )
+    v80a = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+    )
+
+    # ldadd x2, x0, [x1] (ARMv8.1 LSE)
+    code = bytes.fromhex("200022f8")
+
+    def run_ldadd(self, platform):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(self.code, address=0x1000))
+        memory = state.memory.Memory(0x2000, 0x100)
+        memory[0] = state.IntegerValue(5, 8, None, platform.byteorder, False)
+        machine.add(memory)
+        cpu.pc.set(0x1000)
+        cpu.x1.set(0x2000)
+        cpu.x2.set(3)
+        emulator = emulators.UnicornEmulator(platform)
+        emulator.add_exit_point(0x1000 + len(self.code))
+        final = machine.emulate(emulator)
+        return final.get_cpu().x0.get(), emulator.read_memory(0x2000, 8)
+
+    def test_unicorn_runs_lse_on_v85a(self):
+        old, new = self.run_ldadd(self.v85a)
+        self.assertEqual(old, 5)
+        self.assertEqual(int.from_bytes(new, "little"), 8)
+
+    def test_unicorn_rejects_lse_on_v80a(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.run_ldadd(self.v80a)
+
+    def elf(self, **kwargs):
+        path = pathlib.Path(__file__).parent / "sysv" / "sysv.aarch64.elf"
+        with open(path, "rb") as f:
+            return state.memory.code.Executable.from_elf(f, address=0x400000, **kwargs)
+
+    def test_elf_defaults_to_v80a(self):
+        self.assertEqual(self.elf().platform, self.v80a)
+
+    def test_elf_takes_a_requested_v85a(self):
+        self.assertEqual(self.elf(platform=self.v85a).platform, self.v85a)
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.v85a, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64v85a")
+
+
 class ArmDoubleWordReturnTests(ModelTestCase):
     """armv5t/armv5tbe: a double word returns in r0:r1 as ldm would load it."""
 

@@ -39,6 +39,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "aarch64v85a": ElfSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "aarch64be": ElfSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pointer_size=8,
@@ -292,6 +299,7 @@ _SKIP_REASONS = {
 
 _UNICORN_BOUND_EXITS = {
     "aarch64": 0xAC,
+    "aarch64v85a": 0xAC,
     "aarch64be": 0xAC,
     "armv6k": 0x88,
     "armv6kbe": 0x88,
@@ -376,6 +384,7 @@ def _configure_exitpoints(
         arch
         in {
             "aarch64",
+            "aarch64v85a",
             "aarch64be",
             "armv6k",
             "armv6kbe",

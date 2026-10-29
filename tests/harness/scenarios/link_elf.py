@@ -49,6 +49,18 @@ _SPECS = {
         argument_registers=("x0", "x1"),
         add_zero_exitpoint=True,
     ),
+    "aarch64v85a": LinkElfSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="x0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        code_address=0x400000,
+        lib_address=0x800000,
+        argument_registers=("x0", "x1"),
+        add_zero_exitpoint=True,
+    ),
     "aarch64be": LinkElfSpec(
         platform=PlatformSpec("AARCH64", "BIG"),
         pointer_size=8,
@@ -478,6 +490,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         machine.add_exit_point(exitpoint)
     elif arch in {
         "aarch64",
+        "aarch64v85a",
         "aarch64be",
         "armv6k",
         "armv6kbe",
