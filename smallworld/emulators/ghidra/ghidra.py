@@ -515,6 +515,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 f"PcodeEmulator does not support single-instruction stepping for {self.platform}"
             )
 
+        # The machine may redirect execution between instructions.
+        self.machdef.before_instruction(self)
+
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
         log.debug(f"Stepping through {hex(pc)}")

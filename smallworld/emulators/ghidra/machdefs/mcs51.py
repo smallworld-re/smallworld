@@ -5,10 +5,14 @@ from ....platforms import Architecture, Byteorder
 from ....platforms.defs.mcs51 import (
     MCS51_ADDRESS_SPACES,
     MCS51_IDATA_BASE,
+    MCS51_INTERRUPT_SFRS,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
     MCS51_REGISTER_BANKS_SIZE,
+    MCS51_SFR_BASE,
+    MCS51InterruptState,
     mcs51_psw_with_parity,
+    mcs51_service_interrupts,
 )
 from .machdef import GhidraMachineDef, GhidraUserOp
 
@@ -54,6 +58,44 @@ class MCS51MachineDef(GhidraMachineDef):
         # The bank PSW selected, and R0-R7, at the last register bank sync;
         # None until the first.
         self._synced_bank: typing.Optional[typing.Tuple[int, typing.List[int]]] = None
+        # Interrupts in service, and the instruction executing.
+        self._interrupts = MCS51InterruptState()
+
+    def before_instruction(self, emulator) -> None:
+        """Take an interrupt, if the 8051 would take one now.
+
+        Interrupts are only modeled when the SFRs that control them are
+        mapped; see :func:`mcs51_service_interrupts`.
+        """
+        mapped = utils.RangeCollection()
+        for region in emulator.get_memory_map():
+            mapped.add_range(region)
+        start, end = MCS51_INTERRUPT_SFRS
+        if mapped.get_missing_ranges((MCS51_SFR_BASE + start, MCS51_SFR_BASE + end)):
+            return
+
+        def read_sfr(address: int) -> int:
+            return emulator.read_memory(MCS51_SFR_BASE + address, 1)[0]
+
+        pc = emulator.read_register("pc")
+        self._interrupts, source = mcs51_service_interrupts(
+            self._interrupts,
+            pc,
+            read_sfr,
+            lambda address: emulator.read_memory(address, 1)[0],
+        )
+        if source is None:
+            return
+        # Call the handler as LCALL would: push PC low byte first.
+        sp = emulator.read_register("sp")
+        for byte in pc.to_bytes(2, "little"):
+            sp = (sp + 1) & 0xFF
+            emulator.write_memory(MCS51_IDATA_BASE + sp, bytes([byte]))
+        emulator.write_register("sp", sp)
+        emulator.write_register("pc", source.vector)
+        if source.cleared:
+            flags = read_sfr(source.flag_sfr) & ~source.cleared
+            emulator.write_memory(MCS51_SFR_BASE + source.flag_sfr, bytes([flags]))
 
     def update_derived_state(self, emulator) -> None:
         self._sync_register_bank(emulator)

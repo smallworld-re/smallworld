@@ -94,6 +94,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   their addresses in `parameter_addresses`. The test binaries now include C
   built with SDCC, and the `mcs51_sdcc` scenarios check both conventions and
   run SDCC's own library with and without SmallWorld's models in its place.
+- 8051 interrupts on angr and Ghidra. Between instructions, the CPU takes an
+  enabled, requested interrupt whose priority beats those in service, as the
+  hardware does, and `reti` ends its service. Harnesses request one by
+  setting its flag, which `mcs51_raise_interrupt` does; timers, the serial
+  port and pins are left to harness models. `GhidraMachineDef` gains
+  `before_instruction`, which can redirect execution between instructions.
+  The `mcs51_diff` scenario gains an `interrupts` program, and starts each
+  program's PSW with parity that matches its accumulator.
 - `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in

@@ -108,6 +108,18 @@ class GhidraMachineDef:
 
     _registers: typing.Dict[str, typing.Optional[str]]
 
+    def before_instruction(self, emulator: typing.Any) -> None:
+        """Act between two instructions, before the next one is fetched.
+
+        Called once before every instruction, before the emulator reads PC,
+        so it may redirect execution - as an interrupt does.  Most machines
+        have nothing to do.
+
+        Arguments:
+            emulator: The emulator.
+        """
+        pass
+
     def update_derived_state(self, emulator: typing.Any) -> None:
         """Recompute machine state the SLEIGH language leaves out.
 

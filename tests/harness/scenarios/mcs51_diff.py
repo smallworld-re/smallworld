@@ -84,11 +84,14 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     cpu = smallworld.state.cpus.CPU.for_platform(platform)
     machine.add(cpu)
 
+    # The binary starts below the program's code when it fills interrupt
+    # vectors; older results predate load_address.
     code = smallworld.state.memory.code.Executable.from_filepath(
-        (_DIR / f"{program}.{arch}.bin").as_posix(), address=expected["code_base"]
+        (_DIR / f"{program}.{arch}.bin").as_posix(),
+        address=expected.get("load_address", expected["code_base"]),
     )
     machine.add(code)
-    cpu.pc.set(code.address)
+    cpu.pc.set(expected["code_base"])
 
     def sfr(memory: bytes, address: int) -> int:
         return memory[address - 0x80]

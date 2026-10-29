@@ -5,16 +5,27 @@ import angr
 import claripy
 import pypcode
 from angr.errors import AngrError
+from angr.utils.constants import DEFAULT_STATEMENT
 
 from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.mcs51 import (
     MCS51_ADDRESS_SPACES,
     MCS51_IDATA_BASE,
+    MCS51_INTERRUPT_SFRS,
+    MCS51_OPCODE_RETI,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
     MCS51_REGISTER_BANKS_SIZE,
+    MCS51_SFR_BASE,
+    MCS51_SFR_IE,
+    MCS51_SFR_IP,
+    MCS51_SFR_SCON,
+    MCS51_SFR_T2CON,
+    MCS51_SFR_TCON,
+    MCS51InterruptState,
     mcs51_return_address,
+    mcs51_service_interrupts,
 )
 from .machdef import GhidraMachineDef
 
@@ -102,6 +113,44 @@ _EXIT_OPS = {
 # Where a path's last register bank sync is kept: (bank, R0-R7).
 _SYNCED_BANK = "mcs51_register_bank"
 
+# Where a path's interrupt state is kept: an MCS51InterruptState, whether an
+# interrupt was just taken, and whether the next block must be one
+# instruction long.
+_INTERRUPTS = "mcs51_interrupts"
+_JUST_TAKEN = "mcs51_interrupt_taken"
+_ONE_INSTRUCTION = "mcs51_one_instruction"
+
+# SFRs whose writes can make an interrupt takeable: the request flags, IE and
+# IP.  A write to IE or IP also holds interrupts for one instruction.
+_INTERRUPT_SFRS = {
+    MCS51_SFR_TCON,
+    MCS51_SFR_SCON,
+    MCS51_SFR_IE,
+    MCS51_SFR_IP,
+    MCS51_SFR_T2CON,
+}
+_HOLDING_SFRS = {MCS51_SFR_IE, MCS51_SFR_IP}
+
+
+def _writes_sfrs(ops, sfrs) -> bool:
+    for op in ops:
+        out = op.output
+        if out is not None and out.space.name == "SFR":
+            if any(out.offset <= sfr < out.offset + out.size for sfr in sfrs):
+                return True
+    return False
+
+
+def _instructions(irsb) -> typing.List[typing.Tuple[int, typing.List[typing.Any]]]:
+    """Split a block's p-code by instruction: (address, ops) for each."""
+    instructions: typing.List[typing.Tuple[int, typing.List[typing.Any]]] = []
+    for op in irsb._ops:
+        if op.opcode == pypcode.OpCode.IMARK:
+            instructions.append((op.inputs[0].offset, []))
+        elif instructions:
+            instructions[-1][1].append(op)
+    return instructions
+
 
 class MCS51EnginePcode(angr.engines.UberEnginePcode):
     """angr's p-code engine, with the 8051's address spaces on a flat map.
@@ -109,7 +158,8 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     It also keeps two kinds of state current that Ghidra's 8051 language
     leaves out: the parity flag, which the hardware derives from the
     accumulator on every cycle, and R0-R7 as the register bank PSW selects in
-    internal RAM.
+    internal RAM.  And it takes interrupts, between blocks it ends wherever
+    an instruction could make one takeable.
     """
 
     # The instruction whose start the last register bank sync was for.
@@ -203,7 +253,130 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         start, end = varnode.offset, varnode.offset + varnode.size
         return any(start <= registers[name][0] < end for name in ("acc", "psw"))
 
+    def _interrupts_modeled(self) -> bool:
+        memory_map = getattr(self.state.scratch, "memory_map", None)
+        start, end = MCS51_INTERRUPT_SFRS
+        return memory_map is not None and not memory_map.get_missing_ranges(
+            (MCS51_SFR_BASE + start, MCS51_SFR_BASE + end)
+        )
+
+    def _concrete_byte(self, address: int, what: str) -> int:
+        value = self.state.memory.load(address, 1, inspect=False, disable_actions=True)
+        values = self.state.solver.eval_upto(value, 2)
+        if len(values) != 1:
+            raise EmulationError(f"The 8051's {what} is symbolic")
+        return values[0]
+
+    def _take_interrupt(self, irsb) -> bool:
+        """Take an interrupt before this block, if the 8051 would take one.
+
+        process_successors ends a block after any instruction that writes an
+        interrupt SFR, so none of the instructions before a block's last
+        changes whether an interrupt is takeable, and this check at the start
+        of each block is as good as one at every instruction boundary.
+        Taking an interrupt replaces the block with a call to the vector.
+        """
+        state = self.state
+        globals_map = typing.cast(typing.MutableMapping[str, typing.Any], state.globals)
+
+        def read_sfr(address: int) -> int:
+            return self._concrete_byte(MCS51_SFR_BASE + address, f"SFR {address:#x}")
+
+        last, last_ops = _instructions(irsb)[-1]
+        interrupts, source = mcs51_service_interrupts(
+            globals_map.get(_INTERRUPTS, MCS51InterruptState()),
+            irsb.addr,
+            read_sfr,
+            lambda address: self._concrete_byte(address, f"code at {address:#x}"),
+            last=last,
+            # Straight after an interrupt is taken, its vector's first
+            # instruction runs before the next check, as on the Ghidra
+            # backend.
+            take=not globals_map.get(_JUST_TAKEN, False),
+        )
+        globals_map[_INTERRUPTS] = interrupts
+        globals_map[_JUST_TAKEN] = source is not None
+        if source is None:
+            # After RETI or a write to IE or IP, one more instruction runs
+            # before the next interrupt, so the next block is that one.
+            assert interrupts.previous is not None
+            globals_map[_ONE_INSTRUCTION] = interrupts.previous[
+                0
+            ] == MCS51_OPCODE_RETI or _writes_sfrs(last_ops, _HOLDING_SFRS)
+            return False
+        globals_map[_ONE_INSTRUCTION] = False
+
+        # Call the handler as LCALL would: push PC low byte first.
+        sp = state.solver.eval_one(typing.cast(claripy.ast.bv.BV, state.regs.sp))
+        for byte in irsb.addr.to_bytes(2, "little"):
+            sp = (sp + 1) & 0xFF
+            state.memory.store(
+                MCS51_IDATA_BASE + sp, claripy.BVV(byte, 8), disable_actions=True
+            )
+        state.regs.sp = claripy.BVV(sp, 8)
+        if source.cleared:
+            flags = read_sfr(source.flag_sfr) & ~source.cleared
+            state.memory.store(
+                MCS51_SFR_BASE + source.flag_sfr,
+                claripy.BVV(flags, 8),
+                disable_actions=True,
+            )
+        assert self.successors is not None
+        self.successors.add_successor(
+            state,
+            source.vector,
+            claripy.true(),
+            "Ijk_Boring",
+            exit_stmt_idx=DEFAULT_STATEMENT,
+            exit_ins_addr=irsb.addr,
+        )
+        return True
+
+    def _instructions_before_interrupts_change(self, addr: int, **kwargs) -> int:
+        """How many instructions a block at addr may run.
+
+        The block ends after the first instruction that writes TCON, SCON,
+        IE, IP or T2CON, the only state other than RETI that decides whether
+        an interrupt is takeable.  8051 instructions name the SFRs they write
+        in their encoding - indirect addressing reaches internal RAM, not
+        SFRs - so lifting the block shows every such write.  RETI ends a
+        block anyway, as every return does.
+        """
+        irsb = self.lift_pcode(
+            addr=addr,
+            state=self.state,
+            insn_bytes=kwargs.get("insn_bytes"),
+            size=kwargs.get("size"),
+            num_inst=kwargs.get("num_inst"),
+            extra_stop_points=kwargs.get("extra_stop_points"),
+        )
+        instructions = _instructions(irsb)
+        for count, (_, ops) in enumerate(instructions, start=1):
+            if _writes_sfrs(ops, _INTERRUPT_SFRS):
+                return count
+        return len(instructions)
+
+    def process_successors(self, successors, *args, **kwargs):
+        addr = successors.addr
+        if (
+            isinstance(addr, int)
+            and not self.project.is_hooked(addr)
+            and self._interrupts_modeled()
+        ):
+            globals_map = typing.cast(
+                typing.Mapping[str, typing.Any], self.state.globals
+            )
+            if globals_map.get(_ONE_INSTRUCTION, False):
+                kwargs["num_inst"] = 1
+            else:
+                kwargs["num_inst"] = self._instructions_before_interrupts_change(
+                    addr, **kwargs
+                )
+        return super().process_successors(successors, *args, **kwargs)
+
     def handle_pcode_block(self, irsb) -> None:
+        if self._interrupts_modeled() and self._take_interrupt(irsb):
+            return
         # Recompute parity on entry, in case the state was set up with a stale
         # flag; _set_value keeps it current from there.
         self._update_parity()

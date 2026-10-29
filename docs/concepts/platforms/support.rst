@@ -254,6 +254,22 @@ PSW's RS bits select, and compiled code reaches them by address too (SDCC's
 and the selected bank in step around every instruction, and the ``cpu.r0`` to
 ``cpu.r7`` a machine starts with are written into the bank PSW selects;
 otherwise R0-R7 are plain registers.
+Both backends take the 8052's six interrupts as the hardware does, when the
+SFRs that control them (TCON through T2CON) are mapped: between any two
+instructions, an interrupt whose request flag is set, which IE enables and
+whose IP priority beats every interrupt in service, is called through its
+vector, the higher priority first and then in polling order, and the flags
+the hardware clears are cleared.  ``reti``, recognized by its opcode since
+Ghidra's language makes it a plain return, ends the service; a handler that
+returns with ``ret`` stays in service, as on hardware.  After ``reti`` or a
+write to IE or IP, one more instruction runs first.  Nothing raises a request
+on its own: there are no timers, serial port or pins, so a harness requests
+an interrupt by setting its flag, from a hook or a model, as hardware would;
+``mcs51_raise_interrupt`` does that.  Without pins, the external interrupts'
+flags are cleared when taken even in level-triggered mode.  On angr, a block
+ends after any instruction that writes TCON, SCON, IE, IP or T2CON, so
+checking for interrupts between blocks is as good as checking between every
+two instructions; the bits involved must be concrete.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
 SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
 low byte first, as ``lcall`` pushes a return address.

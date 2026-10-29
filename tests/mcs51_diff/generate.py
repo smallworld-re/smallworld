@@ -15,8 +15,12 @@ the test binaries' Nix build.
 
 The starting state is random but seeded by the program's name, so a rerun
 reproduces it.  Internal RAM, R0-R7, A, B, DPTR, the PSW flags and XDATA
-0x0000-0x00FF are random; register bank 0 is selected, and SP starts at 0xB0
-so pushes land in the upper internal RAM only an 8052 has.
+0x0000-0x00FF are random; register bank 0 is selected, parity matches A, and
+SP starts at 0xB0 so pushes land in the upper internal RAM only an 8052 has.
+
+Programs run from CODE_BASE.  One that fills interrupt vectors has code below
+it too, so its raw binary starts lower; the results record where, as
+load_address.
 
 ucsim is driven through its TCP console, one command at a time.  Piped to its
 standard input instead, it echoes each command into its output on a separate
@@ -48,9 +52,9 @@ SFR_PSW = 0xD0
 SFR_ACC = 0xE0
 SFR_B = 0xF0
 
-# PSW bits the random state leaves clear: the register bank select (RS1, RS0),
-# since the programs run in bank 0, and parity, which the hardware computes
-# from the accumulator rather than taking.
+# PSW bits the random state does not choose: the register bank select (RS1,
+# RS0), left clear since the programs run in bank 0, and parity, which the
+# hardware computes from the accumulator, so is set to match it.
 PSW_FIXED_BITS = 0x18 | 0x01
 
 
@@ -145,9 +149,23 @@ class Ucsim:
             self.socket.close()
 
 
+def _load_address(ihx: pathlib.Path) -> int:
+    """The lowest address an Intel HEX file writes, where its raw binary
+    starts.  It is below CODE_BASE when a program fills interrupt vectors."""
+    addresses = []
+    upper = 0
+    for line in ihx.read_text().split():
+        record = bytes.fromhex(line[1:])
+        if record[3] == 0x00 and record[0]:
+            addresses.append(upper + int.from_bytes(record[1:3], "big"))
+        elif record[3] == 0x04:
+            upper = int.from_bytes(record[4:6], "big") << 16
+    return min(addresses)
+
+
 def _assemble(source: pathlib.Path, work: pathlib.Path) -> tuple[pathlib.Path, int]:
     """Assemble and link at CODE_BASE as mcs51_asm.sh does; return the .ihx
-    and the code size."""
+    and the size of the raw binary made from it."""
     prog = work / "prog.s"
     prog.write_text(source.read_text())
     subprocess.run(["sdas8051", "-plosgff", str(prog)], check=True)
@@ -177,10 +195,12 @@ def generate(source: pathlib.Path) -> dict:
         SFR_PSW: rng.randrange(0x100) & ~PSW_FIXED_BITS,
         SFR_SP: SP_START,
     }
+    registers[SFR_PSW] |= bin(registers[SFR_ACC]).count("1") & 1
 
     with tempfile.TemporaryDirectory() as tmp:
         ihx, size = _assemble(source, pathlib.Path(tmp))
-        last = CODE_BASE + size - 1
+        load_address = _load_address(ihx)
+        last = load_address + size - 1
         ucsim = Ucsim()
         try:
             ucsim.command(f'file "{ihx}"')
@@ -210,6 +230,7 @@ def generate(source: pathlib.Path) -> dict:
         "program": source.name,
         "simulator": "ucsim_51 -t 8052",
         "code_base": CODE_BASE,
+        "load_address": load_address,
         "initial": {key: value.hex() for key, value in initial.items()},
         "final": {key: value.hex() for key, value in final.items()},
     }

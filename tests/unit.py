@@ -56,6 +56,11 @@ from ihex.test import (  # noqa: F401 - registers the TestCases
     AsxxxxMapTests,
     IHexLoaderTests,
 )
+from mcs51_interrupts.test import (  # noqa: F401 - registers the TestCases
+    MCS51InterruptChoiceTests,
+    MCS51InterruptServiceTests,
+    MCS51RaiseInterruptTests,
+)
 from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     AddressMaskingTests,
     AddressOnlyReadsCapstoneFallbackTests,
