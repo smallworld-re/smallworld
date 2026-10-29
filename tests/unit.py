@@ -19,6 +19,7 @@ import tracemalloc
 import types
 import typing
 import unittest
+import zlib
 from types import SimpleNamespace
 from unittest import mock
 
@@ -9499,6 +9500,45 @@ class GhidraEmulatorStartOrderTests(unittest.TestCase):
             stderr=subprocess.PIPE,
         )
         self.assertEqual(result.returncode, 0, result.stderr.decode())
+
+
+class GhidraSymbolicUseropTests(unittest.TestCase):
+    """The symbolic Ghidra emulator runs the userops SmallWorld implements.
+
+    ``crc32w`` lifts to a Crc32Calc userop Ghidra's emulator doesn't
+    implement. SmallWorld runs it on concrete values, and refuses an argument
+    that depends on a symbolic input.
+    """
+
+    CODE = 0x1000
+    CRC32W = bytes.fromhex("401041e1")  # crc32w r1, r1, r0
+
+    def _emulator(self):
+        _ensure_pyghidra_started()
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.ghidra.GhidraSymbolicEmulator(platform)
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, self.CRC32W)
+        emu.write_register("pc", self.CODE)
+        emu.write_register("r0", 0x12345678)
+        emu.write_register("r1", 0xFFFFFFFF)
+        return emu
+
+    def test_runs_userop_on_concrete_values(self):
+        emu = self._emulator()
+        emu.step_instruction()
+        # crc32w applies no inversion, so from all ones it gives zlib's CRC-32
+        # inverted.
+        expected = zlib.crc32((0x12345678).to_bytes(4, "little")) ^ 0xFFFFFFFF
+        self.assertEqual(emu.read_register("r1"), expected)
+
+    def test_refuses_symbolic_argument(self):
+        emu = self._emulator()
+        emu.write_register_label("r0", "crc_input")
+        with self.assertRaisesRegex(exceptions.SymbolicValueError, "Crc32Calc"):
+            emu.step_instruction()
 
 
 class GhidraSymbolicRegisterLabelTests(unittest.TestCase):

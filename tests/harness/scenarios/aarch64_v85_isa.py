@@ -7,7 +7,8 @@ ARMv8.5 added, which a plain ARMv8.0 aarch64 core rejects:
 - ``v85_pauth``: ARMv8.3 pointer authentication (pacia, autia, xpaci) and the
   branch-protection hints (bti, paciasp, autiasp)
 - ``v85_rcpc``: ARMv8.3 RCpc and ARMv8.4 LRCPC2 (ldapr, ldapur)
-- ``v85_rdm``: the ARMv8.1 rounding doubling multiply-accumulate (sqrdmlah)
+- ``v85_rdm``: the ARMv8.1 rounding doubling multiply-accumulate and
+  -subtract (sqrdmlah, sqrdmlsh)
 """
 
 from __future__ import annotations
@@ -46,19 +47,22 @@ def _s32(value: int) -> int:
     return value - (1 << 32) if value >> 31 else value
 
 
+def _sqrdml(acc: int, n: int, m: int, subtract: bool) -> int:
+    product = 2 * n * m
+    if subtract:
+        product = -product
+    total = ((acc << 32) + product + (1 << 31)) >> 32
+    return max(-(1 << 31), min((1 << 31) - 1, total))
+
+
 def _rdm_expected(arg: int) -> int:
-    product = (2 * _s32(arg) * 0x40000000 + (1 << 31)) >> 32
-    total = max(-(1 << 31), min((1 << 31) - 1, 5 + product))
-    return total & 0xFFFFFFFF
+    acc = _sqrdml(5, _s32(arg), 0x40000000, False)
+    return _sqrdml(acc, _s32(arg), -(1 << 31), True) & 0xFFFFFFFF
 
 
 # Measured backend gaps, used as skip reasons below.
 _ANGR_NO_DECODE = "VEX can't decode the ARMv8.1+ instructions"
 _TRITON_NO_DECODE = "Triton implements no semantics for these ARMv8.1+ instructions"
-_PCODE_NO_RDM = (
-    "Ghidra's SLEIGH lifts sqrdmlah to a NEON_sqrdml_as_h userop the emulator "
-    "doesn't implement"
-)
 
 # family -> (expected-result function, arguments, skip reasons)
 _FAMILIES: dict[str, tuple[Callable[[int], int], tuple[int, ...], dict]] = {
@@ -88,7 +92,6 @@ _FAMILIES: dict[str, tuple[Callable[[int], int], tuple[int, ...], dict]] = {
         (100, 0x7FFFFFFF),
         {
             "aarch64v85a.angr": _ANGR_NO_DECODE,
-            "aarch64v85a.pcode": _PCODE_NO_RDM,
             "aarch64v85a.triton": _TRITON_NO_DECODE,
         },
     ),

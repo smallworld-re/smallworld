@@ -4,7 +4,7 @@ Each family is a raw assembly program built only from instructions ARMv8
 added, so an ARMv7 core rejects it (or, for the stack limits, ignores it):
 
 - ``v8_acqrel``: acquire/release loads and stores (lda, stl, ldaex, stlex)
-- ``v8_crc32``: the CRC32 instructions (crc32b, crc32w)
+- ``v8_crc32``: the CRC32 and CRC32C instructions, at each size
 - ``v8_fp``: the ARMv8 floating-point additions (vrinta, vmaxnm, vsel, vcvta)
 - ``v8m_stacklimit``: ARMv8-M's stack-limit registers (msplim, psplim)
 """
@@ -51,9 +51,22 @@ def _crc_arm(acc: int, data: bytes) -> int:
     return ~zlib.crc32(data, ~acc & 0xFFFFFFFF) & 0xFFFFFFFF
 
 
+def _crc32c_arm(acc: int, data: bytes) -> int:
+    # zlib has no CRC-32C, so fold in the reflected Castagnoli polynomial
+    # bit by bit.
+    for byte in data:
+        acc ^= byte
+        for _ in range(8):
+            acc = (acc >> 1) ^ (0x82F63B78 if acc & 1 else 0)
+    return acc
+
+
 def _crc32_expected(arg: int) -> int:
-    acc = _crc_arm(0xFFFFFFFF, bytes([arg & 0xFF]))
-    return _crc_arm(acc, arg.to_bytes(4, "little"))
+    acc = 0xFFFFFFFF
+    for crc in (_crc_arm, _crc32c_arm):
+        for size in (1, 2, 4):
+            acc = crc(acc, (arg & ((1 << (8 * size)) - 1)).to_bytes(size, "little"))
+    return acc
 
 
 # Measured backend gaps, used as skip reasons below.
@@ -65,16 +78,9 @@ _ANGR_NO_MAXNUM = "angr doesn't implement VEX's Iop_MaxNumF32 (vmaxnm)"
 _ANGR_NO_STACKLIMIT = (
     "angr doesn't model the ARMv8-M stack-limit registers; mrs reads a symbolic value"
 )
-_PCODE_NO_CRC32 = (
-    "Ghidra's SLEIGH lifts crc32 to a Crc32Calc userop the emulator doesn't implement"
-)
 _PCODE_NO_V8FP = (
     "Ghidra's SLEIGH lifts these ARMv8 FP instructions to a coprocessor_function2 "
     "userop the emulator doesn't implement"
-)
-_PCODE_NO_STACKLIMIT = (
-    "Ghidra's SLEIGH lifts msr msplim to a setMainStackPointerLimit userop "
-    "the emulator doesn't implement"
 )
 
 # family -> (archs, [(argument, expected r0)], skip reasons)
@@ -93,10 +99,6 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         {
             **{
                 f"{arch}.angr": _ANGR_NO_CRC32
-                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
-            },
-            **{
-                f"{arch}.pcode": _PCODE_NO_CRC32
                 for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
             },
             **{
@@ -134,7 +136,6 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         ((0x100, 2 * 0x100), (0x1FF, 2 * 0x1F8)),
         {
             "armv8m.angr": _ANGR_NO_STACKLIMIT,
-            "armv8m.pcode": _PCODE_NO_STACKLIMIT,
             "armv8m.triton": _TRITON_NO_DECODE,
         },
     ),
