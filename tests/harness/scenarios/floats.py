@@ -33,6 +33,7 @@ _VARIANTS = (
     ("armv7em.angr", None),
     ("armv7em.pcode", None),
     ("armv7em.triton", _TRITON_NO_FLOAT),
+    ("armv7a", None),
     ("armv7a.angr", None),
     ("armv7abe.angr", None),
     ("armv7r.angr", None),

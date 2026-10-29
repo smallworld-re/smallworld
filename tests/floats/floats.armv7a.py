@@ -39,6 +39,11 @@ arg2 = int.from_bytes(struct.pack("d", float(sys.argv[2])), "little")
 cpu.d0.set(arg1)
 cpu.d1.set(arg2)
 
+# Unicorn resets ARM CPUs with the FPU disabled; enable it as an OS would for
+# a user process.
+cpu.cpacr.set(0x00F00000)  # Full access to coprocessors 10 and 11
+cpu.fpexc.set(0x40000000)  # FPEXC.EN
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
