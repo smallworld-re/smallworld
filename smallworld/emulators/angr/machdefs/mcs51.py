@@ -165,17 +165,70 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     # The instruction whose start the last register bank sync was for.
     _synced_insn: typing.Optional[int] = None
 
+    # Within a block: the register bank selected and R0-R7 at the last sync,
+    # or None when banks are not modeled.
+    _bank: int = 0
+    _bank_values: typing.Optional[typing.List[typing.Any]] = None
+
+    # What the instruction executing has written, for the bank sync and the
+    # parity flag to act on when it ends: R0-R7 by number, internal RAM 0x00-
+    # 0x1F by offset (or anywhere there, for a symbolic address), PSW, and
+    # ACC or PSW, which the parity flag depends on.
+    # handle_pcode_block resets these as each block starts.
+    _written_registers: typing.Set[int]
+    _written_bank_memory: typing.Set[int]
+    _wrote_bank_memory_somewhere: bool = False
+    _wrote_psw: bool = False
+    _parity_stale: bool = False
+
+    def _register_offset(self, name: str) -> int:
+        return self.project.arch.registers[name][0]
+
+    def _load_register(self, name: str) -> claripy.ast.bv.BV:
+        return typing.cast(
+            claripy.ast.bv.BV,
+            self.state.registers.load(
+                self._register_offset(name), 1, inspect=False, disable_actions=True
+            ),
+        )
+
+    def _store_register(self, name: str, value) -> None:
+        self.state.registers.store(
+            self._register_offset(name), value, inspect=False, disable_actions=True
+        )
+
+    def _selected_bank(self) -> int:
+        psw = self._load_register("psw")
+        if not psw.symbolic:
+            return (psw.concrete_value & MCS51_PSW_BANK_SELECT) >> MCS51_PSW_BANK_SHIFT
+        banks = self.state.solver.eval_upto(
+            (psw & MCS51_PSW_BANK_SELECT) >> MCS51_PSW_BANK_SHIFT, 2
+        )
+        if len(banks) != 1:
+            raise EmulationError("The 8051 register bank select bits are symbolic")
+        return banks[0]
+
+    def _load_bank(self, bank: int) -> typing.List[typing.Any]:
+        data = self.state.memory.load(
+            MCS51_IDATA_BASE + bank * 8, 8, inspect=False, disable_actions=True
+        )
+        return [data.get_byte(n) for n in range(8)]
+
     def _sync_register_bank(self) -> None:
-        """Keep R0-R7 in step with the register bank PSW selects.
+        """Bring R0-R7 in step with the register bank PSW selects.
 
         On the 8051, R0-R7 are eight bytes of internal RAM, in one of four
         banks that PSW's RS bits select; compiled code reaches them through
         those addresses too (`push ar7`).  Ghidra's language makes them
-        standalone registers, so this syncs the two at every instruction
-        boundary: a register that changed since the last sync (by an
-        instruction, a hook or a model) is written to its bank, then R0-R7 are
-        reloaded from the bank PSW now selects.  At a path's first sync the
-        registers win, so a caller's R0-R7 land in the selected bank.
+        standalone registers, so the engine syncs the two: a register that
+        changed since the last sync (by an instruction, a hook or a model) is
+        written to its bank, then R0-R7 are reloaded from the bank PSW now
+        selects.  At a path's first sync the registers win, so a caller's
+        R0-R7 land in the selected bank.
+
+        This full sync runs as each block starts, since hooks and models can
+        change state between blocks; within a block,
+        :meth:`_finish_instruction` syncs only what each instruction wrote.
 
         Banks are only modeled when internal RAM 0x00-0x1F is mapped;
         otherwise R0-R7 are plain registers.  The internal RAM accesses here
@@ -186,17 +239,11 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         if memory_map is None or memory_map.get_missing_ranges(
             (MCS51_IDATA_BASE, MCS51_IDATA_BASE + MCS51_REGISTER_BANKS_SIZE)
         ):
+            self._bank_values = None
             return
 
-        psw = typing.cast(claripy.ast.bv.BV, state.regs.psw)
-        banks = state.solver.eval_upto(
-            (psw & MCS51_PSW_BANK_SELECT) >> MCS51_PSW_BANK_SHIFT, 2
-        )
-        if len(banks) != 1:
-            raise EmulationError("The 8051 register bank select bits are symbolic")
-        bank = banks[0]
-
-        registers = [getattr(state.regs, f"r{n}") for n in range(8)]
+        bank = self._selected_bank()
+        registers = [self._load_register(f"r{n}") for n in range(8)]
         globals_map = typing.cast(typing.MutableMapping[str, typing.Any], state.globals)
         synced = globals_map.get(_SYNCED_BANK)
         if synced is None:
@@ -212,15 +259,65 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
                 disable_actions=True,
             )
 
-        values = [
-            state.memory.load(
-                MCS51_IDATA_BASE + bank * 8 + n, 1, inspect=False, disable_actions=True
-            )
-            for n in range(8)
-        ]
+        values = self._load_bank(bank)
         for n in range(8):
-            setattr(state.regs, f"r{n}", values[n])
+            if not values[n].identical(registers[n]):
+                self._store_register(f"r{n}", values[n])
+        self._bank = bank
+        self._bank_values = values
         globals_map[_SYNCED_BANK] = (bank, tuple(values))
+
+    def _finish_instruction(self) -> None:
+        """Sync what the instruction just executed wrote.
+
+        The same as a full :meth:`_sync_register_bank`, but limited to what
+        changed: R0-R7 that were written go to the bank they belong to, and
+        R0-R7 whose bytes were written, or all of them when PSW switched
+        banks, are reloaded.  Then the parity flag is recomputed if ACC or PSW
+        was written.
+        """
+        if self._bank_values is not None and (
+            self._written_registers
+            or self._written_bank_memory
+            or self._wrote_bank_memory_somewhere
+            or self._wrote_psw
+        ):
+            state = self.state
+            values = self._bank_values
+            for n in self._written_registers:
+                values[n] = self._load_register(f"r{n}")
+                state.memory.store(
+                    MCS51_IDATA_BASE + self._bank * 8 + n,
+                    values[n],
+                    inspect=False,
+                    disable_actions=True,
+                )
+            bank = self._selected_bank() if self._wrote_psw else self._bank
+            if bank != self._bank or self._wrote_bank_memory_somewhere:
+                reload = set(range(8))
+            else:
+                reload = {
+                    offset - bank * 8
+                    for offset in self._written_bank_memory
+                    if bank * 8 <= offset < bank * 8 + 8
+                } - self._written_registers
+            if reload:
+                loaded = self._load_bank(bank)
+                for n in reload:
+                    if not loaded[n].identical(values[n]):
+                        self._store_register(f"r{n}", loaded[n])
+                        values[n] = loaded[n]
+            self._bank = bank
+            globals_map = typing.cast(
+                typing.MutableMapping[str, typing.Any], state.globals
+            )
+            globals_map[_SYNCED_BANK] = (bank, tuple(values))
+        self._written_registers = set()
+        self._written_bank_memory = set()
+        self._wrote_bank_memory_somewhere = False
+        self._wrote_psw = False
+        if self._parity_stale:
+            self._update_parity()
 
     def _execute_current_op(self) -> None:
         # Sync at each instruction boundary, and before an op that passes the
@@ -229,29 +326,53 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         assert op is not None
         if self.state.scratch.ins_addr != self._synced_insn:
             self._synced_insn = self.state.scratch.ins_addr
-            self._sync_register_bank()
+            self._finish_instruction()
         elif op.opcode in _EXIT_OPS:
-            self._sync_register_bank()
+            self._finish_instruction()
         super()._execute_current_op()
 
     def _update_parity(self) -> None:
-        acc = typing.cast(claripy.ast.bv.BV, self.state.regs.acc)
+        self._parity_stale = False
+        acc = self._load_register("acc")
+        psw = self._load_register("psw")
+        if not acc.symbolic and not psw.symbolic:
+            bit = bin(acc.concrete_value).count("1") & 1
+            if psw.concrete_value & 1 != bit:
+                self._store_register(
+                    "psw", claripy.BVV((psw.concrete_value & 0xFE) | bit, 8)
+                )
+            return
         parity = acc[0]
         for bit in range(1, 8):
             parity = parity ^ acc[bit]
-        psw = typing.cast(claripy.ast.bv.BV, self.state.regs.psw)
         # Concatenate rather than mask and OR: claripy simplifies a later
         # extract of PSW's other bits (the carry, say) through a Concat, so a
         # symbolic accumulator leaves them concrete.
-        self.state.regs.psw = claripy.Concat(psw[7:1], parity)
+        self._store_register("psw", claripy.Concat(psw[7:1], parity))
 
-    def _writes_acc_or_psw(self, varnode) -> bool:
-        # ACC, which the flag is computed from, and PSW, which holds it.
-        if varnode.space.name != "register":
-            return False
-        registers = self.project.arch.registers
+    def _note_register_write(self, varnode) -> None:
         start, end = varnode.offset, varnode.offset + varnode.size
-        return any(start <= registers[name][0] < end for name in ("acc", "psw"))
+        registers = self.project.arch.registers
+        for n in range(8):
+            if start <= registers[f"r{n}"][0] < end:
+                self._written_registers.add(n)
+        if start <= registers["psw"][0] < end:
+            self._wrote_psw = True
+            self._parity_stale = True
+        if start <= registers["acc"][0] < end:
+            self._parity_stale = True
+
+    def _note_internal_ram_write(self, offset, size: int) -> None:
+        if isinstance(offset, int):
+            start = offset
+        elif not offset.symbolic:
+            start = offset.concrete_value
+        else:
+            self._wrote_bank_memory_somewhere = True
+            return
+        for address in range(start, start + size):
+            if address < MCS51_REGISTER_BANKS_SIZE:
+                self._written_bank_memory.add(address)
 
     def _interrupts_modeled(self) -> bool:
         memory_map = getattr(self.state.scratch, "memory_map", None)
@@ -377,13 +498,19 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     def handle_pcode_block(self, irsb) -> None:
         if self._interrupts_modeled() and self._take_interrupt(irsb):
             return
-        # Recompute parity on entry, in case the state was set up with a stale
-        # flag; _set_value keeps it current from there.
+        # Hooks, models and the harness can change state between blocks, so
+        # recompute the parity flag and sync the register bank in full here;
+        # within the block, _finish_instruction keeps them current.
+        self._written_registers = set()
+        self._written_bank_memory = set()
+        self._wrote_bank_memory_somewhere = False
+        self._wrote_psw = False
         self._update_parity()
-        self._synced_insn = None
+        self._sync_register_bank()
+        self._synced_insn = irsb.addr
         super().handle_pcode_block(irsb)
         # The block's fall-through successor is this same state.
-        self._sync_register_bank()
+        self._finish_instruction()
 
     def _flat_address(self, space_name: str, offset):
         base = _SPACE_BASES[space_name]
@@ -399,10 +526,12 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
                 value,
                 endness=self.project.arch.memory_endness,
             )
+            if varnode.space.name == "INTMEM":
+                self._note_internal_ram_write(varnode.offset, varnode.size)
             return
         super()._set_value(varnode, value)
-        if self._writes_acc_or_psw(varnode):
-            self._update_parity()
+        if varnode.space.name == "register":
+            self._note_register_write(varnode)
 
     def _get_value(self, varnode):
         if varnode.space.name in _SPACE_BASES:
@@ -442,6 +571,8 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             data,
             endness=self.project.arch.memory_endness,
         )
+        if space.name == "INTMEM":
+            self._note_internal_ram_write(offset, op.inputs[2].size)
 
     def _execute_callother(self) -> None:
         op = self._current_op

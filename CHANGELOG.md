@@ -154,6 +154,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The angr backend's 8051 engine keeps the register bank and the parity flag
+  current incrementally: a full sync as each block starts, then only what
+  each instruction wrote, with concrete values handled without the solver.
+  Running SDCC's C library is about five times faster.
 - `Value.{get, set}()` changed to `@property` `value`.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.
