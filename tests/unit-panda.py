@@ -79,6 +79,14 @@ if architecture in _ARM_FP:
     writeback_registers = ("r0", "cpacr", "fpexc", "s3", "d5")
     if architecture in _ARM_NEON:
         writeback_registers += ("d17", "q9")
+_AARCH64 = {
+    platforms.Architecture.AARCH64,
+    platforms.Architecture.AARCH64_V8_5A,
+}
+if architecture in _AARCH64:
+    # cpacr_el1 and the SIMD and FP registers live in the CPU state rather
+    # than behind PANDA's register accessors.
+    writeback_registers = ("x0", "cpacr_el1", "q9", "d17", "s3")
 
 if writeback_registers:
     for reg in writeback_registers:
@@ -126,6 +134,47 @@ if architecture in _ARM_FP:
         if emu.read_register("fpscr") != 0x03C00000:
             print(f"fpscr of {platform} did not round-trip", file=sys.stderr)
             bad = True
+    except Exception as e:
+        print(f"FP registers of {platform} not handled by Panda: {e}", file=sys.stderr)
+        bad = True
+
+if architecture in _AARCH64:
+    # d1, s1, h1 and b1 are the low bits of q1, and writing one leaves the
+    # rest of q1 alone. QEMU masks fpcr's and fpsr's reserved bits, so they get
+    # values it keeps.
+    try:
+        q1 = 0x00112233445566778899AABBCCDDEEFF
+        emu.write_register("q1", q1)
+        views = {name: emu.read_register(name) for name in ("d1", "s1", "h1", "b1")}
+        if views != {
+            "d1": q1 & (1 << 64) - 1,
+            "s1": q1 & (1 << 32) - 1,
+            "h1": q1 & (1 << 16) - 1,
+            "b1": q1 & (1 << 8) - 1,
+        }:
+            print(
+                f"d1/s1/h1/b1 of {platform} are not the low bits of q1", file=sys.stderr
+            )
+            bad = True
+        emu.write_register("s1", 0x01020304)
+        if emu.read_register("q1") != (q1 & ~0xFFFFFFFF) | 0x01020304:
+            print(
+                f"Writing s1 of {platform} changed more than q1's low bits",
+                file=sys.stderr,
+            )
+            bad = True
+        emu.write_register("b1", 0xA5)
+        if emu.read_register("q1") != (q1 & ~0xFFFFFFFF) | 0x010203A5:
+            print(
+                f"Writing b1 of {platform} changed more than q1's low byte",
+                file=sys.stderr,
+            )
+            bad = True
+        for reg, value in (("fpcr", 0x03C00000), ("fpsr", 0x08000000)):
+            emu.write_register(reg, value)
+            if emu.read_register(reg) != value:
+                print(f"{reg} of {platform} did not round-trip", file=sys.stderr)
+                bad = True
     except Exception as e:
         print(f"FP registers of {platform} not handled by Panda: {e}", file=sys.stderr)
         bad = True

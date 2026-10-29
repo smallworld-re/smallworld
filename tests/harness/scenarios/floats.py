@@ -20,6 +20,8 @@ _VARIANTS = (
     ("aarch64.pcode", None),
     ("aarch64v85a.pcode", None),
     ("aarch64be.pcode", None),
+    ("aarch64.panda", None),
+    ("aarch64v85a.panda", None),
     ("aarch64.triton", _TRITON_NO_FLOAT),
     ("aarch64v85a.triton", _TRITON_NO_FLOAT),
     ("amd64", None),
