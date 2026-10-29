@@ -4690,6 +4690,54 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         )
         self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB)
 
+    def test_from_capstone_with_platform_picks_its_format(self):
+        # Every A32 platform shares Capstone's ARM architecture and mode, so
+        # only the platform tells their formats apart.
+        cs_insn = _disasm_one(
+            bytes.fromhex("010050e1"),
+            0x1000,
+            capstone.CS_ARCH_ARM,
+            capstone.CS_MODE_ARM,
+        )  # cmp r0, r1
+        for arch in (
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7R,
+            platforms.Architecture.ARM_V8A,
+            platforms.Architecture.ARM_V8R,
+        ):
+            platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+            insn = Instruction.from_capstone(cs_insn, platform=platform)
+            self.assertEqual(insn.platform, platform)
+
+    def test_thumb_on_a_profile_uses_capstone_use_def(self):
+        # The A-profile language decodes A32, so a Thumb instruction there
+        # falls back to Capstone rather than reporting nothing.
+        cs_insn = _disasm_one(
+            b"\x01\x20", 0x1000, capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB
+        )  # movs r0, #1
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        insn = Instruction.from_capstone(cs_insn, platform=platform)
+        self.assertEqual(type(insn).__name__, "ARMV7AInstruction")
+        self.assertIn("r0", {op.name for op in insn.writes})
+
+    def test_unicorn_failure_reports_the_platforms_format(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        # vadd.f64 d0, d0, d1, with the FPU still disabled
+        emu.write_memory_content(0x1000, bytes.fromhex("010b30ee"))
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1004)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            emu.run()
+        self.assertEqual(type(ctx.exception.instruction).__name__, "ARMV7AInstruction")
+
     def test_from_bytes_decodes_thumb(self):
         thumb = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
