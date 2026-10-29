@@ -112,12 +112,6 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         ((5, 6), (2, 3)),
         {
             **{
-                f"{arch}.panda": "PANDA's ARM CPU starts with the VFP unit "
-                "inaccessible, and enabling it needs a privileged CPACR write "
-                "the harness cannot make"
-                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
-            },
-            **{
                 f"{arch}.angr": _ANGR_NO_MAXNUM
                 for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
             },
@@ -210,9 +204,13 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     stack.push_integer(0xFFFFFFFF, 4, "fake return address")
     set_register(cpu, "sp", stack.get_pointer())
 
-    if engine == "unicorn" and hasattr(cpu, "fpexc") and hasattr(cpu, "cpacr"):
-        # Unicorn resets ARM CPUs with the FPU disabled; enable it as an OS
-        # would for a user process.
+    if (
+        engine in ("unicorn", "panda")
+        and hasattr(cpu, "fpexc")
+        and hasattr(cpu, "cpacr")
+    ):
+        # Unicorn and PANDA reset ARM CPUs with the FPU disabled; enable it as
+        # an OS would for a user process.
         cpu.cpacr.set(0x00F00000)  # Full access to coprocessors 10 and 11
         cpu.fpexc.set(0x40000000)  # FPEXC.EN
 

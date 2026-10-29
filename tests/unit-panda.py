@@ -61,6 +61,25 @@ elif architecture in (
     # keeps in a separate array from the GPRs.
     writeback_registers = ("r0", "r4", "pr", "sp", "ra", "fr0")
 
+_ARM_FP = {
+    platforms.Architecture.ARM_V6K,
+    platforms.Architecture.ARM_V7R,
+    platforms.Architecture.ARM_V7A,
+    platforms.Architecture.ARM_V8A,
+    platforms.Architecture.ARM_V8R,
+}
+_ARM_NEON = {
+    platforms.Architecture.ARM_V7A,
+    platforms.Architecture.ARM_V8A,
+    platforms.Architecture.ARM_V8R,
+}
+if architecture in _ARM_FP:
+    # cpacr and the FP registers live in the CPU state rather than behind
+    # PANDA's register accessors.
+    writeback_registers = ("r0", "cpacr", "fpexc", "s3", "d5")
+    if architecture in _ARM_NEON:
+        writeback_registers += ("d17", "q9")
+
 if writeback_registers:
     for reg in writeback_registers:
         try:
@@ -80,6 +99,36 @@ if writeback_registers:
                 file=sys.stderr,
             )
             bad = True
+
+if architecture in _ARM_FP:
+    # The FP registers overlap: s2 and s3 are the halves of d1, and q0 is d0
+    # and d1. QEMU masks FPSCR's reserved bits, so it gets a value it keeps.
+    try:
+        emu.write_register("d1", 0x1122334455667788)
+        if (emu.read_register("s2"), emu.read_register("s3")) != (
+            0x55667788,
+            0x11223344,
+        ):
+            print(f"s2/s3 of {platform} are not the halves of d1", file=sys.stderr)
+            bad = True
+        emu.write_register("s2", 0x99AABBCC)
+        if emu.read_register("d1") != 0x1122334499AABBCC:
+            print(f"Writing s2 of {platform} didn't update d1", file=sys.stderr)
+            bad = True
+        if architecture in _ARM_NEON:
+            emu.write_register("d0", 0x0102030405060708)
+            if emu.read_register("q0") != (
+                0x1122334499AABBCC << 64 | 0x0102030405060708
+            ):
+                print(f"q0 of {platform} is not d0 and d1", file=sys.stderr)
+                bad = True
+        emu.write_register("fpscr", 0x03C00000)
+        if emu.read_register("fpscr") != 0x03C00000:
+            print(f"fpscr of {platform} did not round-trip", file=sys.stderr)
+            bad = True
+    except Exception as e:
+        print(f"FP registers of {platform} not handled by Panda: {e}", file=sys.stderr)
+        bad = True
 
 if bad:
     os._exit(1)

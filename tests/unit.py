@@ -10009,6 +10009,7 @@ class PandaRegisterAccessExceptionTests(unittest.TestCase):
         self.emu.cpu = mock.Mock()
         md = self.emu.panda_thread.machdef
         md.check_panda_reg.return_value = True
+        md.is_state_register.return_value = False
         # "pc" maps to a distinct reg so a plain register name isn't mistaken
         # for the program counter and short-circuited.
         md.panda_reg.side_effect = lambda reg, *a, **k: (

@@ -156,35 +156,9 @@ def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
     return None
 
 
-# PANDA's ARM CPU comes up with the VFP unit inaccessible, so every
-# floating-point instruction raises EXCP_UDEF (`Panda exception 1`, and
-# EXCP_UDEF is 1 in QEMU's target/arm/cpu.h). Measured on a two-instruction
-# blob - a bare `vmov.f32 s0,s1` faults on its own, with none of this
-# scenario's kernel logic involved - so it is the FP unit being off rather than
-# anything about how the kernels are built. Also measured: the FPEXC.EN write
-# these kernels already perform for Unicorn's benefit does not help, since all
-# ten functions fault with it in place. The remaining gate is architectural
-# rather than something observed here - on ARMv7-A, CPACR's cp10/cp11 fields
-# govern VFP access, and CPACR is a privileged CP15 register the harness has no
-# way to write.
-#
-# This is the ARM counterpart of `amd64.panda` below-the-line: PANDA's bare
-# `-M configurable` machine sets up no FP unit on either architecture. It also
-# matches what the project already documents - `float_support.csv` records
-# `arm-v7 double scalar` as No for panda, and the `floats` scenario never
-# registered an `armv7a.panda` variant at all. `testfloat` was the outlier.
-_PANDA_NO_VFP = (
-    "PANDA's ARM CPU starts with the VFP unit inaccessible, so every "
-    "floating-point instruction raises EXCP_UDEF (exception 1); enabling it "
-    "needs a privileged CPACR write the harness cannot make"
-)
-
-
 SUPPORT = ArchSupport(
     specs=SPECS,
     variant_skips={
-        "armv7r.panda": _PANDA_NO_VFP,
-        "armv7rbe.panda": _PANDA_NO_VFP,
         "armv7r.styx": "Styx has no ARMv7-R target",
         "armv7rbe.styx": "Styx has no ARMv7-R target",
     },

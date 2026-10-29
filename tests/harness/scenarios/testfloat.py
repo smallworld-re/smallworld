@@ -294,6 +294,11 @@ def run_function(spec: TestFloatSpec, variant: str, func: str, count: int) -> in
     getattr(cpu, spec.count_register).set(len(cases))
     for name, value in spec.setup.get(precision, {}).items():
         getattr(cpu, name).set(value)
+    if engine == "panda" and hasattr(cpu, "cpacr"):
+        # PANDA resets ARM CPUs with coprocessors 10 and 11, the FPU,
+        # inaccessible; grant access as an OS would. The ARM kernels set
+        # FPEXC.EN themselves.
+        cpu.cpacr.set(0x00F00000)
 
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(CODE_BASE + EXIT_OFFSET)
