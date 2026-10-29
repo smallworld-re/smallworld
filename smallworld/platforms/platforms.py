@@ -21,7 +21,11 @@ class Architecture(enum.Enum):
     """64-bit x86 supporting AVX512 extensions."""
 
     AARCH64 = "aarch64"
-    """arm64 v8a or later"""
+    """arm64 v8a (ARMv8.0-A)"""
+
+    AARCH64_V8_5A = "aarch64-v8.5a"
+    """arm64 v8.5a, adding the v8.1-v8.5 instructions, such as LSE atomics,
+    pointer authentication and BTI"""
 
     M68K = "m68k"
     """Motorola 68k"""

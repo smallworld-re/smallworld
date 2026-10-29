@@ -44,3 +44,7 @@ class AArch64(PrStatus):
         ("sp", 0xF8, 8),
         ("pc", 0x100, 8),
     ]
+
+
+class AArch64V85A(AArch64):
+    architecture = platforms.Architecture.AARCH64_V8_5A

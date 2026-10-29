@@ -473,3 +473,9 @@ class AArch64BE(AArch64):
 
     byteorder = Byteorder.BIG
     ghidra_language_id = "AARCH64:BE:64:v8A"
+
+
+class AArch64V85A(AArch64):
+    """Platform definition for aarch64 ARMv8.5-A."""
+
+    architecture = Architecture.AARCH64_V8_5A

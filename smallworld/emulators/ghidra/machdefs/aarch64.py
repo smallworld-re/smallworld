@@ -291,3 +291,7 @@ class AArch64MachineDef(GhidraMachineDef):
 
 class AArch64BEMachineDef(AArch64MachineDef):
     byteorder = Byteorder.BIG
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A

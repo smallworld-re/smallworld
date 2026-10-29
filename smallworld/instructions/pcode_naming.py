@@ -60,7 +60,7 @@ def register_alias(name: str, arch: Architecture) -> str:
         m = _X86_VECTOR_LANE_RE.fullmatch(name)
         if m:
             return m.group(1)
-    elif arch == Architecture.AARCH64:
+    elif arch in (Architecture.AARCH64, Architecture.AARCH64_V8_5A):
         # no PlatformDef register models the flags today; alias to nzcv
         # so they all drop as one name (and start flowing through the
         # moment the platform definition gains it)

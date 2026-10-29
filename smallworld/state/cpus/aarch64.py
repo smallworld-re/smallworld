@@ -564,3 +564,11 @@ class AArch64BE(AArch64):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.BIG
     )
+
+
+class AArch64V85A(AArch64):
+    """CPU Model for aarch64 ARMv8.5-A."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+    )

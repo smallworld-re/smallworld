@@ -1,4 +1,4 @@
-from .aarch64 import AArch64BEMachineDef, AArch64MachineDef
+from .aarch64 import AArch64BEMachineDef, AArch64MachineDef, AArch64V85AMachineDef
 from .amd64 import AMD64MachineDef
 from .arm import (
     ARMv4BEMachineDef,
@@ -29,6 +29,7 @@ from .tricore import TriCoreMachineDef
 __all__ = [
     "AArch64MachineDef",
     "AArch64BEMachineDef",
+    "AArch64V85AMachineDef",
     "AMD64MachineDef",
     "ARMv4MachineDef",
     "ARMv4TMachineDef",

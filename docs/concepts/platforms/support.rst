@@ -62,6 +62,17 @@ Unicorn, PANDA and Styx run all of them. Ghidra and angr don't run the
 saturating instructions: Ghidra saturates after the 32-bit result has already
 wrapped, and angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
 
+**aarch64-v8.5a:** aarch64 is ARMv8.0-A: Unicorn runs it on its default
+AArch64 core, which rejects the instructions later versions added.
+aarch64-v8.5a adds those of ARMv8.1-A to ARMv8.5-A, such as the LSE atomics,
+pointer authentication and BTI. Unicorn and PANDA run it on their "max" models,
+which accept a superset of its instructions, and Ghidra's AARCH64 language
+decodes them, though not ``sqrdmlah``. angr can't decode any of them, and Triton
+runs only ``ldapr`` and its relatives, so both run only ARMv8.0 code on
+aarch64-v8.5a. An ELF header doesn't record the architecture version, so
+SmallWorld loads an AArch64 ELF as aarch64 unless asked for aarch64-v8.5a.
+No engine here runs SVE.
+
 **Big-endian aarch64:** aarch64 also comes big-endian (``Byteorder.BIG``), as
 ``aarch64_be``: data is big-endian, but instructions stay little-endian, as
 they always are on AArch64. Unicorn runs it in its big-endian mode, which

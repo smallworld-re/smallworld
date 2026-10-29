@@ -1,4 +1,4 @@
-from .aarch64 import AArch64
+from .aarch64 import AArch64, AArch64V85A
 from .amd64 import AMD64
 from .arm import (
     ARMv4,
@@ -22,6 +22,7 @@ from .prstatus import PrStatus
 
 __all__ = [
     "AArch64",
+    "AArch64V85A",
     "AMD64",
     "ARMv4",
     "ARMv4T",

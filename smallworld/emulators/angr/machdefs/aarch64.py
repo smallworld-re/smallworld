@@ -300,3 +300,7 @@ class AArch64BEMachineDef(AArch64MachineDef):
     angr_arch = aarch64_be_arch()
     angr_engine = AArch64BEEngine
     byteorder = Byteorder.BIG
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A

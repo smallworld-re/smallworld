@@ -278,3 +278,9 @@ class AArch64MachineDef(PandaMachineDef):
             "h31": None,
             "b31": None,
         }
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A
+    # QEMU's "max" model accepts a superset of ARMv8.5-A's instructions.
+    cpu = "max"

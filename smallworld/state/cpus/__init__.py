@@ -1,4 +1,4 @@
-from .aarch64 import AArch64, AArch64BE
+from .aarch64 import AArch64, AArch64BE, AArch64V85A
 from .amd64 import AMD64
 from .arm import (
     ARMv4,
@@ -40,6 +40,7 @@ from .xtensa import XTensaBE, XTensaEL
 __all__ = __cpu__ + [
     "AArch64",
     "AArch64BE",
+    "AArch64V85A",
     "AMD64",
     "ARMv4",
     "ARMv4T",

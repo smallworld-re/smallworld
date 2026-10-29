@@ -279,3 +279,9 @@ class TritonAArch64MachineDef(TritonMachineDef):
     syscall_mnemonics = {"svc"}
     syscall_number_register = "x8"
     _registers = _AARCH64_REGISTERS
+
+
+class TritonAArch64V85AMachineDef(TritonAArch64MachineDef):
+    """Triton machine definition for AArch64 ARMv8.5-A."""
+
+    arch = Architecture.AARCH64_V8_5A

@@ -35,6 +35,13 @@ EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
 
+_AARCH64_ARCHITECTURES = frozenset(
+    {
+        Architecture.AARCH64,
+        Architecture.AARCH64_V8_5A,
+    }
+)
+
 _ARM32_ARCHITECTURES = frozenset(
     {
         Architecture.ARM_V4,
@@ -347,8 +354,15 @@ class ElfExecutable(Executable):
             # amd64
             architecture = Architecture.X86_64
         elif elf.header.machine_type.value == EM_AARCH64:
-            # aarch64
-            architecture = Architecture.AARCH64
+            # aarch64. The header doesn't record the architecture version,
+            # so a requested version wins over the ARMv8.0 default.
+            if (
+                self.platform is not None
+                and self.platform.architecture in _AARCH64_ARCHITECTURES
+            ):
+                architecture = self.platform.architecture
+            else:
+                architecture = Architecture.AARCH64
         elif elf.header.machine_type.value == EM_386:
             # i386
             architecture = Architecture.X86_32

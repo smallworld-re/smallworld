@@ -280,6 +280,7 @@ class Model(Hook):
             return ret
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.AARCH64_V8_5A
             or self.platform.architecture == platforms.Architecture.ARM_V4
             or self.platform.architecture == platforms.Architecture.ARM_V4T
             or self.platform.architecture == platforms.Architecture.ARM_V5T

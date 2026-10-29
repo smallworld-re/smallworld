@@ -1244,3 +1244,7 @@ class AArch64BEElfRelocator(AArch64ElfRelocator):
 
     def _read_insn(self, rela: ElfRela, elf) -> int:
         return elf.read_int(rela.offset, 4, platforms.Byteorder.LITTLE)
+
+
+class AArch64V85AElfRelocator(AArch64ElfRelocator):
+    arch = platforms.Architecture.AARCH64_V8_5A

@@ -1,6 +1,7 @@
 from . import (
     aarch64,
     aarch64be,
+    aarch64v85a,
     amd64,
     armv4t,
     armv4tbe,
@@ -52,6 +53,7 @@ __all__ = __model__ + [
     "ReturnConstant",
     "aarch64",
     "aarch64be",
+    "aarch64v85a",
     "amd64",
     "armv4t",
     "armv4tbe",

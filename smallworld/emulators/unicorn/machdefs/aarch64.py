@@ -309,3 +309,14 @@ class AArch64BEMachineDef(AArch64MachineDef):
 
     byteorder = Byteorder.BIG
     uc_mode = unicorn.UC_MODE_ARM | unicorn.UC_MODE_BIG_ENDIAN
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    """Unicorn machine definition for aarch64 ARMv8.5-A
+
+    Unicorn's default AArch64 core is ARMv8.0; its "max" model accepts a
+    superset of ARMv8.5-A's instructions.
+    """
+
+    arch = Architecture.AARCH64_V8_5A
+    uc_cpu = unicorn.arm64_const.UC_CPU_ARM64_MAX

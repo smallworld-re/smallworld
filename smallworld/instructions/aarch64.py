@@ -32,3 +32,9 @@ class AArch64BEInstruction(AArch64Instruction):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.BIG
     )
+
+
+class AArch64V85AInstruction(AArch64Instruction):
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+    )
