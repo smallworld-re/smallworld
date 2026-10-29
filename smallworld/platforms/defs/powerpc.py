@@ -594,8 +594,9 @@ class PowerPC32VLE(PowerPC32):
 
     VLE re-encodes the 32-bit PowerPC instruction set in 16- and 32-bit
     instructions, under new mnemonics (``e_`` and ``se_``), over the same
-    registers. Ghidra's e200 language also decodes the standard 32-bit
-    encodings in VLE pages, as the e200z7 runs both.
+    registers. Some 32-bit standard instructions (``add``, ``cmpw``) keep
+    their encodings, but most do not: standard code, as the e200z7 can run
+    beside VLE, is misdecoded on this platform.
     """
 
     architecture = Architecture.POWERPC32_VLE

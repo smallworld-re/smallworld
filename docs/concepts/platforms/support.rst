@@ -123,7 +123,9 @@ as ``powerpc32``.
 - **angr** runs it on Ghidra's ``PowerPC:BE:32:e200`` language, as pypcode
   ships it, rather than on VEX, which has no VLE decoder. ``se_sc`` and
   ``e_sc`` reach syscall hooks, with the number in ``r0`` and arguments in
-  ``r3`` to ``r8``, as on ``powerpc32``.
+  ``r3`` to ``r8``, as on ``powerpc32``. The e200's SPE floating-point
+  instructions (``efs*``) do not run yet: angr's p-code engine implements no
+  floating-point operations, on any architecture.
 - **Ghidra** 12.1.2, the version SmallWorld's nix environment provides, does
   not have the e200 language yet. Its only VLE languages are the 64-bit Power
   ISA 3.0 ones, whose registers and arithmetic are 64-bit.
@@ -132,9 +134,15 @@ as ``powerpc32``.
 
 The ELF header doesn't distinguish VLE from standard PowerPC code, so the ELF
 loader reads the ``SHF_PPC_VLE`` flag binutils puts on VLE code sections. A
-file with any VLE section loads as ``powerpc32-vle``, since the e200 language
-decodes both encodings. VLE's own code relocations (``R_PPC_VLE_*``) are not
-handled, so load a linked executable rather than an object file.
+file with any VLE section loads as ``powerpc32-vle``. VLE's own code
+relocations (``R_PPC_VLE_*``) are not handled, so load a linked executable
+rather than an object file.
+
+The platform decodes VLE for the whole run. The e200z7 can also run standard
+PowerPC code in pages not marked VLE, but SmallWorld does not switch encodings
+by region, so such code is misdecoded: most standard instructions mean
+something else in VLE (``addi`` reads as ``e_lha``, ``b`` as ``se_li``). Only
+a few 32-bit instructions, such as ``add`` and ``cmpw``, are encoded alike.
 
 The test suite assembles VLE with GNU binutils (``as -mvle``), since zig's LLVM
 assembler has no VLE support.

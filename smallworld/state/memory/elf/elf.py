@@ -232,7 +232,9 @@ def _v800_architecture(elf, requested):
 def _ppc_architecture(elf, requested):
     # PowerPC 32-bit. The header doesn't distinguish VLE; its code sections
     # are flagged instead. A file mixing VLE and standard code (as the e200z7
-    # runs) is VLE too: the e200 language decodes both.
+    # runs) loads as VLE, since VLE is usually most of it, but its standard
+    # code will be misdecoded: the platform decodes one encoding for the
+    # whole run.
     if any(section.flags & SHF_PPC_VLE for section in elf.sections):
         return Architecture.POWERPC32_VLE
     return Architecture.POWERPC32
