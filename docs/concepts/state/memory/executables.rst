@@ -16,5 +16,30 @@ It should be initialized using ``Executable.from_file()`` or ``Executable.from_f
      will make the execution engine unusably slow.
    - Ghidra and Panda can model architectures
      that use different address spaces when accessing code
-     and data.  We don't support any yet, but this will be the mechanism for controlling
-     which address space your memory lands in. 
+     and data.  For the one SmallWorld supports, the 8051, the spaces sit
+     side by side in one flat address map, and an object's address decides
+     which space it lands in; see :ref:`the 8051's support notes <platforms_support>`.
+
+Intel HEX
+---------
+
+``Executable.from_ihex()`` loads an Intel HEX image, the usual output of
+embedded toolchains such as SDCC.  Intel HEX records only bytes and the
+addresses they go at, so the image is sparse: each run of contiguous bytes is
+its own piece of the ``Executable``, and ``bounds`` covers them all.
+
+The format has no symbols.  Pass the linker's map as ``map_file`` to look
+them up with ``get_symbol_value()``, as with an ELF; maps from the ASxxxx
+linker, which SDCC uses, are supported.  Intel HEX does not record the
+platform either, and on the 8051 symbols need it to land in the right address
+space: a symbol in a code area at its code address, one in an XDATA area in
+XDATA, and the rest in internal RAM.  Symbols in absolute areas, such as
+constants, SFRs and variables placed with ``__at``, keep their values, since
+the map does not say which space they are in.
+
+.. code-block:: python
+
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    with open("prog.ihx") as image, open("prog.map") as map_file:
+        code = Executable.from_ihex(image, map_file=map_file, platform=platform)
+    main = code.get_symbol_value("_main") 

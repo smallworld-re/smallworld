@@ -127,6 +127,14 @@ class ABI(enum.Enum):
     THISCALL = "thiscall"
     """Microsoft thiscall (x86-32 C++ member functions; ``this`` in ecx)."""
 
+    SDCC = "sdcc"
+    """SDCC's default 8051 convention: the first argument in DPL, DPH, B and
+    A, the rest in static memory each function owns (``_f_PARM_2``...)."""
+
+    SDCCSTACKAUTO = "sdcc-stack-auto"
+    """SDCC's reentrant 8051 convention (``--stack-auto``, ``__reentrant``):
+    the first argument in DPL, DPH, B and A, the rest on the stack."""
+
     NONE = "none"
     """No ABI"""
 

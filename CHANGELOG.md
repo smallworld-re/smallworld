@@ -86,6 +86,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SDCC's does (`push ar7`), or switches banks runs as on hardware. The
   `mcs51_diff` scenario gains a `banks` program and compares all of internal
   RAM.
+- SDCC's 8051 calling conventions, `ABI.SDCC` and `ABI.SDCCSTACKAUTO`, with
+  C99 models for the functions SDCC's library provides, under
+  `state.models.mcs51.sdcc` and `state.models.mcs51.sdccstackauto`. Models see
+  SDCC's generic pointers as flat addresses. Under the default convention,
+  where later arguments sit in each function's static memory, a model takes
+  their addresses in `parameter_addresses`. The test binaries now include C
+  built with SDCC, and the `mcs51_sdcc` scenarios check both conventions and
+  run SDCC's own library with and without SmallWorld's models in its place.
+- `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
+  map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
+  an ELF does; on the 8051, each symbol lands in its address space in
+  SmallWorld's flat map.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

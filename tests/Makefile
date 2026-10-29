@@ -358,6 +358,19 @@ $(1)_C_DLLS := $$(patsubst %.dll.c,%.$$($(1)_EXT).dll,$$(C_DLL_SRCS))
 
 endef
 
+# 8051 C template
+# Builds each .mcs51.c twice with SDCC, once per calling convention, into
+# Intel HEX images with the linker's map beside them; see mcs51_cc.sh.
+
+MCS51_C_SRCS := $(wildcard */*.mcs51.c)
+MCS51_C_IHXS := $(patsubst %.mcs51.c,%.sdcc.mcs51.ihx,$(MCS51_C_SRCS)) $(patsubst %.mcs51.c,%.sdccstackauto.mcs51.ihx,$(MCS51_C_SRCS))
+
+%.sdcc.mcs51.ihx : %.mcs51.c
+	./mcs51_cc.sh $< $@
+
+%.sdccstackauto.mcs51.ihx : %.mcs51.c
+	./mcs51_cc.sh --stack-auto $< $@
+
 # Build phony targets to build everything for the architecture
 
 define GENERAL_TEMPLATE
@@ -365,12 +378,14 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_C_IHXS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
 	find . -name '*.$$($(1)_EXT).o' -type f -delete
 	find . -name '*.$$($(1)_EXT).bin' -type f -delete
+	find . -name '*.$$($(1)_EXT).ihx' -type f -delete
+	find . -name '*.$$($(1)_EXT).map' -type f -delete
 	find . -name '*.$$($(1)_EXT).elf' -type f -delete
 	find . -name '*.$$($(1)_EXT).so' -type f -delete
 	find . -name '*.$$($(1)_EXT).pe' -type f -delete
@@ -418,6 +433,8 @@ all : $(foreach platform,$(PLATFORMS),$(call lc,$(platform)))
 .PHONY : clean
 clean : 
 	find . -name '*.bin' -type f -delete
+	find . -name '*.ihx' -type f -delete
+	find . -name '*.map' -type f -delete
 	find . -name '*.elf' -type f -delete
 	find . -name '*.o' -type f -delete
 	find . -name '*.so' -type f -delete

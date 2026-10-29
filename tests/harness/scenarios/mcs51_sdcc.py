@@ -1,0 +1,352 @@
+"""SDCC-compiled C on the 8051, and SDCC's calling conventions.
+
+The programs in ``tests/mcs51_sdcc`` are C, built twice by
+``tests/mcs51_cc.sh``: once with SDCC's default calling convention
+(``ABI.SDCC``), and once with ``--stack-auto`` (``ABI.SDCCSTACKAUTO``).  Each
+image is loaded with ``Executable.from_ihex``, with the linker's map for
+symbols, and runs from the reset vector, through SDCC's startup code and main,
+to the loop main returns to.
+
+``mcs51_sdcc.abi.<abi>``: ``abi.mcs51.c`` calls functions the scenario
+replaces with models built on the ABI's model class.  The models check the
+arguments they read - every C type, pointers into internal RAM, XDATA and
+code, a variadic call - and return values the program stores, which the
+scenario checks.
+
+``mcs51_sdcc.libc.<abi>``: ``libc.mcs51.c`` runs SDCC's own C library.
+
+``mcs51_sdcc.libc_models.<abi>``: the same program, with every library
+function it calls replaced by SmallWorld's C99 models for the ABI.  Its
+results must match the library's.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import logging
+import struct
+import sys
+from typing import Any, Dict, List, Sequence, Tuple
+
+from .common import TestsPath, make_emulator, split_variant
+from .spec import ScenarioInfo, from_variants, just_run
+
+NATIVE_PARITY = True
+
+_DIR = TestsPath / "mcs51_sdcc"
+_VARIANTS = ("mcs51.angr", "mcs51.pcode")
+_ABIS = ("sdcc", "sdccstackauto")
+_PROGRAMS = ("abi", "libc", "libc_models")
+
+SCENARIO_INFOS = tuple(
+    ScenarioInfo(
+        prefix=f"mcs51_sdcc.{program}.{abi}",
+        scenario=f"mcs51_sdcc.{program}.{abi}",
+        tags=("scenario", "mcs51_sdcc"),
+        variants_source=from_variants(tuple((v, None) for v in _VARIANTS)),
+        run_factory=just_run(),
+    )
+    for program in _PROGRAMS
+    for abi in _ABIS
+)
+
+# The library functions libc.mcs51.c calls: map symbol, model name.  SDCC's
+# string.h makes memcpy a macro for __memcpy.
+_LIBC_FUNCTIONS = {
+    "_strcpy": "strcpy",
+    "_strcat": "strcat",
+    "_strlen": "strlen",
+    "_strcmp": "strcmp",
+    "_strchr": "strchr",
+    "_memset": "memset",
+    "___memcpy": "memcpy",
+    "_toupper": "toupper",
+    "_atoi": "atoi",
+    "_abs": "abs",
+    "_sprintf": "sprintf",
+    "_malloc": "malloc",
+    "_free": "free",
+    "_puts": "puts",
+    "_printf": "printf",
+}
+
+
+class _Capture(io.StringIO):
+    # SmallWorld's stdout decodes what models write with the stream's
+    # encoding, which a plain StringIO lacks.
+    encoding = "utf-8"
+
+
+def can_run(scenario: str, variant: str) -> bool:
+    parts = scenario.split(".")
+    return (
+        len(parts) == 3
+        and parts[0] == "mcs51_sdcc"
+        and parts[1] in _PROGRAMS
+        and parts[2] in _ABIS
+        and variant in _VARIANTS
+    )
+
+
+def _program_exit(code) -> int:
+    # SDCC's startup code ends `lcall _main`, then loops forever.
+    return code.get_symbol_value("__sdcc_program_startup") + 3
+
+
+def _parameter_addresses(code, function: str) -> List[int]:
+    # Where SDCC's default convention puts the function's arguments after the
+    # first; none under --stack-auto.
+    names = set(code.get_symbol_names())
+    addresses = []
+    n = 2
+    while f"{function}_PARM_{n}" in names:
+        addresses.append(code.get_symbol_value(f"{function}_PARM_{n}"))
+        n += 1
+    return addresses
+
+
+def _setup(smallworld, image):
+    from smallworld.platforms.defs.mcs51 import (
+        MCS51_IDATA_BASE,
+        MCS51_SFR_BASE,
+        MCS51_XDATA_BASE,
+    )
+
+    platform = smallworld.platforms.Platform(
+        smallworld.platforms.Architecture.MCS51, smallworld.platforms.Byteorder.BIG
+    )
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open(f"{image}.ihx") as file, open(f"{image}.map") as map_file:
+        code = smallworld.state.memory.code.Executable.from_ihex(
+            file, map_file=map_file, platform=platform
+        )
+    machine.add(code)
+
+    # Reset state; SDCC's startup code sets SP and initializes memory.
+    cpu.pc.set(0)
+    cpu.sp.set(0x07)
+    for register in ("acc", "b", "psw", "dptr"):
+        getattr(cpu, register).set(0)
+    for i in range(8):
+        getattr(cpu, f"r{i}").set(0)
+
+    for base, size in (
+        (MCS51_IDATA_BASE, 0x100),
+        (MCS51_SFR_BASE, 0x100),
+        (MCS51_XDATA_BASE, 0x8000),
+    ):
+        machine.add(smallworld.state.memory.RawMemory.from_bytes(b"\0" * size, base))
+    return platform, machine, code
+
+
+def _report(checks: Dict[str, Tuple[Any, Any]], errors: Sequence[str]) -> int:
+    failed = bool(errors)
+    for error in errors:
+        print(f"FAIL {error}")
+    for name, (actual, expected) in checks.items():
+        status = "ok" if actual == expected else "FAIL"
+        failed = failed or actual != expected
+        print(f"{status:4} {name}: {actual!r} (expected {expected!r})")
+    if failed:
+        sys.exit(1)
+    return 0
+
+
+def _run_abi(smallworld, abi_name: str, engine: str) -> int:
+    from smallworld.state.models.cstd import ArgumentType as T
+    from smallworld.state.models.mcs51.sdcc import MCS51SDCCModel
+    from smallworld.state.models.mcs51.sdccstackauto import MCS51SDCCStackAutoModel
+
+    base: Any = MCS51SDCCModel if abi_name == "sdcc" else MCS51SDCCStackAutoModel
+    platform, machine, code = _setup(smallworld, _DIR / f"abi.{abi_name}.mcs51")
+    errors: List[str] = []
+
+    def expect(what: str, actual, wanted) -> None:
+        if actual != wanted:
+            errors.append(f"{what}: {actual!r}, expected {wanted!r}")
+
+    class CheckArgs(base):
+        name = "check_args"
+        argument_types = [
+            T.CHAR,
+            T.INT,
+            T.LONG,
+            T.POINTER,
+            T.POINTER,
+            T.POINTER,
+            T.FLOAT,
+        ]
+        return_type = T.LONG
+
+        def model(self, emulator) -> None:
+            wanted = [
+                ord("A"),
+                -1234,
+                0x12345678,
+                code.get_symbol_value("_xbuf"),
+                code.get_symbol_value("_ibuf"),
+                code.get_symbol_value("_cbuf"),
+                1.5,
+            ]
+            for i, kind in enumerate(self.argument_types):
+                expect(
+                    f"check_args arg {i + 1}",
+                    self.get_argument(i, kind, emulator),
+                    wanted[i],
+                )
+            for i, data in ((3, b"xd"), (4, b"id"), (5, b"code")):
+                pointer = self.get_argument(i, T.POINTER, emulator)
+                expect(
+                    f"check_args *arg {i + 1}",
+                    emulator.read_memory(pointer, len(data)),
+                    data,
+                )
+            self.set_return_value(emulator, -0x7EADBEEF)
+
+    class Twice(base):
+        name = "twice"
+        argument_types = [T.LONGLONG]
+        return_type = T.LONGLONG
+
+        def model(self, emulator) -> None:
+            x = self.get_arg1(emulator)
+            expect("twice arg 1", x, 0x0102030405060708)
+            self.set_return_value(emulator, x * 2)
+
+    class Pick(base):
+        name = "pick"
+        argument_types = [T.CHAR]
+        return_type = T.POINTER
+
+        def model(self, emulator) -> None:
+            which = self.get_arg1(emulator)
+            buffers = ("_ibuf", "_xbuf", "_cbuf")
+            self.set_return_value(emulator, code.get_symbol_value(buffers[which]))
+
+    class Half(base):
+        name = "half"
+        argument_types = [T.FLOAT]
+        return_type = T.FLOAT
+
+        def model(self, emulator) -> None:
+            x = self.get_arg1(emulator)
+            expect("half arg 1", x, 3.0)
+            self.set_return_value(emulator, x / 2)
+
+    class Sum(base):
+        name = "sum"
+        argument_types = [T.INT]
+        return_type = T.INT
+        variadic = True
+
+        def model(self, emulator) -> None:
+            n = self.get_arg1(emulator)
+            expect("sum arg 1", n, 3)
+            varargs = self.get_varargs()
+            values = [varargs.get_next_argument(T.INT, emulator) for _ in range(n)]
+            expect("sum varargs", values, [100, -20, 3])
+            self.set_return_value(emulator, sum(values))
+
+    for cls in (CheckArgs, Twice, Pick, Half, Sum):
+        model = cls(code.get_symbol_value(f"_{cls.name}"))
+        model.parameter_addresses = _parameter_addresses(code, f"_{cls.name}")
+        machine.add(model)
+
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    def xdata(name: str, size: int) -> bytes:
+        return emulator.read_memory(code.get_symbol_value(name), size)
+
+    checks = {
+        "r_check_args": (
+            int.from_bytes(xdata("_r_check_args", 4), "little", signed=True),
+            -0x7EADBEEF,
+        ),
+        "r_twice": (
+            int.from_bytes(xdata("_r_twice", 8), "little"),
+            0x020406080A0C0E10,
+        ),
+        "r_pick": (xdata("_r_pick", 3), b"ixc"),
+        "r_half": (struct.unpack("<f", xdata("_r_half", 4))[0], 1.5),
+        "r_sum": (int.from_bytes(xdata("_r_sum", 2), "little", signed=True), 83),
+    }
+    return _report(checks, errors)
+
+
+def _run_libc(smallworld, abi_name: str, engine: str, models: bool) -> int:
+    from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
+
+    platform, machine, code = _setup(smallworld, _DIR / f"libc.{abi_name}.mcs51")
+    abi = (
+        smallworld.platforms.ABI.SDCC
+        if abi_name == "sdcc"
+        else smallworld.platforms.ABI.SDCCSTACKAUTO
+    )
+
+    if models:
+        heap = smallworld.state.memory.heap.BumpAllocator(
+            MCS51_XDATA_BASE + 0x8000, 0x100
+        )
+        machine.add(heap)
+        for symbol, name in _LIBC_FUNCTIONS.items():
+            model = smallworld.state.models.Model.lookup(
+                name, platform, abi, code.get_symbol_value(symbol)
+            )
+            model.parameter_addresses = _parameter_addresses(code, symbol)
+            if hasattr(model, "heap"):
+                model.heap = heap
+            machine.add(model)
+
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    stdout = _Capture()
+    with contextlib.redirect_stdout(stdout):
+        machine.emulate(emulator)
+
+    def xdata(name: str, size: int) -> bytes:
+        return emulator.read_memory(code.get_symbol_value(name), size)
+
+    def string(name: str) -> bytes:
+        return xdata(name, 32 if name != "_buf2" else 16).split(b"\0")[0]
+
+    def integer(name: str) -> int:
+        return int.from_bytes(xdata(name, 2), "little", signed=True)
+
+    if models:
+        output = stdout.getvalue()
+    else:
+        output = xdata("_out", xdata("_outlen", 1)[0]).decode()
+    sys.stdout.write(stdout.getvalue())
+
+    checks = {
+        "buf": (string("_buf"), b"hello, 8051"),
+        "buf2": (string("_buf2"), b"zzzhello"),
+        "fmt": (string("_fmt"), b"-7-ab-beef"),
+        "r_strlen": (integer("_r_strlen"), 11),
+        "r_strcmp > 0": (integer("_r_strcmp") > 0, True),
+        "r_strchr": (integer("_r_strchr"), 5),
+        "r_upper": (integer("_r_upper"), ord("Q")),
+        "r_atoi": (integer("_r_atoi"), -321),
+        "r_abs": (integer("_r_abs"), 42),
+        "r_sprintf": (integer("_r_sprintf"), 10),
+        "r_malloc": (integer("_r_malloc"), 4),
+        "output": (output, "done\n51\n"),
+    }
+    return _report(checks, [])
+
+
+def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
+    import smallworld
+
+    _, program, abi_name = scenario.split(".")
+    _, engine = split_variant(variant)
+    smallworld.logging.setup_logging(level=logging.INFO)
+    if program == "abi":
+        return _run_abi(smallworld, abi_name, engine)
+    return _run_libc(smallworld, abi_name, engine, models=program == "libc_models")

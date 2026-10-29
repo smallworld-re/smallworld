@@ -24,7 +24,7 @@ stdenv.mkDerivation {
     tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
-    # Assembles the 8051 tests; see mcs51_asm.sh.
+    # Builds the 8051 tests; see mcs51_asm.sh and mcs51_cc.sh.
     sdcc
   ];
   buildInputs = [
@@ -61,7 +61,7 @@ stdenv.mkDerivation {
     make
   '';
   installPhase = ''
-    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     mkdir -p $out
     cp -r test_binaries.tar $out
   '';
