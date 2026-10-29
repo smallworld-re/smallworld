@@ -356,7 +356,10 @@ The entries mean the following:
 A few notes:
 
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
-- Panda can probably emulate many of these, but it needs to be modified to expose the FPU registers.
+- Panda exposes the ARM VFP and Advanced SIMD registers, and ``cpacr``, which
+  gates access to them; like Unicorn, it starts with the FPU disabled, so set
+  ``cpacr`` and ``fpexc`` as an OS would. On most other architectures it
+  would need to be modified to expose the FPU registers.
 - Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
 - **angr cannot do floating point on any Pcode-backed architecture.** In
   ``angr/engines/pcode/behavior.py`` every ``OpBehaviorFloat*`` class - add,
@@ -488,16 +491,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
   ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
-- **Panda is skipped on every non-SuperH architecture here**, always because its
-  bare ``-M configurable`` machine brings the CPU up with the floating-point
-  unit switched off and nothing in the harness able to switch it on. On x86-64
-  the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
-  ``#UD``; on i386 likewise; on ARM every VFP instruction raises ``EXCP_UDEF``
-  (reported as ``Panda exception 1``), which a bare ``vmov.f32 s0,s1`` blob
-  reproduces on its own, and the ``FPEXC.EN`` write the kernels already perform
-  for Unicorn's benefit is not sufficient - ARMv7-A also gates VFP behind
-  ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
-  the exception because its FPU needs no enable step, which is why Panda is the
+- **Panda is skipped on x86 here**, because its bare ``-M configurable``
+  machine brings the CPU up with the floating-point unit switched off and
+  nothing in the harness able to switch it on: on x86-64 the CPU starts in real
+  mode with ``CR4=0`` and every ``xmm`` instruction is ``#UD``, and on i386
+  likewise. ARM's CPU also starts with its FPU off, gated by ``CPACR``'s
+  ``cp10``/``cp11`` fields and ``FPEXC.EN``, but SmallWorld can write both on
+  Panda, so the harness grants ``CPACR`` access and the kernels set
+  ``FPEXC.EN``. SuperH's FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
 
 Panda passes all ten functions on all three SuperH platforms, which is the

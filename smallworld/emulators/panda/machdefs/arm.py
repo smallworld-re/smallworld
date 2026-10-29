@@ -1,3 +1,5 @@
+import re
+
 from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
@@ -6,6 +8,23 @@ from .machdef import PandaMachineDef
 # EXCP_PREFETCH_ABORT). PANDA raises it when the CPU fetches an instruction
 # from unmapped memory, so it maps to a fetch-unmapped failure.
 _ARM_EXCP_PREFETCH_ABORT = 3
+
+# FPEXC's index in CPUARMState's vfp.xregs (target/arm cpu.h ARM_VFP_FPEXC).
+_ARM_VFP_FPEXC = 8
+
+_VFP_DATA_REGISTER = re.compile(r"([sdq])(\d+)$")
+
+# The FP registers PANDA reaches through the CPU state. The ID registers
+# (fpsid, mvfrN) stay unsupported: QEMU reads the CPU's features from a
+# separate copy, so writing them would change nothing.
+_FP_STATE_REGISTERS = frozenset(
+    {"fpscr", "fpexc"} | {f"s{i}" for i in range(32)} | {f"d{i}" for i in range(16)}
+)
+_VFP_STATE_REGISTERS = (
+    _FP_STATE_REGISTERS
+    | {f"d{i}" for i in range(16, 32)}
+    | {f"q{i}" for i in range(16)}
+)
 
 
 class ARMMachineDef(PandaMachineDef):
@@ -17,6 +36,62 @@ class ARMMachineDef(PandaMachineDef):
                 f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
             )
         super().handle_interrupt(intno, pc)
+
+    # PANDA's register accessors reach only the core registers, so the FP
+    # registers, and cpacr, which gates access to them, live in the CPU state.
+    # QEMU caches whether the FPU is enabled, and FPSCR's vector length and
+    # stride, in the CPU's hflags, so writing cpacr, fpexc or fpscr rebuilds
+    # them.
+
+    def read_state_register(self, name: str, panda_obj, panda_cpu) -> int:
+        env = panda_obj.cpu_env(panda_cpu)
+        if name == "cpacr":
+            return int(env.cp15.cpacr_el1) & 0xFFFFFFFF
+        if name == "fpexc":
+            return int(env.vfp.xregs[_ARM_VFP_FPEXC])
+        if name == "fpscr":
+            return int(panda_obj.libpanda.vfp_get_fpscr(env))
+        kind, n = self._vfp_data_register(name)
+        if kind == "q":
+            lanes = env.vfp.zregs[n].d
+            return int(lanes[0]) | int(lanes[1]) << 64
+        if kind == "d":
+            return int(env.vfp.zregs[n >> 1].d[n & 1])
+        d = int(env.vfp.zregs[n >> 2].d[(n >> 1) & 1])
+        return (d >> (32 * (n & 1))) & 0xFFFFFFFF
+
+    def write_state_register(self, name: str, value: int, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        if name in ("cpacr", "fpexc", "fpscr"):
+            value &= 0xFFFFFFFF
+            if name == "cpacr":
+                env.cp15.cpacr_el1 = value
+            elif name == "fpexc":
+                env.vfp.xregs[_ARM_VFP_FPEXC] = value
+            else:
+                panda_obj.libpanda.vfp_set_fpscr(env, value)
+            panda_obj.libpanda.arm_rebuild_hflags(env)
+            return
+        kind, n = self._vfp_data_register(name)
+        if kind == "q":
+            value &= (1 << 128) - 1
+            env.vfp.zregs[n].d[0] = value & 0xFFFFFFFFFFFFFFFF
+            env.vfp.zregs[n].d[1] = value >> 64
+        elif kind == "d":
+            env.vfp.zregs[n >> 1].d[n & 1] = value & 0xFFFFFFFFFFFFFFFF
+        else:
+            lanes = env.vfp.zregs[n >> 2].d
+            shift = 32 * (n & 1)
+            d = int(lanes[(n >> 1) & 1]) & ~(0xFFFFFFFF << shift)
+            lanes[(n >> 1) & 1] = d | (value & 0xFFFFFFFF) << shift
+
+    def _vfp_data_register(self, name: str):
+        match = _VFP_DATA_REGISTER.match(name)
+        if match is None:
+            raise exceptions.UnsupportedRegisterError(
+                f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
+            )
+        return match.group(1), int(match.group(2))
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
@@ -123,6 +198,8 @@ class ARMMachineMixinV6SystemControl:
             "tpidruro": None,
             "tpidrprw": None,
         }
+        # cpacr gates access to the FPU, so it lives in the CPU state.
+        self._state_registers = self._state_registers | {"cpacr"}
 
 
 class ARMMachineMixinV7SystemControl:
@@ -147,6 +224,8 @@ class ARMMachineMixinV7SystemControl:
             "tpidruro": None,
             "tpidrprw": None,
         }
+        # cpacr gates access to the FPU, so it lives in the CPU state.
+        self._state_registers = self._state_registers | {"cpacr"}
 
 
 class ARMMachineMixinPMSA:
@@ -255,6 +334,7 @@ class ARMMachineMixinFP:
             "s31",
         }
         self._registers = self._registers | {i: None for i in self._registers_fp}
+        self._state_registers = self._state_registers | _FP_STATE_REGISTERS
 
 
 class ARMMachineMixinBanked:
@@ -460,6 +540,7 @@ class ARMMachineMixinVFP:
             "d31",
         }
         self._registers = self._registers | {i: None for i in self._registers_vfp}
+        self._state_registers = self._state_registers | _VFP_STATE_REGISTERS
 
 
 class ARMMachineMixinVFPv8(ARMMachineMixinVFP):

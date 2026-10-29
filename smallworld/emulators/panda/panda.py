@@ -503,6 +503,13 @@ class PandaEmulator(
         ):
             return self.pc
 
+        if self.panda_thread.machdef.is_state_register(name):
+            if not self.panda_thread.panda:
+                raise exceptions.EmulationError("PANDA not started")
+            return self.panda_thread.machdef.read_state_register(
+                name, self.panda_thread.panda, self.cpu
+            )
+
         if not self.panda_thread.machdef.check_panda_reg(
             name, self.panda_thread.panda, self.cpu
         ):
@@ -550,6 +557,15 @@ class PandaEmulator(
                     self.panda_thread.panda.arch.set_reg(self.cpu, panda_pc, content)
             else:
                 raise exceptions.EmulationError("PANDA not started")
+            return
+
+        if self.panda_thread.machdef.is_state_register(name):
+            if not self.panda_thread.panda:
+                raise exceptions.EmulationError("PANDA not started")
+            self.panda_thread.machdef.write_state_register(
+                name, content, self.panda_thread.panda, self.cpu
+            )
+            logger.debug(f"set register {name} = {content}")
             return
 
         if not self.panda_thread.machdef.check_panda_reg(

@@ -27,6 +27,26 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
 
     _registers: typing.Dict[str, typing.Optional[str]] = {}
 
+    _state_registers: typing.FrozenSet[str] = frozenset()
+    """Registers PANDA's register accessors don't reach.
+
+    The machine def reads and writes these in the CPU's state itself, through
+    ``read_state_register`` and ``write_state_register``.
+    """
+
+    def is_state_register(self, name: str) -> bool:
+        return name in self._state_registers
+
+    def read_state_register(self, name: str, panda_obj, panda_cpu) -> int:
+        raise exceptions.UnsupportedRegisterError(
+            f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
+        )
+
+    def write_state_register(self, name: str, value: int, panda_obj, panda_cpu) -> None:
+        raise exceptions.UnsupportedRegisterError(
+            f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
+        )
+
     def panda_reg(self, name: str, panda_obj, panda_cpu) -> str:
         if name in self._registers:
             res = self._registers[name]
@@ -64,6 +84,8 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         for this arch/mode/byteorder, or return 0,
         which always indicates an invalid register
         """
+        if self.is_state_register(name):
+            return True
         if name in self._registers and self._registers[name] is not None:
             return True
         else:
