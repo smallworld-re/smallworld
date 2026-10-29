@@ -23,6 +23,7 @@ _ARCHS = (
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
     "riscv64",
     "sh1",
     "sh2",
@@ -62,6 +63,7 @@ _STACKS = {
     "mips64": _stack("mips64"),
     "mips64el": _stack("mips64el"),
     "ppc": _stack("ppc"),
+    "ppcvle": _stack("ppcvle"),
     "ppc64": _stack("ppc64"),
     "riscv64": _stack("riscv64"),
     # SuperH leaves the return address in pr rather than on the stack, so like

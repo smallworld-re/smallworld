@@ -98,6 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results; the platform support docs list them. Test binaries are built with
   GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
   nixpkgs has no V850 platform.
+- `Architecture.POWERPC32_VLE`, PowerPC e200 with the Variable Length
+  Encoding, on the angr backend through Ghidra's e200 p-code language. Ghidra
+  12.1.2 itself lacks that language, and Unicorn, PANDA and Capstone have no
+  VLE support. The test suite assembles VLE with GNU binutils, since zig's
+  assembler cannot.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

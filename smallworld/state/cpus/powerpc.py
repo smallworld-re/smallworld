@@ -556,6 +556,14 @@ class PowerPC32(PowerPC):
         super().__init__(4)
 
 
+class PowerPC32VLE(PowerPC32):
+    """CPU state for 32-bit PowerPC with the Variable Length Encoding."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+    )
+
+
 class PowerPC64(PowerPC):
     """CPU state for 64-bit PowerPC."""
 

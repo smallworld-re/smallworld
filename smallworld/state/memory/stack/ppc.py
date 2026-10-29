@@ -23,6 +23,14 @@ class PowerPC32Stack(PowerPCStack):
     )
 
 
+class PowerPC32VLEStack(PowerPCStack):
+    """A stack for a PPC 32-bit CPU running VLE code"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+    )
+
+
 class PowerPC64Stack(PowerPCStack):
     """A stack for a PPC 64-bit CPU"""
 

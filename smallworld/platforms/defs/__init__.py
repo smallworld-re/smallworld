@@ -8,7 +8,7 @@ from .mips import MIPS32BE, MIPS32EL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
-from .powerpc import PowerPC32, PowerPC64
+from .powerpc import PowerPC32, PowerPC32VLE, PowerPC64
 from .riscv import RiscV64
 from .superh import SH1, SH2, SH2AFPU
 from .superh4 import SuperH4BE, SuperH4EL
@@ -38,6 +38,7 @@ __all__ = [
     "MSP430X",
     "PlatformDef",
     "PowerPC32",
+    "PowerPC32VLE",
     "PowerPC64",
     "RegisterDef",
     "RegisterAliasDef",

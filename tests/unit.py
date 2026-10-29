@@ -988,6 +988,7 @@ UNIT_TEST_PLATFORMS = {
     "msp430x": (platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE),
     "ppc": (platforms.Architecture.POWERPC32, platforms.Byteorder.BIG),
     "ppc64": (platforms.Architecture.POWERPC64, platforms.Byteorder.BIG),
+    "ppcvle": (platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG),
     "riscv64": (platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE),
     "sh1": (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
     "sh2": (platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG),
@@ -1127,20 +1128,23 @@ class CPUTests(unittest.TestCase):
 @platform_tests(
     "unicorn",
     unsupported={
-        name: "Not supported by unicorn"
-        for name in (
-            "loongarch32",
-            "loongarch64",
-            "msp430",
-            "msp430x",
-            "sh1",
-            "sh2",
-            "sh2a",
-            "sh4",
-            "sh4el",
-            "v850",
-            "xtensa",
-        )
+        **{
+            name: "Not supported by unicorn"
+            for name in (
+                "loongarch32",
+                "loongarch64",
+                "msp430",
+                "msp430x",
+                "sh1",
+                "sh2",
+                "sh2a",
+                "sh4",
+                "sh4el",
+                "v850",
+                "xtensa",
+            )
+        },
+        "ppcvle": "Unicorn has no VLE decoder",
     },
 )
 class UnicornMachdefTests(unittest.TestCase):
@@ -1305,6 +1309,7 @@ class M68KAngrTests(unittest.TestCase):
                 "msp430",
                 "msp430x",
                 "ppc64",
+                "ppcvle",
                 "riscv64",
                 "v850",
                 "xtensa",
@@ -1364,8 +1369,11 @@ class PandaMachdefTests(unittest.TestCase):
 @platform_tests(
     "ghidra",
     unsupported={
-        name: "Not supported by ghidra"
-        for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+        **{
+            name: "Not supported by ghidra"
+            for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+        },
+        "ppcvle": "Ghidra 12.1.2 has no e200 language",
     },
 )
 class GhidraMachdefTests(unittest.TestCase):

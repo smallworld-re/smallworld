@@ -165,6 +165,13 @@
           enableParallelBuilding = true;
         };
 
+      # zig's assembler is LLVM's, which has no PowerPC VLE support, so the
+      # VLE tests use GNU binutils' `as -mvle`. Any PowerPC binutils
+      # assembles VLE; the bare-metal EABI one is the embedded e200's own.
+      # The tools come out prefixed `powerpc-none-eabi-*`.
+      mkPpcVleBinutils =
+        system: (pkgsFor system).pkgsCross.ppc-embedded.buildPackages.binutils-unwrapped;
+
       mkTricoreGcc =
         system:
         let
@@ -231,9 +238,11 @@
           tricoreGcc = mkTricoreGcc system;
           superHBinutils = mkSuperHBinutils system;
           v850Binutils = mkV850Binutils system;
+          ppcVleBinutils = mkPpcVleBinutils system;
 
           tests = pkgs.callPackage ../tests {
             inherit
+              ppcVleBinutils
               superHBinutils
               tricoreGcc
               v850Binutils

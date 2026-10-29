@@ -589,6 +589,55 @@ class PowerPC32(PowerPCPlatformDef):
     capstone_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
 
 
+class PowerPC32VLE(PowerPC32):
+    """32-bit PowerPC e200, decoding the Variable Length Encoding.
+
+    VLE re-encodes the 32-bit PowerPC instruction set in 16- and 32-bit
+    instructions, under new mnemonics (``e_`` and ``se_``), over the same
+    registers. Ghidra's e200 language also decodes the standard 32-bit
+    encodings in VLE pages, as the e200z7 runs both.
+    """
+
+    architecture = Architecture.POWERPC32_VLE
+    ghidra_language_id = "PowerPC:BE:32:e200"
+
+    # Capstone has no VLE decoder, and its PowerPC decoder reads VLE as
+    # unrelated standard instructions.
+    capstone_arch = -1
+    capstone_mode = -1
+
+    _vle_conditions = ("lt", "le", "eq", "ge", "gt", "nl", "ne", "ng", "so", "ns")
+    _vle_branch_to_label = (
+        {f"e_b{c}" for c in _vle_conditions}
+        | {f"e_b{c}l" for c in _vle_conditions}
+        | {f"se_b{c}" for c in _vle_conditions}
+        | {"e_bc", "e_bcl", "se_bc", "e_bdnz", "e_bdnzl", "e_bdz", "e_bdzl"}
+    )
+    conditional_branch_mnemonics = (
+        PowerPC32.conditional_branch_mnemonics | _vle_branch_to_label
+    )
+
+    # The 16-bit-immediate forms always set cr0, so Ghidra spells them with
+    # the record form's trailing dot; binutils spells them without one.
+    _vle_compares = {
+        "e_cmpi",
+        "e_cmpli",
+        "e_cmph",
+        "e_cmphl",
+        "se_cmp",
+        "se_cmpi",
+        "se_cmpl",
+        "se_cmpli",
+        "se_cmph",
+        "se_cmphl",
+    } | {
+        f"{name}{dot}"
+        for name in ("e_cmp16i", "e_cmpl16i", "e_cmph16i", "e_cmphl16i")
+        for dot in ("", ".")
+    }
+    compare_mnemonics = PowerPC32.compare_mnemonics | _vle_compares
+
+
 class PowerPC64(PowerPCPlatformDef):
     architecture = Architecture.POWERPC64
     ghidra_language_id = "PowerPC:BE:64:default"

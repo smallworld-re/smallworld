@@ -115,6 +115,22 @@ gaps:
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
 
+**powerpc32-vle:** 32-bit PowerPC e200 (NXP MPC55xx/56xx/57xx) running the
+Variable Length Encoding. VLE re-encodes the PowerPC instruction set in 16- and
+32-bit instructions with ``e_`` and ``se_`` mnemonics, over the same registers
+as ``powerpc32``.
+
+- **angr** runs it on Ghidra's ``PowerPC:BE:32:e200`` language, as pypcode
+  ships it, rather than on VEX, which has no VLE decoder.
+- **Ghidra** 12.1.2, the version SmallWorld's nix environment provides, does
+  not have the e200 language yet. Its only VLE languages are the 64-bit Power
+  ISA 3.0 ones, whose registers and arithmetic are 64-bit.
+- **Unicorn and PANDA** (QEMU) have no VLE decoder, and Capstone cannot
+  disassemble VLE, so analyses that disassemble with Capstone do not work on it.
+
+The test suite assembles VLE with GNU binutils (``as -mvle``), since zig's LLVM
+assembler has no VLE support.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.

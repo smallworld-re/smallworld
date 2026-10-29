@@ -35,6 +35,10 @@ class Architecture(enum.Enum):
     POWERPC32 = "powerpc32"
     """32-bit PowerPC"""
 
+    POWERPC32_VLE = "powerpc32-vle"
+    """32-bit PowerPC with the Variable Length Encoding, as on the e200
+    cores in NXP's MPC55xx/56xx/57xx"""
+
     POWERPC64 = "powerpc64"
     """64-bit PowerPC"""
 

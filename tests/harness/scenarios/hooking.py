@@ -172,6 +172,16 @@ _SPECS = {
         string_source=StringSource(register="r3"),
         stack_padding_bytes={"unicorn": 8, "angr": 8, "panda": 8, "pcode": 8},
     ),
+    "ppcvle": HookingSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr",),
+        string_source=StringSource(register="r3"),
+        stack_padding_bytes={"angr": 8},
+    ),
     "ppc64": HookingSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pointer_size=8,
