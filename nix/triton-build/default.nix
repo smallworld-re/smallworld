@@ -21,6 +21,7 @@
   cmake,
   z3,
   capstone,
+  stdenv,
 }:
 let
   src = fetchFromGitHub {
@@ -29,9 +30,9 @@ let
     rev = "bc84cf745e99768e07d51dcd734eba35c59f1b3e";
     hash = "sha256-mj+WnlzUEmApBLe4LyWg/oZveokAEt8UpGDgJ6Tu4Ig=";
   };
-  # SmallWorld's supported dev/CI target is Linux; Triton's setup.py copies
-  # triton.so on Linux.
-  sharedLibExt = ".so";
+  # `.so` on Linux, `.dylib` on macOS; the Z3/Capstone paths below must name
+  # the real library file or cmake fails with "No rule to make target".
+  sharedLibExt = stdenv.hostPlatform.extensions.sharedLibrary;
 in
 ps:
 ps.buildPythonPackage {
