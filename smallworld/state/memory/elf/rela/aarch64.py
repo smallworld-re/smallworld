@@ -391,6 +391,11 @@ class AArch64ElfRelocator(ElfRelocator):
         imm12 = (value >> scale) & 0xFFF
         return (orig & ~(0xFFF << 10)) | (imm12 << 10)
 
+    def _patch_ldst_lo12(self, orig: int, value: int, scale: int) -> int:
+        # A LO12 relocation takes the address's offset into its 4KiB page,
+        # which the instruction encodes scaled by the access size.
+        return self._patch_ldst_uimm12(orig, value & 0xFFF, scale)
+
     def _apply_mov_unsigned(
         self, rela: ElfRela, elf, value: int, shift: int, check_bits=None
     ) -> bytes:
@@ -726,31 +731,31 @@ class AArch64ElfRelocator(ElfRelocator):
         elif rela.type == R_AARCH64_LDST8_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 0)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 0)
             )
         elif rela.type == R_AARCH64_LDST16_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 2, rela, "LDST16_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 1)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 1)
             )
         elif rela.type == R_AARCH64_LDST32_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 4, rela, "LDST32_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 2)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 2)
             )
         elif rela.type == R_AARCH64_LDST64_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 8, rela, "LDST64_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 3)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 3)
             )
         elif rela.type == R_AARCH64_LDST128_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 16, rela, "LDST128_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 4)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 4)
             )
         elif rela.type == R_AARCH64_TSTBR14:
             value = symval + self._get_rela_addend(rela) - rela.offset
@@ -846,7 +851,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
                 value = got_entry - self._page(got_base)
@@ -941,7 +946,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "TLSIE_LD64_GOTTPREL_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
                 value = got_entry - rela.offset
@@ -1005,7 +1010,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             elif rela.type == R_AARCH64_TLSDESC_ADD_LO12:
                 return self._pack_insn(
@@ -1087,7 +1092,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_AUTH_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "AUTH_LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             elif rela.type == R_AARCH64_AUTH_LD64_GOTPAGE_LO15:
                 value = got_entry - self._page(got_base)
@@ -1132,7 +1137,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_AUTH_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "AUTH_TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             else:
                 return self._pack_insn(
