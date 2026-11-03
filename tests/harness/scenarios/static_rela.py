@@ -15,10 +15,10 @@ def _skip(arch: str) -> str:
 _BE8_OBJECTS = "BE8 object files hold big-endian code that only the linker converts"
 
 _VARIANTS = (
-    ("aarch64", _skip("aarch64")),
-    ("aarch64v85a", _skip("aarch64v85a")),
-    ("aarch64be", _skip("aarch64be")),
-    ("aarch64v85abe", _skip("aarch64v85abe")),
+    ("aarch64", None),
+    ("aarch64v85a", None),
+    ("aarch64be", None),
+    ("aarch64v85abe", None),
     ("amd64", None),
     ("armv6k", None),
     ("armv6kbe", _BE8_OBJECTS),

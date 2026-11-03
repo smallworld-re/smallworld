@@ -64,8 +64,8 @@ stack.push_integer(2, 8, None)
 cpu.x0.set(2)
 cpu.x1.set(argv)
 
-# Push a return address onto the stack
-stack.push_integer(0x7FFFFFF8, 8, "fake return address")
+# Return to a fake address
+cpu.lr.set(0x7FFFFFF8)
 machine.add_exit_point(0x7FFFFFF8)
 
 # Configure the stack pointer
