@@ -12,6 +12,7 @@ from ... import exceptions, platforms, utils
 from ..emulator import Emulator
 from ..hookable import check_hookable_range, ranges_overlap
 from .machdefs import GhidraMachineDef
+from .machdefs.machdef import GhidraWrites
 from .typing import AbstractGhidraEmulator
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self._thread.overrideContextWithDefault()
 
         self._memory_map = utils.RangeCollection()
+
+        # What has been written since the machine definition last updated
+        # derived state; None until its first update.  Its own writes there
+        # are not recorded.
+        self._writes: typing.Optional[GhidraWrites] = None
+        self._recording_writes = True
 
         # Instruction hooking callbacks
         self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
@@ -193,6 +200,23 @@ class GhidraEmulator(AbstractGhidraEmulator):
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
         state.setVar(reg, self.bytes_py_to_java(val))
+        self._note_register_write(reg.getAddress().getOffset(), size)
+
+    def _note_register_write(self, offset: int, size: int) -> None:
+        if self._recording_writes and self._writes is not None:
+            self._writes.registers.add((offset, size))
+
+    def _note_memory_write(self, address: int, size: int) -> None:
+        if self._recording_writes and self._writes is not None:
+            self._writes.memory.add((address, size))
+
+    def _update_derived_state(self) -> None:
+        self._recording_writes = False
+        try:
+            self.machdef.update_derived_state(self, self._writes)
+        finally:
+            self._recording_writes = True
+        self._writes = GhidraWrites()
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         # Get the thread's memory state
@@ -238,6 +262,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             False,
             val,
         )
+        self._note_memory_write(address, len(content))
 
     def hook_instruction(
         self, address: int, function: typing.Callable[[Emulator], None]
@@ -468,6 +493,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Hooks and the memory map see flat addresses.
         addr = (space[1] if space is not None else 0) + offset
+        self._note_memory_write(addr, len(data))
 
         self._require_mapped(
             addr,
@@ -515,7 +541,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 f"PcodeEmulator does not support single-instruction stepping for {self.platform}"
             )
 
-        # The machine may redirect execution between instructions.
+        # Bring derived state up to date with anything written since the
+        # last instruction, by the harness say; then the machine may
+        # redirect execution between instructions.
+        if self._writes is None or self._writes:
+            self._update_derived_state()
         self.machdef.before_instruction(self)
 
         # Step!
@@ -528,7 +558,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
-        self.machdef.update_derived_state(self)
 
         # Check for instruction hooks.
         # TODO: Should instruction hooks override the instruction?
@@ -572,6 +601,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 code = frame.getCode()
                 op = code[frame.index()]
                 opcode = op.getOpcode()
+
+                # Record what it writes, for the machine definition.
+                out = op.getOutput()
+                if out is not None:
+                    if out.isRegister():
+                        self._note_register_write(out.getOffset(), out.getSize())
+                    else:
+                        out_space = self._mapped_space(
+                            out.getAddress().getAddressSpace().getSpaceID()
+                        )
+                        if out_space is not None:
+                            self._note_memory_write(
+                                out_space[1] + out.getOffset(), out.getSize()
+                            )
                 if opcode == op.CALLOTHER and self.machdef.userops is not None:
                     # A user-defined operation; the machine definition's
                     # handler performs it in place of the op.
@@ -652,7 +695,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
                     # This is not a memory access.  No need to break
 
-        self.machdef.update_derived_state(self)
+        self._update_derived_state()
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

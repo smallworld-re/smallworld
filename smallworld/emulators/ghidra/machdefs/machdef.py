@@ -48,6 +48,37 @@ class GhidraUserOp(enum.IntEnum, metaclass=_UserOpEnumMeta):
         return f"{hex(self.value)}: {self.short_name} - {self.description}"
 
 
+class GhidraWrites:
+    """What changed machine state, for a machine definition to act on.
+
+    The Ghidra emulator records every register and memory write - by an
+    instruction's p-code, or through its API by a hook, a model or the
+    harness - and hands the record to
+    :meth:`GhidraMachineDef.update_derived_state`.
+    """
+
+    def __init__(self) -> None:
+        self.registers: typing.Set[typing.Tuple[int, int]] = set()
+        """Registers written, as (offset, size) in Ghidra's register space."""
+
+        self.memory: typing.Set[typing.Tuple[int, int]] = set()
+        """Memory written, as (flat address, size)."""
+
+    def __bool__(self) -> bool:
+        return bool(self.registers or self.memory)
+
+    def wrote_register(self, offset: int) -> bool:
+        """Whether the register byte at offset was written."""
+        return any(start <= offset < start + size for start, size in self.registers)
+
+    def wrote_memory(self, start: int, end: int) -> typing.Set[int]:
+        """The flat addresses in [start, end) that were written."""
+        written: typing.Set[int] = set()
+        for address, size in self.memory:
+            written.update(range(max(address, start), min(address + size, end)))
+        return written
+
+
 class GhidraMachineDef:
     """Container class for ghdra architecture-specific definitions"""
 
@@ -120,16 +151,22 @@ class GhidraMachineDef:
         """
         pass
 
-    def update_derived_state(self, emulator: typing.Any) -> None:
+    def update_derived_state(
+        self, emulator: typing.Any, writes: typing.Optional["GhidraWrites"] = None
+    ) -> None:
         """Recompute machine state the SLEIGH language leaves out.
 
-        Called before and after every instruction, so state the hardware
-        derives continuously from other state - such as the 8051's parity
-        flag, a function of the accumulator - is current whenever an
-        instruction or the user reads it.  Most machines have none.
+        Called after every instruction, and before one when anything was
+        written since, so state the hardware derives continuously from other
+        state - such as the 8051's parity flag, a function of the accumulator
+        - is current whenever an instruction or the user reads it.  Most
+        machines have none.
 
         Arguments:
             emulator: The emulator.
+            writes: What was written since the last call, by instructions,
+                hooks, models or the harness; None if unknown, as on the
+                first call.  What this method itself writes is left out.
         """
         pass
 

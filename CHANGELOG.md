@@ -158,6 +158,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   current incrementally: a full sync as each block starts, then only what
   each instruction wrote, with concrete values handled without the solver.
   Running SDCC's C library is about five times faster.
+- The Ghidra backend records what each instruction, hook, model or harness
+  writes, and `GhidraMachineDef.update_derived_state` receives the record,
+  so the 8051's register bank sync, parity flag and interrupt checks act
+  only on what changed. Running SDCC's C library is about three times
+  faster.
 - `Value.{get, set}()` changed to `@property` `value`.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.
