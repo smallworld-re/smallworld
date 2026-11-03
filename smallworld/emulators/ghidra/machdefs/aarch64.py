@@ -9,8 +9,12 @@ class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
 
-    # yield, sev and sevl have no architectural effect on a single core.
-    nop_userops = frozenset({"Yield", "SendEvent", "SendEventLocally"})
+    # yield, sev and sevl have no architectural effect on a single core, and
+    # LOAcquire and LORelease, which the acquire and release forms of loads,
+    # stores and atomics call, only order memory accesses.
+    nop_userops = frozenset(
+        {"Yield", "SendEvent", "SendEventLocally", "LOAcquire", "LORelease"}
+    )
     userops: typing.Mapping[str, Userop] = {"NEON_sqrdml_as_h": neon_sqrdml_as_h}
 
     _registers = {
