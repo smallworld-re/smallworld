@@ -1176,6 +1176,18 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_sh1(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh2(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_cpu_sh4(self):
         platform = platforms.Platform(
             platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
@@ -1354,6 +1366,20 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_sh2a(self):
         platform = platforms.Platform(
             platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh1(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh2(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
         )
         # Not supported by unicorn
         self.assertRaises(ValueError, self.run_test, platform)
@@ -1568,6 +1594,18 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_sh1(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh2(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_angr_sh4(self):
         platform = platforms.Platform(
             platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
@@ -1752,6 +1790,20 @@ class PandaMachdefTests(unittest.TestCase):
         # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
         # adds along with the SH-2A instruction set.
         self.run_test(platform)
+
+    def test_panda_sh1(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+        )
+        # The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2.
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_sh2(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+        )
+        # The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2.
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_panda_sh4(self):
         platform = platforms.Platform(
@@ -1953,6 +2005,18 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_sh2a(self):
         platform = platforms.Platform(
             platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh1(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh2(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 

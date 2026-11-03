@@ -51,6 +51,16 @@ so some things like the syscall convention are something of a guess.
 
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
+*sh1* and *sh2* are SH-1 and SH-2, big-endian. Each runs on Ghidra's own
+language for it (``SuperH:BE:32:SH-1`` and ``SH-2``), built from the same
+specification as SH-2A, so an instruction from a later version is refused as on
+the real CPU rather than run: SH-1 has no ``mul.l``, ``dt``, ``braf``, ``bsrf``,
+``bt/s`` or ``bf/s``, and SH-2 has none of SH-2A's instructions. Neither has an
+FPU or SH-2A's ``tbr``. They run on angr and Ghidra only: Styx and Panda's
+patched QEMU model only SH-2A and SH-4. The ELF loader recognizes them from
+``e_flags``. SH-2E (SH-2 with a single-precision FPU) has no Ghidra language,
+so an SH-2E image still loads as SH-2A-FPU, its superset.
+
 *sh2a-fpu* is SH-2A-FPU. It is **big-endian only**, because the only SH-2A
 language Ghidra ships is ``SuperH:BE:32:SH-2A``; there is no little-endian
 equivalent, and both angr's pcode backend and Styx get their SH-2A model from

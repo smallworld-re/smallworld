@@ -266,6 +266,32 @@ _SPECS = {
         ),
         stack_arguments=((0x55555555, 8),),
     ),
+    "sh1": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
+    "sh2": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
     "sh2a": StackCaseSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pc_register="pc",
@@ -354,6 +380,8 @@ _STACK_RES = {
     "ppc64": "0xffff",
     "riscv64": "0xffffffff",
     # 0xcccccccc + 0x11111111 + 0x22222222
+    "sh1": "0xffffffff",
+    "sh2": "0xffffffff",
     "sh2a": "0xffffffff",
     "sh4": "0xffffffff",
     "sh4el": "0xffffffff",

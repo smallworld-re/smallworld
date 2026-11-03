@@ -190,6 +190,26 @@ _SPECS = {
     #     the defect is specific to `bsr`, and this scenario keeps `bsr` on
     #     purpose to cover that path where it works.)
     # styx is absent from the SH-4 rows entirely: its SH-4 arch spec is a stub.
+    "sh1": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "sh2": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "sh2a": StaticBufferSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pc_register="pc",

@@ -4,7 +4,7 @@ import typing
 import claripy
 import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
-from ghidra.pcode.exec import PcodeExecutorStatePiece
+from ghidra.pcode.exec import DecodePcodeExecutionException, PcodeExecutorStatePiece
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.pcode import Varnode
 
@@ -461,8 +461,17 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     skip = False
                     self._thread.skipPcodeOp()
                 else:
-                    # Execute the opcode normally
-                    self._thread.stepPcodeOp()
+                    # Execute the opcode normally. The first step of an
+                    # instruction decodes it, which fails if the language
+                    # has no such instruction.
+                    try:
+                        self._thread.stepPcodeOp()
+                    except DecodePcodeExecutionException as e:
+                        raise exceptions.EmulationExecInvalidFailure(
+                            f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                            pc,
+                            None,
+                        ) from e
 
                 frame = self._thread.getFrame()
 

@@ -204,6 +204,26 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         # instruction port from nix/patches/panda-qemu-sh2a.patch.
         engines=("angr", "pcode", "panda", "styx"),
     ),
+    # SH-1 and SH-2 run on Ghidra's own languages for them, which refuse the
+    # later versions' instructions. Styx and PANDA model only SH-2A and SH-4.
+    "sh1": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
+    "sh2": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
     "sh4": ArchInfo(
         platform=PlatformSpec("SUPERH_SH4", "BIG"),
         pc_register="pc",

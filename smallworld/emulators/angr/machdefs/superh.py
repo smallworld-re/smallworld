@@ -9,6 +9,7 @@ from ....platforms import Architecture, Byteorder
 from ....platforms.defs.superh import (
     SH2A_FLOAT_ARGUMENT_REGISTERS,
     SH2A_INTEGER_ARGUMENT_REGISTERS,
+    SH2A_ONLY_REGISTERS,
     SH2A_PROGRAM_COUNTER_REGISTER,
     SH2A_REGISTER_ALIASES,
     SH2A_RETURN_ADDRESS_REGISTER,
@@ -18,6 +19,8 @@ from ....platforms.defs.superh import (
 from .machdef import GhidraMachineDef
 
 SH2A_PCODE_LANGUAGE = "SuperH:BE:32:SH-2A"
+SH2_PCODE_LANGUAGE = "SuperH:BE:32:SH-2"
+SH1_PCODE_LANGUAGE = "SuperH:BE:32:SH-1"
 
 
 @functools.lru_cache(maxsize=None)
@@ -370,3 +373,60 @@ angr.calling_conventions.register_default_cc(SH2A_PCODE_LANGUAGE, SimCCSH2AFPU)
 angr.calling_conventions.register_syscall_cc(
     SH2A_PCODE_LANGUAGE, "default", SimCCSH2AFPULinuxSyscall
 )
+
+
+class SH2MachineDef(SH2AFPUMachineDef):
+    """SH-2 on Ghidra's ``SuperH:BE:32:SH-2``, which refuses SH-2A's
+    instructions.
+
+    It shares SH-2A's `trapa` handling: Ghidra lifts `trapa` the same way
+    for every SH version up to SH-2A, from the same ``superh.sinc``.
+    """
+
+    arch = Architecture.SUPERH_SH2
+    pcode_language = SH2_PCODE_LANGUAGE
+
+    _registers: typing.Dict[str, str] = {
+        name: register
+        for name, register in SH2AFPUMachineDef._registers.items()
+        if name not in SH2A_ONLY_REGISTERS
+    }
+
+
+class SH1MachineDef(SH2MachineDef):
+    """SH-1 on Ghidra's ``SuperH:BE:32:SH-1``, which refuses SH-2's
+    instructions."""
+
+    arch = Architecture.SUPERH_SH1
+    pcode_language = SH1_PCODE_LANGUAGE
+
+
+class SimCCSH2(angr.calling_conventions.SimCC):
+    """The SH-2A convention without its float arguments; SH-1 and SH-2 have
+    no FPU."""
+
+    ARG_REGS = list(SH2A_INTEGER_ARGUMENT_REGISTERS)
+    FP_ARG_REGS: typing.List[str] = []
+    RETURN_VAL = angr.calling_conventions.SimRegArg(SH2A_RETURN_VALUE_REGISTER, 4)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg(SH2A_RETURN_ADDRESS_REGISTER, 4)
+    ARCH = pcode_arch(SH2_PCODE_LANGUAGE)  # type: ignore
+
+
+class SimCCSH1(SimCCSH2):
+    ARCH = pcode_arch(SH1_PCODE_LANGUAGE)  # type: ignore
+
+
+class SimCCSH2LinuxSyscall(SimCCSuperHLinuxSyscall):
+    ARCH = pcode_arch(SH2_PCODE_LANGUAGE)  # type: ignore
+
+
+class SimCCSH1LinuxSyscall(SimCCSuperHLinuxSyscall):
+    ARCH = pcode_arch(SH1_PCODE_LANGUAGE)  # type: ignore
+
+
+for _language, _cc, _syscall_cc in (
+    (SH2_PCODE_LANGUAGE, SimCCSH2, SimCCSH2LinuxSyscall),
+    (SH1_PCODE_LANGUAGE, SimCCSH1, SimCCSH1LinuxSyscall),
+):
+    angr.calling_conventions.register_default_cc(_language, _cc)
+    angr.calling_conventions.register_syscall_cc(_language, "default", _syscall_cc)

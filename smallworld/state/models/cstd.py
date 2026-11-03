@@ -1027,6 +1027,8 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH1
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH2
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
         ):
             # mips32, mips64, riscv64 and superh: branch to register 'ra'.  On

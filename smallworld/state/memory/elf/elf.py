@@ -359,8 +359,13 @@ class ElfExecutable(Executable):
                 architecture = Architecture.SUPERH_SH2A_FPU
             elif mach in EF_SH_SH4_MACHINES:
                 architecture = Architecture.SUPERH_SH4
-            elif mach in (EF_SH1, EF_SH2, EF_SH2E):
-                # SH-2A is a strict superset of these.
+            elif mach == EF_SH1:
+                architecture = Architecture.SUPERH_SH1
+            elif mach == EF_SH2:
+                architecture = Architecture.SUPERH_SH2
+            elif mach == EF_SH2E:
+                # SH-2 with a single-precision FPU, which Ghidra has no
+                # language for. SH-2A is a strict superset.
                 log.warning(
                     f"SuperH ISA {hex(mach)} has no SmallWorld model; "
                     "running it as SH-2A-FPU"
@@ -402,6 +407,8 @@ class ElfExecutable(Executable):
                 and self.platform.architecture != architecture
                 and self.platform.architecture
                 in (
+                    Architecture.SUPERH_SH1,
+                    Architecture.SUPERH_SH2,
                     Architecture.SUPERH_SH2A_FPU,
                     Architecture.SUPERH_SH4,
                 )

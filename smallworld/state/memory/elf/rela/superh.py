@@ -75,6 +75,16 @@ class SH2AFPUElfRelocator(SuperHElfRelocator):
     byteorder = platforms.Byteorder.BIG
 
 
+class SH2ElfRelocator(SuperHElfRelocator):
+    arch = platforms.Architecture.SUPERH_SH2
+    byteorder = platforms.Byteorder.BIG
+
+
+class SH1ElfRelocator(SuperHElfRelocator):
+    arch = platforms.Architecture.SUPERH_SH1
+    byteorder = platforms.Byteorder.BIG
+
+
 class SuperH4BEElfRelocator(SuperHElfRelocator):
     arch = platforms.Architecture.SUPERH_SH4
     byteorder = platforms.Byteorder.BIG

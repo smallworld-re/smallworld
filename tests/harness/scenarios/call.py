@@ -23,6 +23,8 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
@@ -62,6 +64,8 @@ _STACKS = {
     # SuperH leaves the return address in pr rather than on the stack, so like
     # tricore it needs no synthetic return slot; the sh binaries still touch the
     # stack (sts.l pr,@-r15), so sp itself must be valid.
+    "sh1": _stack("sh1", fake_return_size=None),
+    "sh2": _stack("sh2", fake_return_size=None),
     "sh2a": _stack("sh2a", fake_return_size=None),
     "sh4": _stack("sh4", fake_return_size=None),
     "sh4el": _stack("sh4el", fake_return_size=None),
