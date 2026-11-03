@@ -13,6 +13,7 @@ _ARCHS = (
     "aarch64",
     "aarch64v85a",
     "aarch64be",
+    "aarch64v85abe",
     "amd64",
     "armv5t",
     "armv5tbe",

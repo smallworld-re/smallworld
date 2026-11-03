@@ -18,6 +18,7 @@ import logging
 from typing import Callable, Sequence
 
 from .common import (
+    TRITON_ARCHS,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -31,7 +32,10 @@ NATIVE_PARITY = True
 
 _ENGINES = ("unicorn", "angr", "pcode", "triton", "panda")
 
-_PLATFORMS = {"aarch64v85a": PlatformSpec("AARCH64_V8_5A", "LITTLE")}
+_PLATFORMS = {
+    "aarch64v85a": PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+    "aarch64v85abe": PlatformSpec("AARCH64_V8_5A", "BIG"),
+}
 
 _MASK = 0xFFFFFFFFFFFFFFFF
 
@@ -71,6 +75,7 @@ _FAMILIES: dict[str, tuple[Callable[[int], int], tuple[int, ...], dict]] = {
         (5, 0x123456789),
         {
             "aarch64v85a.angr": _ANGR_NO_DECODE,
+            "aarch64v85abe.angr": _ANGR_NO_DECODE,
             "aarch64v85a.triton": _TRITON_NO_DECODE,
         },
     ),
@@ -79,26 +84,42 @@ _FAMILIES: dict[str, tuple[Callable[[int], int], tuple[int, ...], dict]] = {
         (0x400000, 0x7FFFF0001000),
         {
             "aarch64v85a.angr": _ANGR_NO_DECODE,
+            "aarch64v85abe.angr": _ANGR_NO_DECODE,
             "aarch64v85a.triton": _TRITON_NO_DECODE,
         },
     ),
     "v85_rcpc": (
         lambda arg: (2 * arg) & _MASK,
         (5, 0x123456789),
-        {"aarch64v85a.angr": _ANGR_NO_DECODE},
+        {
+            "aarch64v85a.angr": _ANGR_NO_DECODE,
+            "aarch64v85abe.angr": _ANGR_NO_DECODE,
+        },
     ),
     "v85_rdm": (
         _rdm_expected,
         (100, 0x7FFFFFFF),
         {
             "aarch64v85a.angr": _ANGR_NO_DECODE,
+            "aarch64v85abe.angr": _ANGR_NO_DECODE,
             "aarch64v85a.triton": _TRITON_NO_DECODE,
         },
     ),
 }
 
+# Triton has no big-endian AArch64.
 _SPECS = {
-    family: {arch: _Spec(spec) for arch, spec in _PLATFORMS.items()}
+    family: {
+        arch: _Spec(
+            spec,
+            (
+                _ENGINES
+                if arch in TRITON_ARCHS
+                else tuple(e for e in _ENGINES if e != "triton")
+            ),
+        )
+        for arch, spec in _PLATFORMS.items()
+    }
     for family in _FAMILIES
 }
 

@@ -31,6 +31,7 @@ _ENGINES = ("unicorn", "angr", "pcode", "triton", "panda")
 _PLATFORMS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
     "aarch64be": PlatformSpec("AARCH64", "BIG"),
+    "aarch64v85abe": PlatformSpec("AARCH64_V8_5A", "BIG"),
     "aarch64v85a": PlatformSpec("AARCH64_V8_5A", "LITTLE"),
 }
 

@@ -55,6 +55,7 @@ _DEFAULT_SKIP_REASONS = {
         f"{arch}.{engine}": f"No big-endian ARM machine is configured for {name}"
         for arch in (
             "aarch64be",
+            "aarch64v85abe",
             "armv4be",
             "armv4tbe",
             "armv5tbe",

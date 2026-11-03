@@ -62,6 +62,15 @@ _SPECS = {
         string_source=StringSource(register="x0"),
         load_address=0x400000,
     ),
+    "aarch64v85abe": RelaSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+        load_address=0x400000,
+    ),
     "amd64": RelaSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pointer_size=8,
@@ -460,6 +469,7 @@ def _configure_exit(
         "aarch64",
         "aarch64v85a",
         "aarch64be",
+        "aarch64v85abe",
         "armv6k",
         "armv6kbe",
         "armv5t",

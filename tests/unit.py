@@ -5668,6 +5668,29 @@ class AArch64V85ATests(unittest.TestCase):
         self.assertEqual(type(model).__module__.split(".")[3], "aarch64v85a")
 
 
+class AArch64V85ABETests(AArch64V85ATests):
+    """aarch64-v8.5a, big-endian: the same, with big-endian data."""
+
+    v85a = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+    )
+    v80a = platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.BIG)
+
+    def test_unicorn_runs_lse_on_v85a(self):
+        old, new = self.run_ldadd(self.v85a)
+        self.assertEqual(old, 5)
+        self.assertEqual(int.from_bytes(new, "big"), 8)
+
+    def elf(self, **kwargs):
+        path = pathlib.Path(__file__).parent / "sysv" / "sysv.aarch64be.elf"
+        with open(path, "rb") as f:
+            return state.memory.code.Executable.from_elf(f, address=0x400000, **kwargs)
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.v85a, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64v85abe")
+
+
 class ArmDoubleWordReturnTests(ModelTestCase):
     """armv5t/armv5tbe: a double word returns in r0:r1 as ldm would load it."""
 

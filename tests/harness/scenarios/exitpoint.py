@@ -71,6 +71,15 @@ _SPECS = {
         load_address=0x400000,
         link_register="lr",
     ),
+    "aarch64v85abe": ExitpointSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pc_register="pc",
+        result_register="x0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="lr",
+    ),
     "amd64": ExitpointSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",

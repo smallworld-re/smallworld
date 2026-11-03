@@ -18,6 +18,7 @@ _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
     "aarch64v85a": PlatformSpec("AARCH64_V8_5A", "LITTLE"),
     "aarch64be": PlatformSpec("AARCH64", "BIG"),
+    "aarch64v85abe": PlatformSpec("AARCH64_V8_5A", "BIG"),
     "amd64": PlatformSpec("X86_64", "LITTLE"),
     "armv6k": PlatformSpec("ARM_V6K", "LITTLE"),
     "armv6kbe": PlatformSpec("ARM_V6K", "BIG"),

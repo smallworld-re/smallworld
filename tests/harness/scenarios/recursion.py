@@ -50,6 +50,7 @@ _ARCHS = (
     "aarch64",
     "aarch64v85a",
     "aarch64be",
+    "aarch64v85abe",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -93,6 +94,10 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     },
     "aarch64be": {
         "stack_items": (_fake_return("aarch64be"),),
+        "stack_pointer_adjust": 8,
+    },
+    "aarch64v85abe": {
+        "stack_items": (_fake_return("aarch64v85abe"),),
         "stack_pointer_adjust": 8,
     },
     "amd64": {"stack_items": (_fake_return("amd64"),)},

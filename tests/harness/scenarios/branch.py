@@ -12,6 +12,7 @@ _ARCHS = (
     "aarch64",
     "aarch64v85a",
     "aarch64be",
+    "aarch64v85abe",
     "amd64",
     "armv5t",
     "armv5tbe",
@@ -88,6 +89,7 @@ _SPECS = build_specs(
         "aarch64": {"result_register": "w0"},
         "aarch64v85a": {"result_register": "w0"},
         "aarch64be": {"result_register": "w0"},
+        "aarch64v85abe": {"result_register": "w0"},
     },
 )
 

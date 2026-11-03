@@ -18,6 +18,7 @@ _VARIANTS = (
     ("aarch64", _skip("aarch64")),
     ("aarch64v85a", _skip("aarch64v85a")),
     ("aarch64be", _skip("aarch64be")),
+    ("aarch64v85abe", _skip("aarch64v85abe")),
     ("amd64", None),
     ("armv6k", None),
     ("armv6kbe", _BE8_OBJECTS),
