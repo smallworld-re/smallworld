@@ -304,3 +304,7 @@ class AArch64BEMachineDef(AArch64MachineDef):
 
 class AArch64V85AMachineDef(AArch64MachineDef):
     arch = Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABEMachineDef(AArch64BEMachineDef):
+    arch = Architecture.AARCH64_V8_5A

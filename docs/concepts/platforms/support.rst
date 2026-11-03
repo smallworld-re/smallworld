@@ -84,7 +84,8 @@ fetches little-endian instructions; angr lifts through VEX's little-endian
 AArch64 guest, as VEX's big-endian one decodes nothing, then makes each load
 and store big-endian; and Ghidra uses its ``AARCH64:BE:64:v8A`` language.
 SmallWorld configures no big-endian AArch64 machine for PANDA, and Triton has
-no big-endian AArch64.
+no big-endian AArch64. aarch64-v8.5a comes big-endian too, running the same way
+on Unicorn's "max" model, angr and Ghidra.
 
 **Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
 addressing), ARMv6 without the K extensions or ARMv6T2 (ARM1156, the first with

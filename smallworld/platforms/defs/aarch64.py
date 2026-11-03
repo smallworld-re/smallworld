@@ -479,3 +479,9 @@ class AArch64V85A(AArch64):
     """Platform definition for aarch64 ARMv8.5-A."""
 
     architecture = Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABE(AArch64BE):
+    """Platform definition for big-endian aarch64 ARMv8.5-A."""
+
+    architecture = Architecture.AARCH64_V8_5A

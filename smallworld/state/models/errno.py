@@ -378,6 +378,11 @@ class AArch64V85AErrnoResolver(ErrnoResolver):
     abi = ABI.SYSTEMV
 
 
+class AArch64V85ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64_V8_5A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
 class AMD64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

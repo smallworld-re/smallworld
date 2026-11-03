@@ -572,3 +572,11 @@ class AArch64V85A(AArch64):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
     )
+
+
+class AArch64V85ABE(AArch64BE):
+    """CPU Model for big-endian aarch64 ARMv8.5-A."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+    )

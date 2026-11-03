@@ -1,4 +1,4 @@
-from .aarch64 import AArch64, AArch64BE, AArch64V85A
+from .aarch64 import AArch64, AArch64BE, AArch64V85A, AArch64V85ABE
 from .amd64 import AMD64
 from .arm import (
     ARMv4,
@@ -41,6 +41,7 @@ __all__ = __cpu__ + [
     "AArch64",
     "AArch64BE",
     "AArch64V85A",
+    "AArch64V85ABE",
     "AMD64",
     "ARMv4",
     "ARMv4T",

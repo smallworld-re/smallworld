@@ -25,6 +25,7 @@ SmallWorld currently provides basic C calling convention definitions for the fol
     - aarch64
     - aarch64 big-endian
     - aarch64 v8.5a
+    - aarch64 v8.5a big-endian
     - amd64
     - arm v4t (soft-float)
     - arm v5t (soft-float)

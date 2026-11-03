@@ -320,3 +320,10 @@ class AArch64V85AMachineDef(AArch64MachineDef):
 
     arch = Architecture.AARCH64_V8_5A
     uc_cpu = unicorn.arm64_const.UC_CPU_ARM64_MAX
+
+
+class AArch64V85ABEMachineDef(AArch64BEMachineDef):
+    """Unicorn machine definition for big-endian aarch64 ARMv8.5-A"""
+
+    arch = Architecture.AARCH64_V8_5A
+    uc_cpu = unicorn.arm64_const.UC_CPU_ARM64_MAX

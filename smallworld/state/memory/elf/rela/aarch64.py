@@ -1248,3 +1248,7 @@ class AArch64BEElfRelocator(AArch64ElfRelocator):
 
 class AArch64V85AElfRelocator(AArch64ElfRelocator):
     arch = platforms.Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABEElfRelocator(AArch64BEElfRelocator):
+    arch = platforms.Architecture.AARCH64_V8_5A

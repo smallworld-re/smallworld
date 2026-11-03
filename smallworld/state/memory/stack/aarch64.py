@@ -33,3 +33,11 @@ class AArch64V85AStack(AArch64Stack):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
     )
+
+
+class AArch64V85ABEStack(AArch64BEStack):
+    """A stack for a big-endian ARMv8.5-A 64-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+    )
