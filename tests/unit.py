@@ -8353,6 +8353,98 @@ class _FakeAArch64Object(_FakeArmObject):
         return self.insn
 
 
+class AArch64GotEntryRelocatorTests(unittest.TestCase):
+    """adrp + ldr through the GOT in an object file reach a synthesized entry.
+
+    An object file has no GOT, so these relocations used to refuse to load,
+    leaving PIC objects (static_rela) unloadable on every AArch64 platform.
+    """
+
+    _R_AARCH64_ADR_GOT_PAGE = 311
+    _R_AARCH64_LD64_GOT_LO12_NC = 312
+    _R_AARCH64_LD64_GOTPAGE_LO15 = 313
+    _R_AARCH64_GLOB_DAT = 1025
+    _ADRP_X0 = 0x90000000  # adrp x0, 0
+    _LDR_X0 = 0xF9400000  # ldr x0, [x0]
+
+    def _rela(self, symbol, type_, offset=0x400010):
+        rela = ElfRela(is_rela=True, offset=offset, type=type_, symbol=symbol, addend=0)
+        symbol.relas.append(rela)
+        return rela
+
+    def test_object_file_gets_a_filled_got_entry(self):
+        relocator = AArch64ElfRelocator()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        adrp = self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE)
+        ldr = self._rela(symbol, self._R_AARCH64_LD64_GOT_LO12_NC, 0x400014)
+
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        insn = int.from_bytes(relocator._compute_value(adrp, elf), "little")
+        slot = elf.slots[symbol.idx]
+        # Page(G(S)) - Page(P), in pages, split across immlo and immhi.
+        pages = (slot >> 12) - (0x400010 >> 12)
+        self.assertEqual(((insn >> 29) & 0x3) | (((insn >> 5) & 0x7FFFF) << 2), pages)
+        # The entry holds the symbol's address, as GLOB_DAT would write it.
+        self.assertEqual(elf.memory[slot], (0x402340).to_bytes(8, "little"))
+
+        elf.insn = self._LDR_X0
+        insn = int.from_bytes(relocator._compute_value(ldr, elf), "little")
+        self.assertEqual(((insn >> 10) & 0xFFF) << 3, slot & 0xFFF)
+        self.assertEqual(len(elf.slots), 1)
+
+    def test_entry_follows_a_rebound_symbol(self):
+        # update_symbol_value re-relocates every rela of a symbol, so a
+        # rebound symbol must rewrite its one entry, not allocate another.
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        rela = self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE)
+        relocator._compute_value(rela, elf)
+        symbol.value = 0x5000
+        relocator._compute_value(rela, elf)
+        self.assertEqual(len(elf.slots), 1)
+        self.assertEqual(
+            elf.memory[elf.slots[symbol.idx]], (0x405000).to_bytes(8, "little")
+        )
+
+    def test_big_endian_entry_is_big_endian(self):
+        from smallworld.state.memory.elf.rela import AArch64BEElfRelocator
+
+        relocator = AArch64BEElfRelocator()
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        relocator._compute_value(self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE), elf)
+        self.assertEqual(
+            elf.memory[elf.slots[symbol.idx]], (0x402340).to_bytes(8, "big")
+        )
+
+    def test_linked_image_uses_its_own_got_entry(self):
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._LDR_X0)
+        elf._dtags = {3: 0x408000}  # DT_PLTGOT
+        elf._rebase_file = lambda address: address
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        self._rela(symbol, self._R_AARCH64_GLOB_DAT, 0x408018)
+        insn = int.from_bytes(
+            relocator._compute_value(
+                self._rela(symbol, self._R_AARCH64_LD64_GOT_LO12_NC), elf
+            ),
+            "little",
+        )
+        self.assertEqual(((insn >> 10) & 0xFFF) << 3, 0x018)
+        self.assertEqual(elf.slots, {})
+
+    def test_got_relative_forms_still_need_a_got(self):
+        # LD64_GOTPAGE_LO15 is an offset from the GOT's page, which an object
+        # file doesn't have.
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._LDR_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        rela = self._rela(symbol, self._R_AARCH64_LD64_GOTPAGE_LO15)
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "GOT base"):
+            relocator._compute_value(rela, elf)
+
+
 class AArch64Lo12RelocatorTests(unittest.TestCase):
     """A scaled LO12 load or store takes its target's offset into its page.
 
