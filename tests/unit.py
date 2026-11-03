@@ -121,6 +121,7 @@ from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
+from smallworld.state.memory.elf.rela.aarch64 import AArch64ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.arm import Armv7AElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
@@ -8335,6 +8336,56 @@ class ArmGotEntryRelocatorTests(unittest.TestCase):
         val = relocator._compute_value(self._rela(symbol), elf)
         self.assertEqual(int.from_bytes(val, "little"), 0x8010 - 0x1000)
         self.assertEqual(elf.slots, {})
+
+
+class _FakeAArch64Object(_FakeArmObject):
+    """An AArch64 object file whose relocated instructions all start as
+    ``insn``, with GOT entries a page above the code."""
+
+    def __init__(self, insn: int):
+        super().__init__()
+        self.insn = insn
+
+    def got_slot(self, symbol_index: int) -> int:
+        return self.slots.setdefault(symbol_index, 0x403000 + 8 * len(self.slots))
+
+    def read_int(self, address, size, byteorder) -> int:
+        return self.insn
+
+
+class AArch64Lo12RelocatorTests(unittest.TestCase):
+    """A scaled LO12 load or store takes its target's offset into its page.
+
+    The relocator used to scale the whole address before masking, so any
+    target above the first 4KiB got the wrong offset.
+    """
+
+    _R_AARCH64_LDST16_ABS_LO12_NC = 284
+    _R_AARCH64_LDST64_ABS_LO12_NC = 286
+    _R_AARCH64_LDST128_ABS_LO12_NC = 299
+
+    def _imm12(self, type_, insn, target):
+        symbol = _make_symbol(value=target - 0x400000, baseaddr=0x400000)
+        rela = ElfRela(
+            is_rela=True, offset=0x400010, type=type_, symbol=symbol, addend=0
+        )
+        val = AArch64ElfRelocator()._compute_value(rela, _FakeAArch64Object(insn))
+        return (int.from_bytes(val, "little") >> 10) & 0xFFF
+
+    def test_offset_is_taken_within_the_page(self):
+        # ldrh w0, [x0]; ldr x0, [x0]; ldr q0, [x0]
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST16_ABS_LO12_NC, 0x79400000, 0x403456),
+            0x456 >> 1,
+        )
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST64_ABS_LO12_NC, 0xF9400000, 0x403458),
+            0x458 >> 3,
+        )
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST128_ABS_LO12_NC, 0x3DC00000, 0x403450),
+            0x450 >> 4,
+        )
 
 
 class I386RelocatorTests(unittest.TestCase):
