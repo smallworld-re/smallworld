@@ -230,7 +230,7 @@ hook:
   no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
   is architecturally prohibited on SuperH anyway, but assemblers accept it.
 
-**mcs51:** The Intel 8051 runs on Ghidra and angr, and is a prototype. It is a
+**mcs51:** The Intel 8051 runs on Ghidra and angr. It is a
 Harvard machine whose code, external RAM (XDATA), internal RAM and special
 function registers are separate address spaces. SmallWorld lays them side by
 side in one flat map, which ``smallworld.platforms.defs.mcs51`` defines: code at
@@ -243,8 +243,9 @@ onto the same flat map. That language is written for decompilation and emulates
 arithmetic and bit addressing wrongly, so SmallWorld's Nix environment applies
 ``nix/patches/ghidra-8051.patch`` to both copies (see ``nix/ghidra.nix`` and the
 ``pypcode`` entry in ``overrides.nix``): the carry out of ``addc``/``subb``, the
-auxiliary carry and overflow flags, the user flag F0, bit addressing and
-``mov sp,#n`` all follow the hardware there. A Ghidra or pypcode without the
+auxiliary carry and overflow flags, the user flag F0, bit addressing,
+``mov sp,#n`` and ``movx @Ri``, whose address takes its high byte from P2, all
+follow the hardware there. A Ghidra or pypcode without the
 patch fails the ``mcs51_flags`` scenario. The language never computes the
 parity flag either, so both backends recompute it from the accumulator around
 every instruction, as the hardware does every cycle. Nor does it model register
@@ -282,6 +283,10 @@ The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
 ucsim_51: its programs run from a random starting state and must end in the
 state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;
 rerun it after changing a program, and review the diff.
+The analyses that run their trace on the Unicorn emulator - trace execution,
+the colorizer, code coverage and crash triage, and the coverage frontier and
+loop detection analyses that read their hints - do not run on the 8051, which
+Unicorn does not support.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
