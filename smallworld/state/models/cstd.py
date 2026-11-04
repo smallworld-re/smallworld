@@ -308,6 +308,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Size of a double on the stack"""
         raise NotImplementedError()
 
+    # Where a float sits in a stack slot wider than it. Most ABIs put it at the
+    # start of the slot; big-endian AArch64 puts it at the end.
+    _float_stack_offset = 0
+
     def _return_pointer(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a pointer type
 
@@ -634,6 +638,8 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             if on_stack:
                 # Stored on the stack
                 addr = emulator.read_register(sp) + arg_offset
+                if not self._floats_are_doubles:
+                    addr += self._float_stack_offset
                 emulator.write_memory(addr, as_bytes)
             elif self._soft_float:
                 # Soft-float ABI; treat as a four-byte int
@@ -756,14 +762,12 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # Stored on the stack. When floats are promoted to doubles the
                 # slot holds 8 bytes (see add_argument / set_argument).
                 addr = emulator.read_register(sp) + arg_offset
-                data = emulator.read_memory(
-                    addr,
-                    (
-                        self._double_stack_size
-                        if self._floats_are_doubles
-                        else self._float_stack_size
-                    ),
-                )
+                if self._floats_are_doubles:
+                    data = emulator.read_memory(addr, self._double_stack_size)
+                else:
+                    data = emulator.read_memory(
+                        addr + self._float_stack_offset, self._float_stack_size
+                    )
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
                 else:
@@ -1202,6 +1206,7 @@ class VariadicContext:
         self._four_byte_stack_size = parent._four_byte_stack_size
         self._eight_byte_stack_size = parent._eight_byte_stack_size
         self._float_stack_size = parent._float_stack_size
+        self._float_stack_offset = parent._float_stack_offset
         self._double_stack_size = parent._double_stack_size
 
         # Copy the parent's current argument state
