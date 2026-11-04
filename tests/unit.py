@@ -147,6 +147,12 @@ from smallworld.state.memory.stack.m68k import M68KStack
 from smallworld.state.memory.stack.msp430 import MSP430Stack
 from smallworld.state.memory.stack.riscv import RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
+from smallworld.state.models.aarch64be.systemv.systemv import (
+    AArch64BESysVCallingContext,
+)
+from smallworld.state.models.aarch64v85abe.systemv.systemv import (
+    AArch64V85ABESysVCallingContext,
+)
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
     AMD64SysVStrxfrm,
@@ -5099,6 +5105,55 @@ class SysVBigEndianStackIntTests(unittest.TestCase):
         self.assertEqual(
             self._roundtrip(MIPS64ELSysVCallingContext, 0x12345678), 0x12345678
         )
+
+
+class SysVStackFloatSlotTests(unittest.TestCase):
+    """Where a float passed on the stack sits in its 8-byte slot.
+
+    The offsets are what the compilers' callees load from (zig cc, the ninth
+    float argument): AArch64 puts the float where a register store would, at
+    the end of the slot on big-endian; n64 puts it at the start on both byte
+    orders. A set/get round-trip can't tell a wrong offset from a right one,
+    so these check the bytes.
+    """
+
+    SP = 0x7000
+
+    def _context(self, cls):
+        ctx = cls()
+        ctx.set_argument_types([ArgumentType.FLOAT] * 10)
+        # arg 8 is the first stack float (eight floats fill the FP registers).
+        self.assertTrue(ctx._on_stack[8], msg=cls.__name__)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        return ctx, emu, self.SP + ctx._arg_offset[8]
+
+    def _check(self, cls, offset, byteorder):
+        fmt = ">f" if byteorder == "big" else "<f"
+        ctx, emu, slot = self._context(cls)
+        ctx.set_argument(8, emu, 1.5)
+        self.assertEqual(
+            emu.read_memory(slot, 8),
+            struct.pack(fmt, 1.5).rjust(offset + 4, b"\0").ljust(8, b"\0"),
+            msg=cls.__name__,
+        )
+
+        ctx, emu, slot = self._context(cls)
+        emu.write_memory(slot + offset, struct.pack(fmt, -2.25))
+        self.assertEqual(
+            ctx.get_argument(8, ArgumentType.FLOAT, emu), -2.25, msg=cls.__name__
+        )
+
+    def test_aarch64_big_endian_float_is_at_the_end_of_the_slot(self):
+        for cls in (AArch64BESysVCallingContext, AArch64V85ABESysVCallingContext):
+            self._check(cls, 4, "big")
+
+    def test_aarch64_little_endian_float_is_at_the_start_of_the_slot(self):
+        self._check(AArch64SysVCallingContext, 0, "little")
+
+    def test_mips64_float_is_at_the_start_of_the_slot(self):
+        self._check(MIPS64SysVCallingContext, 0, "big")
+        self._check(MIPS64ELSysVCallingContext, 0, "little")
 
 
 class ArmV7AVfpBackfillTests(unittest.TestCase):
