@@ -48,11 +48,11 @@ _DEFAULT_SKIP_REASONS = {
     },
     "armv7r.styx": "Styx has no ARMv7-R target",
     "armv7rbe.styx": "Styx has no ARMv7-R target",
-    # Big-endian ARM runs on Unicorn, angr and Ghidra. Triton has no
-    # big-endian ARM (see TRITON_ARCHS), and SmallWorld configures no
-    # big-endian ARM machine for PANDA or Styx.
+    # Big-endian ARM runs on Unicorn, angr and Ghidra, and BE8 and big-endian
+    # AArch64 on PANDA too. Triton has no big-endian ARM (see TRITON_ARCHS),
+    # and SmallWorld configures no big-endian ARM machine for Styx.
     **{
-        f"{arch}.{engine}": f"No big-endian ARM machine is configured for {name}"
+        f"{arch}.styx": "No big-endian ARM machine is configured for Styx"
         for arch in (
             "aarch64be",
             "aarch64v85abe",
@@ -65,7 +65,13 @@ _DEFAULT_SKIP_REASONS = {
             "armv8abe",
             "armv8rbe",
         )
-        for engine, name in (("panda", "PANDA"), ("styx", "Styx"))
+    },
+    # QEMU's system-mode BE32 keeps each word little-endian in memory and
+    # swaps byte addresses instead, so memory SmallWorld reads and writes
+    # would come out swapped within each word.
+    **{
+        f"{arch}.panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model"
+        for arch in ("armv4be", "armv4tbe", "armv5tbe")
     },
 }
 

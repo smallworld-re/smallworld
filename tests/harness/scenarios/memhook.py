@@ -17,6 +17,8 @@ _VARIANTS = (
     ("aarch64v85abe.angr", None),
     ("aarch64.panda", None),
     ("aarch64v85a.panda", None),
+    ("aarch64be.panda", None),
+    ("aarch64v85abe.panda", None),
     ("aarch64.pcode", None),
     ("aarch64v85a.pcode", None),
     ("aarch64be.pcode", None),

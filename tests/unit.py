@@ -1898,6 +1898,18 @@ class PandaMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_panda_aarch64be(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_aarch64v85abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_panda_amd64(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
@@ -1970,6 +1982,43 @@ class PandaMachdefTests(unittest.TestCase):
             platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+    def test_panda_armv6kbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_armv7abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_armv7rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_armv8abe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_armv8rbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_armv5tbe(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+        )
+        # PANDA's BE32 is word-invariant, which SmallWorld doesn't model
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_panda_i386(self):
         platform = platforms.Platform(
