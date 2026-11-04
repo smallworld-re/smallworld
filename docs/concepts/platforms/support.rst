@@ -59,8 +59,33 @@ v5t language includes the 5E extensions, so both decode ARMv5TE's DSP
 instructions (``qadd``, ``smla<x><y>``, ``ldrd`` and the like). Tests cover
 the saturating arithmetic, halfword multiplies and doubleword loads and stores.
 Unicorn, PANDA and Styx run all of them. Ghidra and angr don't run the
-saturating instructions: Ghidra saturates after the 32-bit result has already
-wrapped, and angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
+saturating instructions: Ghidra doesn't implement them (see below), and
+angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
+
+**Saturating arithmetic on Ghidra:** Ghidra can't run 32-bit ARM's
+saturating instructions, on any platform. Its SLEIGH specification computes
+them through four userops (``SignedSaturate``, ``SignedDoesSaturate``,
+``UnsignedSaturate`` and ``UnsignedDoesSaturate``) that Ghidra's emulator
+doesn't implement, so it stops with an error naming the userop rather than
+computing a result. SmallWorld doesn't implement them either, because for most
+of these instructions the specification itself is wrong: ``qadd`` and its
+relatives saturate the sum after it has already wrapped to 32 bits, and
+``ssat16`` and ``usat16`` take their halfwords unsigned, so implementing the
+userops would turn a loud failure into a silently wrong result. The affected
+instructions are:
+
+- ``ssat`` and ``usat`` (ARMv6 and later), which compilers emit for clamping
+  idioms, so they can turn up in ordinary optimized code, particularly image
+  and audio code;
+- ARMv5TE's ``qadd``, ``qsub``, ``qdadd`` and ``qdsub``, and ARMv6's SIMD
+  ``qadd16``, ``qadd8``, ``qasx``, ``qsax``, ``qsub16``, ``qsub8``, their
+  ``uq`` forms, ``ssat16`` and ``usat16``, which compilers emit only from
+  intrinsics or hand-written DSP code, such as CMSIS-DSP on Cortex-M4 and M7;
+- ARMv8.1-M's saturating shifts and MVE narrowing instructions, which
+  SmallWorld doesn't model anyway.
+
+Run such code on Unicorn or PANDA, which implement all of them. AArch64 is
+unaffected, as its SLEIGH specification computes saturation inline.
 
 **aarch64-v8.5a:** aarch64 is ARMv8.0-A: Unicorn runs it on its default
 AArch64 core, which rejects the instructions later versions added.
