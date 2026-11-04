@@ -106,6 +106,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in
   SmallWorld's flat map.
+- The C99 library-model tests run on the 8051, under both SDCC conventions,
+  for the 44 functions with 8051 models. They build from the same sources as
+  on other architectures, with a header that stands in for what SDCC's
+  library lacks, and `tests/mcs51_runner.py` runs them. The 8051's
+  `strerror` model gains the errno resolver it needed, and `rand` stays
+  within SDCC's `RAND_MAX`, which `Rand.rand_max` now sets per C library.
+  How `%p` shows a pointer is up to the calling convention, through
+  `VariadicContext.format_next_pointer()`; on the 8051 it names the
+  pointer's space as SDCC's library does (`X:0x002a`).
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

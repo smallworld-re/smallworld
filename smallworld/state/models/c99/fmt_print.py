@@ -762,24 +762,16 @@ def handle_pointer(
     flags = m.group(1)
     width = m.group(2)
 
-    fmt = "{:"
-
-    # Handle flags
-    # These mean the same for python as they do for C,
-    # with the exception of '-' in C being '<' in Python
-    flags = handle_flags(flags)
-    fmt += flags + "#"
+    # The only flag is '-', which left-justifies.
+    align = "<" if flags == "-" else ">"
 
     # Handle width
     width = handle_width(width, varargs, emulator)
-    fmt += width
 
-    val = varargs.get_next_argument(ArgumentType.POINTER, emulator)
-    assert isinstance(val, int)
+    # How the pointer is shown is up to the platform's C library.
+    text = varargs.format_next_pointer(emulator)
 
-    fmt += "x}"
-
-    return fmt.format(val)
+    return f"{text:{align}{width}}"
 
 
 def handle_len(

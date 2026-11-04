@@ -57,7 +57,8 @@ class MCS51SDCCMalloc(Malloc, MCS51SDCCModel):
 
 
 class MCS51SDCCRand(Rand, MCS51SDCCModel):
-    pass
+    # SDCC's RAND_MAX; int is 16 bits.
+    rand_max = 32767
 
 
 class MCS51SDCCRealloc(Realloc, MCS51SDCCModel):

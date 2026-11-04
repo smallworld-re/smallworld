@@ -404,6 +404,18 @@ class M68KErrnoResolver(ErrnoResolver):
     # la64 uses generic errno
 
 
+class MCS51SDCCErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCC
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
+
+
+class MCS51SDCCStackAutoErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCCSTACKAUTO
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
+
+
 class MIPSErrnoResolver(ErrnoResolver):
     abi = ABI.SYSTEMV
     # MIPS Absolutely doesn't use generic errno

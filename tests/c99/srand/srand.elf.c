@@ -8,7 +8,12 @@ int main() {
     srand(42);
 
     x = rand();
+#ifdef __SDCC
+    // SDCC's RAND_MAX is 32767.
+    if(x == 0x1c80) {
+#else
     if(x == 0x1c80317f) {
+#endif
         return *good;
     }
     return 0;

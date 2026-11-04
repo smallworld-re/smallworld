@@ -1212,3 +1212,12 @@ class VariadicContext:
 
         CStdCallingContext.add_argument(self, index, kind)
         return CStdCallingContext.get_argument(self, index, kind, emulator)
+
+    def format_next_pointer(self, emulator: emulators.Emulator) -> str:
+        """Get the next argument as a pointer, as printf's %p shows it
+
+        This is the text before any padding to a field width.
+        """
+        val = self.get_next_argument(ArgumentType.POINTER, emulator)
+        assert isinstance(val, int)
+        return f"{val:#x}"

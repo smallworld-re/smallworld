@@ -377,12 +377,40 @@ class MCS51SDCCVariadicContext(VariadicContext):
         self, kind: ArgumentType, emulator: emulators.Emulator
     ) -> typing.Union[int, float]:
         """Get the next argument of an assumed type"""
+        return _decode(kind, self._next_argument_bytes(kind, emulator))
+
+    def format_next_pointer(self, emulator: emulators.Emulator) -> str:
+        """Get the next argument as a pointer, as printf's %p shows it
+
+        As SDCC's library does: a letter for the space the pointer's tag
+        names, then the address in it, with two digits for internal RAM and
+        pdata, which are 256 bytes.
+        """
+        pointer = int.from_bytes(
+            self._next_argument_bytes(ArgumentType.POINTER, emulator), "little"
+        )
+        tag = (pointer >> 16) & 0xFF
+        if tag & SDCC_GPTR_CODE:
+            space = "C"
+        elif tag & SDCC_GPTR_PDATA == SDCC_GPTR_PDATA:
+            space = "P"
+        elif tag & SDCC_GPTR_DATA:
+            space = "I"
+        else:
+            space = "X"
+        if space in ("I", "P"):
+            return f"{space}:0x{pointer & 0xFF:02x}"
+        return f"{space}:0x{pointer & 0xFFFF:04x}"
+
+    def _next_argument_bytes(
+        self, kind: ArgumentType, emulator: emulators.Emulator
+    ) -> bytes:
         if kind not in _SIZES:
             raise exceptions.ConfigurationError(f"Unknown argument type {kind}")
         self._stack_depth += _SIZES[kind]
         sp = emulator.read_register("sp")
         address = MCS51_IDATA_BASE + sp - 1 - self._stack_depth
-        return _decode(kind, emulator.read_memory(address, _SIZES[kind]))
+        return emulator.read_memory(address, _SIZES[kind])
 
 
 class MCS51SDCCModel(MCS51SDCCCallingContext, CStdModel):

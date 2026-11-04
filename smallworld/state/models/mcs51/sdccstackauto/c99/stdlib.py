@@ -57,7 +57,8 @@ class MCS51SDCCStackAutoMalloc(Malloc, MCS51SDCCStackAutoModel):
 
 
 class MCS51SDCCStackAutoRand(Rand, MCS51SDCCStackAutoModel):
-    pass
+    # SDCC's RAND_MAX; int is 16 bits.
+    rand_max = 32767
 
 
 class MCS51SDCCStackAutoRealloc(Realloc, MCS51SDCCStackAutoModel):

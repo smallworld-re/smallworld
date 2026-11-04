@@ -863,12 +863,15 @@ class Rand(CStdModel):
 
     rand = random.Random()
 
+    #: RAND_MAX in the C library being modeled: glibc's by default.
+    rand_max = 2147483647
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # TODO: Rand is easy to do simply, harder to do right.
         # If someone is relying on srand/rand to produce a specific sequence,
         # this won't behave correctly.
-        val = self.rand.randint(0, 2147483647)
+        val = self.rand.randint(0, self.rand_max)
         self.set_return_value(emulator, val)
 
 
