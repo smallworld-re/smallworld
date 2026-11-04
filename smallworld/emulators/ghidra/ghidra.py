@@ -556,6 +556,27 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             raise exceptions.EmulationBounds()
 
+    def current_instruction_bytes(self) -> bytes:
+        """The bytes of the instruction being executed, in memory order, for a
+        userop that decodes the instruction itself."""
+        return self.bytes_java_to_py(self._thread.getInstruction().getBytes())
+
+    def read_sleigh_register(self, name: str) -> int:
+        """Read a register by its SLEIGH name, for a userop that needs one the
+        machine definition doesn't expose, such as ARM's condition flags or
+        Thumb mode."""
+        reg = self.machdef.language.getRegister(name)
+        if reg.isProcessorContext():
+            # Context registers, such as ARM's TMode, aren't in the state.
+            value = self._thread.getContext().getRegisterValue(reg)
+            return int(str(value.getUnsignedValue()))
+        state = self._thread.getState()
+        val = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        byteorder: typing.Literal["little", "big"] = (
+            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+        )
+        return int.from_bytes(self.bytes_java_to_py(val), byteorder)
+
     def _run_userop(self, op) -> None:
         """Run a userop SmallWorld implements, in place of Ghidra's emulator."""
         userop = self.machdef.userop(op)

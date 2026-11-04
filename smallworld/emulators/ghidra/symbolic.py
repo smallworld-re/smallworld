@@ -782,6 +782,29 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 self._run_userop(op)
                 skip = True
 
+    def current_instruction_bytes(self) -> bytes:
+        """The bytes of the instruction being executed, in memory order, for a
+        userop that decodes the instruction itself."""
+        return self.bytes_java_to_py(self._thread.getInstruction().getBytes())
+
+    def read_sleigh_register(self, name: str) -> int:
+        """Read a register by its SLEIGH name, for a userop that needs one the
+        machine definition doesn't expose, such as ARM's condition flags or
+        Thumb mode."""
+        reg = self.machdef.language.getRegister(name)
+        if reg.isProcessorContext():
+            # Context registers, such as ARM's TMode, aren't in the state.
+            value = self._thread.getContext().getRegisterValue(reg)
+            return int(str(value.getUnsignedValue()))
+        state = self._thread.getState()
+        pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        sym = pair.getRight()
+        if sym is not None and self._sym_references_user_input(sym):
+            raise exceptions.SymbolicValueError(
+                f"Register {name} contains a symbolic value"
+            )
+        return self._int_from_bytes(self.bytes_java_to_py(pair.getLeft()))
+
     def _run_userop(self, op) -> None:
         """Run a userop SmallWorld implements, in place of Ghidra's emulator.
 

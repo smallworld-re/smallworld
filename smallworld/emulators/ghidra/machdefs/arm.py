@@ -3,11 +3,19 @@ import typing
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef, Userop
 from .userops import (
+    coprocessor_function,
+    coprocessor_function2,
     crc32_calc,
+    float_to_signed_round,
+    float_to_unsigned_round,
+    fp_max_num,
+    fp_min_num,
     get_main_stack_pointer_limit,
     get_process_stack_pointer_limit,
     set_main_stack_pointer_limit,
     set_proc_stack_pointer_limit,
+    vector_float_to_signed_round,
+    vector_float_to_unsigned_round,
 )
 
 
@@ -682,6 +690,21 @@ class ARMMachineMixinVFPEL:
 
 class ARMMachineMixinVFPv8(ARMMachineMixinVFPEL):
     """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    # Ghidra's ARMv8 language decodes vsel and the scalar vrint instructions
+    # as cdp and cdp2, and its emulator doesn't implement the userops
+    # vcvt{a,n,p,m}, vmaxnm and vminnm lift to.
+    userops: typing.Mapping[str, Userop] = {
+        **ARMMachineDef.userops,
+        "coprocessor_function": coprocessor_function,
+        "coprocessor_function2": coprocessor_function2,
+        "FloatToSignedRound": float_to_signed_round,
+        "FloatToUnsignedRound": float_to_unsigned_round,
+        "VectorFloatToSignedRound": vector_float_to_signed_round,
+        "VectorFloatToUnsignedRound": vector_float_to_unsigned_round,
+        "FPMaxNum": fp_max_num,
+        "FPMinNum": fp_min_num,
+    }
 
     def __init__(self):
         super().__init__()
