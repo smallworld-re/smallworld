@@ -141,6 +141,13 @@ class GhidraMachineDef(AngrMachineDef):
         return self._angr_arch
 
     # angr's own p-code engine, with floating-point operations.
+    #
+    # MERGE NOTE: two unmerged branches replace this engine. Each must
+    # subclass FloatPcodeEngine, or floating point stops working there:
+    # - feature/superh-sh1-sh2 makes its PcodeEngine (the partial-register
+    #   fix) the default here. Base PcodeEngine on FloatPcodeEngine.
+    # - feature/x86-16-real-mode's X86RealModeEnginePcode subclasses
+    #   angr's engine directly. Base it on whichever is the default.
     angr_engine: typing.Optional[typing.Type[angr.engines.UberEnginePcode]] = (
         FloatPcodeEngine
     )
