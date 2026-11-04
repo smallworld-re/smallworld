@@ -376,8 +376,8 @@ MCS51_C_IHXS := $(patsubst %.mcs51.c,%.sdcc.mcs51.ihx,$(MCS51_C_SRCS)) $(patsubs
 # see mcs51_cc.sh.  Keep in step with _MCS51_FUNCTIONS in
 # harness/scenarios/library_models.py.
 
-MCS51_C99_FUNCTIONS := abs atof atoi atol atoll calloc fabs free getchar gets \
-	labs llabs malloc memchr memcmp memcpy memmove memset printf putchar puts \
+MCS51_C99_FUNCTIONS := abs atof atoi atol atoll bsearch calloc fabs free getchar gets \
+	labs llabs malloc memchr memcmp memcpy memmove memset printf putchar puts qsort \
 	rand realloc sprintf srand strcat strchr strcmp strcoll strcpy strcspn \
 	strerror strlen strncat strncmp strncpy strpbrk strrchr strspn strstr \
 	strtok strxfrm tolower toupper

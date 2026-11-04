@@ -50,10 +50,14 @@ their flat addresses, from the linker's map file.  A variadic 8051 model sets
 Models see SDCC's three-byte generic pointers as flat SmallWorld addresses
 (``sdcc_pointer_to_flat`` and ``flat_to_sdcc_pointer`` in
 ``smallworld.state.models.mcs51.sdcc``), with the null pointer as 0, and read
-and write data little-endian, as SDCC stores it.  That covers SDCC's small and
-large memory models; the medium and huge models use other pointer formats.
-Only the C99 functions SDCC's library provides are modeled for the 8051, and
-``qsort`` and ``bsearch``, which call back into the program, are not.
+and write data little-endian, as SDCC stores it.  SDCC's small and large
+memory models are tested; the medium model uses the same pointers but is not,
+and the huge model's banked code is not modeled.  Only the C99 functions
+SDCC's library provides are modeled for the 8051.  ``qsort`` and ``bsearch``
+call their comparator back with SDCC's reentrant convention, as SDCC's library
+does; a program's comparator must be declared ``__reentrant``, which SDCC does
+not check.  A model calling back into the program gets a function pointer with
+the right convention from its calling context's ``function_pointer()``.
 ``memset``, ``strchr`` and ``strrchr`` take a ``char`` rather than an ``int``
 on the 8051, as SDCC declares them.
 

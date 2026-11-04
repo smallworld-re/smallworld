@@ -122,6 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   How `%p` shows a pointer is up to the calling convention, through
   `VariadicContext.format_next_pointer()`; on the 8051 it names the
   pointer's space as SDCC's library does (`X:0x002a`).
+- `qsort` and `bsearch` models for the 8051, which call the program's
+  comparator back with SDCC's reentrant convention, as SDCC's library does.
+  A calling context now hands models a function pointer with the right
+  convention, through `CStdCallingContext.function_pointer()`, and sets up
+  and cleans up each call, through `begin_call()` and `end_call()`; the
+  8051's makes room for stack arguments below the return address and pops
+  them afterwards.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

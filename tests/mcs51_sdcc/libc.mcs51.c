@@ -33,10 +33,21 @@ __xdata int r_atoi;
 __xdata int r_abs;
 __xdata int r_sprintf;
 __xdata int r_malloc;
+__xdata int sorted[6] = {5, -3, 12, 0, -3, 7};
+__xdata int r_bsearch_hit;
+__xdata int r_bsearch_miss;
+
+/* The library calls it back with SDCC's reentrant convention. */
+int compare(const void *a, const void *b) __reentrant
+{
+    return *(const int *)a - *(const int *)b;
+}
 
 void main(void)
 {
     char *p;
+    int key;
+    int *found;
 
     strcpy(buf, "hello");
     strcat(buf, ", 8051");
@@ -58,6 +69,12 @@ void main(void)
     } else {
         r_malloc = -1;
     }
+    qsort(sorted, 6, sizeof(int), compare);
+    key = 7;
+    found = bsearch(&key, sorted, 6, sizeof(int), compare);
+    r_bsearch_hit = found ? found - sorted : -1;
+    key = 4;
+    r_bsearch_miss = bsearch(&key, sorted, 6, sizeof(int), compare) != 0;
     puts("done");
     printf("%d\n", 51);
 }

@@ -4,8 +4,6 @@ import typing
 
 import claripy
 
-from smallworld.state.models.funcptr import FunctionPointer
-
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
@@ -254,11 +252,10 @@ class Bsearch(CStdModel):
             assert isinstance(self.compar, int)
 
             # comparison function pointer
-            self.compare_func_ptr = FunctionPointer(
+            self.compare_func_ptr = self.function_pointer(
                 self.compar,
                 [ArgumentType.POINTER, ArgumentType.POINTER],
                 ArgumentType.INT,
-                self.platform,
             )
 
             # initialize searching variables and comparison stack frame
@@ -785,11 +782,10 @@ class QSort(CStdModel):
             assert isinstance(self.compar, int)
 
             # comparison function pointer
-            self.compare_func_ptr = FunctionPointer(
+            self.compare_func_ptr = self.function_pointer(
                 self.compar,
                 [ArgumentType.POINTER, ArgumentType.POINTER],
                 ArgumentType.INT,
-                self.platform,
             )
 
             # A run of 0 or 1 elements is already sorted, and C performs no

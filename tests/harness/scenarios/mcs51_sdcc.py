@@ -67,6 +67,8 @@ _LIBC_FUNCTIONS = {
     "_sprintf": "sprintf",
     "_malloc": "malloc",
     "_free": "free",
+    "_qsort": "qsort",
+    "_bsearch": "bsearch",
     "_puts": "puts",
     "_printf": "printf",
 }
@@ -336,6 +338,12 @@ def _run_libc(smallworld, abi_name: str, engine: str, models: bool) -> int:
         "r_abs": (integer("_r_abs"), 42),
         "r_sprintf": (integer("_r_sprintf"), 10),
         "r_malloc": (integer("_r_malloc"), 4),
+        "sorted": (
+            list(struct.unpack("<6h", xdata("_sorted", 12))),
+            [-3, -3, 0, 5, 7, 12],
+        ),
+        "r_bsearch_hit": (integer("_r_bsearch_hit"), 4),
+        "r_bsearch_miss": (integer("_r_bsearch_miss"), 0),
         "output": (output, "done\n51\n"),
     }
     return _report(checks, [])

@@ -16,6 +16,9 @@ from ...cstd import (
 )
 from ...filedesc import FileDescriptorManager as BaseFileDescriptorManager
 
+if typing.TYPE_CHECKING:
+    from ...funcptr import FunctionPointer
+
 # SDCC's generic pointers, in the small and large memory models, are three
 # bytes: a 16-bit address, then a tag byte naming the space it points into.
 # SDCC's own _gptrget tests the tag's top bits in this order.
@@ -136,8 +139,8 @@ class MCS51SDCCCallingContext(CStdCallingContext):
 
     Data in memory is little-endian, and pointers are SDCC's three-byte
     generic pointers, which models see as flat addresses (see
-    :func:`sdcc_pointer_to_flat`).  This covers the small and large memory
-    models; the medium and huge ones use other pointer formats.
+    :func:`sdcc_pointer_to_flat`).  This covers the small, medium and large
+    memory models; the huge one's banked function pointers are not modeled.
     """
 
     platform = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
@@ -283,6 +286,47 @@ class MCS51SDCCCallingContext(CStdCallingContext):
         emulator.write_memory(
             MCS51_IDATA_BASE + sp - 1, int.to_bytes(address & 0xFFFF, 2, "little")
         )
+
+    def function_pointer(
+        self,
+        address: int,
+        argument_types: typing.List[ArgumentType],
+        return_type: ArgumentType,
+    ) -> "FunctionPointer":
+        """Get a callable function pointer, such as a callback a model was given
+
+        SDCC's library declares the callbacks it takes, such as qsort's
+        comparator, ``__reentrant``, so they are called with SDCC's reentrant
+        convention whatever this one is.  ``address`` is a code address.
+        """
+        from ...funcptr import FunctionPointer
+        from ..sdccstackauto.sdccstackauto import MCS51SDCCStackAutoCallingContext
+
+        return FunctionPointer(
+            MCS51_CODE_BASE + address,
+            argument_types,
+            return_type,
+            self.platform,
+            context=MCS51SDCCStackAutoCallingContext(),
+        )
+
+    def begin_call(
+        self,
+        emulator: emulators.Emulator,
+        address: int,
+        args: typing.Sequence[typing.Union[int, float]],
+        return_address: int,
+    ) -> None:
+        # Arguments on the stack sit below the return address, so make room
+        # for them before pushing it.
+        sp = emulator.read_register("sp")
+        emulator.write_register("sp", (sp + self._stack_depth) & 0xFF)
+        super().begin_call(emulator, address, args, return_address)
+
+    def end_call(self, emulator: emulators.Emulator) -> None:
+        # The caller pops the arguments it put on the stack.
+        sp = emulator.read_register("sp")
+        emulator.write_register("sp", (sp - self._stack_depth) & 0xFF)
 
     # The base class routes return values through these; SDCC's go through
     # set_return_value and get_return_value above.
