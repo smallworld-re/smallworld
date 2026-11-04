@@ -188,9 +188,6 @@ def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
     sleighs flushing gradual underflow the same way in the same two operations
     puts the defect in Ghidra's float evaluation rather than in either ISA's
     specification.
-
-    ``ANGR_NO_FP`` deliberately does *not* appear: it describes angr's *p-code*
-    engine, and i386 angr is VEX-backed, which does implement FP.
     """
     if func in {"f32_mul", "f32_div"} and engine == "pcode":
         return GHIDRA_FLUSHES_SUBNORMALS

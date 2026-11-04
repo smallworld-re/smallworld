@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import logging
+import math
 import os
 import pathlib
 import pickle
@@ -11052,6 +11053,237 @@ class HookableChainOverlappingTests(unittest.TestCase):
         emu.hook_memory_write(0x2000, 0x2004, self._noop)
         emu.hook_memory_write(0x2008, 0x200C, self._noop)  # disjoint from first
         self.assertEqual(len(emu.iter_memory_write_hooks(0x2002, 8)), 2)
+
+
+class AngrPcodeFloatTests(unittest.TestCase):
+    """SmallWorld's floating-point p-code behaviors for angr."""
+
+    @staticmethod
+    def _behavior(name):
+        from pypcode import OpCode
+
+        from smallworld.emulators.angr.machdefs.pcode_float import FLOAT_BEHAVIORS
+
+        return FLOAT_BEHAVIORS.get_behavior_for_opcode(getattr(OpCode, name))
+
+    @staticmethod
+    def _f(value, size=8):
+        fmt = {4: "<f", 8: "<d"}[size]
+        return int.from_bytes(struct.pack(fmt, value), "little")
+
+    @staticmethod
+    def _unf(bits, size=8):
+        fmt = {4: "<f", 8: "<d"}[size]
+        return struct.unpack(fmt, bits.to_bytes(size, "little"))[0]
+
+    def _unary(self, name, size_out, size_in, value):
+        result = self._behavior(name).evaluate_unary(
+            size_out, size_in, claripy.BVV(value, size_in * 8)
+        )
+        return result.concrete_value
+
+    def _binary(self, name, size_out, size_in, a, b):
+        result = self._behavior(name).evaluate_binary(
+            size_out, size_in, claripy.BVV(a, size_in * 8), claripy.BVV(b, size_in * 8)
+        )
+        return result.concrete_value
+
+    def test_add_single(self):
+        self.assertEqual(
+            self._binary("FLOAT_ADD", 4, 4, self._f(2.2, 4), self._f(1.1, 4)),
+            0x40533334,
+        )
+
+    def test_divide_by_zero(self):
+        self.assertEqual(
+            self._unf(self._binary("FLOAT_DIV", 8, 8, self._f(-1.0), self._f(0.0))),
+            -math.inf,
+        )
+        # 0/0 is the canonical NaN.
+        self.assertEqual(
+            self._binary("FLOAT_DIV", 8, 8, self._f(0.0), self._f(0.0)),
+            0x7FF8000000000000,
+        )
+
+    def test_comparisons_follow_ieee(self):
+        nan, one = self._f(math.nan), self._f(1.0)
+        for name in ("FLOAT_EQUAL", "FLOAT_LESS", "FLOAT_LESSEQUAL"):
+            self.assertEqual(self._binary(name, 1, 8, one, nan), 0, name)
+            self.assertEqual(self._binary(name, 1, 8, nan, nan), 0, name)
+        self.assertEqual(self._binary("FLOAT_NOTEQUAL", 1, 8, nan, nan), 1)
+        self.assertEqual(
+            self._binary("FLOAT_EQUAL", 1, 8, self._f(-0.0), self._f(0.0)), 1
+        )
+
+    def test_round_ties_up_exactly(self):
+        for value, expected in (
+            (2.5, 3.0),
+            (-2.5, -2.0),
+            (0.49999999999999994, 0.0),
+            (-0.5, 0.0),
+            (2.0**52 + 1, 2.0**52 + 1),
+        ):
+            result = self._unf(self._unary("FLOAT_ROUND", 8, 8, self._f(value)))
+            self.assertEqual(result, expected, value)
+        # A zero result is +0.0.
+        self.assertEqual(self._unary("FLOAT_ROUND", 8, 8, self._f(-0.25)), 0)
+
+    def test_ceil_floor_keep_sign_of_zero(self):
+        self.assertEqual(self._unary("FLOAT_CEIL", 8, 8, self._f(-0.5)), self._f(-0.0))
+        self.assertEqual(self._unary("FLOAT_FLOOR", 8, 8, self._f(-0.0)), self._f(-0.0))
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_FLOOR", 4, 4, self._f(-3.7, 4)), 4), -4.0
+        )
+
+    def test_trunc(self):
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(-7.9)), 0xFFFFFFF9)
+        # The low bits of the integer.
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(1e20)), 0x63100000)
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(math.nan)), 0)
+        # An infinity saturates to the input's width, as in Ghidra.
+        self.assertEqual(
+            self._unary("FLOAT_TRUNC", 8, 4, self._f(math.inf, 4)), 0x7FFFFFFF
+        )
+        self.assertEqual(self._unary("FLOAT_TRUNC", 8, 8, self._f(-math.inf)), 1 << 63)
+
+    def test_int2float_rounds_once(self):
+        # Rounded to double first, 2**60 + 2**36 + 1 becomes a tie in single
+        # precision and rounds down; rounded once, it rounds up.
+        value = (1 << 60) + (1 << 36) + 1
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_INT2FLOAT", 4, 8, value), 4),
+            float((1 << 60) + (1 << 37)),
+        )
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_INT2FLOAT", 8, 4, 0xFFFFFFFB)), -5.0
+        )
+
+    def test_symbolic_solve(self):
+        x = claripy.BVS("x", 32)
+        total = self._behavior("FLOAT_ADD").evaluate_binary(
+            4, 4, x, claripy.BVV(self._f(1.0, 4), 32)
+        )
+        solver = claripy.Solver()
+        solver.add(total == self._f(3.5, 4))
+        self.assertEqual(self._unf(solver.eval(x, 1)[0], 4), 2.5)
+
+    def test_symbolic_round(self):
+        x = claripy.BVS("x", 64)
+        result = self._behavior("FLOAT_ROUND").evaluate_unary(8, 8, x)
+        solver = claripy.Solver()
+        solver.add(x == self._f(-2.5))
+        self.assertEqual(self._unf(solver.eval(result, 1)[0]), -2.0)
+
+    def test_unsupported_format(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self._binary("FLOAT_ADD", 10, 10, 1, 1)
+
+
+class AngrPcodeFloatGhidraDifferentialTests(unittest.TestCase):
+    """angr's floating-point p-code behaviors agree with Ghidra's own, except
+    where SmallWorld deliberately follows the p-code reference instead."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            _ensure_pyghidra_started()
+        except Exception as e:  # pragma: no cover - Ghidra is nix-only
+            raise unittest.SkipTest(f"Ghidra unavailable: {e}")
+
+    def test_against_ghidra(self):
+        import fractions
+        import random
+
+        from ghidra.pcode.opbehavior import OpBehaviorFactory
+        from ghidra.program.model.pcode import PcodeOp
+        from java.math import BigInteger
+        from pypcode import OpCode
+
+        from smallworld.emulators.angr.machdefs.pcode_float import FLOAT_BEHAVIORS
+
+        formats = {4: "<f", 8: "<d"}
+
+        def encode(value, size):
+            try:
+                packed = struct.pack(formats[size], value)
+            except OverflowError:
+                packed = struct.pack(formats[size], math.copysign(math.inf, value))
+            return int.from_bytes(packed, "little")
+
+        def decode(bits, size):
+            return struct.unpack(formats[size], bits.to_bytes(size, "little"))[0]
+
+        comparisons = {
+            "FLOAT_EQUAL",
+            "FLOAT_NOTEQUAL",
+            "FLOAT_LESS",
+            "FLOAT_LESSEQUAL",
+        }
+
+        def deliberate(name, size, operands):
+            values = [decode(v, size) for v in operands]
+            if name in comparisons and (
+                any(math.isnan(v) for v in values) or values == [0.0, 0.0]
+            ):
+                # IEEE comparisons; Ghidra orders like Double.compareTo.
+                return True
+            if name == "FLOAT_ROUND" and math.isfinite(values[0]):
+                # Exact; Ghidra computes floor(x + 0.5) in floating point.
+                exact = math.floor(
+                    fractions.Fraction(values[0]) + fractions.Fraction(1, 2)
+                )
+                return math.floor(values[0] + 0.5) != exact
+            return False
+
+        rng = random.Random(1)
+        edge = [0.0, -0.0, 1.0, -1.0, 0.5, -0.5, 2.5, -2.5, 3.7, -3.7, 1e-310]
+        edge += [1e300, -1e300, 1e20, 2.0**52 + 1, math.inf, -math.inf, math.nan]
+        unary = ["FLOAT_NEG", "FLOAT_ABS", "FLOAT_SQRT", "FLOAT_CEIL"]
+        unary += ["FLOAT_FLOOR", "FLOAT_ROUND", "FLOAT_NAN"]
+        binary = ["FLOAT_ADD", "FLOAT_SUB", "FLOAT_MULT", "FLOAT_DIV"]
+        binary += sorted(comparisons)
+
+        cases = []
+        for size in (4, 8):
+            values = [encode(v, size) for v in edge]
+            values += [rng.getrandbits(size * 8) for _ in range(20)]
+            for name in unary:
+                out = 1 if name == "FLOAT_NAN" else size
+                cases += [(name, out, size, (v,)) for v in values]
+            for name in binary:
+                out = 1 if name in comparisons else size
+                pairs = zip(values, rng.sample(values, len(values)))
+                cases += [(name, out, size, pair) for pair in pairs]
+            for out in (1, 4, 8):
+                cases += [("FLOAT_TRUNC", out, size, (v,)) for v in values]
+            other = 12 - size
+            cases += [("FLOAT_FLOAT2FLOAT", other, size, (v,)) for v in values]
+            for width in (1, 4, 8):
+                ints = [0, 1, (1 << width * 8) - 1, rng.getrandbits(width * 8)]
+                cases += [("FLOAT_INT2FLOAT", size, width, (v,)) for v in ints]
+
+        mismatches = []
+        for name, size_out, size_in, operands in cases:
+            java = OpBehaviorFactory.getOpBehavior(getattr(PcodeOp, name))
+            args = [BigInteger(str(v)) for v in operands]
+            if len(args) == 1:
+                expected = java.evaluateUnary(size_out, size_in, *args)
+            else:
+                expected = java.evaluateBinary(size_out, size_in, *args)
+            expected = int(str(expected)) & ((1 << size_out * 8) - 1)
+
+            ours = FLOAT_BEHAVIORS.get_behavior_for_opcode(getattr(OpCode, name))
+            bvs = [claripy.BVV(v, size_in * 8) for v in operands]
+            if len(bvs) == 1:
+                actual = ours.evaluate_unary(size_out, size_in, *bvs)
+            else:
+                actual = ours.evaluate_binary(size_out, size_in, *bvs)
+
+            if actual.concrete_value != expected and not deliberate(
+                name, size_in, operands
+            ):
+                mismatches.append((name, size_out, size_in, [hex(v) for v in operands]))
+        self.assertEqual(mismatches, [])
 
 
 if __name__ == "__main__":

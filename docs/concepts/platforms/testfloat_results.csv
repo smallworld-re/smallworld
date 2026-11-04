@@ -1,5 +1,5 @@
 variant,               single precision, double precision
-superh-sh2a-fpu angr,  skipped,          skipped
+superh-sh2a-fpu angr,  5 pass,           5 skip
 superh-sh2a-fpu ghidra,3 pass / 2 skip,  5 skip
 superh-sh2a-fpu panda, 5 pass,           5 pass
 superh-sh2a-fpu styx,  5 pass,           5 skip

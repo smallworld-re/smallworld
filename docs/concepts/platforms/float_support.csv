@@ -18,7 +18,7 @@ mips64,                         No,         Untested,   No,         No,         
 powerpc32,                      No,         Untested,   No,         Untested,   No Support
 powerpc64,                      No,         Untested,   No Support, No,         No Support
 riscv64,                        Untested,   Untested,   No Support, No,         No Support
-superh-sh2a-fpu single,         No,         **Yes**,    **Yes**,    **Yes**,    No Support
+superh-sh2a-fpu single,         **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         No Support
 superh-sh4 single,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4 double,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
