@@ -164,6 +164,12 @@ _SPECS = {
         pc_register="pc",
         engines=("angr", "panda", "pcode"),
     ),
+    # unmapped.v850.elf.s loads at 0x100000, its linker's default.
+    "v850": UnmappedSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
 }
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.

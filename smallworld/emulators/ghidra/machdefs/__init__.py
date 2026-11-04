@@ -13,6 +13,7 @@ from .riscv import RISCV64MachineDef
 from .superh import SH1MachineDef, SH2AFPUMachineDef, SH2MachineDef
 from .superh4 import SuperH4BEMachineDef, SuperH4ELMachineDef
 from .tricore import TriCoreMachineDef
+from .v850 import V850MachineDef
 from .xtensa import XTensaMachineDef
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     "SuperH4BEMachineDef",
     "SuperH4ELMachineDef",
     "TriCoreMachineDef",
+    "V850MachineDef",
     "XTensaMachineDef",
 ]

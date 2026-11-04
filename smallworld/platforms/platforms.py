@@ -80,6 +80,9 @@ class Architecture(enum.Enum):
     TRICORE = "tricore"
     """Infineon TriCore"""
 
+    V850 = "v850"
+    """Renesas V850E1, V850E2 and V850E2M"""
+
     XTENSA = "xtensa"
     """Xtensa"""
 

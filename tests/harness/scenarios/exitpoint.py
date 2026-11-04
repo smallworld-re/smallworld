@@ -248,6 +248,15 @@ _SPECS = {
         fake_return_size=4,
         link_register="ra",
     ),
+    "v850": ExitpointSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        engines=("angr", "pcode"),
+        mid_exit_offset=2,
+        fake_return_size=4,
+        link_register="lp",
+    ),
 }
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.

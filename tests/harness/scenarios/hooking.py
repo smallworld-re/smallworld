@@ -263,6 +263,15 @@ _SPECS = {
         string_source=StringSource(register="a4"),
         tricore_panda_callsite_offsets={"gets": 0x0C, "puts": 0x12},
     ),
+    "v850": HookingSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r6"),
+    ),
     "xtensa": HookingSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,

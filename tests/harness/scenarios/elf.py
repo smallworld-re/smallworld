@@ -144,6 +144,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("angr", "panda", "pcode"),
     ),
+    "v850": ElfSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -259,6 +266,11 @@ def _configure_exitpoints(
 
     if arch == "tricore":
         set_register(cpu, "ra", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
+        return
+
+    if arch == "v850":
+        set_register(cpu, "lp", 0xFFFF0)
         machine.add_exit_point(0xFFFF0)
         return
 

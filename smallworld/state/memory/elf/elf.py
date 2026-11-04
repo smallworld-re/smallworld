@@ -21,10 +21,12 @@ EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
+EM_V800 = 36  # NEC V800; the RH850 ELF ABI, which GNU as uses by default
 EM_ARM = 40  # ARM 32-bit
 EM_SH = 42  # Renesas/Hitachi SuperH; all generations
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
+EM_V850 = 87  # NEC/Renesas V850, the GCC ELF ABI
 EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
 EM_RISCV = 243  # RISC-V
@@ -34,6 +36,9 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+
+# V850-specific flag values: under EM_V800, code built for RH850's V850E3v5.
+EF_V800_850E3 = 0x00100000
 
 # SuperH-specific flag values.
 #
@@ -190,6 +195,25 @@ def _superh_architecture(elf, requested):
         raise ConfigurationError(f"Unsupported SuperH ISA in e_flags: {hex(mach)}")
 
 
+def _v800_architecture(elf, requested):
+    # RH850 images use this machine type, as do V850 images built for the
+    # RH850 ABI, which is GNU as's default. SmallWorld's V850 model has no
+    # RH850 (V850E3v5) instructions, so warn whether or not the image is
+    # flagged as V850E3v5 code. Most RH850-only instructions fail to decode,
+    # but RH850 reused some encodings that V850 decodes as writes to r0:
+    # `loop` runs as `mulhi`, `synci` as `mov`, and `ld.dw`/`st.dw` as
+    # `ld.bu`, so those run wrongly without failing.
+    message = (
+        "running it as V850E2M. RH850-only instructions fail to decode, "
+        "or run as different V850 instructions"
+    )
+    if elf.header.processor_flag & EF_V800_850E3:
+        log.warning(f"EM_V800 image flagged as V850E3v5 (RH850); {message}")
+    else:
+        log.warning(f"EM_V800 image; {message}")
+    return Architecture.V850
+
+
 # The architecture detector for each e_machine value.
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
@@ -208,6 +232,8 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     ),
     EM_SH: _superh_architecture,
     EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
+    EM_V800: _v800_architecture,
+    EM_V850: _fixed_architecture(Architecture.V850),
     EM_X86_64: _fixed_architecture(Architecture.X86_64),
     EM_XTENSA: _fixed_architecture(Architecture.XTENSA),
 }

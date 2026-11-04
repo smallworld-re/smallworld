@@ -21,6 +21,7 @@ from .superh import (
     SuperHElfRelocator,
 )
 from .tricore import TriCoreElfRelocator
+from .v850 import V850ElfRelocator
 from .xtensa import XtensaElfRelocator
 
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     "SuperH4ELElfRelocator",
     "SuperHElfRelocator",
     "TriCoreElfRelocator",
+    "V850ElfRelocator",
     "XtensaElfRelocator",
     "ElfRelocator",
 ]

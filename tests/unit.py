@@ -994,6 +994,7 @@ UNIT_TEST_PLATFORMS = {
     "sh4": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG),
     "sh4el": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
     "tricore": (platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE),
+    "v850": (platforms.Architecture.V850, platforms.Byteorder.LITTLE),
     "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
 }
 
@@ -1136,6 +1137,7 @@ class CPUTests(unittest.TestCase):
             "sh2a",
             "sh4",
             "sh4el",
+            "v850",
             "xtensa",
         )
     },
@@ -1303,6 +1305,7 @@ class M68KAngrTests(unittest.TestCase):
                 "msp430x",
                 "ppc64",
                 "riscv64",
+                "v850",
                 "xtensa",
             )
         },
@@ -9818,6 +9821,39 @@ class LoongArch32ElfRelocatorTests(unittest.TestCase):
             exceptions.ConfigurationError, "Valid, but unsupported"
         ):
             self._value(2)
+
+
+class ElfV800Tests(unittest.TestCase):
+    """An EM_V800 (RH850 ABI) image loads as V850, with a warning that
+    RH850-only instructions are not modelled."""
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _load(self, flags: int):
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, 36)  # e_machine = EM_V800
+        struct.pack_into("<I", image, 36, flags)  # e_flags
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        return code, "\n".join(logs.output)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v800_loads_as_v850(self):
+        code, logs = self._load(0)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+        self.assertIn("EM_V800 image; running it as V850E2M", logs)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v800_flagged_rh850(self):
+        code, logs = self._load(0x00100000)  # EF_V800_850E3
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+        self.assertIn("flagged as V850E3v5 (RH850)", logs)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_loads_as_v850(self):
+        with self.PATH.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):

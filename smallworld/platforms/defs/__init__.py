@@ -13,6 +13,7 @@ from .riscv import RiscV64
 from .superh import SH1, SH2, SH2AFPU
 from .superh4 import SuperH4BE, SuperH4EL
 from .tricore import TriCore
+from .v850 import V850
 from .xtensa import Xtensa, XtensaBE
 
 __all__ = [
@@ -47,6 +48,7 @@ __all__ = [
     "SuperH4BE",
     "SuperH4EL",
     "TriCore",
+    "V850",
     "Xtensa",
     "XtensaBE",
 ]

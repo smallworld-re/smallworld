@@ -19,6 +19,7 @@ from .superh import (
     SuperH4ELStack,
 )
 from .tricore import TriCoreStack
+from .v850 import V850Stack
 from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
@@ -47,6 +48,7 @@ __all__ = __stack__ + [
     "SuperH4BEStack",
     "SuperH4ELStack",
     "TriCoreStack",
+    "V850Stack",
     "XTensaBEStack",
     "XTensaELStack",
 ]

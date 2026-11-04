@@ -319,6 +319,24 @@ hook:
   no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
   is architecturally prohibited on SuperH anyway, but assemblers accept it.
 
+**V850:** *v850* is Renesas V850E1, V850E2 and V850E2M, little-endian, on angr
+and Ghidra. Both use Ghidra's ``V850:LE:32:default`` language, which pip's
+pypcode also ships, so angr's V850 support works in a pip install. Unicorn,
+QEMU (and so Panda) and Styx have no V850 model.
+
+That language covers the three cores in one, including V850E2M's FPU, with no
+way to select a core: it accepts V850E2 and V850E2M instructions in V850E1 code.
+
+It does not model RH850 (V850E3v5), and SmallWorld has no RH850 platform. Most
+RH850-only instructions fail to decode, but a few reuse encodings that V850
+decodes as writes to ``r0``, and run as those without any error: ``loop`` as
+``mulhi``, ``synci`` as ``mov``, and ``ld.dw`` and ``st.dw`` as ``ld.bu``. The
+ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use, as
+V850, with a warning saying so. ``EM_V850`` images load without one.
+
+angr's p-code engine implements no floating-point operations, so V850E2M's FPU
+instructions do not run on angr.
+
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
 Our emulation support depends on Ghidra's hardware model,
