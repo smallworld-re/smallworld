@@ -78,10 +78,6 @@ _ANGR_NO_MAXNUM = "angr doesn't implement VEX's Iop_MaxNumF32 (vmaxnm)"
 _ANGR_NO_STACKLIMIT = (
     "angr doesn't model the ARMv8-M stack-limit registers; mrs reads a symbolic value"
 )
-_PCODE_NO_V8FP = (
-    "Ghidra's SLEIGH lifts these ARMv8 FP instructions to a coprocessor_function2 "
-    "userop the emulator doesn't implement"
-)
 
 # family -> (archs, [(argument, expected r0)], skip reasons)
 _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] = {
@@ -113,10 +109,6 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         {
             **{
                 f"{arch}.angr": _ANGR_NO_MAXNUM
-                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
-            },
-            **{
-                f"{arch}.pcode": _PCODE_NO_V8FP
                 for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
             },
             **{

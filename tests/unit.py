@@ -9809,6 +9809,257 @@ class GhidraSymbolicUseropTests(unittest.TestCase):
         with self.assertRaisesRegex(exceptions.SymbolicValueError, "Crc32Calc"):
             emu.step_instruction()
 
+    def test_runs_a_userop_that_decodes_the_instruction(self):
+        # vrinta lifts to cdp2's coprocessor_function2, whose implementation
+        # reads the instruction's bytes and registers from the emulator.
+        emu = self._emulator()
+        emu.write_memory_content(self.CODE, bytes.fromhex("400ab8fe"))
+        emu.write_register("s0", int.from_bytes(struct.pack("<f", -2.5), "little"))
+        emu.step_instruction()
+        self.assertEqual(
+            struct.unpack("<f", emu.read_register("s0").to_bytes(4, "little"))[0],
+            -3.0,
+        )
+
+
+class _FakeArmFpEmulator:
+    """Just enough emulator for the ARMv8 FP userops: the instruction's
+    bytes, s/d/fpscr registers, and Ghidra's TMode and NG/ZR/CY/OV."""
+
+    def __init__(self, insn: int, thumb: bool = False, **registers):
+        if thumb:
+            self.data = (insn >> 16).to_bytes(2, "little") + (insn & 0xFFFF).to_bytes(
+                2, "little"
+            )
+        else:
+            self.data = insn.to_bytes(4, "little")
+        self.registers = {"pc": 0x1000, "fpscr": 0, **registers}
+        self.sleigh = {"TMode": int(thumb), "NG": 0, "ZR": 0, "CY": 0, "OV": 0}
+
+    def current_instruction_bytes(self):
+        return self.data
+
+    def read_sleigh_register(self, name):
+        return self.sleigh[name]
+
+    def read_register_content(self, name):
+        return self.registers.get(name, 0)
+
+    def write_register_content(self, name, value):
+        self.registers[name] = value
+
+
+def _f32(value):
+    return int.from_bytes(struct.pack("<f", value), "little")
+
+
+def _from_f32(bits):
+    return struct.unpack("<f", bits.to_bytes(4, "little"))[0]
+
+
+def _f32_lanes(*values):
+    return sum(_f32(v) << (32 * i) for i, v in enumerate(values))
+
+
+class ArmV8FpUseropTests(unittest.TestCase):
+    """The ARMv8 AArch32 FP instructions Ghidra's emulator can't run.
+
+    Ghidra's ARMv8 language decodes vsel and the scalar vrint instructions as
+    cdp and cdp2, and lifts vcvt{a,n,p,m}, vmaxnm and vminnm to userops its
+    emulator doesn't implement, so SmallWorld runs them. Encodings checked
+    against Capstone, and results against Unicorn.
+    """
+
+    # FPRounding values, as SLEIGH passes them.
+    TIEEVEN, POSINF, NEGINF, ZERO, TIEAWAY = range(5)
+    DENORMAL = 0x00000001
+
+    @classmethod
+    def setUpClass(cls):
+        _ensure_pyghidra_started()
+        from smallworld.emulators.ghidra.machdefs import userops
+
+        cls.userops = userops
+
+    def _cdp2(self, insn, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        self.assertIsNone(self.userops.coprocessor_function2(emu, "cdp2", []))
+        return emu
+
+    def test_vrint_rounds_as_its_mode_says(self):
+        # vrint{a,n,p,m}.f32 s0, s1
+        cases = {
+            0xFEB80A60: {2.5: 3.0, -2.5: -3.0, 1.5: 2.0, 2.4: 2.0},  # a: ties away
+            0xFEB90A60: {2.5: 2.0, -2.5: -2.0, 1.5: 2.0, 3.5: 4.0},  # n: ties even
+            0xFEBA0A60: {2.1: 3.0, -2.9: -2.0},  # p: up
+            0xFEBB0A60: {2.9: 2.0, -2.1: -3.0},  # m: down
+        }
+        for insn, results in cases.items():
+            for value, expected in results.items():
+                emu = self._cdp2(insn, s1=_f32(value))
+                self.assertEqual(
+                    _from_f32(emu.registers["s0"]), expected, (insn, value)
+                )
+
+    def test_vrint_keeps_the_sign_of_zero_and_passes_specials(self):
+        emu = self._cdp2(0xFEB80A60, s1=_f32(-0.3))  # vrinta.f32 s0, s1
+        self.assertEqual(emu.registers["s0"], 0x80000000)
+        emu = self._cdp2(0xFEB80A60, s1=_f32(float("-inf")))
+        self.assertEqual(emu.registers["s0"], 0xFF800000)
+        # A signalling NaN comes back quieted.
+        emu = self._cdp2(0xFEB80A60, s1=0x7F800001)
+        self.assertEqual(emu.registers["s0"], 0x7FC00001)
+
+    def test_vrint_f64(self):
+        emu = self._cdp2(
+            0xFEB82B43, d3=int.from_bytes(struct.pack("<d", -7.5), "little")
+        )  # vrinta.f64 d2, d3
+        self.assertEqual(
+            struct.unpack("<d", emu.registers["d2"].to_bytes(8, "little"))[0], -8.0
+        )
+
+    def test_vrint_r_z_x_round_by_fpscr_or_towards_zero(self):
+        # vrintr.f32 and vrintx.f32 s0, s1 follow FPSCR.RMode; vrintz.f32
+        # rounds towards zero whatever it says.
+        vrintr, vrintx, vrintz = 0xEEB60A60, 0xEEB70A60, 0xEEB60AE0
+        for insn, rmode, expected in (
+            (vrintr, 0b00, 2.0),  # to nearest, ties to even
+            (vrintr, 0b01, 3.0),  # up
+            (vrintx, 0b10, 2.0),  # down
+            (vrintz, 0b01, 2.0),
+        ):
+            emu = _FakeArmFpEmulator(insn, s1=_f32(2.5), fpscr=rmode << 22)
+            self.userops.coprocessor_function(emu, "cdp", [])
+            self.assertEqual(_from_f32(emu.registers["s0"]), expected, hex(insn))
+
+    def test_flush_to_zero(self):
+        # FPSCR.FZ reads a denormal as zero: vrintp.f32 s0, s1 would give 1.
+        emu = self._cdp2(0xFEBA0A60, s1=self.DENORMAL)
+        self.assertEqual(_from_f32(emu.registers["s0"]), 1.0)
+        emu = self._cdp2(0xFEBA0A60, s1=self.DENORMAL, fpscr=1 << 24)
+        self.assertEqual(emu.registers["s0"], 0)
+
+    def test_vcvt_rounds_and_saturates(self):
+        emu = _FakeArmFpEmulator(0xFEBC2AC0)  # vcvta.s32.f32 s4, s0
+        for value, rounding, expected in (
+            (2.5, self.TIEAWAY, 3),
+            (-2.5, self.TIEAWAY, -3),
+            (2.5, self.TIEEVEN, 2),
+            (3e10, self.TIEAWAY, 0x7FFFFFFF),
+            (-3e10, self.TIEAWAY, -(1 << 31)),
+            (float("nan"), self.TIEAWAY, 0),
+        ):
+            self.assertEqual(
+                self.userops.float_to_signed_round(
+                    emu, "vcvta", [_f32(value), rounding]
+                ),
+                expected & 0xFFFFFFFF,
+                value,
+            )
+        emu = _FakeArmFpEmulator(0xFEFF0A41)  # vcvtm.u32.f32 s1, s2
+        for value, expected in ((-0.5, 0), (2.9, 2), (5e9, 0xFFFFFFFF)):
+            self.assertEqual(
+                self.userops.float_to_unsigned_round(
+                    emu, "vcvtm", [_f32(value), self.NEGINF]
+                ),
+                expected,
+                value,
+            )
+        emu = _FakeArmFpEmulator(0xFEBF0B41)  # vcvtm.u32.f64 s0, d1
+        double = int.from_bytes(struct.pack("<d", 7.9), "little")
+        self.assertEqual(
+            self.userops.float_to_unsigned_round(emu, "vcvtm", [double, self.NEGINF]),
+            7,
+        )
+
+    def test_vector_vcvt_works_lane_by_lane_and_flushes(self):
+        # vcvtp.u32.f32 q0, q1: up, saturating, a denormal read as zero.
+        emu = _FakeArmFpEmulator(0xF3BB02C2)
+        result = self.userops.vector_float_to_unsigned_round(
+            emu,
+            "vcvtp",
+            [_f32_lanes(1.5, -3.0, 5e9, 0.0) | self.DENORMAL << 96, 1, self.POSINF],
+        )
+        self.assertEqual(result, 2 | 0 << 32 | 0xFFFFFFFF << 64 | 0 << 96)
+
+    def test_vsel_follows_the_condition(self):
+        # vsel{eq,vs,ge,gt}.f32 s3, s1, s2: s1 when the condition holds.
+        n, m = _f32(1.0), _f32(2.0)
+        cases = [
+            (0xFE401A81, {"ZR": 1}, n),
+            (0xFE401A81, {}, m),
+            (0xFE501A81, {"OV": 1}, n),
+            (0xFE601A81, {"NG": 1, "OV": 1}, n),
+            (0xFE601A81, {"NG": 1}, m),
+            (0xFE701A81, {}, n),
+            (0xFE701A81, {"ZR": 1}, m),
+        ]
+        for insn, flags, expected in cases:
+            emu = _FakeArmFpEmulator(insn, s1=n, s2=m)
+            emu.sleigh.update(flags)
+            self.userops.coprocessor_function2(emu, "cdp2", [])
+            self.assertEqual(emu.registers["s3"], expected, (hex(insn), flags))
+
+    def test_thumb_encoding(self):
+        emu = self._cdp2(0xFEB80A40, thumb=True, s0=_f32(-2.5))  # vrinta.f32 s0, s0
+        self.assertEqual(_from_f32(emu.registers["s0"]), -3.0)
+
+    def test_other_coprocessor_instructions_are_refused(self):
+        emu = _FakeArmFpEmulator(0xFE000E00)  # cdp2 p14, ...
+        with self.assertRaises(exceptions.EmulationExecFailure):
+            self.userops.coprocessor_function2(emu, "cdp2", [])
+        emu = _FakeArmFpEmulator(0xEE000E00)  # cdp p14, ...
+        with self.assertRaises(exceptions.EmulationExecFailure):
+            self.userops.coprocessor_function(emu, "cdp", [])
+
+    def _max(self, insn, a, b, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        return self.userops.fp_max_num(emu, "vmaxnm", [a, b])
+
+    def _min(self, insn, a, b, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        return self.userops.fp_min_num(emu, "vminnm", [a, b])
+
+    def test_maxnum_and_minnum(self):
+        vmaxnm, vminnm = 0xFE801A20, 0xFE801A60  # v{max,min}nm.f32 s2, s0, s1
+        qnan, snan = 0x7FC00000, 0x7F800001
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), _f32(2.0)), _f32(2.0))
+        self.assertEqual(self._min(vminnm, _f32(1.0), _f32(2.0)), _f32(1.0))
+        # A number beats a quiet NaN, in either position.
+        self.assertEqual(self._max(vmaxnm, qnan, _f32(-1.0)), _f32(-1.0))
+        self.assertEqual(self._min(vminnm, _f32(-1.0), qnan), _f32(-1.0))
+        # +0 is the larger zero.
+        self.assertEqual(self._max(vmaxnm, 0x80000000, 0), 0)
+        self.assertEqual(self._min(vminnm, 0, 0x80000000), 0x80000000)
+        # A signalling NaN propagates, quieted, unless FPSCR.DN asks for the
+        # default NaN.
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), snan), 0x7FC00001)
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), snan, fpscr=1 << 25), qnan)
+
+    def test_simd_maxnum_works_lane_by_lane(self):
+        vmaxnm_d = 0xF3010F12  # vmaxnm.f32 d0, d1, d2
+        self.assertEqual(
+            self._max(vmaxnm_d, _f32_lanes(1.0, 5.0), _f32_lanes(3.0, -5.0)),
+            _f32_lanes(3.0, 5.0),
+        )
+        # vminnm.f32 q0, q1, q2, in Thumb
+        self.assertEqual(
+            self._min(
+                0xFF220F54,
+                _f32_lanes(1.0, 5.0, -1.0, 0.0),
+                _f32_lanes(3.0, -5.0, 2.0, -0.0),
+                thumb=True,
+            ),
+            _f32_lanes(1.0, -5.0, -1.0, -0.0),
+        )
+        # Advanced SIMD always gives the default NaN for a signalling one, and
+        # reads a denormal as zero.
+        snan = 0x7F800001
+        self.assertEqual(
+            self._max(vmaxnm_d, _f32_lanes(1.0, -1.0), snan | self.DENORMAL << 32),
+            0x7FC00000,
+        )
+
 
 class GhidraSymbolicRegisterLabelTests(unittest.TestCase):
     """write_register_label must preserve the register's concrete byte side.
