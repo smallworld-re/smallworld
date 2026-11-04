@@ -13,6 +13,9 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
   the bits of internal RAM 0x20-0x2F and of the SFRs.
 - SP has no direct-address alias, so `mov sp,#n` writes SFR 0x81 and leaves SP
   alone.
+- MOVX @Ri ignores P2, which supplies the high address byte, so code that
+  pages external RAM, as SDCC's startup code does, stays in its first 256
+  bytes.
 
 --- a/Ghidra/Processors/8051/data/languages/8051_main.sinc
 +++ b/Ghidra/Processors/8051/data/languages/8051_main.sinc
@@ -84,7 +87,23 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  }
  
  macro push8(val) {
-@@ -620,6 +642,11 @@
+@@ -602,6 +624,15 @@
+ RiX:     @ri       is ri      { ptr:3 = zext(ri); export *[RAM]:1 ptr; }
+ @endif
+ 
++# SmallWorld: on the 8051, MOVX @Ri takes the high byte of its address from
++# P2, as the hardware does; SDCC pages external RAM through it to initialize
++# data, and to reach pdata and an external stack.  Other variants keep RiX.
++@if defined(MCS51)
++RiXP:    @ri       is ri      { local page:1 = *[SFR]:1 0xA0:1; ptr:2 = (zext(page) << 8) | zext(ri); export *[EXTMEM]:1 ptr; }
++@else
++RiXP:    RiX       is RiX     { export RiX; }
++@endif
++
+ Data:    "#"data   is data	  { export *[const]:1 data; }
+ Data16:  "#"data16 is data16  { export *[const]:2 data16; }
+ @if defined(MCS80390)
+@@ -620,6 +651,11 @@
  Direct:  "A"       is bank=1 & direct=0xE0 	{ export ACC; }
  Direct:  B         is bank=1 & direct=0xF0 & B  { export B;  }
  Direct:  DPL       is bank=1 & direct=0x82 & DPL 	{ export DPL; }
@@ -96,7 +115,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  Direct:  DPH       is bank=1 & direct=0x83 & DPH  { export DPH;  }
  @if defined(MCS80390)
  Direct:  DPX       is bank=1 & direct=0x93 & DPX  { export DPX;  }
-@@ -640,6 +667,9 @@
+@@ -640,6 +676,9 @@
  Direct2: "A"       is bank2=1 & direct2=0xE0	{ export ACC; }
  Direct2:  B        is bank2=1 & direct2=0xF0 & B  { export B;  }
  Direct2:  DPL      is bank2=1 & direct2=0x82 & DPL 	{ export DPL; }
@@ -106,7 +125,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  Direct2:  DPH      is bank2=1 & direct2=0x83 & DPH  { export DPH;  }
  @if defined(MCS80390)
  Direct2:  DPX      is bank2=1 & direct2=0x93 & DPX  { export DPX;  }
-@@ -704,15 +734,15 @@
+@@ -704,15 +743,15 @@
  :ACALL  Addr11 is  $(GROUP1) & aaddrfill=1 & aoplo=1 & Addr11   { ret:2 = inst_next; push16(ret); call Addr11; }
  @endif
  
@@ -131,7 +150,19 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  
  #TODO: which GROUP does AJMP belong to ??
  @if defined(MCS80390)
-@@ -946,10 +976,10 @@
+@@ -874,9 +913,9 @@
+ :MOVC  Areg,ADPTR is $(GROUP1) & ophi=9 & oplo=3 & ADPTR & Areg		{ ACC = *:1 ADPTR; }
+ :MOVC  Areg,APC   is $(GROUP1) & ophi=8 & oplo=3 & APC   & Areg		{ ACC = *:1 APC; }
+ 
+-:MOVX  Areg,RiX     is $(GROUP2) & ophi=14 & rifill=1 & RiX & Areg	{ ACC = RiX; }
++:MOVX  Areg,RiXP    is $(GROUP2) & ophi=14 & rifill=1 & RiXP & Areg	{ ACC = RiXP; }
+ :MOVX  Areg,ATDPTR  is $(GROUP1) & ophi=14 & oplo=0 & Areg & ATDPTR	{ ACC = ATDPTR; }
+-:MOVX  RiX,Areg     is $(GROUP2) & ophi=15 & rifill=1 & RiX & Areg	{ RiX = ACC; }
++:MOVX  RiXP,Areg    is $(GROUP2) & ophi=15 & rifill=1 & RiXP & Areg	{ RiXP = ACC; }
+ :MOVX  ATDPTR,Areg  is $(GROUP1) & ophi=15 & oplo=0 & Areg & ATDPTR	{ ATDPTR = ACC; }
+ 
+ :MUL ABreg         is $(GROUP1) & ophi=10 & oplo=4 & ABreg	   { PSW = PSW & 0x7b; tmp:2 = zext(ACC) * zext(B); ACC = tmp(0); B = tmp(1); PSW = PSW | ((B!=0)<<2); }
+@@ -946,10 +985,10 @@
  
  :SJMP Rel8        is $(GROUP1) & ophi=8 & oplo=0; Rel8			{ goto Rel8; }
  

@@ -60,7 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   user-defined operations in Python, following the angr backend's Xtensa
   tables. Test binaries are assembled with SDCC. SmallWorld's Nix environment
   patches Ghidra's 8051 language (`nix/patches/ghidra-8051.patch`) so that
-  arithmetic flags, bit addressing and `mov sp,#n` behave as on hardware.
+  arithmetic flags, bit addressing, `mov sp,#n` and `movx @Ri` behave as on
+  hardware; `movx @Ri` takes the high byte of its address from P2, which SDCC
+  pages external RAM through to initialize data and to reach pdata.
 - The Intel 8051 on the angr backend, through angr's p-code engine. An 8051
   engine maps the 8051's address spaces onto the same flat map as the Ghidra
   backend and implements its user-defined operations, and the Nix
@@ -76,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   logic, data movement, bit instructions and branches run from a random
   starting state, and their final registers, internal RAM, SFRs and XDATA are
   compared with the results `tests/mcs51_diff/generate.py` recorded from
-  ucsim_51. They match on angr and Ghidra.
+  ucsim_51. They match on angr and Ghidra. A `paging` program checks
+  `movx @Ri` across external RAM pages.
 - The 8051's parity flag, PSW bit 0, on angr and Ghidra. Ghidra's 8051
   language never computes it, so both backends recompute it from the
   accumulator around every instruction; `GhidraMachineDef` gains
