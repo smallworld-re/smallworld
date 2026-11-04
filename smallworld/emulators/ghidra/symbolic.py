@@ -313,9 +313,18 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             raise exceptions.SymbolicValueError(
                 f"Register {name} contains a symbolic value"
             )
-        return self._int_from_bytes(
+        value = self._int_from_bytes(
             self.machdef.fix_register_bytes(name, self.bytes_java_to_py(concrete))
         )
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            try:
+                flag = 1 if self.read_sleigh_register(sleigh_name) else 0
+            except exceptions.SymbolicValueError:
+                raise exceptions.SymbolicValueError(
+                    f"Register {name} contains a symbolic value"
+                )
+            value = (value & ~(1 << bit)) | (flag << bit)
+        return value
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if name == "pc":
@@ -330,7 +339,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
         else:
             bv = self._sym_to_claripy(sym)
-        bv = self.machdef.fix_register_bv(name, bv)
+        bv = self._merge_split_bits(name, self.machdef.fix_register_bv(name, bv))
         if bv.size() < expected_bits:
             bv = claripy.ZeroExt(expected_bits - bv.size(), bv)
         elif bv.size() > expected_bits:
@@ -346,7 +355,23 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             return
         if name == "pc":
             name = self.platdef.pc_register
-        reg = self.machdef.pcode_reg(name)
+        self._write_register(self.machdef.pcode_reg(name), name, value)
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag: typing.Union[int, claripy.ast.bv.BV]
+            if isinstance(value, int):
+                flag = (value >> bit) & 1
+            else:
+                flag = claripy.ZeroExt(7, claripy.Extract(bit, bit, value))
+            self._write_register(
+                self.machdef.language.getRegister(sleigh_name), sleigh_name, flag
+            )
+
+    def _write_register(
+        self,
+        reg,
+        name: str,
+        value: typing.Union[int, claripy.ast.bv.BV],
+    ) -> None:
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()
@@ -424,7 +449,31 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
         else:
             bv = self._sym_to_claripy(sym)
-        return self.machdef.fix_register_bv(name, bv)
+        return self._merge_split_bits(name, self.machdef.fix_register_bv(name, bv))
+
+    def _merge_split_bits(self, name: str, bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:
+        """Merge into a register's value the bits the language keeps in
+        registers of their own; see ``GhidraMachineDef.split_bits``."""
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            pair = self._thread.getState().getVar(
+                self.machdef.language.getRegister(sleigh_name),
+                PcodeExecutorStatePiece.Reason.INSPECT,
+            )
+            sym = pair.getRight()
+            if sym is not None and self._sym_references_user_input(sym):
+                flag = self._sym_to_claripy(sym)
+            else:
+                # As in read_register_content: the symbolic side of a flag
+                # that no label reaches is only the concrete value, spelled
+                # out as Ghidra computed it.
+                flag = claripy.BVV(self._int_from_bytes(pair.getLeft()), 8)
+            bit_value = claripy.If(
+                flag == 0,
+                claripy.BVV(0, bv.size()),
+                claripy.BVV(1 << bit, bv.size()),
+            )
+            bv = (bv & ~(1 << bit)) | bit_value
+        return bv
 
     # ------------------------------------------------------------------
     # Memory I/O
@@ -789,8 +838,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def read_sleigh_register(self, name: str) -> int:
         """Read a register by its SLEIGH name, for a userop that needs one the
-        machine definition doesn't expose, such as ARM's condition flags or
-        Thumb mode."""
+        machine definition doesn't expose, such as ARM's Thumb mode."""
         reg = self.machdef.language.getRegister(name)
         if reg.isProcessorContext():
             # Context registers, such as ARM's TMode, aren't in the state.

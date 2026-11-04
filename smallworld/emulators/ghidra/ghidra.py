@@ -100,11 +100,16 @@ class GhidraEmulator(AbstractGhidraEmulator):
         val = self.machdef.fix_register_bytes(name, self.bytes_java_to_py(val))
 
         if self.platform.byteorder is platforms.Byteorder.LITTLE:
-            return int.from_bytes(val, "little")
+            value = int.from_bytes(val, "little")
         elif self.platform.byteorder is platforms.Byteorder.BIG:
-            return int.from_bytes(val, "big")
+            value = int.from_bytes(val, "big")
         else:
             raise Exception("Unable to decode byteorder {self.platform.byteorder}")
+
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag = 1 if self.read_sleigh_register(sleigh_name) else 0
+            value = (value & ~(1 << bit)) | (flag << bit)
+        return value
 
     def write_register_content(
         self, name: str, value: typing.Union[None, int, claripy.ast.bv.BV]
@@ -140,6 +145,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
         val = self.machdef.fix_register_bytes(name, val)
 
         state.setVar(reg, self.bytes_py_to_java(val))
+
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag = self.machdef.language.getRegister(sleigh_name)
+            state.setVar(flag, self.bytes_py_to_java(bytes([(value >> bit) & 1])))
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         # Get the thread's memory state
@@ -563,8 +572,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
     def read_sleigh_register(self, name: str) -> int:
         """Read a register by its SLEIGH name, for a userop that needs one the
-        machine definition doesn't expose, such as ARM's condition flags or
-        Thumb mode."""
+        machine definition doesn't expose, such as ARM's Thumb mode."""
         reg = self.machdef.language.getRegister(name)
         if reg.isProcessorContext():
             # Context registers, such as ARM's TMode, aren't in the state.

@@ -258,7 +258,8 @@ def coprocessor_function2(
     d, n, m, esize = _scalar_registers(insn)
     if _field(insn, 23, 23) == 0 and _field(insn, 6, 6) == 0:
         # vsel<cc>: Dd or Sd takes n when the condition holds, else m.
-        ng, zr, ov = (emu.read_sleigh_register(flag) for flag in ("NG", "ZR", "OV"))
+        cpsr = emu.read_register_content("cpsr")
+        ng, zr, ov = (cpsr >> 31) & 1, (cpsr >> 30) & 1, (cpsr >> 28) & 1
         holds = (zr, ov, ng == ov, not zr and ng == ov)[_field(insn, 21, 20)]
         emu.write_register_content(d, emu.read_register_content(n if holds else m))
     elif (

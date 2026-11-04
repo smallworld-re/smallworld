@@ -26,6 +26,23 @@ class ARMMachineDef(GhidraMachineDef):
     )
     userops: typing.Mapping[str, Userop] = {"Crc32Calc": crc32_calc}
 
+    # Ghidra's ARM languages keep the condition flags, Q and GE in registers
+    # of their own, which they test and set instead of cpsr: N, Z, C, V and Q
+    # in bits 31-27, and GE[3:0] in bits 19-16. cpsr's T bit is in Ghidra's
+    # TMode decoding context, which this leaves alone.
+    _psr_bits = {
+        31: "NG",
+        30: "ZR",
+        29: "CY",
+        28: "OV",
+        27: "Q",
+        19: "GE4",
+        18: "GE3",
+        17: "GE2",
+        16: "GE1",
+    }
+    split_bits = {"cpsr": _psr_bits, "psr": _psr_bits}
+
     def __init__(self):
         super().__init__()
         self._registers = {
