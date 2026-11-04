@@ -34,8 +34,24 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
     ``read_state_register`` and ``write_state_register``.
     """
 
+    mem: typing.Optional[str] = None
+    """The guest RAM size to give PANDA, if the machine needs a particular one."""
+
+    checks_fetches: bool = False
+    """Whether SmallWorld checks instruction fetches against its memory map.
+
+    PANDA checks every read and write against SmallWorld's memory map, but
+    leaves an unmapped fetch to QEMU, which faults on it. A machine whose board
+    has memory of its own there doesn't fault, so it sets this, and PANDA
+    reports a fetch from memory SmallWorld didn't map as unmapped.
+    """
+
     def setup_cpu(self, panda_obj, panda_cpu) -> None:
         """Configure the CPU's state once PANDA has created it."""
+        pass
+
+    def pc_written(self, panda_obj, panda_cpu) -> None:
+        """Fix up the CPU's state after SmallWorld writes the program counter."""
         pass
 
     def is_state_register(self, name: str) -> bool:

@@ -154,6 +154,18 @@ big-endian M-profile.
 has no ARMv8-A core, so arm-v8a runs on its "max" model.
 Support for privileged operations is unknown.
 
+**M-profile PANDA:** PANDA runs Cortex-M CPUs only on the boards built
+around them, not on the configurable machine it uses for the other ARM
+platforms. arm-v7m runs on its MPS2 AN385 board (a Cortex-M3), arm-v7em on
+AN386 (a Cortex-M4 with its FPU enabled) and arm-v8m on AN505 (a Cortex-M33).
+Each board brings its own memory map, mostly RAM low in the address space and
+devices from 0x40000000. SmallWorld reports reads, writes and fetches of
+memory it didn't map as unmapped, as on the other engines, even where the
+board has RAM. But the board's devices take precedence over memory SmallWorld
+maps over them, so map memory clear of those. arm-v6m doesn't run on PANDA:
+its only Cortex-M0 board, the BBC micro:bit, has flash at the addresses code is
+usually loaded at, and flash ignores the writes that would load it.
+
 **arm-v6k on Styx:** Styx has no ARM11 target, so arm-v6k runs on its
 Cortex-A9 (CycloneV) target, which accepts instructions an ARM1176 would not.
 

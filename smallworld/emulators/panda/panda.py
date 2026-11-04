@@ -148,7 +148,12 @@ class PandaEmulator(
                     f"./smallworld-panda-{self.machdef.panda_arch}-debug.log",
                 ]
 
-            self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
+            panda_kwargs = {}
+            if self.machdef.mem is not None:
+                panda_kwargs["mem"] = self.machdef.mem
+            self.panda = pandare2.Panda(
+                self.machdef.panda_arch, extra_args=panda_args, **panda_kwargs
+            )
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
@@ -186,6 +191,22 @@ class PandaEmulator(
                     logger.debug("\ton_insn: block")
 
                 logger.debug(f"Panda: on_insn: {hex(pc)}, {self.state}")
+                # Models and other hooks can sit at addresses nothing maps.
+                if (
+                    self.machdef.checks_fetches
+                    and not self.manager._memory_is_mapped(pc, 1)
+                    and not self.manager.is_instruction_hooked(pc)
+                    and not self.manager.is_function_hooked(pc)
+                ):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationFetchUnmappedFailure(
+                            "Fetched unmapped memory",
+                            pc,
+                            address=pc,
+                        )
+                    )
+                    return
                 # Check if our pc is in bounds; if not stop
                 if (
                     not self.manager._bounds.is_empty()
@@ -556,6 +577,7 @@ class PandaEmulator(
                         "pc", self.panda_thread.panda, self.cpu
                     )
                     self.panda_thread.panda.arch.set_reg(self.cpu, panda_pc, content)
+                self.panda_thread.machdef.pc_written(self.panda_thread.panda, self.cpu)
             else:
                 raise exceptions.EmulationError("PANDA not started")
             return

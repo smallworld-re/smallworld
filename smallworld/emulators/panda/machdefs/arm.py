@@ -12,6 +12,9 @@ _ARM_EXCP_PREFETCH_ABORT = 3
 # FPEXC's index in CPUARMState's vfp.xregs (target/arm cpu.h ARM_VFP_FPEXC).
 _ARM_VFP_FPEXC = 8
 
+# CPACR's full-access grants for CP10 and CP11, the FPU's coprocessors.
+_CPACR_CP10_CP11 = 0xF << 20
+
 _VFP_DATA_REGISTER = re.compile(r"([sdq])(\d+)$")
 
 # The FP registers PANDA reaches through the CPU state. The ID registers
@@ -141,6 +144,42 @@ class ARMMachineMixinM:
             "psp",
         }
         self._registers = self._registers | {i: None for i in self._registers_m}
+
+    # M-profile is Thumb-only, but QEMU keeps the Thumb state apart from the
+    # pc, in EPSR.T, and resets it from the reset vector, which these boards
+    # leave empty. So a pc write clears the Thumb bit from the pc, where QEMU
+    # would fault on it, and sets EPSR.T, without which the next instruction
+    # raises an invalid-state UsageFault.
+
+    def pc_written(self, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        env.regs[15] &= ~1
+        env.thumb = 1
+
+    # The M-profile boards have RAM where SmallWorld may not map any.
+    checks_fetches = True
+
+
+class ARMMachineMixinMFP:
+    """Mixin for M-profile CPUs with the single-precision FPv4-SP-D16 FPU"""
+
+    def __init__(self):
+        super().__init__()
+        registers = (
+            {"fpscr"} | {f"s{i}" for i in range(32)} | {f"d{i}" for i in range(16)}
+        )
+        self._registers = self._registers | {i: None for i in registers}
+        self._state_registers = self._state_registers | registers
+
+    # The FPU resets disabled. M-profile has no cpacr register to enable it
+    # through, so the machine enables it from the start, in both security
+    # states' copies of CPACR, as Unicorn does.
+
+    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        for secure in range(2):
+            env.v7m.cpacr[secure] |= _CPACR_CP10_CP11
+        panda_obj.libpanda.arm_rebuild_hflags(env)
 
 
 class ARMMachineMixinMMainline(ARMMachineMixinM):
@@ -677,10 +716,36 @@ class ARMv7AMachineDef(
 
 
 # TODO: This is not the right CPU, but might be close enough
+# PANDA runs M-profile only on its boards for M-profile CPUs; its
+# configurable machine rejects them. Each board brings its own memory map:
+# board RAM would let accesses to addresses SmallWorld didn't map succeed
+# rather than fault, so PANDA checks fetches as well as reads and writes
+# against SmallWorld's map. Board flash and devices shadow memory SmallWorld
+# maps over them. The mps2 boards need exactly 16 MiB of RAM.
+
+
 class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    cpu = "cortex-a9"
+    machine = "mps2-an385"
+    cpu = "cortex-m3"
+    mem = "16M"
+
+
+class ARMv7EMMachineDef(ARMMachineMixinMFP, ARMMachineMixinMMainline, ARMMachineDef):
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
+    machine = "mps2-an386"
+    cpu = "cortex-m4"
+    mem = "16M"
+
+
+class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
+    arch = Architecture.ARM_V8M
+    byteorder = Byteorder.LITTLE
+    machine = "mps2-an505"
+    cpu = "cortex-m33"
+    mem = "16M"
 
 
 class ARMv8AMachineDef(

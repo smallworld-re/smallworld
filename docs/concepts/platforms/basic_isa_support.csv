@@ -13,11 +13,11 @@ arm-v5t-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
 arm-v6k,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v7em,           **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
-arm-v7m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
+arm-v7em,           **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7m,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v7r,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v8a,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
-arm-v8m,            **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v8m,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v8r,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v6k-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v7a-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
