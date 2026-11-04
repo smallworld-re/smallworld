@@ -9822,6 +9822,44 @@ class GhidraSymbolicUseropTests(unittest.TestCase):
         )
 
 
+class Z3BridgeImpliesTests(unittest.TestCase):
+    """SymZ3 expressions with implications convert to claripy.
+
+    Ghidra's SymZ3 uses implication in, for one, ARM's carry and overflow
+    flags, which claripy's z3 backend can't abstract, so reading a register
+    whose value depended on a label through them raised ClaripyError.
+    """
+
+    def _bv(self, condition):
+        import z3
+
+        from smallworld.emulators.ghidra import z3bridge
+
+        bv = z3.If(condition, z3.BitVecVal(1, 8), z3.BitVecVal(0, 8))
+        solver = z3.Solver()
+        solver.add(bv == bv)
+        return z3bridge.smt2_to_claripy_bv("V:" + solver.to_smt2())
+
+    def test_implication_converts(self):
+        import z3
+
+        x = z3.BitVec("x", 8)
+        # x > 1 implies x > 0 (unsigned), so this is always 1.
+        bv = self._bv(z3.Implies(z3.UGT(x, 1), z3.UGT(x, 0)))
+        self.assertEqual(set(claripy.Solver().eval(bv, 3)), {1})
+
+    def test_nested_implication_converts(self):
+        import z3
+
+        x = z3.BitVec("x", 8)
+        # (x == 1 implies x == 2) implies x == 3: holds only for x == 1 or 3.
+        bv = self._bv(z3.Implies(z3.Implies(x == 1, x == 2), x == 3))
+        x_claripy = next(leaf for leaf in bv.leaf_asts() if leaf.symbolic)
+        solver = claripy.Solver()
+        solver.add(bv == 1)
+        self.assertEqual(set(solver.eval(x_claripy, 4)), {1, 3})
+
+
 class GhidraArmPsrTests(unittest.TestCase):
     """cpsr and psr hold the flags Ghidra's ARM languages keep elsewhere.
 
