@@ -9822,9 +9822,116 @@ class GhidraSymbolicUseropTests(unittest.TestCase):
         )
 
 
+class GhidraArmPsrTests(unittest.TestCase):
+    """cpsr and psr hold the flags Ghidra's ARM languages keep elsewhere.
+
+    Ghidra tests and sets N, Z, C, V, Q and GE in registers of their own, and
+    never updates its cpsr register from them, so cpsr used to read stale
+    flags, and writing it didn't change the flags instructions use.
+    """
+
+    CODE = 0x1000
+    N, Z, C, V = 1 << 31, 1 << 30, 1 << 29, 1 << 28
+    GE = 0xF << 16
+
+    def _emulator(self, cls, code, arch=platforms.Architecture.ARM_V7A):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(arch, platforms.Byteorder.LITTLE))
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, code)
+        emu.write_register("pc", self.CODE)
+        return emu
+
+    def _classes(self):
+        return (emulators.GhidraEmulator, emulators.GhidraSymbolicEmulator)
+
+    def test_cpsr_reads_the_flags_instructions_set(self):
+        cmp = (0xE1500001).to_bytes(4, "little")  # cmp r0, r1
+        for cls in self._classes():
+            for r0, r1, flags in (
+                (1, 2, self.N),
+                (2, 2, self.Z | self.C),
+                (0x80000000, 1, self.C | self.V),
+            ):
+                emu = self._emulator(cls, cmp)
+                emu.write_register("r0", r0)
+                emu.write_register("r1", r1)
+                emu.step_instruction()
+                self.assertEqual(
+                    emu.read_register("cpsr") & (self.N | self.Z | self.C | self.V),
+                    flags,
+                    (cls.__name__, r0, r1),
+                )
+
+    def test_writing_cpsr_sets_the_flags_instructions_test(self):
+        moveq = (0x03A02007).to_bytes(4, "little")  # moveq r2, #7
+        for cls in self._classes():
+            for z, expected in ((0, 0), (self.Z, 7)):
+                emu = self._emulator(cls, moveq)
+                emu.write_register("cpsr", 0x10 | z)
+                emu.write_register("r2", 0)
+                emu.step_instruction()
+                self.assertEqual(emu.read_register("r2"), expected, cls.__name__)
+
+    def test_ge_bits_round_trip_and_reach_sel(self):
+        # sel r2, r0, r1 takes each byte from r0 where its GE bit is set.
+        sel = (0xE6802FB1).to_bytes(4, "little")
+        for cls in self._classes():
+            emu = self._emulator(cls, sel)
+            emu.write_register("cpsr", 0x10 | (0b0101 << 16))
+            self.assertEqual(emu.read_register("cpsr") & self.GE, 0b0101 << 16)
+            emu.write_register("r0", 0xAAAAAAAA)
+            emu.write_register("r1", 0xBBBBBBBB)
+            emu.step_instruction()
+            self.assertEqual(emu.read_register("r2"), 0xBBAABBAA, cls.__name__)
+
+    def test_m_profile_psr(self):
+        cmp = bytes.fromhex("8842")  # cmp r0, r1
+        emu = self._emulator(
+            emulators.GhidraEmulator, cmp, platforms.Architecture.ARM_V7M
+        )
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.step_instruction()
+        self.assertEqual(emu.read_register("psr") & (self.Z | self.C), self.Z | self.C)
+
+    def test_label_binds_to_the_live_flags(self):
+        # Labelling cpsr binds the label to its current value, which must
+        # include the flags cmp set, not cpsr's stale ones.
+        cmp = (0xE1500001).to_bytes(4, "little")
+        emu = self._emulator(emulators.GhidraSymbolicEmulator, cmp)
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.step_instruction()
+        emu.write_register_label("cpsr", "psr_in")
+        solver = claripy.Solver()
+        solver.add(emu._user_constraints)
+        label = emu.read_register_symbolic("cpsr")
+        self.assertEqual(
+            set(solver.eval(label & (self.Z | self.C), 2)), {self.Z | self.C}
+        )
+
+    def test_flags_a_label_reaches_read_symbolically(self):
+        # cmp's carry and overflow flags involve implications, which once
+        # stopped the symbolic read.
+        cmp = (0xE1500001).to_bytes(4, "little")
+        emu = self._emulator(emulators.GhidraSymbolicEmulator, cmp)
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.write_register_label("r0", "x")
+        emu.step_instruction()
+        cpsr = emu.read_register_symbolic("cpsr")
+        self.assertTrue(cpsr.symbolic)
+        solver = claripy.Solver()
+        solver.add(emu._symbolic_inputs["x"] == 2)
+        self.assertEqual(
+            set(solver.eval(cpsr & (self.Z | self.C), 2)), {self.Z | self.C}
+        )
+
+
 class _FakeArmFpEmulator:
     """Just enough emulator for the ARMv8 FP userops: the instruction's
-    bytes, s/d/fpscr registers, and Ghidra's TMode and NG/ZR/CY/OV."""
+    bytes, s/d/fpscr/cpsr registers, and Ghidra's TMode."""
 
     def __init__(self, insn: int, thumb: bool = False, **registers):
         if thumb:
@@ -9834,7 +9941,7 @@ class _FakeArmFpEmulator:
         else:
             self.data = insn.to_bytes(4, "little")
         self.registers = {"pc": 0x1000, "fpscr": 0, **registers}
-        self.sleigh = {"TMode": int(thumb), "NG": 0, "ZR": 0, "CY": 0, "OV": 0}
+        self.sleigh = {"TMode": int(thumb)}
 
     def current_instruction_bytes(self):
         return self.data
@@ -9985,20 +10092,20 @@ class ArmV8FpUseropTests(unittest.TestCase):
     def test_vsel_follows_the_condition(self):
         # vsel{eq,vs,ge,gt}.f32 s3, s1, s2: s1 when the condition holds.
         n, m = _f32(1.0), _f32(2.0)
+        N, Z, V = 1 << 31, 1 << 30, 1 << 28
         cases = [
-            (0xFE401A81, {"ZR": 1}, n),
-            (0xFE401A81, {}, m),
-            (0xFE501A81, {"OV": 1}, n),
-            (0xFE601A81, {"NG": 1, "OV": 1}, n),
-            (0xFE601A81, {"NG": 1}, m),
-            (0xFE701A81, {}, n),
-            (0xFE701A81, {"ZR": 1}, m),
+            (0xFE401A81, Z, n),
+            (0xFE401A81, 0, m),
+            (0xFE501A81, V, n),
+            (0xFE601A81, N | V, n),
+            (0xFE601A81, N, m),
+            (0xFE701A81, 0, n),
+            (0xFE701A81, Z, m),
         ]
-        for insn, flags, expected in cases:
-            emu = _FakeArmFpEmulator(insn, s1=n, s2=m)
-            emu.sleigh.update(flags)
+        for insn, cpsr, expected in cases:
+            emu = _FakeArmFpEmulator(insn, s1=n, s2=m, cpsr=cpsr)
             self.userops.coprocessor_function2(emu, "cdp2", [])
-            self.assertEqual(emu.registers["s3"], expected, (hex(insn), flags))
+            self.assertEqual(emu.registers["s3"], expected, (hex(insn), hex(cpsr)))
 
     def test_thumb_encoding(self):
         emu = self._cdp2(0xFEB80A40, thumb=True, s0=_f32(-2.5))  # vrinta.f32 s0, s0
