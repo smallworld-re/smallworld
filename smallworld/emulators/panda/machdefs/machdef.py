@@ -34,6 +34,10 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
     ``read_state_register`` and ``write_state_register``.
     """
 
+    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+        """Configure the CPU's state once PANDA has created it."""
+        pass
+
     def is_state_register(self, name: str) -> bool:
         return name in self._state_registers
 

@@ -81,6 +81,7 @@ class PandaEmulator(
         # Functions to update state, this prob should be changed
         def setup_state(self, cpu):
             self.manager.cpu = cpu
+            self.machdef.setup_cpu(self.panda, cpu)
 
         def update_state(self, cpu, pc):
             self.manager.cpu = cpu

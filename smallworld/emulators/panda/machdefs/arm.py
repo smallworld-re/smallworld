@@ -724,3 +724,45 @@ class ARMv7RMachineDef(
     byteorder = Byteorder.LITTLE
     # The R5F, unlike the R5, has the 16-register VFP this platform models.
     cpu = "cortex-r5f"
+
+
+# Big-endian ARMv6 and later are BE8: instructions stay little-endian, and
+# CPSR.E makes data accesses big-endian. PANDA runs them on its little-endian
+# cores with CPSR.E set, and with SCTLR.EE set too, so that exception entry,
+# which loads CPSR.E from SCTLR.EE, keeps them big-endian. sctlr_el[1] to [3]
+# hold the non-secure, Hyp and secure SCTLRs. QEMU caches the data
+# endianness in the CPU's hflags, so setting them rebuilds those.
+
+_CPSR_E = 1 << 9
+_SCTLR_EE = 1 << 25
+
+
+class ARMMachineMixinBE8:
+    byteorder = Byteorder.BIG
+
+    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        for el in range(1, 4):
+            env.cp15.sctlr_el[el] |= _SCTLR_EE
+        env.uncached_cpsr |= _CPSR_E
+        panda_obj.libpanda.arm_rebuild_hflags(env)
+
+
+class ARMv6KBEMachineDef(ARMMachineMixinBE8, ARMv6KMachineDef):
+    pass
+
+
+class ARMv7ABEMachineDef(ARMMachineMixinBE8, ARMv7AMachineDef):
+    pass
+
+
+class ARMv7RBEMachineDef(ARMMachineMixinBE8, ARMv7RMachineDef):
+    pass
+
+
+class ARMv8ABEMachineDef(ARMMachineMixinBE8, ARMv8AMachineDef):
+    pass
+
+
+class ARMv8RBEMachineDef(ARMMachineMixinBE8, ARMv8RMachineDef):
+    pass

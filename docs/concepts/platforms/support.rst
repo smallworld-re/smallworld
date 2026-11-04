@@ -107,10 +107,11 @@ No engine here runs SVE.
 they always are on AArch64. Unicorn runs it in its big-endian mode, which
 fetches little-endian instructions; angr lifts through VEX's little-endian
 AArch64 guest, as VEX's big-endian one decodes nothing, then makes each load
-and store big-endian; and Ghidra uses its ``AARCH64:BE:64:v8A`` language.
-SmallWorld configures no big-endian AArch64 machine for PANDA, and Triton has
-no big-endian AArch64. aarch64-v8.5a comes big-endian too, running the same way
-on Unicorn's "max" model, angr and Ghidra.
+and store big-endian; Ghidra uses its ``AARCH64:BE:64:v8A`` language; and
+PANDA runs its little-endian core with SCTLR.EE and SCTLR.E0E set at every
+exception level, which make data accesses big-endian. Triton has no
+big-endian AArch64. aarch64-v8.5a comes big-endian too, running the same way
+on Unicorn's and PANDA's "max" models, angr and Ghidra.
 
 **Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
 addressing), ARMv6 without the K extensions or ARMv6T2 (ARM1156, the first with
@@ -127,13 +128,17 @@ TI925T.
 **Big-endian arm32:** arm-v4, arm-v4t and arm-v5t also come big-endian
 (``Byteorder.BIG``), as BE32: instructions are big-endian, like data, as on
 those cores. They run on Unicorn, angr and Ghidra (its ``ARM:BE:32`` languages).
-SmallWorld configures no big-endian ARM machine for PANDA or Styx, and Triton
-has no big-endian ARM.
+SmallWorld configures no big-endian ARM machine for Styx, and Triton has no
+big-endian ARM. Nor does it run BE32 on PANDA: QEMU's system emulation models
+BE32 as word-invariant, keeping each word little-endian in memory and swapping
+byte addresses instead, so memory SmallWorld reads or writes would come out
+swapped within each word.
 
 arm-v6k, arm-v7a, arm-v7r, arm-v8a and arm-v8r come big-endian as BE8, as
 ARMv6 and later do: data is big-endian, but instructions stay little-endian.
 Unicorn runs them on its little-endian cores with CPSR.E, which makes data
-accesses big-endian, held set; angr lifts through VEX's little-endian ARM
+accesses big-endian, held set; PANDA does the same, setting SCTLR.EE too so
+that exceptions stay big-endian; angr lifts through VEX's little-endian ARM
 guest, as VEX's big-endian one decodes no single-precision VFP, then makes
 each load and store big-endian; and Ghidra uses its ``ARM:LEBE:32``
 languages, which exist for v7 and v8 only, so arm-v6k-be uses the v7 one.

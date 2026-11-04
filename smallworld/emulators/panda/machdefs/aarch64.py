@@ -330,3 +330,31 @@ class AArch64V85AMachineDef(AArch64MachineDef):
     arch = Architecture.AARCH64_V8_5A
     # QEMU's "max" model accepts a superset of ARMv8.5-A's instructions.
     cpu = "max"
+
+
+# Big-endian AArch64 keeps its instructions little-endian, as AArch64 always
+# does; SCTLR_ELx.EE makes data accesses at ELx big-endian, and SCTLR_EL1.E0E
+# those at EL0. PANDA's AArch64 runs at EL3, but every level is set so the
+# data stays big-endian at whichever level the code reaches. QEMU caches the
+# data endianness in the CPU's hflags, so setting them rebuilds those.
+
+_SCTLR_E0E = 1 << 24
+_SCTLR_EE = 1 << 25
+
+
+class AArch64MachineMixinBE:
+    byteorder = Byteorder.BIG
+
+    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        for el in range(1, 4):
+            env.cp15.sctlr_el[el] |= _SCTLR_EE | _SCTLR_E0E
+        panda_obj.libpanda.arm_rebuild_hflags(env)
+
+
+class AArch64BEMachineDef(AArch64MachineMixinBE, AArch64MachineDef):
+    pass
+
+
+class AArch64V85ABEMachineDef(AArch64MachineMixinBE, AArch64V85AMachineDef):
+    pass
