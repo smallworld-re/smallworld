@@ -1,7 +1,10 @@
 #!/bin/sh
 # Compile an 8051 C test with SDCC into an Intel HEX image.
 #
-#   mcs51_cc.sh [--stack-auto] [--c99] <source.c> <output.ihx>
+#   mcs51_cc.sh [--stack-auto] [--large] [--c99] <source.c> <output.ihx>
+#
+# --stack-auto builds for SDCC's reentrant calling convention, and --large for
+# its large memory model, which keeps variables in external RAM.
 #
 # --c99 builds one of the shared C99 library-model tests: c99/mcs51_sdcc.h
 # is included ahead of the source, to stand in for what SDCC's library lacks,
@@ -14,19 +17,20 @@
 # of SDCC's default calling convention.
 
 flags=""
-if [ "$1" = "--stack-auto" ]; then
-    flags="--stack-auto"
+while true; do
+    case "$1" in
+    --stack-auto) flags="$flags --stack-auto" ;;
+    --large) flags="$flags --model-large" ;;
+    --c99) flags="$flags -Wp-include,$(cd "$(dirname "$0")" && pwd)/c99/mcs51_sdcc.h -l liblonglong.lib" ;;
+    *) break ;;
+    esac
     shift
-fi
-if [ "$1" = "--c99" ]; then
-    flags="$flags -Wp-include,$(cd "$(dirname "$0")" && pwd)/c99/mcs51_sdcc.h -l liblonglong.lib"
-    shift
-fi
+done
 src="$1"
 out="$2"
 
 if [ -z "$src" ] || [ -z "$out" ]; then
-    echo "usage: $0 [--stack-auto] [--c99] <source.c> <output.ihx>" >&2
+    echo "usage: $0 [--stack-auto] [--large] [--c99] <source.c> <output.ihx>" >&2
     exit 1
 fi
 

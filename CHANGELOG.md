@@ -109,8 +109,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in
   SmallWorld's flat map.
-- The C99 library-model tests run on the 8051, under both SDCC conventions,
-  for the 44 functions with 8051 models. They build from the same sources as
+- The C99 library-model tests run on the 8051, under both SDCC conventions
+  and in both SDCC's small and large memory models, for the 44 functions with
+  8051 models. They build from the same sources as
   on other architectures, with a header that stands in for what SDCC's
   library lacks, and `tests/mcs51_runner.py` runs them. The 8051's
   `strerror` model gains the errno resolver it needed, and `rand` stays

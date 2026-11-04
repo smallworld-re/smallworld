@@ -26,10 +26,16 @@ _ARCH_MATRIX = (
 
 _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MATRIX}
 
-# The 8051, built with SDCC once per calling convention and run by
-# mcs51_runner.py, for the functions with 8051 models.  Keep in step with
+# The 8051, built with SDCC once per calling convention and memory model and
+# run by mcs51_runner.py, for the functions with 8051 models; variant to ABI.  Keep in step with
 # MCS51_C99_FUNCTIONS in the Makefile.
-_MCS51_VARIANTS = {"sdcc.mcs51": "sdcc", "sdccstackauto.mcs51": "sdccstackauto"}
+_MCS51_VARIANTS = {
+    "sdcc.mcs51": "sdcc",
+    "sdccstackauto.mcs51": "sdccstackauto",
+    # SDCC's large memory model, which keeps variables in external RAM.
+    "sdcc-large.mcs51": "sdcc",
+    "sdccstackauto-large.mcs51": "sdccstackauto",
+}
 _MCS51_FUNCTIONS = frozenset(
     {
         "abs",
