@@ -334,8 +334,9 @@ decodes as writes to ``r0``, and run as those without any error: ``loop`` as
 ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use, as
 V850, with a warning saying so. ``EM_V850`` images load without one.
 
-angr's p-code engine implements no floating-point operations, so V850E2M's FPU
-instructions do not run on angr.
+V850E2M's FPU runs on Ghidra; the ``floats`` scenario checks single-precision
+``addf.s``. angr's p-code engine implements no floating-point operations, so the
+FPU instructions do not run on angr.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.

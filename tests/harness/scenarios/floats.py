@@ -49,6 +49,14 @@ _VARIANTS = (
     ("sh4.angr", _SH4_ANGR_PR),
     ("sh4el.pcode", None),
     ("sh4el.angr", _SH4_ANGR_PR),
+    # V850E2M's FPU, which works on the general registers.
+    ("v850.pcode", None),
+    (
+        "v850.angr",
+        (
+            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
+        ),
+    ),
 )
 
 SCENARIO_INFO = ScenarioInfo(
