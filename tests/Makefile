@@ -247,6 +247,8 @@ SH2_SRC_EXT := $(SH2_EXT)
 # NOTE: sh1 uses sh2 source, so the SH-1 build keeps that source SH-1-clean:
 # gas refuses an instruction the --isa lacks.
 SH1_SRC_EXT := $(SH2_EXT)
+# ...except for the sh2 sources that test SH-2 additions, which SH-1 lacks.
+SH1_SRC_EXCLUDE := sh2a_delayslot/sh2a_delayslot.sh2.s
 TRICORE_SRC_EXT := $(TRICORE_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
 
@@ -259,7 +261,7 @@ XTENSA_SRC_EXT := $(XTENSA_EXT)
 
 define ASM_TEMPLATE
 
-$(1)_ASM_BIN_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).s)
+$(1)_ASM_BIN_SRCS := $$(filter-out $$($(1)_SRC_EXCLUDE),$$(wildcard */*.$$($(1)_SRC_EXT).s))
 $(1)_ASM_ELF_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).elf.s)
 
 $(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM_BIN_SRCS))

@@ -19,21 +19,24 @@ NATIVE_PARITY = False
 # checked against Ghidra's SH-1, SH-2 and SH-2A languages:
 #
 #   dt r1                (SH-2 and later)   41 10
+#   bt/s .+4             (SH-2 and later)   8d 00, delay slot add #1,r1 (71 01)
 #   movi20 #0x1234, r1   (SH-2A only)       01 00 12 34
 #
-# Each is followed by a nop, and the run stops at the end of the program.
+# Each is followed by a nop, and the run stops at the end of the program.  sr
+# is 0, so bt/s is not taken, but its delay slot still runs.
 _PROGRAMS = {
     "dt": bytes.fromhex("4110" "0009"),
+    "bts": bytes.fromhex("8d00" "7101" "0009"),
     "movi20": bytes.fromhex("0100" "1234" "0009"),
 }
 
 # The first SH version with each instruction.
-_INTRODUCED = {"dt": "sh2", "movi20": "sh2a"}
+_INTRODUCED = {"dt": "sh2", "bts": "sh2", "movi20": "sh2a"}
 _ORDER = ("sh1", "sh2", "sh2a")
 
 # r1 before and after each program, where the instruction runs.
 _R1_IN = 0x10
-_R1_OUT = {"dt": 0xF, "movi20": 0x1234}
+_R1_OUT = {"dt": 0xF, "bts": 0x11, "movi20": 0x1234}
 
 _ARCHS = ("sh1", "sh2", "sh2a")
 _ENGINES = ("angr", "pcode")

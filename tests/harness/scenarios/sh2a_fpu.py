@@ -37,7 +37,7 @@ import dataclasses
 import logging
 import struct
 import types
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Optional, Sequence, Tuple
 
 from .common import (
     PlatformSpec,
@@ -124,7 +124,8 @@ class FpuCaseSpec:
 
     platform: PlatformSpec
     engines: Tuple[str, ...]
-    fpscr: int
+    # None for a platform with no FPU, such as SH-2.
+    fpscr: Optional[int]
     inputs: Mapping[str, int]
     expected: Mapping[str, int]
     stack_base: int = 0x2000
@@ -336,7 +337,8 @@ def _run(scenario: str, variant: str, spec: FpuCaseSpec) -> int:
     # FPSCR before the operands: on SuperH it decides how every subsequent
     # floating-point instruction behaves, and a backend that latches precision
     # at operand-write time rather than at use time would be wrong.
-    set_register(cpu, "fpscr", spec.fpscr)
+    if spec.fpscr is not None:
+        set_register(cpu, "fpscr", spec.fpscr)
     for name, value in spec.inputs.items():
         set_register(cpu, name, value)
 

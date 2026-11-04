@@ -133,6 +133,17 @@ _SPECS = {
         pc_register="pc",
         engines=("angr", "pcode", "panda"),
     ),
+    # unmapped.sh2.elf.s builds for both SH-1 and SH-2.
+    "sh1": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
+    "sh2": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "sh4": UnmappedSpec(
         platform=PlatformSpec("SUPERH_SH4", "BIG"),
         pc_register="pc",
