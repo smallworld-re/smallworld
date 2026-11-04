@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On angr, a function hook that moves the program counter carries on there
+  instead of returning to the hook's caller, so a model can call back into
+  the program, as `qsort` and `bsearch` do with their comparator.
 - `GhidraEmulator` no longer drops a write to a fixed memory address. When an
   instruction stored to a constant address, which p-code expresses as a COPY
   into a memory varnode, the backend ran the write hooks and then skipped the
