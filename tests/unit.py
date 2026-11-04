@@ -1959,6 +1959,18 @@ class PandaMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_panda_armv7em(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_armv8m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_panda_armv7r(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE

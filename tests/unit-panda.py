@@ -79,6 +79,10 @@ if architecture in _ARM_FP:
     writeback_registers = ("r0", "cpacr", "fpexc", "s3", "d5")
     if architecture in _ARM_NEON:
         writeback_registers += ("d17", "q9")
+# The M-profile FPU has no cpacr or fpexc to write; the machine enables it.
+_ARM_M_FP = {platforms.Architecture.ARM_V7EM}
+if architecture in _ARM_M_FP:
+    writeback_registers = ("r0", "s3", "d5")
 _AARCH64 = {
     platforms.Architecture.AARCH64,
     platforms.Architecture.AARCH64_V8_5A,
@@ -108,7 +112,7 @@ if writeback_registers:
             )
             bad = True
 
-if architecture in _ARM_FP:
+if architecture in _ARM_FP | _ARM_M_FP:
     # The FP registers overlap: s2 and s3 are the halves of d1, and q0 is d0
     # and d1. QEMU masks FPSCR's reserved bits, so it gets a value it keeps.
     try:

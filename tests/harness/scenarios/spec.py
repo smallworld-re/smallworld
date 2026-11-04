@@ -38,10 +38,9 @@ class ScenarioInfo:
 #: unless a scenario gives its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
 #: their Thumb-only code yet, and Styx has no ARMv7-R or ARMv8 target.
 _DEFAULT_SKIP_REASONS = {
-    **{
-        f"{arch}.panda": "PANDA has no M-profile (Cortex-M) machine configured"
-        for arch in ("armv6m", "armv7m", "armv7em", "armv8m")
-    },
+    # PANDA's only Cortex-M0 board, microbit, keeps flash where the tests
+    # load their code, and flash drops the writes that would load it.
+    "armv6m.panda": "PANDA's Cortex-M0 board has flash where the tests load code",
     **{
         f"{arch}.styx": "Styx has no ARMv8 target"
         for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m")
