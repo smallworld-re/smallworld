@@ -66,6 +66,40 @@ def _substitute_symz3_load_ufs(expr: "z3.ExprRef") -> "z3.ExprRef":
     return z3.substitute(expr, *pairs)
 
 
+def _rewrite_implies(expr: "z3.ExprRef") -> "z3.ExprRef":
+    """Rewrite ``(=> a b)`` as ``(or (not a) b)``.
+
+    Claripy's z3 backend has no entry for implication, which Ghidra's SymZ3
+    uses in, for one, ARM's carry and overflow flags.
+    """
+    while True:
+        pairs: list = []
+        seen: set = set()
+
+        def visit(node: "z3.ExprRef") -> None:
+            if z3.is_app(node) and node.decl().kind() == z3.Z3_OP_IMPLIES:
+                key = str(node)
+                if key not in seen:
+                    seen.add(key)
+                    a, b = node.children()
+                    pairs.append((node, z3.Or(z3.Not(a), b)))
+                return
+            for child in node.children():
+                visit(child)
+
+        visit(expr)
+        if not pairs:
+            return expr
+        # An implication nested in another one's operands survives a pass,
+        # so go round until none are left.
+        expr = z3.substitute(expr, *pairs)
+
+
+def _for_claripy(expr: "z3.ExprRef") -> "z3.ExprRef":
+    """Rewrite what claripy's z3 backend can't abstract."""
+    return _rewrite_implies(_substitute_symz3_load_ufs(expr))
+
+
 def claripy_bool_to_smt2(expr: claripy.ast.bool.Bool) -> str:
     """Serialize a claripy boolean expression to a self-contained SMT-LIB2
     benchmark string (includes ``(declare-fun ...)`` for every free symbol)."""
@@ -95,7 +129,7 @@ def smt2_to_claripy_bool(smt: str) -> claripy.ast.bool.Bool:
     assertions = z3.parse_smt2_string(smt)
     if len(assertions) == 0:
         raise ValueError(f"No assertions found in SMT-LIB string: {smt[:80]}...")
-    return _z3_backend()._abstract(_substitute_symz3_load_ufs(assertions[0]))
+    return _z3_backend()._abstract(_for_claripy(assertions[0]))
 
 
 def smt2_to_claripy_bv(smt: str) -> claripy.ast.bv.BV:
@@ -112,7 +146,7 @@ def smt2_to_claripy_bv(smt: str) -> claripy.ast.bv.BV:
     children = assertions[0].children()
     if len(children) == 0:
         raise ValueError(f"SMT-LIB BV wrapper assertion has no children: {smt[:80]}...")
-    return _z3_backend()._abstract(_substitute_symz3_load_ufs(children[0]))
+    return _z3_backend()._abstract(_for_claripy(children[0]))
 
 
 def claripy_to_java_bv(jctx, bv: claripy.ast.bv.BV):
