@@ -244,8 +244,8 @@ arithmetic and bit addressing wrongly, so SmallWorld's Nix environment applies
 ``nix/patches/ghidra-8051.patch`` to both copies (see ``nix/ghidra.nix`` and the
 ``pypcode`` entry in ``overrides.nix``): the carry out of ``addc``/``subb``, the
 auxiliary carry and overflow flags, the user flag F0, bit addressing,
-``mov sp,#n`` and ``movx @Ri``, whose address takes its high byte from P2, all
-follow the hardware there. A Ghidra or pypcode without the
+``mov sp,#n`` and ``movx @Ri``, whose address takes its high byte from an SFR,
+all follow the hardware there. A Ghidra or pypcode without the
 patch fails the ``mcs51_flags`` scenario. The language never computes the
 parity flag either, so both backends recompute it from the accumulator around
 every instruction, as the hardware does every cycle. Nor does it model register
@@ -255,6 +255,16 @@ PSW's RS bits select, and compiled code reaches them by address too (SDCC's
 and the selected bank in step around every instruction, and the ``cpu.r0`` to
 ``cpu.r7`` a machine starts with are written into the bank PSW selects;
 otherwise R0-R7 are plain registers.
+Silicon Labs' CIP-51 devices (the C8051 and EFM8 families) run the 8051's
+instructions and are emulated as an 8051, with one difference SmallWorld
+models: ``movx @Ri`` takes its high address byte from the device's EMI0CN, not
+P2.  The ``xpage_sfr`` register, which is not the hardware's but a property of
+the device, names that SFR; it is P2's address, 0xA0, unless the harness sets
+it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x and F12x,
+0xAF on the C8051F00x, F01x, F02x and F2xx; SDCC's device headers declare it as
+``_XPAGE``).  Ghidra's own CIP-51 language adds nothing an emulator uses, and
+pypcode lacks it.  SFR pages (SFRPAGE), the extra interrupt sources, and the
+C8051F12x's banked flash are not modeled.
 Both backends take the 8052's six interrupts as the hardware does, when the
 SFRs that control them (TCON through T2CON) are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and
@@ -278,7 +288,7 @@ C models for the 8051 follow SDCC's calling conventions, ``ABI.SDCC`` and
 ``ABI.SDCCSTACKAUTO``; see :ref:`models`.  ``Executable.from_ihex()`` loads
 the Intel HEX images SDCC builds, and with the linker's map, finds symbols in
 the right space.  The ``mcs51_sdcc`` scenarios load C compiled by SDCC that
-way, and run it from the reset vector.
+way, and run it from the reset vector, one of them built for the C8051F330.
 The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
 ucsim_51: its programs run from a random starting state and must end in the
 state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;

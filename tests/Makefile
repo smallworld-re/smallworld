@@ -371,6 +371,14 @@ MCS51_C_IHXS := $(patsubst %.mcs51.c,%.sdcc.mcs51.ihx,$(MCS51_C_SRCS)) $(patsubs
 %.sdccstackauto.mcs51.ihx : %.mcs51.c
 	./mcs51_cc.sh --stack-auto $< $@
 
+# libc.mcs51.c once more for a Silicon Labs CIP-51 device, the C8051F330, in
+# the medium memory model: its startup code and pdata page through EMI0CN
+# rather than P2, and pdata is moved off page 0, so the page matters.
+MCS51_C_IHXS += mcs51_sdcc/libc.cip51.mcs51.ihx
+
+mcs51_sdcc/libc.cip51.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F330.h --pdata 0x7e00 $< $@
+
 # The C99 library-model tests whose functions have 8051 models, built the
 # same way from their shared sources, and again in SDCC's medium and large
 # memory models; see mcs51_cc.sh.  SDCC has no medium-model library for its

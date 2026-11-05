@@ -20,6 +20,7 @@ from ....platforms.defs.mcs51 import (
     MCS51_SFR_BASE,
     MCS51_SFR_IE,
     MCS51_SFR_IP,
+    MCS51_SFR_P2,
     MCS51_SFR_SCON,
     MCS51_SFR_T2CON,
     MCS51_SFR_TCON,
@@ -599,6 +600,7 @@ class MCS51MachineDef(GhidraMachineDef):
         "dptr": "dptr",
         "dph": "dph",
         "dpl": "dpl",
+        "xpage_sfr": "xpage_sfr",
         "r0": "r0",
         "r1": "r1",
         "r2": "r2",
@@ -608,6 +610,10 @@ class MCS51MachineDef(GhidraMachineDef):
         "r6": "r6",
         "r7": "r7",
     }
+
+    def initialize_state(self, emulator: typing.Any) -> None:
+        # As the Ghidra machine definition.
+        emulator.write_register("xpage_sfr", MCS51_SFR_P2)
 
     def function_return_address(self, emulator: typing.Any) -> typing.Optional[int]:
         # The return address is in internal RAM, which no angr calling

@@ -6,6 +6,7 @@ from .....platforms.defs.mcs51 import (
     MCS51_CODE_BASE,
     MCS51_IDATA_BASE,
     MCS51_XDATA_BASE,
+    mcs51_pdata_page,
 )
 from ...cstd import (
     ArgumentType,
@@ -35,15 +36,17 @@ _GPTR_SPACES = (
 )
 
 
-def sdcc_pointer_to_flat(pointer: int) -> int:
+def sdcc_pointer_to_flat(pointer: int, pdata_page: int = 0) -> int:
     """Translate an SDCC generic pointer to a flat SmallWorld address.
 
     The null pointer stays 0, so models can test for it as they do on other
     platforms; SDCC's null is a pointer to XDATA 0x0000.  A pdata pointer
-    reaches the first 256 bytes of XDATA.
+    reaches the page of XDATA that MOVX @Ri does, as SDCC's library reads it:
+    only its low byte counts.
 
     Arguments:
         pointer: The three-byte generic pointer, tag in the top byte.
+        pdata_page: The page pdata is in; see :func:`mcs51_pdata_page`.
 
     Returns:
         The flat address it points to.
@@ -57,7 +60,7 @@ def sdcc_pointer_to_flat(pointer: int) -> int:
     if not tag & SDCC_GPTR_DATA:
         return MCS51_XDATA_BASE + address
     if tag & SDCC_GPTR_PDATA == SDCC_GPTR_PDATA:
-        return MCS51_XDATA_BASE + (address & 0xFF)
+        return MCS51_XDATA_BASE + (pdata_page << 8) + (address & 0xFF)
     return MCS51_IDATA_BASE + (address & 0xFF)
 
 
@@ -243,7 +246,7 @@ class MCS51SDCCCallingContext(CStdCallingContext):
         self, index: int, kind: ArgumentType, emulator: emulators.Emulator
     ) -> typing.Union[int, float]:
         data = self._read_bytes(index, _SIZES[kind], emulator)
-        value = _decode(kind, data)
+        value = _decode(kind, data, emulator)
         if kind == ArgumentType.POINTER and _is_pdata(data):
             assert isinstance(value, int)
             self._pdata_pages = self._pdata_pages | {value & ~0xFF}
@@ -254,8 +257,8 @@ class MCS51SDCCCallingContext(CStdCallingContext):
         self._pdata_pages = frozenset()
 
     def _encode_result(self, value: typing.Union[int, float]) -> bytes:
-        # pdata is the first page of XDATA, reached through MOVX @Ri, so a
-        # pdata pointer and an XDATA pointer can name the same byte, and SDCC
+        # pdata is a page of XDATA, reached through MOVX @Ri, so a pdata
+        # pointer and an XDATA pointer can name the same byte, and SDCC
         # compares all three bytes of two pointers.  A flat address does not
         # say which it was; a result in a pdata page a pointer argument
         # pointed into, as one into the argument's object is, is pdata too.
@@ -300,7 +303,7 @@ class MCS51SDCCCallingContext(CStdCallingContext):
             return None
         size = _SIZES[self.return_type]
         data = bytes(emulator.read_register(r) for r in _VALUE_REGISTERS[:size])
-        return _decode(self.return_type, data)
+        return _decode(self.return_type, data, emulator)
 
     def set_return_address(
         self, emulator: emulators.Emulator, address: int, push=False
@@ -395,7 +398,7 @@ class MCS51SDCCCallingContext(CStdCallingContext):
 
         SDCC stores data little-endian, whatever the platform's byte order.
         """
-        value = _decode(kind, emulator.read_memory(address, _SIZES[kind]))
+        value = _decode(kind, emulator.read_memory(address, _SIZES[kind]), emulator)
         assert isinstance(value, int)
         return value
 
@@ -415,12 +418,15 @@ def _is_pdata(pointer: bytes) -> bool:
     return not tag & SDCC_GPTR_CODE and tag & SDCC_GPTR_PDATA == SDCC_GPTR_PDATA
 
 
-def _decode(kind: ArgumentType, data: bytes) -> typing.Union[int, float]:
+def _decode(
+    kind: ArgumentType, data: bytes, emulator: emulators.Emulator
+) -> typing.Union[int, float]:
     if kind in (ArgumentType.FLOAT, ArgumentType.DOUBLE):
         return struct.unpack("<f", data)[0]
     value = int.from_bytes(data, "little")
     if kind == ArgumentType.POINTER:
-        return sdcc_pointer_to_flat(value)
+        page = mcs51_pdata_page(emulator) if _is_pdata(data) else 0
+        return sdcc_pointer_to_flat(value, page)
     if kind in _SIGNED and value & (1 << (len(data) * 8 - 1)):
         value -= 1 << (len(data) * 8)
     return value
@@ -454,7 +460,7 @@ class MCS51SDCCVariadicContext(VariadicContext):
         self, kind: ArgumentType, emulator: emulators.Emulator
     ) -> typing.Union[int, float]:
         """Get the next argument of an assumed type"""
-        return _decode(kind, self._next_argument_bytes(kind, emulator))
+        return _decode(kind, self._next_argument_bytes(kind, emulator), emulator)
 
     def format_next_pointer(self, emulator: emulators.Emulator) -> str:
         """Get the next argument as a pointer, as printf's %p shows it

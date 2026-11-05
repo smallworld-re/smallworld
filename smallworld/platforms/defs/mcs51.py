@@ -63,6 +63,9 @@ class MCS51(PlatformDef):
             "dptr": RegisterDef(name="dptr", size=2),
             "dph": RegisterAliasDef(name="dph", parent="dptr", size=1, offset=1),
             "dpl": RegisterAliasDef(name="dpl", parent="dptr", size=1, offset=0),
+            # Not a register of the hardware: the SFR that pages MOVX @Ri; see
+            # MCS51_SFR_P2.
+            "xpage_sfr": RegisterDef(name="xpage_sfr", size=1),
         }
         for i in range(0, 8):
             self._registers[f"r{i}"] = RegisterDef(name=f"r{i}", size=1)
@@ -123,6 +126,30 @@ MCS51_PSW_PARITY = 0x01
 def mcs51_psw_with_parity(psw: int, acc: int) -> int:
     """PSW with its parity flag recomputed from the accumulator."""
     return (psw & ~MCS51_PSW_PARITY) | (bin(acc & 0xFF).count("1") & 1)
+
+
+#: P2, the SFR that supplies the high byte of MOVX @Ri's address on Intel's
+#: 8051, and the default of the ``xpage_sfr`` register, which names that SFR.
+#: Silicon Labs' CIP-51 devices page MOVX @Ri through their EMI0CN instead:
+#: set ``xpage_sfr`` to its address (SDCC's device headers declare it as
+#: ``_XPAGE``) to emulate one.
+MCS51_SFR_P2 = 0xA0
+
+
+def mcs51_pdata_page(emulator: typing.Any) -> int:
+    """The page of XDATA that MOVX @Ri reaches now: pdata.
+
+    It is the value of the SFR the ``xpage_sfr`` register names - P2 on
+    Intel's 8051, EMI0CN on Silicon Labs' CIP-51 devices.
+
+    Arguments:
+        emulator: The emulator to read from.
+
+    Returns:
+        The page, the high byte of the XDATA address.
+    """
+    sfr = emulator.read_register("xpage_sfr")
+    return emulator.read_memory(MCS51_SFR_BASE + sfr, 1)[0]
 
 
 #: SFRs that control interrupts.

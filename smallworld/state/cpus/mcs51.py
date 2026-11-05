@@ -11,6 +11,11 @@ class MCS51(cpu.CPU):
     When internal RAM 0x00-0x1F is mapped, the emulators keep these registers
     and that bank in step, and these values are written into the selected
     bank when emulation starts; otherwise they are registers of their own.
+
+    ``xpage_sfr`` is not a register of the hardware but a property of the
+    device: the address of the SFR that supplies the high byte of MOVX @Ri's
+    address.  The emulators set it to P2's (0xA0), as on Intel's 8051; set it
+    to EMI0CN's to emulate a Silicon Labs CIP-51 device.
     """
 
     platform = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
@@ -36,6 +41,8 @@ class MCS51(cpu.CPU):
         self.add(self.dph)
         self.dpl = state.RegisterAlias("dpl", self.dptr, 1, 0)
         self.add(self.dpl)
+        self.xpage_sfr = state.Register("xpage_sfr", 1)
+        self.add(self.xpage_sfr)
         for i in range(0, 8):
             reg = state.Register(f"r{i}", 1)
             setattr(self, f"r{i}", reg)

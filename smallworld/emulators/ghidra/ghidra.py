@@ -89,6 +89,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
             typing.Tuple[int, int], typing.Callable[[Emulator, int, int, bytes], None]
         ] = dict()
 
+        self.machdef.initialize_state(self)
+
     def _init_address_spaces(self) -> None:
         # The address spaces SmallWorld's flat memory map covers, as
         # (space, flat base, size, width of an offset in bytes); a size of

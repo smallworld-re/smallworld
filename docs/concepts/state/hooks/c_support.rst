@@ -56,8 +56,9 @@ only, since SDCC has no medium-model library for the reentrant one; the huge
 model's banked code is not modeled.  pdata, the medium model's home for
 variables, is a page of XDATA, so a pdata pointer and an XDATA pointer can
 name the same byte; a model that returns a pointer into a pdata page one of
-its pointer arguments pointed into returns a pdata pointer.  pdata is taken to
-be XDATA's first page, as SDCC places it by default.  Only the C99 functions
+its pointer arguments pointed into returns a pdata pointer.  As in SDCC's
+library, a pdata pointer reaches the page the paging SFR - P2, or the SFR the
+CPU's ``xpage_sfr`` names - holds at the time of the call.  Only the C99 functions
 SDCC's library provides are modeled for the 8051.  ``qsort`` and ``bsearch``
 call their comparator back with SDCC's reentrant convention, as SDCC's library
 does; a program's comparator must be declared ``__reentrant``, which SDCC does

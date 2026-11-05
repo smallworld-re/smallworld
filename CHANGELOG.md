@@ -132,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and cleans up each call, through `begin_call()` and `end_call()`; the
   8051's makes room for stack arguments below the return address and pops
   them afterwards.
+- Silicon Labs' CIP-51 devices, emulated as an 8051. The 8051's new
+  `xpage_sfr` register names the SFR that supplies the high byte of
+  `movx @Ri`'s address: P2, as before, unless the harness sets it to the
+  device's EMI0CN. 8051 models read pdata pointers in the page that SFR
+  selects, as SDCC's library does, rather than always in XDATA's first page.
+  Machine definitions on Ghidra and angr can set initial state through
+  `initialize_state()`. An `mcs51_sdcc` build for the C8051F330 tests it.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

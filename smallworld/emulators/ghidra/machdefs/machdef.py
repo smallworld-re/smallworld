@@ -139,6 +139,18 @@ class GhidraMachineDef:
 
     _registers: typing.Dict[str, typing.Optional[str]]
 
+    def initialize_state(self, emulator: typing.Any) -> None:
+        """Set machine state the hardware fixes before emulation starts.
+
+        Called once, when the emulator is created, before any state is
+        applied to it, so the harness can still override what this writes.
+        Most machines have nothing to set.
+
+        Arguments:
+            emulator: The emulator.
+        """
+        pass
+
     def before_instruction(self, emulator: typing.Any) -> None:
         """Act between two instructions, before the next one is fetched.
 

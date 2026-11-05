@@ -18,6 +18,13 @@ scenario checks.
 ``mcs51_sdcc.libc_models.<abi>``: the same program, with every library
 function it calls replaced by SmallWorld's C99 models for the ABI.  Its
 results must match the library's.
+
+Both libc programs are built a third time, ``cip51``, for a Silicon Labs
+CIP-51 device, the C8051F330: in the medium memory model, with SDCC's default
+convention and pdata moved to XDATA 0x7E00.  That device pages MOVX @Ri
+through EMI0CN, not P2, so the scenario names EMI0CN in the CPU's
+``xpage_sfr`` and leaves P2 at its reset value, 0xFF: paged through P2,
+pdata would land in the wrong page.
 """
 
 from __future__ import annotations
@@ -38,17 +45,27 @@ _DIR = TestsPath / "mcs51_sdcc"
 _VARIANTS = ("mcs51.angr", "mcs51.pcode")
 _ABIS = ("sdcc", "sdccstackauto")
 _PROGRAMS = ("abi", "libc", "libc_models")
+# (program, build): each program under each ABI, and the libc programs for
+# the C8051F330 as well.
+_CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
+    ("libc", "cip51"),
+    ("libc_models", "cip51"),
+)
+
+# The C8051F330's EMI0CN, which pages its MOVX @Ri, and P2's reset value.
+_C8051F330_EMI0CN = 0xAA
+_SFR_P2 = 0xA0
+_P2_RESET = 0xFF
 
 SCENARIO_INFOS = tuple(
     ScenarioInfo(
-        prefix=f"mcs51_sdcc.{program}.{abi}",
-        scenario=f"mcs51_sdcc.{program}.{abi}",
+        prefix=f"mcs51_sdcc.{program}.{build}",
+        scenario=f"mcs51_sdcc.{program}.{build}",
         tags=("scenario", "mcs51_sdcc"),
         variants_source=from_variants(tuple((v, None) for v in _VARIANTS)),
         run_factory=just_run(),
     )
-    for program in _PROGRAMS
-    for abi in _ABIS
+    for program, build in _CASES
 )
 
 # The library functions libc.mcs51.c calls: map symbol, model name.  SDCC's
@@ -85,8 +102,7 @@ def can_run(scenario: str, variant: str) -> bool:
     return (
         len(parts) == 3
         and parts[0] == "mcs51_sdcc"
-        and parts[1] in _PROGRAMS
-        and parts[2] in _ABIS
+        and (parts[1], parts[2]) in _CASES
         and variant in _VARIANTS
     )
 
@@ -108,7 +124,7 @@ def _parameter_addresses(code, function: str) -> List[int]:
     return addresses
 
 
-def _setup(smallworld, image):
+def _setup(smallworld, image, cip51: bool = False):
     from smallworld.platforms.defs.mcs51 import (
         MCS51_IDATA_BASE,
         MCS51_SFR_BASE,
@@ -136,12 +152,16 @@ def _setup(smallworld, image):
     for i in range(8):
         getattr(cpu, f"r{i}").set(0)
 
-    for base, size in (
-        (MCS51_IDATA_BASE, 0x100),
-        (MCS51_SFR_BASE, 0x100),
-        (MCS51_XDATA_BASE, 0x8000),
+    sfrs = bytearray(0x100)
+    if cip51:
+        cpu.xpage_sfr.set(_C8051F330_EMI0CN)
+        sfrs[_SFR_P2] = _P2_RESET
+    for base, content in (
+        (MCS51_IDATA_BASE, bytes(0x100)),
+        (MCS51_SFR_BASE, bytes(sfrs)),
+        (MCS51_XDATA_BASE, bytes(0x8000)),
     ):
-        machine.add(smallworld.state.memory.RawMemory.from_bytes(b"\0" * size, base))
+        machine.add(smallworld.state.memory.RawMemory.from_bytes(content, base))
     return platform, machine, code
 
 
@@ -281,14 +301,16 @@ def _run_abi(smallworld, abi_name: str, engine: str) -> int:
     return _report(checks, errors)
 
 
-def _run_libc(smallworld, abi_name: str, engine: str, models: bool) -> int:
+def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
     from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
 
-    platform, machine, code = _setup(smallworld, _DIR / f"libc.{abi_name}.mcs51")
+    platform, machine, code = _setup(
+        smallworld, _DIR / f"libc.{build}.mcs51", cip51=build == "cip51"
+    )
     abi = (
-        smallworld.platforms.ABI.SDCC
-        if abi_name == "sdcc"
-        else smallworld.platforms.ABI.SDCCSTACKAUTO
+        smallworld.platforms.ABI.SDCCSTACKAUTO
+        if build == "sdccstackauto"
+        else smallworld.platforms.ABI.SDCC
     )
 
     if models:
@@ -352,9 +374,9 @@ def _run_libc(smallworld, abi_name: str, engine: str, models: bool) -> int:
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     import smallworld
 
-    _, program, abi_name = scenario.split(".")
+    _, program, build = scenario.split(".")
     _, engine = split_variant(variant)
     smallworld.logging.setup_logging(level=logging.INFO)
     if program == "abi":
-        return _run_abi(smallworld, abi_name, engine)
-    return _run_libc(smallworld, abi_name, engine, models=program == "libc_models")
+        return _run_abi(smallworld, build, engine)
+    return _run_libc(smallworld, build, engine, models=program == "libc_models")

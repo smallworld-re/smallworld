@@ -184,6 +184,8 @@ class AngrEmulator(
         self._constraints: typing.List[claripy.ast.bool.Bool] = list()
         self._extensions: typing.Dict[str, typing.Any] = dict()
 
+        self.machdef.initialize_state(self)
+
     def initialize(self):
         """Initialize the emulator
 

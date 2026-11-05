@@ -63,6 +63,18 @@ class AngrMachineDef:
         """
         return None
 
+    def initialize_state(self, emulator: typing.Any) -> None:
+        """Set machine state the hardware fixes before emulation starts.
+
+        Called once, when the emulator is created, before any state is
+        applied to it, so the harness can still override what this writes.
+        Most machines have nothing to set.
+
+        Arguments:
+            emulator: The emulator.
+        """
+        pass
+
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:

@@ -11,6 +11,7 @@ from ....platforms.defs.mcs51 import (
     MCS51_PSW_BANK_SHIFT,
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
+    MCS51_SFR_P2,
     MCS51InterruptState,
     mcs51_interrupt_to_take,
     mcs51_psw_with_parity,
@@ -98,6 +99,11 @@ class MCS51MachineDef(GhidraMachineDef):
             (MCS51_SFR_BASE + start, MCS51_SFR_BASE + end)
         )
         self._mapped_for = regions
+
+    def initialize_state(self, emulator) -> None:
+        # MOVX @Ri pages through P2, as on Intel's 8051, unless the harness
+        # names another SFR.
+        emulator.write_register("xpage_sfr", MCS51_SFR_P2)
 
     def before_instruction(self, emulator) -> None:
         """Take an interrupt, if the 8051 would take one now.
@@ -260,6 +266,7 @@ class MCS51MachineDef(GhidraMachineDef):
         "dptr": "DPTR",
         "dph": "DPH",
         "dpl": "DPL",
+        "xpage_sfr": "XPAGE_SFR",
         "r0": "R0",
         "r1": "R1",
         "r2": "R2",
