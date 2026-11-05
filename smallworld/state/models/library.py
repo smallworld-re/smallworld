@@ -171,7 +171,12 @@ class ElfModelLibrary(Memory):
         # bound here, the first point at which the model has an address.
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
-            elf.bind_tlsdesc_resolver(tlsdesc._address)
+            address = tlsdesc._address
+            if self._thumb_only():
+                # Code reaches the resolver with blx, so it needs the Thumb
+                # bit as every other model address does.
+                address |= 1
+            elf.bind_tlsdesc_resolver(address)
         elif elf.tlsdesc_descriptors:
             # Silence here would surface much later as a call to address zero,
             # with nothing tying it back to TLS.
