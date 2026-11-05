@@ -34,8 +34,9 @@ class AngrMachineDef:
 
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
-    # This only needs to be overridden if you're a pcode machine.
-    angr_engine: typing.Optional[typing.Type[angr.engines.UberEnginePcode]] = None
+    # This only needs to be overridden if you're a pcode machine, or a VEX
+    # machine whose lifting needs fixing up (see be8.py and v8m.py).
+    angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = None
 
     # Does angr support single-instruction stepping for this ISA.
     #
@@ -150,7 +151,7 @@ class GhidraMachineDef(AngrMachineDef):
     def angr_arch(self) -> archinfo.arch.Arch:
         return self._angr_arch
 
-    angr_engine: typing.Optional[typing.Type[angr.engines.UberEnginePcode]] = (
+    angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = (
         angr.engines.UberEnginePcode
     )
 

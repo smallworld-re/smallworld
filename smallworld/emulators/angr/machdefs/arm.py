@@ -2,6 +2,7 @@ import archinfo
 
 from ....platforms import Architecture, Byteorder
 from ..be8 import BE8Engine, be8_arch
+from ..v8m import ARMv8MEngine, v8m_arch
 from .machdef import AngrMachineDef
 
 
@@ -912,7 +913,8 @@ class ARMv8RMachineDef(
 
 class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
     # M-profile is Thumb-only.
-    angr_arch = archinfo.arch_arm.ArchARMCortexM()
+    angr_arch = v8m_arch()
+    angr_engine = ARMv8MEngine
     arch = Architecture.ARM_V8M
     byteorder = Byteorder.LITTLE
     is_thumb = True
