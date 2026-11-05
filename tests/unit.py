@@ -3857,6 +3857,38 @@ class StyxHookExecutionTests(unittest.TestCase):
 
         self.assertEqual(self._run(hook).read_register_content("r0"), 42)
 
+    def test_memory_read_hook_rejects_a_wrong_length(self):
+        emus = []
+
+        def hook(emu):
+            emus.append(emu)
+            emu.write_memory_content(0x2000, bytes(range(8)))
+            emu.hook_memory_read(0x2000, 0x2004, lambda e, addr, size, data: bytes(8))
+
+        with self.assertRaises(exceptions.EmulationError):
+            self._run(hook)
+        self.assertEqual(emus[0].read_memory_content(0x2004, 4), bytes(range(4, 8)))
+
+    def test_hook_exception_reaches_the_caller(self):
+        # Styx aborts the process on an exception from a hook.
+        def hook(emu):
+            def cb(e):
+                raise ValueError("from the hook")
+
+            emu.hook_instruction(0x1004, cb)
+
+        with self.assertRaisesRegex(ValueError, "from the hook"):
+            self._run(hook)
+
+    def test_emulation_stop_from_a_hook_ends_the_run(self):
+        def hook(emu):
+            def cb(e):
+                raise exceptions.EmulationStop()
+
+            emu.hook_instruction(0x1004, cb)
+
+        self._run(hook)
+
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxPowerPCExecutionTests(unittest.TestCase):
@@ -5912,6 +5944,31 @@ class LibraryStaticBufferTests(unittest.TestCase):
                 self.assertLessEqual(
                     model.static_buffer_address + model.static_space_required, end
                 )
+
+
+class LibraryThumbOnlyLinkTests(unittest.TestCase):
+    """library.py ElfModelLibrary.link on a Thumb-only CPU."""
+
+    def test_tls_descriptor_resolver_carries_the_thumb_bit(self):
+        # Code reaches the resolver with blx, so an even address would switch
+        # to ARM state, which M-profile faults on. Only amd64 models the
+        # resolver so far, so stand one in.
+        armv7m = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        libc = state.models.posix.libc.POSIXLibc(0x900000, armv7m, MODELS_SYSV)
+        resolver = types.SimpleNamespace(_address=0x900100)
+        libc.models["__tlsdesc_resolve"] = resolver
+        bound = []
+        elf = types.SimpleNamespace(
+            _dynamic_relas=[],
+            _static_relas=[],
+            tls_image=b"",
+            tlsdesc_descriptors=[0x4000],
+            bind_tlsdesc_resolver=bound.append,
+        )
+        libc.link(elf)
+        self.assertEqual(bound, [0x900101])
 
 
 class ReturnConstantModelTests(ModelTestCase):
@@ -9975,6 +10032,23 @@ class Z3BridgeImpliesTests(unittest.TestCase):
         solver = claripy.Solver()
         solver.add(bv == 1)
         self.assertEqual(set(solver.eval(x_claripy, 4)), {1, 3})
+
+    def test_shared_implications_convert(self):
+        import z3
+
+        from smallworld.emulators.ghidra import z3bridge
+
+        # Each level uses the one below twice, as the carry and overflow
+        # flags reuse a sum, so walking it as a tree takes 2**200 steps.
+        a, b, c = z3.Bools("a b c")
+        expr = a
+        for _ in range(200):
+            expr = z3.And(z3.Implies(expr, b), z3.Or(expr, c))
+        rewritten = z3bridge._for_claripy(expr)
+        solver = z3.Solver()
+        solver.add(rewritten != expr)
+        self.assertEqual(solver.check(), z3.unsat)
+        self.assertEqual(self._bv(expr).op, "If")
 
 
 class GhidraArmPsrTests(unittest.TestCase):
