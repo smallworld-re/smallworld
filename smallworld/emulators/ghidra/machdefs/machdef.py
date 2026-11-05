@@ -163,6 +163,25 @@ class GhidraMachineDef:
         """
         pass
 
+    def redirect_store(self, emulator: typing.Any, address: int, data: bytes) -> bool:
+        """Perform an instruction's store some other way, as the hardware does.
+
+        Called for each store an instruction makes through a computed
+        address, before memory hooks see it.  A machine whose hardware sends
+        such a store elsewhere - as an 8051 device writing its own flash
+        sends MOVX stores to code memory rather than XDATA - performs it, and
+        the emulator skips the store.  Most machines never redirect one.
+
+        Arguments:
+            emulator: The emulator.
+            address: The flat address stored to.
+            data: The bytes stored.
+
+        Returns:
+            Whether the store was performed, so the emulator must skip it.
+        """
+        return False
+
     def update_derived_state(
         self, emulator: typing.Any, writes: typing.Optional["GhidraWrites"] = None
     ) -> None:

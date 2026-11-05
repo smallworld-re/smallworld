@@ -375,6 +375,139 @@ def mcs51_pop_sfr_page(
     return True
 
 
+@dataclasses.dataclass(frozen=True)
+class MCS51FlashProgramming:
+    """How a Silicon Labs device writes its own flash.
+
+    With PSCTL's PSWE bit set, MOVX writes go to flash - code memory - rather
+    than XDATA: a write clears the bits of the flash byte that are clear in
+    the byte written, since only erasing sets them, and with PSEE set too,
+    erases the whole page holding the byte, setting it to 0xFF.  MOVX reads
+    still read XDATA; a program reads flash with MOVC.
+
+    Each write or erase must be unlocked first, by writing 0xA5 then 0xF1 to
+    FLKEY; the lock closes again after it.  Writing anything else to FLKEY,
+    or writing or erasing flash while it is locked, disables writes and
+    erases until reset.  Reading FLKEY reads the lock's state, one of the
+    ``MCS51_FLKEY_*`` values.
+
+    Addresses are SFR addresses, with the page above them where it matters.
+    """
+
+    psctl: int
+    """PSCTL's address."""
+
+    flkey: int
+    """FLKEY's address."""
+
+    page_size: int
+    """The size of a flash page, which an erase sets to 0xFF."""
+
+
+#: PSCTL's bits: PSWE, which sends MOVX writes to flash, and PSEE, which makes
+#: them erase.
+MCS51_PSCTL_PSWE = 0x01
+MCS51_PSCTL_PSEE = 0x02
+
+#: The states of the flash lock, as FLKEY reads: locked, with the first key
+#: written, unlocked, and disabled until reset.
+MCS51_FLKEY_LOCKED = 0
+MCS51_FLKEY_FIRST_KEY = 1
+MCS51_FLKEY_UNLOCKED = 2
+MCS51_FLKEY_DISABLED = 3
+
+#: The C8051F33x's flash programming, from its data sheet, revision 1.7:
+#: section 11 and the PSCTL and FLKEY definitions.
+MCS51_C8051F33X_FLASH = MCS51FlashProgramming(psctl=0x8F, flkey=0xB7, page_size=512)
+
+#: Flash programming, by device family, for :func:`mcs51_flash_programming`:
+#: (pattern of part numbers, flash programming).
+_MCS51_FLASH: typing.Tuple[typing.Tuple[str, MCS51FlashProgramming], ...] = (
+    (r"C8051F33[0-5]", MCS51_C8051F33X_FLASH),
+)
+
+
+def mcs51_flash_programming(device: str) -> typing.Optional[MCS51FlashProgramming]:
+    """How an 8051 device writes its own flash.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's flash programming, or None if SmallWorld has no table
+        of it.
+    """
+    for pattern, flash in _MCS51_FLASH:
+        if re.match(pattern, device, re.IGNORECASE):
+            return flash
+    return None
+
+
+def mcs51_flash_owns_store(
+    flash: MCS51FlashProgramming,
+    address: int,
+    read_memory: typing.Callable[[int, int], bytes],
+) -> bool:
+    """Whether a store is the flash's to perform: see :func:`mcs51_flash_store`.
+
+    Arguments:
+        flash: The device's flash programming.
+        address: The flat address stored to.
+        read_memory: Reads memory, by flat address and size.
+    """
+    if address == MCS51_SFR_BASE + flash.flkey:
+        return True
+    return MCS51_XDATA_BASE <= address < MCS51_XDATA_BASE + 0x10000 and bool(
+        read_memory(MCS51_SFR_BASE + flash.psctl, 1)[0] & MCS51_PSCTL_PSWE
+    )
+
+
+def mcs51_flash_store(
+    flash: MCS51FlashProgramming,
+    address: int,
+    value: int,
+    read_memory: typing.Callable[[int, int], bytes],
+    write_memory: typing.Callable[[int, bytes], None],
+) -> None:
+    """Perform a store the flash owns, as the device does.
+
+    A store to FLKEY advances the lock, and leaves FLKEY reading its state.
+    A MOVX write, while PSWE is set, writes or erases flash if the lock is
+    open, and closes it, or else disables writes and erases until reset.
+
+    Arguments:
+        flash: The device's flash programming.
+        address: The flat address stored to, one
+            :func:`mcs51_flash_owns_store` says the flash owns.
+        value: The byte stored.
+        read_memory: Reads memory, by flat address and size.
+        write_memory: Writes memory, by flat address and content.
+    """
+    flkey = MCS51_SFR_BASE + flash.flkey
+    lock = read_memory(flkey, 1)[0] & 0x03
+    if address == flkey:
+        if lock == MCS51_FLKEY_LOCKED and value == 0xA5:
+            lock = MCS51_FLKEY_FIRST_KEY
+        elif lock == MCS51_FLKEY_FIRST_KEY and value == 0xF1:
+            lock = MCS51_FLKEY_UNLOCKED
+        else:
+            lock = MCS51_FLKEY_DISABLED
+        write_memory(flkey, bytes([lock]))
+        return
+    if lock != MCS51_FLKEY_UNLOCKED:
+        write_memory(flkey, bytes([MCS51_FLKEY_DISABLED]))
+        return
+    offset = address - MCS51_XDATA_BASE
+    if read_memory(MCS51_SFR_BASE + flash.psctl, 1)[0] & MCS51_PSCTL_PSEE:
+        page = offset - offset % flash.page_size
+        write_memory(MCS51_CODE_BASE + page, bytes([0xFF]) * flash.page_size)
+    else:
+        old = read_memory(MCS51_CODE_BASE + offset, 1)[0]
+        write_memory(MCS51_CODE_BASE + offset, bytes([old & value]))
+    write_memory(flkey, bytes([MCS51_FLKEY_LOCKED]))
+
+
 #: SFRs that control interrupts.
 MCS51_SFR_TCON = 0x88
 MCS51_SFR_SCON = 0x98

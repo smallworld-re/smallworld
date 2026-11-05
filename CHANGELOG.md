@@ -163,6 +163,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sfr_page`, `sfr_paged_lo` and `sfr_paged_hi`. `mcs51_sdcc` programs built
   for the C8051F040, F060 and F120 test it, and the C8051F040's EMI0CN, at
   0xA2.
+- Silicon Labs' flash programming, for the C8051F330-F335: an `MCS51Device`
+  for one sends MOVX writes to flash while PSCTL's PSWE is set, writing or
+  erasing it once FLKEY is unlocked, as the data sheet describes. Ghidra
+  machine definitions can perform an instruction's store themselves, through
+  `redirect_store()`. An `mcs51_sdcc` program built for the C8051F330 tests
+  it.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

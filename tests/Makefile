@@ -398,6 +398,12 @@ MCS51_C_IHXS += $(foreach d,$(MCS51_SFRPAGES_DEVICES),mcs51_sdcc/sfrpages.$(d).m
 mcs51_sdcc/sfrpages.%.mcs51.ihx : mcs51_sdcc/sfrpages.c
 	./mcs51_cc.sh --device $(shell echo $* | tr a-z A-Z).h $< $@
 
+# flash.cip51.c only for the C8051F330, whose flash programming it tests.
+MCS51_C_IHXS += mcs51_sdcc/flash.cip51.mcs51.ihx
+
+mcs51_sdcc/flash.cip51.mcs51.ihx : mcs51_sdcc/flash.cip51.c
+	./mcs51_cc.sh --device C8051F330.h $< $@
+
 # interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
 MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx
 

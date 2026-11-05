@@ -4,6 +4,7 @@ import typing
 from ... import emulators, exceptions, platforms
 from ...platforms.defs.mcs51 import (
     MCS51Interrupt,
+    mcs51_flash_programming,
     mcs51_interrupts,
     mcs51_sfr_paging,
     mcs51_xpage_sfr,
@@ -94,6 +95,13 @@ class MCS51Device(state.Stateful):
     no table of, SFRs are not paged, and a warning is logged.
     ``sfr_paging`` says which.
 
+    A device that writes its own flash, as Silicon Labs' do, does so too,
+    sending MOVX writes to code memory while PSCTL says to (see
+    :class:`~smallworld.platforms.defs.mcs51.MCS51FlashProgramming`).  Map
+    the flash a program writes or erases, whole pages of it.  For a device
+    whose flash programming SmallWorld has no table of, MOVX writes always
+    go to XDATA, and a warning is logged; ``flash`` says which.
+
     Only the Ghidra and angr emulators can emulate a device.
 
     Arguments:
@@ -120,6 +128,12 @@ class MCS51Device(state.Stateful):
         except ValueError as e:
             logger.warning(f"{e}; its SFRs are not paged")
             self.sfr_paging = None
+        self.flash = mcs51_flash_programming(device)
+        if self.flash is None:
+            logger.warning(
+                f"no table of how 8051 device {device} writes its flash; "
+                "MOVX writes go to XDATA"
+            )
 
     def extract(self, emulator: emulators.Emulator) -> None:
         # Nothing about the device changes as it runs.
@@ -136,3 +150,5 @@ class MCS51Device(state.Stateful):
         set_interrupt_sources(emulator, self.interrupts)
         if self.sfr_paging is not None:
             machdef.set_sfr_paging(emulator, self.sfr_paging)
+        if self.flash is not None:
+            machdef.set_flash_programming(emulator, self.flash)

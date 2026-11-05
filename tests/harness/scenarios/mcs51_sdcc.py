@@ -34,6 +34,11 @@ time, ``c8051f040``, for the C8051F040, whose EMI0CN is at 0xA2, and which
 pages its SFRs; its ``MCS51Device`` pages them, and the scenario maps SFR
 pages 0-0x0F.
 
+``mcs51_sdcc.flash.cip51``: ``flash.cip51.c``, built only for the
+C8051F330, erases and writes its own flash, unlocking it with FLKEY, and
+writes it while locked.  The scenario maps the flash page it writes, and
+checks what it read back, and that XDATA was left alone.
+
 ``mcs51_sdcc.sfrpages.<device>``: ``sfrpages.c``, built for the C8051F040,
 C8051F060 and C8051F120, reaches SFRs on several pages, and takes an
 interrupt with the SFR page stack enabled and disabled.  The scenario
@@ -73,6 +78,7 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc", "c8051f040"),
     ("libc_models", "c8051f040"),
     ("interrupts", "cip51"),
+    ("flash", "cip51"),
     ("sfrpages", "c8051f040"),
     ("sfrpages", "c8051f060"),
     ("sfrpages", "c8051f120"),
@@ -451,6 +457,40 @@ def _run_interrupts(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
+def _run_flash(smallworld, engine: str) -> int:
+    from smallworld.platforms.defs.mcs51 import MCS51_CODE_BASE, MCS51_XDATA_BASE
+
+    platform, machine, code = _setup(
+        smallworld, _DIR / "flash.cip51.mcs51", "C8051F330", emulate_device=True
+    )
+    # The flash page the program erases and writes, past its code.
+    page = 0x1A00
+    machine.add(
+        smallworld.state.memory.RawMemory.from_bytes(
+            bytes(0x200), MCS51_CODE_BASE + page
+        )
+    )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    result = list(emulator.read_memory(code.get_symbol_value("_result"), 12))
+    checks = {
+        # FLKEY: first key, unlocked, locked after the erase; disabled after
+        # a write while locked, and still after the keys.
+        "flkey": (result[:5], [1, 2, 0, 3, 3]),
+        # Flash at 0x1A00-0x1A04, 0x1A10 and 0x1BFF: 0x5A & 0x0F, 0xC3, and
+        # erased bytes the locked writes left alone.
+        "flash": (result[5:12], [0x0A, 0xC3, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
+        "xdata": (
+            list(emulator.read_memory(MCS51_XDATA_BASE + page, 5))
+            + list(emulator.read_memory(MCS51_XDATA_BASE + page + 0x10, 1)),
+            [0, 0, 0, 0, 0x77, 0],
+        ),
+    }
+    return _report(checks, [])
+
+
 def _run_sfrpages(smallworld, build: str, engine: str) -> int:
     device, emulate_device = _DEVICES[build]
     platform, machine, code = _setup(
@@ -490,6 +530,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_abi(smallworld, build, engine)
     if program == "interrupts":
         return _run_interrupts(smallworld, engine)
+    if program == "flash":
+        return _run_flash(smallworld, engine)
     if program == "sfrpages":
         return _run_sfrpages(smallworld, build, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")

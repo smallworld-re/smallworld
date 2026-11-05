@@ -13,8 +13,16 @@ from smallworld import exceptions
 from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F04X_SFR_PAGING,
     MCS51_C8051F12X_SFR_PAGING,
+    MCS51_C8051F33X_FLASH,
+    MCS51_CODE_BASE,
+    MCS51_FLKEY_DISABLED,
+    MCS51_FLKEY_FIRST_KEY,
+    MCS51_FLKEY_LOCKED,
+    MCS51_FLKEY_UNLOCKED,
     MCS51_IE_EA,
     MCS51_OPCODE_RETI,
+    MCS51_PSCTL_PSEE,
+    MCS51_PSCTL_PSWE,
     MCS51_SFR_BASE,
     MCS51_SFR_EIE1,
     MCS51_SFR_EIP1,
@@ -22,9 +30,13 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_SFR_IP,
     MCS51_SFR_T2CON,
     MCS51_SFR_TCON,
+    MCS51_XDATA_BASE,
     C8051F33xInterrupt,
     MCS51Interrupt,
     MCS51InterruptState,
+    mcs51_flash_owns_store,
+    mcs51_flash_programming,
+    mcs51_flash_store,
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_interrupts,
@@ -283,6 +295,7 @@ class MCS51DeviceTests(unittest.TestCase):
                 self.machdef = self
                 self.sources = None
                 self.paging = None
+                self.flash = None
 
             def write_register(self, name: str, value: int) -> None:
                 self.registers[name] = value
@@ -293,9 +306,12 @@ class MCS51DeviceTests(unittest.TestCase):
             def set_sfr_paging(self, emulator, paging) -> None:
                 self.paging = paging
 
-        for device, xpage_sfr, sources, paging in (
-            ("C8051F330", 0xAA, C8051F33xInterrupt, None),
-            ("C8051F040", 0xA2, MCS51Interrupt, MCS51_C8051F04X_SFR_PAGING),
+            def set_flash_programming(self, emulator, flash) -> None:
+                self.flash = flash
+
+        for device, xpage_sfr, sources, paging, flash in (
+            ("C8051F330", 0xAA, C8051F33xInterrupt, None, MCS51_C8051F33X_FLASH),
+            ("C8051F040", 0xA2, MCS51Interrupt, MCS51_C8051F04X_SFR_PAGING, None),
         ):
             with self.subTest(device=device):
                 emulator = Emulator()
@@ -303,6 +319,7 @@ class MCS51DeviceTests(unittest.TestCase):
                 self.assertEqual(emulator.registers, {"xpage_sfr": xpage_sfr})
                 self.assertIs(emulator.sources, sources)
                 self.assertIs(emulator.paging, paging)
+                self.assertIs(emulator.flash, flash)
 
     def test_emulators_that_cannot_take_its_interrupts_are_refused(self):
         class Emulator:
@@ -375,6 +392,81 @@ class MCS51SFRPagingTests(unittest.TestCase):
         self.assertFalse(mcs51_push_sfr_page(self.paging, values.get, write_sfr, 0))
         self.assertFalse(mcs51_pop_sfr_page(self.paging, values.get, write_sfr))
         self.assertEqual((values[0x84], values[0x85], values[0x86]), (1, 2, 3))
+
+
+class MCS51FlashTests(unittest.TestCase):
+    flash = MCS51_C8051F33X_FLASH
+    psctl = MCS51_SFR_BASE + MCS51_C8051F33X_FLASH.psctl
+    flkey = MCS51_SFR_BASE + MCS51_C8051F33X_FLASH.flkey
+
+    def setUp(self):
+        self.memory: typing.Dict[int, int] = {}
+
+    def read_memory(self, address: int, size: int) -> bytes:
+        return bytes(self.memory.get(address + i, 0) for i in range(size))
+
+    def write_memory(self, address: int, content: bytes) -> None:
+        for i, byte in enumerate(content):
+            self.memory[address + i] = byte
+
+    def store(self, address: int, value: int) -> bool:
+        if not mcs51_flash_owns_store(self.flash, address, self.read_memory):
+            return False
+        mcs51_flash_store(
+            self.flash, address, value, self.read_memory, self.write_memory
+        )
+        return True
+
+    def keys(self, *values: int) -> int:
+        for value in values:
+            self.assertTrue(self.store(self.flkey, value))
+        return self.memory[self.flkey]
+
+    def test_lookup(self):
+        self.assertIs(mcs51_flash_programming("c8051f335-gm"), self.flash)
+        self.assertIsNone(mcs51_flash_programming("C8051F310"))
+        with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
+            self.assertIsNone(MCS51Device("C8051F020").flash)
+
+    def test_keys(self):
+        self.assertEqual(self.keys(0xA5), MCS51_FLKEY_FIRST_KEY)
+        self.assertEqual(self.keys(0xF1), MCS51_FLKEY_UNLOCKED)
+
+    def test_wrong_keys_disable_until_reset(self):
+        for keys in ((0xF1,), (0xA5, 0xA5), (0xA5, 0xF1, 0xA5)):
+            with self.subTest(keys=keys):
+                self.setUp()
+                self.assertEqual(self.keys(*keys), MCS51_FLKEY_DISABLED)
+                self.assertEqual(self.keys(0xA5, 0xF1), MCS51_FLKEY_DISABLED)
+
+    def test_movx_writes_are_flashs_only_with_pswe(self):
+        address = MCS51_XDATA_BASE + 0x1A00
+        self.assertFalse(self.store(address, 0))
+        self.assertFalse(self.store(MCS51_SFR_BASE + 0x90, 0))
+        self.memory[self.psctl] = MCS51_PSCTL_PSWE
+        self.assertTrue(self.store(address, 0))
+
+    def test_write_clears_bits_and_relocks(self):
+        self.memory[self.psctl] = MCS51_PSCTL_PSWE
+        self.memory[MCS51_CODE_BASE + 0x1A01] = 0x5A
+        self.keys(0xA5, 0xF1)
+        self.store(MCS51_XDATA_BASE + 0x1A01, 0x0F)
+        self.assertEqual(self.memory[MCS51_CODE_BASE + 0x1A01], 0x0A)
+        self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_LOCKED)
+
+    def test_erase_sets_the_page(self):
+        self.memory[self.psctl] = MCS51_PSCTL_PSWE | MCS51_PSCTL_PSEE
+        self.keys(0xA5, 0xF1)
+        self.store(MCS51_XDATA_BASE + 0x1B23, 0x00)
+        flash = {a - MCS51_CODE_BASE for a, v in self.memory.items() if v == 0xFF}
+        self.assertEqual(flash, set(range(0x1A00, 0x1C00)))
+        self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_LOCKED)
+
+    def test_writing_while_locked_disables(self):
+        self.memory[self.psctl] = MCS51_PSCTL_PSWE
+        self.store(MCS51_XDATA_BASE + 0x1A00, 0x00)
+        self.assertNotIn(MCS51_CODE_BASE + 0x1A00, self.memory)
+        self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_DISABLED)
 
 
 if __name__ == "__main__":

@@ -313,6 +313,21 @@ how the stack works; both are taken from memory of Silicon Labs' data sheets
 for now.  Other devices that page their SFRs - the C8051F36x and F92x - are
 emulated with their SFRs unpaged, with a warning, and the C8051F12x's banked
 flash is not modeled.
+
+Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
+bit is set, a MOVX write goes to code memory instead of XDATA, clearing the
+flash byte's bits that are clear in the byte written, or, with PSEE set too,
+erasing the page that holds it to 0xFF; FLKEY must be unlocked, by writing
+0xA5 then 0xF1, before each write or erase, and writing it wrongly, or
+writing flash while it is locked, disables writes until reset.  An
+``MCS51Device`` for the C8051F330-F335 does all that, from
+``MCS51_C8051F33X_FLASH``, which is taken from the data sheet; map the flash
+pages the program writes, and PSCTL and FLKEY, without which MOVX writes go
+to XDATA as on other devices.  On angr, a MOVX write through a symbolic
+address goes to XDATA, and one to flash must write a concrete byte.  Other
+devices' MOVX writes go to XDATA, with a warning.  The flash security lock
+byte, and the resets the data sheet says a locked page's misuse causes, are
+not modeled.
 Both backends take the 8052's six interrupts, or a device's, as the hardware
 does, when the SFRs that control them are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and

@@ -11,10 +11,13 @@ from ....platforms.defs.mcs51 import (
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
     MCS51_SFR_P2,
+    MCS51FlashProgramming,
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
     MCS51SFRPaging,
+    mcs51_flash_owns_store,
+    mcs51_flash_store,
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_pop_sfr_page,
@@ -87,6 +90,10 @@ class MCS51MachineDef(GhidraMachineDef):
         # it depends on are mapped.
         self._sfr_paging: typing.Optional[MCS51SFRPaging] = None
         self._sfr_paging_mapped = False
+        # How the device writes its own flash, if SmallWorld knows, and
+        # whether the SFRs that control it are mapped.
+        self._flash: typing.Optional[MCS51FlashProgramming] = None
+        self._flash_mapped = False
         # Register offsets in Ghidra's register space, by name.
         self._register_offsets: typing.Dict[str, int] = {}
 
@@ -120,6 +127,11 @@ class MCS51MachineDef(GhidraMachineDef):
                 paging.stack_enable[0],
             )
         )
+        flash = self._flash
+        self._flash_mapped = flash is not None and all(
+            mapped.contains_value(MCS51_SFR_BASE + sfr)
+            for sfr in (flash.psctl, flash.flkey)
+        )
         self._mapped_for = regions
 
     def initialize_state(self, emulator) -> None:
@@ -141,6 +153,36 @@ class MCS51MachineDef(GhidraMachineDef):
         lo, hi = paging.paged_masks()
         emulator.write_register("sfr_paged_lo", lo)
         emulator.write_register("sfr_paged_hi", hi)
+
+    def set_flash_programming(self, emulator, flash: MCS51FlashProgramming) -> None:
+        """Write flash as a device that writes its own does.
+
+        Arguments:
+            emulator: The emulator.
+            flash: The device's flash programming.
+        """
+        self._flash = flash
+        self._mapped_for = None
+
+    def redirect_store(self, emulator, address: int, data: bytes) -> bool:
+        """Perform a store the device's flash programming owns.
+
+        A store to FLKEY, or a MOVX write while PSCTL's PSWE is set; see
+        :class:`MCS51FlashProgramming`.  Flash programming is only modeled
+        when PSCTL and FLKEY are mapped.
+        """
+        flash = self._flash
+        if flash is None or len(data) != 1:
+            return False
+        self._check_mapping(emulator)
+        if not self._flash_mapped or not mcs51_flash_owns_store(
+            flash, address, emulator.read_memory
+        ):
+            return False
+        mcs51_flash_store(
+            flash, address, data[0], emulator.read_memory, emulator.write_memory
+        )
+        return True
 
     def _sync_sfr_page(self, emulator) -> None:
         # sfr_page mirrors SFRPAGE, from which instructions take the page of

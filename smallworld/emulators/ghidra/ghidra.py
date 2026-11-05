@@ -42,6 +42,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
+        # Whether the machine may redirect stores; most never do, and asking
+        # costs every store a read of its address and data.
+        self._redirects_stores = (
+            type(self.machdef).redirect_store is not GhidraMachineDef.redirect_store
+        )
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
         # The default address space is fixed for the emulator's lifetime;
@@ -472,13 +477,15 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if self._mem_reads_hook is not None:
             self._mem_reads_hook = None
 
-    def _process_write_breakpoint(
+    def _store_target(
         self,
         addr_var: Varnode,
         data_var: Varnode,
         direct=False,
         space: typing.Optional[typing.Tuple[typing.Any, int]] = None,
-    ) -> None:
+    ) -> typing.Tuple[int, typing.Any]:
+        # The flat address a store writes, and what it writes, as Ghidra
+        # holds it.
         state = self._thread.getState()
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
 
@@ -494,7 +501,27 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 offset = int.from_bytes(addr_bytes, "little")
 
         # Hooks and the memory map see flat addresses.
-        addr = (space[1] if space is not None else 0) + offset
+        return (space[1] if space is not None else 0) + offset, data
+
+    def _redirect_store(
+        self,
+        addr_var: Varnode,
+        data_var: Varnode,
+        space: typing.Tuple[typing.Any, int],
+    ) -> bool:
+        # Whether the machine performed a store itself; see
+        # GhidraMachineDef.redirect_store.
+        address, data = self._store_target(addr_var, data_var, space=space)
+        return self.machdef.redirect_store(self, address, bytes(data))
+
+    def _process_write_breakpoint(
+        self,
+        addr_var: Varnode,
+        data_var: Varnode,
+        direct=False,
+        space: typing.Optional[typing.Tuple[typing.Any, int]] = None,
+    ) -> None:
+        addr, data = self._store_target(addr_var, data_var, direct, space)
         self._note_memory_write(addr, len(data))
 
         self._require_mapped(
@@ -631,7 +658,15 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         # a store to the default space.
                         space = (self._default_space, 0)
                     if space is not None:
-                        self._process_write_breakpoint(addr_var, data_var, space=space)
+                        # The machine may perform the store another way.
+                        if self._redirects_stores and self._redirect_store(
+                            addr_var, data_var, space
+                        ):
+                            skip = True
+                        else:
+                            self._process_write_breakpoint(
+                                addr_var, data_var, space=space
+                            )
                 elif opcode == op.LOAD:
                     # This is a LOAD opcode; could trigger a "read" hook
                     space_var, addr_var = op.getInputs()

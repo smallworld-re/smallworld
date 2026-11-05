@@ -18,10 +18,13 @@ from ....platforms.defs.mcs51 import (
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
     MCS51_SFR_P2,
+    MCS51FlashProgramming,
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
     MCS51SFRPaging,
+    mcs51_flash_owns_store,
+    mcs51_flash_store,
     mcs51_interrupt_control_sfrs,
     mcs51_interrupt_sfrs,
     mcs51_pop_sfr_page,
@@ -123,9 +126,11 @@ _JUST_TAKEN = "mcs51_interrupt_taken"
 _ONE_INSTRUCTION = "mcs51_one_instruction"
 
 # The extensions holding the device's interrupt sources, when they are not the
-# 8052's, and its SFR paging, when it pages its SFRs.
+# 8052's, its SFR paging, when it pages its SFRs, and how it writes its own
+# flash, when SmallWorld knows.
 _INTERRUPT_SOURCES = "mcs51_interrupt_sources"
 _SFR_PAGING = "mcs51_sfr_paging"
+_FLASH = "mcs51_flash"
 
 
 def _writes_sfrs(ops, sfrs) -> bool:
@@ -390,6 +395,47 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             self._parity_stale = True
         if start <= registers["acc"][0] < end:
             self._parity_stale = True
+
+    def _flash_store(self, address, data) -> bool:
+        """Perform a store the device's flash programming owns, if it is one.
+
+        A store to FLKEY, or a MOVX write while PSCTL's PSWE is set; see
+        :class:`MCS51FlashProgramming`.  Flash programming is only modeled
+        when PSCTL and FLKEY are mapped, and for stores to concrete
+        addresses; one to flash must store a concrete byte.
+        """
+        extensions = getattr(self.state.scratch, "extensions", {})
+        flash = extensions.get(_FLASH)
+        memory_map = getattr(self.state.scratch, "memory_map", None)
+        if flash is None or memory_map is None or data.size() != 8:
+            return False
+        if not all(
+            memory_map.contains_value(MCS51_SFR_BASE + sfr)
+            for sfr in (flash.psctl, flash.flkey)
+        ):
+            return False
+
+        def read_memory(start: int, size: int) -> bytes:
+            return bytes(
+                self._concrete_byte(a, f"byte at {a:#x}")
+                for a in range(start, start + size)
+            )
+
+        def write_memory(start: int, content: bytes) -> None:
+            self.state.memory.store(
+                start, claripy.BVV(content), inspect=False, disable_actions=True
+            )
+
+        addresses = self.state.solver.eval_upto(address, 2)
+        if len(addresses) != 1 or not mcs51_flash_owns_store(
+            flash, addresses[0], read_memory
+        ):
+            return False
+        values = self.state.solver.eval_upto(data, 2)
+        if len(values) != 1:
+            raise EmulationError("A byte written to 8051 flash is symbolic")
+        mcs51_flash_store(flash, addresses[0], values[0], read_memory, write_memory)
+        return True
 
     def _note_sfr_write(self, address) -> None:
         extensions = getattr(self.state.scratch, "extensions", {})
@@ -675,6 +721,8 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         offset = self._get_value(op.inputs[1])
         data = self._get_value(op.inputs[2])
         address = self._flat_address(space.name, offset)
+        if space.name in ("EXTMEM", "PSFR") and self._flash_store(address, data):
+            return
         self.state.memory.store(
             address,
             data,
@@ -729,6 +777,27 @@ class MCS51MachineDef(GhidraMachineDef):
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
         for register in ("sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
             emulator.write_register(register, 0)
+
+    def set_flash_programming(
+        self, emulator: typing.Any, flash: MCS51FlashProgramming
+    ) -> None:
+        """Write flash as a device that writes its own does.
+
+        Kept with each path's state, as the interrupt sources are.
+
+        Arguments:
+            emulator: The emulator.
+            flash: The device's flash programming.
+
+        Raises:
+            ConfigurationError: If the emulator already has a device's.
+        """
+        try:
+            emulator.add_extension(_FLASH, flash)
+        except KeyError:
+            raise ConfigurationError(
+                "the 8051 device's flash programming is already set"
+            )
 
     def set_sfr_paging(self, emulator: typing.Any, paging: MCS51SFRPaging) -> None:
         """Page SFRs as a device that pages them does.
