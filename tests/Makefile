@@ -385,6 +385,18 @@ MCS51_C_IHXS += mcs51_sdcc/libc.c8051f020.mcs51.ihx
 mcs51_sdcc/libc.c8051f020.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
 	./mcs51_cc.sh --medium --device C8051F020.h --pdata 0x7e00 $< $@
 
+# And for the C8051F040, which pages its SFRs, and whose EMI0CN is at 0xA2.
+MCS51_C_IHXS += mcs51_sdcc/libc.c8051f040.mcs51.ihx
+
+mcs51_sdcc/libc.c8051f040.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F040.h --pdata 0x7e00 $< $@
+
+# sfrpages.c8051f040.c only for the C8051F040, whose SFR pages it tests.
+MCS51_C_IHXS += mcs51_sdcc/sfrpages.c8051f040.mcs51.ihx
+
+mcs51_sdcc/sfrpages.c8051f040.mcs51.ihx : mcs51_sdcc/sfrpages.c8051f040.c
+	./mcs51_cc.sh --device C8051F040.h $< $@
+
 # interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
 MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx
 

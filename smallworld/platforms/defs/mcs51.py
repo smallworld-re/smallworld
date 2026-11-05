@@ -64,9 +64,12 @@ class MCS51(PlatformDef):
             "dptr": RegisterDef(name="dptr", size=2),
             "dph": RegisterAliasDef(name="dph", parent="dptr", size=1, offset=1),
             "dpl": RegisterAliasDef(name="dpl", parent="dptr", size=1, offset=0),
-            # Not a register of the hardware: the SFR that pages MOVX @Ri; see
-            # MCS51_SFR_P2.
+            # Not registers of the hardware: the SFR that pages MOVX @Ri (see
+            # MCS51_SFR_P2), and SFR paging (see MCS51SFRPaging).
             "xpage_sfr": RegisterDef(name="xpage_sfr", size=1),
+            "sfr_page": RegisterDef(name="sfr_page", size=1),
+            "sfr_paged_lo": RegisterDef(name="sfr_paged_lo", size=8),
+            "sfr_paged_hi": RegisterDef(name="sfr_paged_hi", size=8),
         }
         for i in range(0, 8):
             self._registers[f"r{i}"] = RegisterDef(name=f"r{i}", size=1)
@@ -76,12 +79,17 @@ class MCS51(PlatformDef):
 #: (Ghidra space name, flat base address, size).  CODE sits at 0 so that code
 #: addresses, exit points and the program counter all agree; the data spaces
 #: sit above 64 KiB, where no code address can reach them.
+#:
+#: SFRs are in PSFR, SmallWorld's SFR space, which has a page for each value
+#: of a Silicon Labs device's SFRPAGE: SFR ``sfr`` on page ``page`` is at
+#: ``MCS51_SFR_BASE + (page << 8) + sfr``.  SFRs that are not paged, as none
+#: are on most devices, are on page 0.
 MCS51_ADDRESS_SPACES: typing.Tuple[typing.Tuple[str, int, int], ...] = (
     ("CODE", 0x00000, 0x10000),
     ("EXTMEM", 0x10000, 0x10000),
     ("INTMEM", 0x20000, 0x100),
-    ("SFR", 0x20100, 0x100),
-    ("BITS", 0x20200, 0x100),
+    ("PSFR", 0x20100, 0x10000),
+    ("BITS", 0x30100, 0x100),
 )
 
 #: Flat base addresses, by space, for scripts and tests.
@@ -89,7 +97,7 @@ MCS51_CODE_BASE = 0x00000
 MCS51_XDATA_BASE = 0x10000
 MCS51_IDATA_BASE = 0x20000
 MCS51_SFR_BASE = 0x20100
-MCS51_BITS_BASE = 0x20200
+MCS51_BITS_BASE = 0x30100
 
 
 def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
@@ -208,6 +216,156 @@ def mcs51_pdata_page(emulator: typing.Any) -> int:
     """
     sfr = emulator.read_register("xpage_sfr")
     return emulator.read_memory(MCS51_SFR_BASE + sfr, 1)[0]
+
+
+@dataclasses.dataclass(frozen=True)
+class MCS51SFRPaging:
+    """How an 8051 device pages its SFRs, as Silicon Labs' larger devices do.
+
+    The SFRPAGE SFR selects the page through which the CPU reaches most
+    SFRs, so that one address holds a different SFR on each page; the SFRs in
+    ``shared`` are the same on every page.  SmallWorld keeps each page's SFRs
+    in its own 256 bytes of SFR space (see :data:`MCS51_ADDRESS_SPACES`), and
+    the shared ones on page 0.
+
+    The device also keeps a stack of pages: taking an interrupt pushes
+    SFRPAGE onto SFRNEXT, and SFRNEXT onto SFRLAST, and selects the
+    interrupt's page, the page of its request flags; RETI pops it.  It does
+    so only while the bits ``stack_enable`` names are set.
+
+    Addresses are SFR addresses, with the page above them where it matters:
+    ``0xF96`` is SFR 0x96 on page 0xF.
+    """
+
+    sfrpage: int
+    """SFRPAGE's address."""
+
+    sfrnext: int
+    """SFRNEXT's address."""
+
+    sfrlast: int
+    """SFRLAST's address."""
+
+    stack_enable: typing.Tuple[int, int]
+    """The SFR, and the mask of its bits, that enable the page stack."""
+
+    shared: typing.FrozenSet[int]
+    """The SFRs that are on every page."""
+
+    def paged_masks(self) -> typing.Tuple[int, int]:
+        """The ``sfr_paged_lo`` and ``sfr_paged_hi`` registers' values.
+
+        Bit n of the first is set when SFR 0x80 + n is paged; bit n of the
+        second, when SFR 0xC0 + n is.
+        """
+        lo = sum(1 << n for n in range(0x40) if 0x80 + n not in self.shared)
+        hi = sum(1 << n for n in range(0x40) if 0xC0 + n not in self.shared)
+        return lo, hi
+
+
+#: The C8051F04x's SFR paging, from SDCC 4.6's C8051F040.h, which lists these
+#: SFRs under "All Pages" and every other SFR under a page of its own.  The
+#: header does not say which bit of SFRPGCN enables the page stack; SmallWorld
+#: takes it to be bit 0, SFRPGEN.
+MCS51_C8051F04X_SFR_PAGING = MCS51SFRPaging(
+    sfrpage=0x84,
+    sfrnext=0x85,
+    sfrlast=0x86,
+    stack_enable=(0xF96, 0x01),
+    shared=frozenset(
+        {0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x90, 0xA0, 0xA8}
+        | {0xB0, 0xB8, 0xD0, 0xE0, 0xE6, 0xE7, 0xF0, 0xF6, 0xF7, 0xFF}
+    ),
+)
+
+#: SFR paging, by device family, for :func:`mcs51_sfr_paging`: (pattern of
+#: part numbers, paging).
+_MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
+    (r"C8051F04\d", MCS51_C8051F04X_SFR_PAGING),
+)
+
+#: Devices that page their SFRs in ways SmallWorld has no table of.
+_MCS51_SFR_PAGING_UNKNOWN = (
+    r"C8051F06\d",
+    r"C8051F1[23]\d",
+    r"C8051F36\d",
+    r"C8051F9[23]\d",
+)
+
+
+def mcs51_sfr_paging(device: str) -> typing.Optional[MCS51SFRPaging]:
+    """How an 8051 device pages its SFRs.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F040``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's SFR paging, or None if it does not page its SFRs.
+
+    Raises:
+        ValueError: If the device pages its SFRs, but SmallWorld has no table
+            of how.
+    """
+    for pattern, paging in _MCS51_SFR_PAGING:
+        if re.match(pattern, device, re.IGNORECASE):
+            return paging
+    for pattern in _MCS51_SFR_PAGING_UNKNOWN:
+        if re.match(pattern, device, re.IGNORECASE):
+            raise ValueError(
+                f"8051 device {device} pages its SFRs, which SmallWorld has no "
+                "table of"
+            )
+    return None
+
+
+def mcs51_push_sfr_page(
+    paging: MCS51SFRPaging,
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+    page: int,
+) -> bool:
+    """Push the SFR page stack, as taking an interrupt does.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+        page: The interrupt's page.
+
+    Returns:
+        Whether the stack is enabled, and so was pushed.
+    """
+    sfr, mask = paging.stack_enable
+    if not read_sfr(sfr) & mask:
+        return False
+    write_sfr(paging.sfrlast, read_sfr(paging.sfrnext))
+    write_sfr(paging.sfrnext, read_sfr(paging.sfrpage))
+    write_sfr(paging.sfrpage, page)
+    return True
+
+
+def mcs51_pop_sfr_page(
+    paging: MCS51SFRPaging,
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+) -> bool:
+    """Pop the SFR page stack, as RETI does.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+
+    Returns:
+        Whether the stack is enabled, and so was popped.
+    """
+    sfr, mask = paging.stack_enable
+    if not read_sfr(sfr) & mask:
+        return False
+    write_sfr(paging.sfrpage, read_sfr(paging.sfrnext))
+    write_sfr(paging.sfrnext, read_sfr(paging.sfrlast))
+    return True
 
 
 #: SFRs that control interrupts.

@@ -11,6 +11,7 @@ import unittest
 
 from smallworld import exceptions
 from smallworld.platforms.defs.mcs51 import (
+    MCS51_C8051F04X_SFR_PAGING,
     MCS51_IE_EA,
     MCS51_OPCODE_RETI,
     MCS51_SFR_BASE,
@@ -26,8 +27,11 @@ from smallworld.platforms.defs.mcs51 import (
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_interrupts,
+    mcs51_pop_sfr_page,
+    mcs51_push_sfr_page,
     mcs51_raise_interrupt,
     mcs51_service_interrupts,
+    mcs51_sfr_paging,
 )
 from smallworld.state.cpus import MCS51Device
 
@@ -277,6 +281,7 @@ class MCS51DeviceTests(unittest.TestCase):
                 self.registers: typing.Dict[str, int] = {}
                 self.machdef = self
                 self.sources = None
+                self.paging = None
 
             def write_register(self, name: str, value: int) -> None:
                 self.registers[name] = value
@@ -284,15 +289,19 @@ class MCS51DeviceTests(unittest.TestCase):
             def set_interrupt_sources(self, emulator, sources) -> None:
                 self.sources = sources
 
-        for device, xpage_sfr, sources in (
-            ("C8051F330", 0xAA, C8051F33xInterrupt),
-            ("C8051F040", 0xA2, MCS51Interrupt),
+            def set_sfr_paging(self, emulator, paging) -> None:
+                self.paging = paging
+
+        for device, xpage_sfr, sources, paging in (
+            ("C8051F330", 0xAA, C8051F33xInterrupt, None),
+            ("C8051F040", 0xA2, MCS51Interrupt, MCS51_C8051F04X_SFR_PAGING),
         ):
             with self.subTest(device=device):
                 emulator = Emulator()
                 MCS51Device(device).apply(emulator)
                 self.assertEqual(emulator.registers, {"xpage_sfr": xpage_sfr})
                 self.assertIs(emulator.sources, sources)
+                self.assertIs(emulator.paging, paging)
 
     def test_emulators_that_cannot_take_its_interrupts_are_refused(self):
         class Emulator:
@@ -301,6 +310,62 @@ class MCS51DeviceTests(unittest.TestCase):
 
         with self.assertRaises(exceptions.ConfigurationError):
             MCS51Device("C8051F330").apply(Emulator())
+
+
+class MCS51SFRPagingTests(unittest.TestCase):
+    paging = MCS51_C8051F04X_SFR_PAGING
+
+    def test_lookup(self):
+        self.assertIs(mcs51_sfr_paging("c8051f041-gq"), self.paging)
+        for device in ("C8051F330", "C8051F020"):
+            with self.subTest(device=device):
+                self.assertIsNone(mcs51_sfr_paging(device))
+        for device in ("C8051F060", "C8051F120", "C8051F360", "C8051F920"):
+            with self.subTest(device=device):
+                with self.assertRaises(ValueError):
+                    mcs51_sfr_paging(device)
+
+    def test_devices_paged_without_a_table_are_not_paged(self):
+        with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
+            self.assertIsNone(MCS51Device("C8051F120").sfr_paging)
+
+    def test_masks_mark_every_sfr_but_the_shared(self):
+        lo, hi = self.paging.paged_masks()
+        for sfr in range(0x80, 0x100):
+            mask, bit = (lo, sfr - 0x80) if sfr < 0xC0 else (hi, sfr - 0xC0)
+            with self.subTest(sfr=hex(sfr)):
+                self.assertEqual(bool(mask >> bit & 1), sfr not in self.paging.shared)
+        # SFRPAGE, IE and ACC are shared; TCON and TMR2CN are not.
+        self.assertEqual(lo >> 4 & 1, 0)
+        self.assertEqual(lo >> 0x28 & 1, 0)
+        self.assertEqual(hi >> 0x20 & 1, 0)
+        self.assertEqual(lo >> 8 & 1, 1)
+        self.assertEqual(hi >> 8 & 1, 1)
+
+    def stack(self, enabled: bool) -> typing.Dict[int, int]:
+        sfr, mask = self.paging.stack_enable
+        return {sfr: mask if enabled else 0, 0x84: 1, 0x85: 2, 0x86: 3}
+
+    def test_push_and_pop(self):
+        values = self.stack(True)
+
+        def write_sfr(address: int, value: int) -> None:
+            values[address] = value
+
+        self.assertTrue(mcs51_push_sfr_page(self.paging, values.get, write_sfr, 0xF))
+        self.assertEqual((values[0x84], values[0x85], values[0x86]), (0xF, 1, 2))
+        self.assertTrue(mcs51_pop_sfr_page(self.paging, values.get, write_sfr))
+        self.assertEqual((values[0x84], values[0x85], values[0x86]), (1, 2, 2))
+
+    def test_disabled_stack_is_left_alone(self):
+        values = self.stack(False)
+
+        def write_sfr(address: int, value: int) -> None:
+            values[address] = value
+
+        self.assertFalse(mcs51_push_sfr_page(self.paging, values.get, write_sfr, 0))
+        self.assertFalse(mcs51_pop_sfr_page(self.paging, values.get, write_sfr))
+        self.assertEqual((values[0x84], values[0x85], values[0x86]), (1, 2, 3))
 
 
 if __name__ == "__main__":

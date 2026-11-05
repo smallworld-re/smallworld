@@ -21,8 +21,11 @@ from ....platforms.defs.mcs51 import (
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
+    MCS51SFRPaging,
     mcs51_interrupt_control_sfrs,
     mcs51_interrupt_sfrs,
+    mcs51_pop_sfr_page,
+    mcs51_push_sfr_page,
     mcs51_return_address,
     mcs51_service_interrupts,
 )
@@ -119,16 +122,41 @@ _INTERRUPTS = "mcs51_interrupts"
 _JUST_TAKEN = "mcs51_interrupt_taken"
 _ONE_INSTRUCTION = "mcs51_one_instruction"
 
-# The extension holding the device's interrupt sources, when they are not the
-# 8052's.
+# The extensions holding the device's interrupt sources, when they are not the
+# 8052's, and its SFR paging, when it pages its SFRs.
 _INTERRUPT_SOURCES = "mcs51_interrupt_sources"
+_SFR_PAGING = "mcs51_sfr_paging"
 
 
 def _writes_sfrs(ops, sfrs) -> bool:
+    """Whether an instruction's ops may write one of some SFRs.
+
+    The SFRs are addresses in SmallWorld's SFR space, with a page above the
+    SFR where it matters.  An instruction stores to an SFR at an address it
+    computes, the SFR or'd with its page, so this goes by the SFR alone: a
+    write to it on any page counts.  A store whose SFR it cannot tell counts
+    too.
+    """
+    wanted = {sfr & 0xFF for sfr in sfrs}
+    defined: typing.Dict[typing.Tuple[str, int], typing.Any] = {}
     for op in ops:
+        if (
+            op.opcode == pypcode.OpCode.STORE
+            and op.inputs[0].getSpaceFromConst().name == "PSFR"
+        ):
+            address = op.inputs[1]
+            definition = defined.get((address.space.name, address.offset))
+            constants = []
+            if definition is not None and definition.opcode == pypcode.OpCode.INT_OR:
+                constants = [v for v in definition.inputs if v.space.name == "const"]
+            if len(constants) != 1 or constants[0].offset & 0xFF in wanted:
+                return True
         out = op.output
-        if out is not None and out.space.name == "SFR":
-            if any(out.offset <= sfr < out.offset + out.size for sfr in sfrs):
+        if out is not None:
+            defined[(out.space.name, out.offset)] = op
+            if out.space.name == "PSFR" and any(
+                out.offset <= sfr < out.offset + out.size for sfr in sfrs
+            ):
                 return True
     return False
 
@@ -172,6 +200,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     _wrote_bank_memory_somewhere: bool = False
     _wrote_psw: bool = False
     _parity_stale: bool = False
+
+    # Whether the instruction executing may have written SFRPAGE, on a device
+    # that pages its SFRs, so that sfr_page must be brought in step with it.
+    _wrote_sfrpage: bool = False
 
     def _register_offset(self, name: str) -> int:
         return self.project.arch.registers[name][0]
@@ -310,6 +342,11 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         self._wrote_psw = False
         if self._parity_stale:
             self._update_parity()
+        if self._wrote_sfrpage:
+            self._wrote_sfrpage = False
+            paging = self._sfr_paging()
+            if paging is not None:
+                self._sync_sfr_page(paging)
 
     def _execute_current_op(self) -> None:
         # Sync at each instruction boundary, and before an op that passes the
@@ -354,6 +391,17 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         if start <= registers["acc"][0] < end:
             self._parity_stale = True
 
+    def _note_sfr_write(self, address) -> None:
+        extensions = getattr(self.state.scratch, "extensions", {})
+        paging = extensions.get(_SFR_PAGING)
+        if paging is None:
+            return
+        target = MCS51_SFR_BASE + paging.sfrpage
+        if isinstance(address, int):
+            self._wrote_sfrpage |= address == target
+        elif address.symbolic or address.concrete_value == target:
+            self._wrote_sfrpage = True
+
     def _note_internal_ram_write(self, offset, size: int) -> None:
         if isinstance(offset, int):
             start = offset
@@ -365,6 +413,32 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         for address in range(start, start + size):
             if address < MCS51_REGISTER_BANKS_SIZE:
                 self._written_bank_memory.add(address)
+
+    def _sfr_paging(self) -> typing.Optional[MCS51SFRPaging]:
+        """The device's SFR paging, if it pages its SFRs and they are mapped.
+
+        Paging is only modeled when SFRPAGE, the page stack and the SFR that
+        enables it are mapped.
+        """
+        extensions = getattr(self.state.scratch, "extensions", {})
+        paging = extensions.get(_SFR_PAGING)
+        memory_map = getattr(self.state.scratch, "memory_map", None)
+        if paging is None or memory_map is None:
+            return None
+        sfrs = (paging.sfrpage, paging.sfrnext, paging.sfrlast, paging.stack_enable[0])
+        if not all(memory_map.contains_value(MCS51_SFR_BASE + sfr) for sfr in sfrs):
+            return None
+        return paging
+
+    def _sync_sfr_page(self, paging: MCS51SFRPaging) -> None:
+        # sfr_page mirrors SFRPAGE, from which instructions take the page of
+        # the paged SFRs they reach.
+        self._store_register(
+            "sfr_page",
+            self.state.memory.load(
+                MCS51_SFR_BASE + paging.sfrpage, 1, inspect=False, disable_actions=True
+            ),
+        )
 
     def _interrupt_sources(self) -> typing.Type[MCS51InterruptSource]:
         extensions = getattr(self.state.scratch, "extensions", {})
@@ -398,6 +472,24 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
 
         def read_sfr(address: int) -> int:
             return self._concrete_byte(MCS51_SFR_BASE + address, f"SFR {address:#x}")
+
+        def write_sfr(address: int, value: int) -> None:
+            state.memory.store(
+                MCS51_SFR_BASE + address, claripy.BVV(value, 8), disable_actions=True
+            )
+
+        # RETI, as the last block's last instruction, pops the SFR page stack
+        # of a device that pages its SFRs.
+        paging = self._sfr_paging()
+        previous = globals_map.get(_INTERRUPTS, MCS51InterruptState()).previous
+        if (
+            paging is not None
+            and previous is not None
+            and previous[0] == MCS51_OPCODE_RETI
+            and not globals_map.get(_JUST_TAKEN, False)
+            and mcs51_pop_sfr_page(paging, read_sfr, write_sfr)
+        ):
+            self._sync_sfr_page(paging)
 
         sources = self._interrupt_sources()
         last, last_ops = _instructions(irsb)[-1]
@@ -443,6 +535,11 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
                 claripy.BVV(flags, 8),
                 disable_actions=True,
             )
+        # The interrupt's page is that of its request flags.
+        if paging is not None and mcs51_push_sfr_page(
+            paging, read_sfr, write_sfr, source.flag_sfr >> 8
+        ):
+            self._sync_sfr_page(paging)
         assert self.successors is not None
         self.successors.add_successor(
             state,
@@ -508,8 +605,12 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         self._written_bank_memory = set()
         self._wrote_bank_memory_somewhere = False
         self._wrote_psw = False
+        self._wrote_sfrpage = False
         self._update_parity()
         self._sync_register_bank()
+        paging = self._sfr_paging()
+        if paging is not None:
+            self._sync_sfr_page(paging)
         self._synced_insn = irsb.addr
         super().handle_pcode_block(irsb)
         # The block's fall-through successor is this same state.
@@ -531,6 +632,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             )
             if varnode.space.name == "INTMEM":
                 self._note_internal_ram_write(varnode.offset, varnode.size)
+            elif varnode.space.name == "PSFR":
+                self._note_sfr_write(
+                    self._flat_address(varnode.space.name, varnode.offset)
+                )
             return
         super()._set_value(varnode, value)
         if varnode.space.name == "register":
@@ -569,13 +674,16 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             return super()._execute_store()
         offset = self._get_value(op.inputs[1])
         data = self._get_value(op.inputs[2])
+        address = self._flat_address(space.name, offset)
         self.state.memory.store(
-            self._flat_address(space.name, offset),
+            address,
             data,
             endness=self.project.arch.memory_endness,
         )
         if space.name == "INTMEM":
             self._note_internal_ram_write(offset, op.inputs[2].size)
+        elif space.name == "PSFR":
+            self._note_sfr_write(address)
 
     def _execute_callother(self) -> None:
         op = self._current_op
@@ -603,6 +711,9 @@ class MCS51MachineDef(GhidraMachineDef):
         "dph": "dph",
         "dpl": "dpl",
         "xpage_sfr": "xpage_sfr",
+        "sfr_page": "sfr_page",
+        "sfr_paged_lo": "sfr_paged_lo",
+        "sfr_paged_hi": "sfr_paged_hi",
         "r0": "r0",
         "r1": "r1",
         "r2": "r2",
@@ -616,6 +727,29 @@ class MCS51MachineDef(GhidraMachineDef):
     def initialize_state(self, emulator: typing.Any) -> None:
         # As the Ghidra machine definition.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
+        for register in ("sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
+            emulator.write_register(register, 0)
+
+    def set_sfr_paging(self, emulator: typing.Any, paging: MCS51SFRPaging) -> None:
+        """Page SFRs as a device that pages them does.
+
+        The paging is kept with each path's state, as the interrupt sources
+        are.
+
+        Arguments:
+            emulator: The emulator.
+            paging: The device's SFR paging.
+
+        Raises:
+            ConfigurationError: If the emulator already has a device's paging.
+        """
+        try:
+            emulator.add_extension(_SFR_PAGING, paging)
+        except KeyError:
+            raise ConfigurationError("the 8051 device's SFR paging is already set")
+        lo, hi = paging.paged_masks()
+        emulator.write_register("sfr_paged_lo", lo)
+        emulator.write_register("sfr_paged_hi", hi)
 
     def set_interrupt_sources(
         self, emulator: typing.Any, sources: typing.Type[MCS51InterruptSource]

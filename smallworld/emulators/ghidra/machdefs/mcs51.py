@@ -14,9 +14,12 @@ from ....platforms.defs.mcs51 import (
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
+    MCS51SFRPaging,
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
+    mcs51_pop_sfr_page,
     mcs51_psw_with_parity,
+    mcs51_push_sfr_page,
     mcs51_service_interrupts,
 )
 from .machdef import GhidraMachineDef, GhidraUserOp
@@ -80,6 +83,10 @@ class MCS51MachineDef(GhidraMachineDef):
         )
         self._banks_mapped = False
         self._interrupt_sfrs_mapped = False
+        # The device's SFR paging, if it pages its SFRs, and whether the SFRs
+        # it depends on are mapped.
+        self._sfr_paging: typing.Optional[MCS51SFRPaging] = None
+        self._sfr_paging_mapped = False
         # Register offsets in Ghidra's register space, by name.
         self._register_offsets: typing.Dict[str, int] = {}
 
@@ -103,12 +110,45 @@ class MCS51MachineDef(GhidraMachineDef):
         self._interrupt_sfrs_mapped = all(
             mapped.contains_value(MCS51_SFR_BASE + sfr) for sfr in self._interrupt_sfrs
         )
+        paging = self._sfr_paging
+        self._sfr_paging_mapped = paging is not None and all(
+            mapped.contains_value(MCS51_SFR_BASE + sfr)
+            for sfr in (
+                paging.sfrpage,
+                paging.sfrnext,
+                paging.sfrlast,
+                paging.stack_enable[0],
+            )
+        )
         self._mapped_for = regions
 
     def initialize_state(self, emulator) -> None:
         # MOVX @Ri pages through P2, as on Intel's 8051, unless the harness
-        # names another SFR.
+        # names another SFR; no SFR is paged.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
+        for register in ("sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
+            emulator.write_register(register, 0)
+
+    def set_sfr_paging(self, emulator, paging: MCS51SFRPaging) -> None:
+        """Page SFRs as a device that pages them does.
+
+        Arguments:
+            emulator: The emulator.
+            paging: The device's SFR paging.
+        """
+        self._sfr_paging = paging
+        self._mapped_for = None
+        lo, hi = paging.paged_masks()
+        emulator.write_register("sfr_paged_lo", lo)
+        emulator.write_register("sfr_paged_hi", hi)
+
+    def _sync_sfr_page(self, emulator) -> None:
+        # sfr_page mirrors SFRPAGE, from which instructions take the page of
+        # the paged SFRs they reach.
+        assert self._sfr_paging is not None
+        page = emulator.read_memory(MCS51_SFR_BASE + self._sfr_paging.sfrpage, 1)[0]
+        if page != emulator.read_register("sfr_page"):
+            emulator.write_register("sfr_page", page)
 
     def set_interrupt_sources(
         self, emulator, sources: typing.Type[MCS51InterruptSource]
@@ -133,8 +173,16 @@ class MCS51MachineDef(GhidraMachineDef):
         have changed since the last check - no interrupt was takeable, no
         interrupt SFR has been written, and the last instruction was not
         RETI - only the instruction about to run is recorded.
+
+        On a device that pages its SFRs, ``sfr_page`` is first brought in
+        step with SFRPAGE, whatever wrote it, and taking an interrupt
+        and RETI push and pop the SFR page stack; see
+        :class:`MCS51SFRPaging`.  Paging is only modeled when SFRPAGE, the
+        page stack and the SFR that enables it are mapped.
         """
         self._check_mapping(emulator)
+        if self._sfr_paging_mapped:
+            self._sync_sfr_page(emulator)
         if not self._interrupt_sfrs_mapped:
             return
 
@@ -155,6 +203,18 @@ class MCS51MachineDef(GhidraMachineDef):
 
         def read_sfr(address: int) -> int:
             return emulator.read_memory(MCS51_SFR_BASE + address, 1)[0]
+
+        def write_sfr(address: int, value: int) -> None:
+            emulator.write_memory(MCS51_SFR_BASE + address, bytes([value]))
+
+        paging = self._sfr_paging if self._sfr_paging_mapped else None
+        if (
+            paging is not None
+            and previous is not None
+            and previous[0] == MCS51_OPCODE_RETI
+            and mcs51_pop_sfr_page(paging, read_sfr, write_sfr)
+        ):
+            self._sync_sfr_page(emulator)
 
         self._interrupts, source = mcs51_service_interrupts(
             self._interrupts,
@@ -182,6 +242,11 @@ class MCS51MachineDef(GhidraMachineDef):
         if source.cleared:
             flags = read_sfr(source.flag_sfr) & ~source.cleared
             emulator.write_memory(MCS51_SFR_BASE + source.flag_sfr, bytes([flags]))
+        # The interrupt's page is that of its request flags.
+        if paging is not None and mcs51_push_sfr_page(
+            paging, read_sfr, write_sfr, source.flag_sfr >> 8
+        ):
+            self._sync_sfr_page(emulator)
 
     def update_derived_state(self, emulator, writes=None) -> None:
         """Keep R0-R7 in step with their register bank, and parity with ACC.
@@ -210,7 +275,7 @@ class MCS51MachineDef(GhidraMachineDef):
             registers = set(range(8))
             bank_memory = set(range(MCS51_REGISTER_BANKS_SIZE))
         else:
-            written = writes.wrote_memory(MCS51_SFR_BASE, MCS51_SFR_BASE + 0x100)
+            written = writes.wrote_memory(MCS51_SFR_BASE, MCS51_SFR_BASE + 0x10000)
             if any(
                 address - MCS51_SFR_BASE in self._interrupt_sfrs for address in written
             ):
@@ -293,6 +358,9 @@ class MCS51MachineDef(GhidraMachineDef):
         "dph": "DPH",
         "dpl": "DPL",
         "xpage_sfr": "XPAGE_SFR",
+        "sfr_page": "SFR_PAGE",
+        "sfr_paged_lo": "SFR_PAGED_LO",
+        "sfr_paged_hi": "SFR_PAGED_HI",
         "r0": "R0",
         "r1": "R1",
         "r2": "R2",

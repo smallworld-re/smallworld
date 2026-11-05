@@ -155,6 +155,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MCS51InterruptSource` enum per device, of which `MCS51Interrupt` is the
   8052's, and `mcs51_interrupt_to_take()` and `mcs51_service_interrupts()`
   take the device's sources.
+- Silicon Labs' paged SFRs, for the C8051F04x: an `MCS51Device` for one has
+  SFRs on the page SFRPAGE selects, and takes interrupts through the SFR page
+  stack. SFRs are now in a space with a page above each SFR, `PSFR`, whose
+  page 0 is where SFRs were; Ghidra's bit space moves to 0x30100. The 8051
+  language's patch adds the space and the registers that page it,
+  `sfr_page`, `sfr_paged_lo` and `sfr_paged_hi`. `mcs51_sdcc` programs built
+  for the C8051F040 test it, and the C8051F040's EMI0CN, at 0xA2.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

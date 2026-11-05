@@ -29,7 +29,14 @@ P2, pdata would land in the wrong page.  They are built a fourth time,
 ``c8051f020``, the same way for the C8051F020, whose EMI0CN is at another
 address, 0xAF; that build adds an ``MCS51Device`` for the C8051F020 to the
 machine instead, which sets ``xpage_sfr``, and, with no table of the
-device's interrupts, leaves the emulator taking the 8052's.
+device's interrupts, leaves the emulator taking the 8052's.  And a fifth
+time, ``c8051f040``, for the C8051F040, whose EMI0CN is at 0xA2, and which
+pages its SFRs; its ``MCS51Device`` pages them, and the scenario maps SFR
+pages 0-0x0F.
+
+``mcs51_sdcc.sfrpages.c8051f040``: ``sfrpages.c8051f040.c``, built only for
+the C8051F040, reaches SFRs on several pages, and takes an interrupt with
+the SFR page stack enabled and disabled.  The scenario checks what it read.
 
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
@@ -62,12 +69,19 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc_models", "cip51"),
     ("libc", "c8051f020"),
     ("libc_models", "c8051f020"),
+    ("libc", "c8051f040"),
+    ("libc_models", "c8051f040"),
     ("interrupts", "cip51"),
+    ("sfrpages", "c8051f040"),
 )
 
 # The device each CIP-51 build is for, and whether the scenario emulates it
 # with an MCS51Device rather than setting xpage_sfr from the linker map.
-_DEVICES = {"cip51": ("C8051F330", False), "c8051f020": ("C8051F020", True)}
+_DEVICES = {
+    "cip51": ("C8051F330", False),
+    "c8051f020": ("C8051F020", True),
+    "c8051f040": ("C8051F040", True),
+}
 
 # P2, and its reset value.
 _SFR_P2 = 0xA0
@@ -173,13 +187,21 @@ def _setup(
 
     # A build for a CIP-51 device takes xpage_sfr from the linker map, or,
     # with emulate_device, from an MCS51Device, which sets the device's
-    # interrupts too; either way, it must agree with the device lookup.
+    # interrupts and SFR paging too; either way, it must agree with the
+    # device lookup.  A device that pages its SFRs has pages 0-0x0F mapped,
+    # and its page stack enabled, as at reset.
     sfrs = bytearray(0x100)
     if device is not None:
         if code.xpage_sfr != mcs51_xpage_sfr(device):
             raise ValueError(f"the map's __XPAGE is {code.xpage_sfr!r}")
         if emulate_device:
-            machine.add(smallworld.state.cpus.MCS51Device(device))
+            mcs51_device = smallworld.state.cpus.MCS51Device(device)
+            machine.add(mcs51_device)
+            paging = mcs51_device.sfr_paging
+            if paging is not None:
+                sfrs = bytearray(0x1000)
+                sfr, mask = paging.stack_enable
+                sfrs[sfr] |= mask
         else:
             cpu.xpage_sfr.set(code.xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
@@ -424,6 +446,37 @@ def _run_interrupts(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
+def _run_sfrpages(smallworld, engine: str) -> int:
+    platform, machine, code = _setup(
+        smallworld,
+        _DIR / "sfrpages.c8051f040.mcs51",
+        "C8051F040",
+        emulate_device=True,
+    )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    def xdata(name: str, size: int) -> List[int]:
+        return list(emulator.read_memory(code.get_symbol_value(name), size))
+
+    checks = {
+        # RCAP2L, RCAP3L and RCAP4L, all at 0xCA, on pages 0, 1 and 2.
+        "pages": (xdata("_result", 3), [0x20, 0x31, 0x42]),
+        # TR2 set in TMR2CN, and P4_3 in P4, both at 0xC8, on pages 0, 0x0F.
+        "bits": (xdata("_result", 5)[3:], [0x04, 0x08]),
+        "shared": (xdata("_result", 6)[5], 0x5A),
+        "pop": (xdata("_result", 7)[6], 0x31),
+        "after reti": (xdata("_result", 8)[7], 1),
+        # With the page stack, Timer 0's handler is on page 0, main's page,
+        # 1, in SFRNEXT; without, on main's page, with SFRNEXT as RETI left
+        # it, SFRLAST's 0.
+        "handler pages": (xdata("_isr", 4), [0, 1, 1, 0]),
+        "handlers": (xdata("_isr_count", 1)[0], 4),
+    }
+    return _report(checks, [])
+
+
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     import smallworld
 
@@ -434,4 +487,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_abi(smallworld, build, engine)
     if program == "interrupts":
         return _run_interrupts(smallworld, engine)
+    if program == "sfrpages":
+        return _run_sfrpages(smallworld, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")

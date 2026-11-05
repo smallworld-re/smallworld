@@ -235,7 +235,10 @@ Harvard machine whose code, external RAM (XDATA), internal RAM and special
 function registers are separate address spaces. SmallWorld lays them side by
 side in one flat map, which ``smallworld.platforms.defs.mcs51`` defines: code at
 0x00000, XDATA at 0x10000, internal RAM at 0x20000, SFRs at 0x20100 and Ghidra's
-bit space at 0x20200. Map memory and hook accesses at those flat addresses;
+bit space at 0x30100. SFRs have room for 256 pages of 256, for devices that
+page them (see below): SFR ``sfr`` on page ``page`` is at ``0x20100 + (page <<
+8) + sfr``, and SFRs that are not paged, as none are on most devices, are on
+page 0. Map memory and hook accesses at those flat addresses;
 registers still hold the CPU's own 8- and 16-bit values, so SP of 0x60 means
 flat address 0x20060. Both backends run Ghidra's 8051 language - angr through
 pypcode's copy of it - and SmallWorld's 8051 angr engine maps the 8051's spaces
@@ -289,8 +292,25 @@ low-byte flag is by TF2LEN and each PCA module's by its ECCFn, request their
 interrupt only while that bit is set.  The data sheet does not say whether a
 write to EIE1 or EIP1 holds interrupts for an instruction as one to IE or IP
 does; SmallWorld assumes it does.  Ghidra's own CIP-51 language adds nothing
-an emulator uses, and pypcode lacks it.  SFR pages (SFRPAGE) and the
-C8051F12x's banked flash are not modeled.
+an emulator uses, and pypcode lacks it.
+
+Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
+through which the CPU reaches most of them, so that one address holds a
+different SFR on each page, and taking an interrupt pushes SFRPAGE onto a
+stack, SFRNEXT and SFRLAST, and selects the interrupt's page, which RETI
+pops.  An ``MCS51Device`` for the C8051F04x pages them so, from
+``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h``:
+the SFRs it lists under "All Pages" are on page 0, and the rest on the page
+SFRPAGE selects.  Map the pages a program uses, and SFRPAGE, SFRNEXT,
+SFRLAST and SFRPGCN, on page 0x0F, whose bit 0 enables the stack; paging is
+only modeled when they are mapped.  A hook or model that writes SFRPAGE
+changes the page from the next instruction on Ghidra, and the next block on
+angr.  The header does not say which bit of
+SFRPGCN enables the stack, nor does SmallWorld have a data sheet that says
+how the stack works; both are taken from memory of Silicon Labs' data sheets
+for now.  Other devices that page their SFRs - the C8051F06x, F12x, F36x and
+F92x - are emulated with their SFRs unpaged, with a warning, and the
+C8051F12x's banked flash is not modeled.
 Both backends take the 8052's six interrupts, or a device's, as the hardware
 does, when the SFRs that control them are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and

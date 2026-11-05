@@ -1,7 +1,13 @@
 import logging
+import typing
 
 from ... import emulators, exceptions, platforms
-from ...platforms.defs.mcs51 import MCS51Interrupt, mcs51_interrupts, mcs51_xpage_sfr
+from ...platforms.defs.mcs51 import (
+    MCS51Interrupt,
+    mcs51_interrupts,
+    mcs51_sfr_paging,
+    mcs51_xpage_sfr,
+)
 from .. import state
 from . import cpu
 
@@ -22,6 +28,11 @@ class MCS51(cpu.CPU):
     address.  The emulators set it to P2's (0xA0), as on Intel's 8051; set it
     to EMI0CN's to emulate a Silicon Labs CIP-51 device, or add an
     :class:`MCS51Device` to the machine, which sets it for you.
+
+    ``sfr_page``, ``sfr_paged_lo`` and ``sfr_paged_hi`` are not the
+    hardware's either: they page SFRs on a device that pages them (see
+    :class:`~smallworld.platforms.defs.mcs51.MCS51SFRPaging`).  An
+    :class:`MCS51Device` sets them; leave them alone.
     """
 
     platform = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
@@ -49,6 +60,12 @@ class MCS51(cpu.CPU):
         self.add(self.dpl)
         self.xpage_sfr = state.Register("xpage_sfr", 1)
         self.add(self.xpage_sfr)
+        self.sfr_page = state.Register("sfr_page", 1)
+        self.add(self.sfr_page)
+        self.sfr_paged_lo = state.Register("sfr_paged_lo", 8)
+        self.add(self.sfr_paged_lo)
+        self.sfr_paged_hi = state.Register("sfr_paged_hi", 8)
+        self.add(self.sfr_paged_hi)
         for i in range(0, 8):
             reg = state.Register(f"r{i}", 1)
             setattr(self, f"r{i}", reg)
@@ -69,6 +86,13 @@ class MCS51Device(state.Stateful):
     For a device whose interrupts SmallWorld has no table of, the emulator
     takes the 8052's, which most devices have among theirs; ``interrupts``
     says which it takes, and a warning is logged.
+
+    A device that pages its SFRs, as Silicon Labs' larger devices do, has
+    them paged too (see
+    :func:`~smallworld.platforms.defs.mcs51.mcs51_sfr_paging`); its pages
+    are in the SFR space, above page 0.  For one whose paging SmallWorld has
+    no table of, SFRs are not paged, and a warning is logged.
+    ``sfr_paging`` says which.
 
     Only the Ghidra and angr emulators can emulate a device.
 
@@ -91,18 +115,24 @@ class MCS51Device(state.Stateful):
                 "taking the 8052's"
             )
             self.interrupts = MCS51Interrupt
+        try:
+            self.sfr_paging = mcs51_sfr_paging(device)
+        except ValueError as e:
+            logger.warning(f"{e}; its SFRs are not paged")
+            self.sfr_paging = None
 
     def extract(self, emulator: emulators.Emulator) -> None:
         # Nothing about the device changes as it runs.
         pass
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        set_interrupt_sources = getattr(
-            getattr(emulator, "machdef", None), "set_interrupt_sources", None
-        )
+        machdef: typing.Any = getattr(emulator, "machdef", None)
+        set_interrupt_sources = getattr(machdef, "set_interrupt_sources", None)
         if set_interrupt_sources is None:
             raise exceptions.ConfigurationError(
                 f"{type(emulator).__name__} cannot emulate 8051 devices"
             )
         emulator.write_register("xpage_sfr", self.xpage_sfr)
         set_interrupt_sources(emulator, self.interrupts)
+        if self.sfr_paging is not None:
+            machdef.set_sfr_paging(emulator, self.sfr_paging)
