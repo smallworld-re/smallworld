@@ -1,7 +1,11 @@
+import logging
+
 from ... import emulators, exceptions, platforms
-from ...platforms.defs.mcs51 import mcs51_interrupts, mcs51_xpage_sfr
+from ...platforms.defs.mcs51 import MCS51Interrupt, mcs51_interrupts, mcs51_xpage_sfr
 from .. import state
 from . import cpu
+
+logger = logging.getLogger(__name__)
 
 
 class MCS51(cpu.CPU):
@@ -62,6 +66,10 @@ class MCS51Device(state.Stateful):
     the 8052's.  Do not set the CPU's ``xpage_sfr`` as well: which would win
     is undefined.
 
+    For a device whose interrupts SmallWorld has no table of, the emulator
+    takes the 8052's, which most devices have among theirs; ``interrupts``
+    says which it takes, and a warning is logged.
+
     Only the Ghidra and angr emulators can emulate a device.
 
     Arguments:
@@ -69,14 +77,20 @@ class MCS51Device(state.Stateful):
             suffixes, such as a package code, are ignored.
 
     Raises:
-        ValueError: If SmallWorld does not know the device's paging SFR or
-            interrupts.
+        ValueError: If SmallWorld does not know the device's paging SFR.
     """
 
     def __init__(self, device: str):
         self.device = device
         self.xpage_sfr = mcs51_xpage_sfr(device)
-        self.interrupts = mcs51_interrupts(device)
+        try:
+            self.interrupts = mcs51_interrupts(device)
+        except ValueError:
+            logger.warning(
+                f"no table of the interrupts of 8051 device {device}; "
+                "taking the 8052's"
+            )
+            self.interrupts = MCS51Interrupt
 
     def extract(self, emulator: emulators.Emulator) -> None:
         # Nothing about the device changes as it runs.

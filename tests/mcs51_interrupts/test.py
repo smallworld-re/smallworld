@@ -256,12 +256,43 @@ class MCS51DeviceTests(unittest.TestCase):
         self.assertEqual(device.xpage_sfr, 0xAA)
         self.assertIs(device.interrupts, C8051F33xInterrupt)
 
-    def test_devices_without_a_table_are_refused(self):
+    def test_devices_without_an_interrupt_table_take_the_8052s(self):
         # The C8051F336-F339 have a data sheet, and interrupts, of their own.
-        for device in ("C8051F336", "C8051F310", "8051"):
+        for device, xpage_sfr in (("C8051F336", 0xAA), ("C8051F020", 0xAF)):
+            with self.subTest(device=device):
+                with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
+                    mcs51_device = MCS51Device(device)
+                self.assertEqual(mcs51_device.xpage_sfr, xpage_sfr)
+                self.assertIs(mcs51_device.interrupts, MCS51Interrupt)
+
+    def test_devices_without_a_paging_sfr_are_refused(self):
+        for device in ("C8051F300", "8051"):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     MCS51Device(device)
+
+    def test_apply_sets_the_paging_sfr_and_interrupts(self):
+        class Emulator:
+            def __init__(self):
+                self.registers: typing.Dict[str, int] = {}
+                self.machdef = self
+                self.sources = None
+
+            def write_register(self, name: str, value: int) -> None:
+                self.registers[name] = value
+
+            def set_interrupt_sources(self, emulator, sources) -> None:
+                self.sources = sources
+
+        for device, xpage_sfr, sources in (
+            ("C8051F330", 0xAA, C8051F33xInterrupt),
+            ("C8051F040", 0xA2, MCS51Interrupt),
+        ):
+            with self.subTest(device=device):
+                emulator = Emulator()
+                MCS51Device(device).apply(emulator)
+                self.assertEqual(emulator.registers, {"xpage_sfr": xpage_sfr})
+                self.assertIs(emulator.sources, sources)
 
     def test_emulators_that_cannot_take_its_interrupts_are_refused(self):
         class Emulator:

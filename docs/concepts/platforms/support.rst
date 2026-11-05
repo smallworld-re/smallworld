@@ -281,8 +281,10 @@ and makes the emulator take the device's interrupts instead of the 8052's
     machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
 
 Only the C8051F330-F335's interrupts are tabulated so far, as
-``C8051F33xInterrupt``, from the data sheet's interrupt summary; other
-devices are refused.  Request flags that a second bit gates, as Timer 2's
+``C8051F33xInterrupt``, from the data sheet's interrupt summary.  Any other
+device whose paging SFR ``mcs51_xpage_sfr()`` knows is accepted too, with a
+warning: it pages MOVX @Ri as it should, but the emulator takes only the
+8052's interrupts, which it has among its own.  Request flags that a second bit gates, as Timer 2's
 low-byte flag is by TF2LEN and each PCA module's by its ECCFn, request their
 interrupt only while that bit is set.  The data sheet does not say whether a
 write to EIE1 or EIP1 holds interrupts for an instruction as one to IE or IP
