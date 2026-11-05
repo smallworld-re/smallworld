@@ -75,9 +75,6 @@ _TRITON_NO_DECODE = "Triton can't decode this ARMv8 instruction"
 _TRITON_NO_FLOAT = "Triton implements no floating-point instruction semantics"
 _ANGR_NO_CRC32 = "VEX can't decode the ARMv8 CRC32 instructions"
 _ANGR_NO_MAXNUM = "angr doesn't implement VEX's Iop_MaxNumF32 (vmaxnm)"
-_ANGR_NO_STACKLIMIT = (
-    "angr doesn't model the ARMv8-M stack-limit registers; mrs reads a symbolic value"
-)
 
 # family -> (archs, [(argument, expected r0)], skip reasons)
 _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] = {
@@ -121,7 +118,6 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         ("armv8m",),
         ((0x100, 2 * 0x100), (0x1FF, 2 * 0x1F8)),
         {
-            "armv8m.angr": _ANGR_NO_STACKLIMIT,
             "armv8m.triton": _TRITON_NO_DECODE,
         },
     ),

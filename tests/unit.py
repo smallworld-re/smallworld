@@ -1745,6 +1745,18 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_armv8m_stack_limits_are_separate(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.AngrEmulator(platform)
+        emu.write_code(0x1000, 0x1000 * b"\x00")
+        emu.initialize()
+        emu.write_register_content("msplim", 0x1000)
+        emu.write_register_content("psplim", 0x2000)
+        self.assertEqual(emu.read_register_content("msplim"), 0x1000)
+        self.assertEqual(emu.read_register_content("psplim"), 0x2000)
+
     def test_angr_armv7r(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
