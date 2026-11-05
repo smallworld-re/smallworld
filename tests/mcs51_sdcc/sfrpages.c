@@ -1,9 +1,8 @@
-/* SFR pages on the C8051F040.
+/* SFR pages on the C8051F040, C8051F060 and C8051F120.
  *
- * Built only for the C8051F040 (its SDCC header comes in through
- * mcs51_cc.sh's --device), which reaches most SFRs through the page SFRPAGE
- * selects: 0xCA is RCAP2L on page 0, RCAP3L on page 1 and RCAP4L on page 2,
- * for one.  Main stores what it reads back in result[], and Timer 0's
+ * Built for each of them (its SDCC header comes in through mcs51_cc.sh's
+ * --device), which reach most SFRs through the page SFRPAGE selects: 0xCA
+ * is RCAP2L on page 0, RCAP3L on page 1 and RCAP4L on page 2, for one.  Main stores what it reads back in result[], and Timer 0's
  * handler what page it finds itself on in isr[].
  */
 

@@ -264,9 +264,10 @@ class MCS51SFRPaging:
 
 
 #: The C8051F04x's SFR paging, from SDCC 4.6's C8051F040.h, which lists these
-#: SFRs under "All Pages" and every other SFR under a page of its own.  The
-#: header does not say which bit of SFRPGCN enables the page stack; SmallWorld
-#: takes it to be bit 0, SFRPGEN.
+#: SFRs under "All Pages" and every other SFR under a page of its own; its
+#: C8051F060.h lists the same for the C8051F06x.  The headers do not say which
+#: bit of SFRPGCN enables the page stack; SmallWorld takes it to be bit 0,
+#: SFRPGEN.
 MCS51_C8051F04X_SFR_PAGING = MCS51SFRPaging(
     sfrpage=0x84,
     sfrnext=0x85,
@@ -278,16 +279,22 @@ MCS51_C8051F04X_SFR_PAGING = MCS51SFRPaging(
     ),
 )
 
+#: The C8051F12x's and F13x's SFR paging: the C8051F04x's, with PSBANK, the
+#: flash bank select, on every page too, as SDCC 4.6's C8051F120.h lists it.
+MCS51_C8051F12X_SFR_PAGING = dataclasses.replace(
+    MCS51_C8051F04X_SFR_PAGING,
+    shared=MCS51_C8051F04X_SFR_PAGING.shared | {0xB1},
+)
+
 #: SFR paging, by device family, for :func:`mcs51_sfr_paging`: (pattern of
 #: part numbers, paging).
 _MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
-    (r"C8051F04\d", MCS51_C8051F04X_SFR_PAGING),
+    (r"C8051F0[46]\d", MCS51_C8051F04X_SFR_PAGING),
+    (r"C8051F1[23]\d", MCS51_C8051F12X_SFR_PAGING),
 )
 
 #: Devices that page their SFRs in ways SmallWorld has no table of.
 _MCS51_SFR_PAGING_UNKNOWN = (
-    r"C8051F06\d",
-    r"C8051F1[23]\d",
     r"C8051F36\d",
     r"C8051F9[23]\d",
 )

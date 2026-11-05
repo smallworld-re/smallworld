@@ -298,19 +298,21 @@ Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
 through which the CPU reaches most of them, so that one address holds a
 different SFR on each page, and taking an interrupt pushes SFRPAGE onto a
 stack, SFRNEXT and SFRLAST, and selects the interrupt's page, which RETI
-pops.  An ``MCS51Device`` for the C8051F04x pages them so, from
-``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h``:
-the SFRs it lists under "All Pages" are on page 0, and the rest on the page
-SFRPAGE selects.  Map the pages a program uses, and SFRPAGE, SFRNEXT,
+pops.  An ``MCS51Device`` for the C8051F04x or F06x pages them so, from
+``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h``
+and ``C8051F060.h``: the SFRs they list under "All Pages" are on page 0, and
+the rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
+``MCS51_C8051F12X_SFR_PAGING`` is the same with PSBANK on every page too,
+from ``C8051F120.h``.  Map the pages a program uses, and SFRPAGE, SFRNEXT,
 SFRLAST and SFRPGCN, on page 0x0F, whose bit 0 enables the stack; paging is
 only modeled when they are mapped.  A hook or model that writes SFRPAGE
 changes the page from the next instruction on Ghidra, and the next block on
 angr.  The header does not say which bit of
 SFRPGCN enables the stack, nor does SmallWorld have a data sheet that says
 how the stack works; both are taken from memory of Silicon Labs' data sheets
-for now.  Other devices that page their SFRs - the C8051F06x, F12x, F36x and
-F92x - are emulated with their SFRs unpaged, with a warning, and the
-C8051F12x's banked flash is not modeled.
+for now.  Other devices that page their SFRs - the C8051F36x and F92x - are
+emulated with their SFRs unpaged, with a warning, and the C8051F12x's banked
+flash is not modeled.
 Both backends take the 8052's six interrupts, or a device's, as the hardware
 does, when the SFRs that control them are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and

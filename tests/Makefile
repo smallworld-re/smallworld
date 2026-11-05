@@ -391,11 +391,12 @@ MCS51_C_IHXS += mcs51_sdcc/libc.c8051f040.mcs51.ihx
 mcs51_sdcc/libc.c8051f040.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
 	./mcs51_cc.sh --medium --device C8051F040.h --pdata 0x7e00 $< $@
 
-# sfrpages.c8051f040.c only for the C8051F040, whose SFR pages it tests.
-MCS51_C_IHXS += mcs51_sdcc/sfrpages.c8051f040.mcs51.ihx
+# sfrpages.c for the devices that page their SFRs as the C8051F040 does.
+MCS51_SFRPAGES_DEVICES := c8051f040 c8051f060 c8051f120
+MCS51_C_IHXS += $(foreach d,$(MCS51_SFRPAGES_DEVICES),mcs51_sdcc/sfrpages.$(d).mcs51.ihx)
 
-mcs51_sdcc/sfrpages.c8051f040.mcs51.ihx : mcs51_sdcc/sfrpages.c8051f040.c
-	./mcs51_cc.sh --device C8051F040.h $< $@
+mcs51_sdcc/sfrpages.%.mcs51.ihx : mcs51_sdcc/sfrpages.c
+	./mcs51_cc.sh --device $(shell echo $* | tr a-z A-Z).h $< $@
 
 # interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
 MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx

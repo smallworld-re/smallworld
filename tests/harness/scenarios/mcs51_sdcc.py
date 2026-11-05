@@ -34,9 +34,10 @@ time, ``c8051f040``, for the C8051F040, whose EMI0CN is at 0xA2, and which
 pages its SFRs; its ``MCS51Device`` pages them, and the scenario maps SFR
 pages 0-0x0F.
 
-``mcs51_sdcc.sfrpages.c8051f040``: ``sfrpages.c8051f040.c``, built only for
-the C8051F040, reaches SFRs on several pages, and takes an interrupt with
-the SFR page stack enabled and disabled.  The scenario checks what it read.
+``mcs51_sdcc.sfrpages.<device>``: ``sfrpages.c``, built for the C8051F040,
+C8051F060 and C8051F120, reaches SFRs on several pages, and takes an
+interrupt with the SFR page stack enabled and disabled.  The scenario
+checks what it read.
 
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
@@ -73,6 +74,8 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc_models", "c8051f040"),
     ("interrupts", "cip51"),
     ("sfrpages", "c8051f040"),
+    ("sfrpages", "c8051f060"),
+    ("sfrpages", "c8051f120"),
 )
 
 # The device each CIP-51 build is for, and whether the scenario emulates it
@@ -81,6 +84,8 @@ _DEVICES = {
     "cip51": ("C8051F330", False),
     "c8051f020": ("C8051F020", True),
     "c8051f040": ("C8051F040", True),
+    "c8051f060": ("C8051F060", True),
+    "c8051f120": ("C8051F120", True),
 }
 
 # P2, and its reset value.
@@ -446,12 +451,10 @@ def _run_interrupts(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
-def _run_sfrpages(smallworld, engine: str) -> int:
+def _run_sfrpages(smallworld, build: str, engine: str) -> int:
+    device, emulate_device = _DEVICES[build]
     platform, machine, code = _setup(
-        smallworld,
-        _DIR / "sfrpages.c8051f040.mcs51",
-        "C8051F040",
-        emulate_device=True,
+        smallworld, _DIR / f"sfrpages.{build}.mcs51", device, emulate_device
     )
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(_program_exit(code))
@@ -488,5 +491,5 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     if program == "interrupts":
         return _run_interrupts(smallworld, engine)
     if program == "sfrpages":
-        return _run_sfrpages(smallworld, engine)
+        return _run_sfrpages(smallworld, build, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")

@@ -12,6 +12,7 @@ import unittest
 from smallworld import exceptions
 from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F04X_SFR_PAGING,
+    MCS51_C8051F12X_SFR_PAGING,
     MCS51_IE_EA,
     MCS51_OPCODE_RETI,
     MCS51_SFR_BASE,
@@ -317,17 +318,25 @@ class MCS51SFRPagingTests(unittest.TestCase):
 
     def test_lookup(self):
         self.assertIs(mcs51_sfr_paging("c8051f041-gq"), self.paging)
+        self.assertIs(mcs51_sfr_paging("C8051F064"), self.paging)
+        self.assertIs(mcs51_sfr_paging("C8051F131"), MCS51_C8051F12X_SFR_PAGING)
         for device in ("C8051F330", "C8051F020"):
             with self.subTest(device=device):
                 self.assertIsNone(mcs51_sfr_paging(device))
-        for device in ("C8051F060", "C8051F120", "C8051F360", "C8051F920"):
+        for device in ("C8051F360", "C8051F920"):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     mcs51_sfr_paging(device)
 
     def test_devices_paged_without_a_table_are_not_paged(self):
         with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
-            self.assertIsNone(MCS51Device("C8051F120").sfr_paging)
+            self.assertIsNone(MCS51Device("C8051F360").sfr_paging)
+
+    def test_c8051f12x_shares_psbank(self):
+        paging = MCS51_C8051F12X_SFR_PAGING
+        self.assertEqual(paging.shared - self.paging.shared, {0xB1})
+        self.assertEqual(paging.paged_masks()[0] >> 0x31 & 1, 0)
+        self.assertEqual(self.paging.paged_masks()[0] >> 0x31 & 1, 1)
 
     def test_masks_mark_every_sfr_but_the_shared(self):
         lo, hi = self.paging.paged_masks()
