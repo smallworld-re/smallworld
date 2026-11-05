@@ -372,8 +372,9 @@ MCS51_C_IHXS := $(patsubst %.mcs51.c,%.sdcc.mcs51.ihx,$(MCS51_C_SRCS)) $(patsubs
 	./mcs51_cc.sh --stack-auto $< $@
 
 # The C99 library-model tests whose functions have 8051 models, built the
-# same way from their shared sources, and again in SDCC's large memory model;
-# see mcs51_cc.sh.  Keep in step with _MCS51_FUNCTIONS in
+# same way from their shared sources, and again in SDCC's medium and large
+# memory models; see mcs51_cc.sh.  SDCC has no medium-model library for its
+# reentrant convention.  Keep in step with _MCS51_FUNCTIONS in
 # harness/scenarios/library_models.py.
 
 MCS51_C99_FUNCTIONS := abs atof atoi atol atoll bsearch calloc fabs free getchar gets \
@@ -381,7 +382,7 @@ MCS51_C99_FUNCTIONS := abs atof atoi atol atoll bsearch calloc fabs free getchar
 	rand realloc sprintf srand strcat strchr strcmp strcoll strcpy strcspn \
 	strerror strlen strncat strncmp strncpy strpbrk strrchr strspn strstr \
 	strtok strxfrm tolower toupper
-MCS51_C99_VARIANTS := sdcc sdccstackauto sdcc-large sdccstackauto-large
+MCS51_C99_VARIANTS := sdcc sdccstackauto sdcc-medium sdcc-large sdccstackauto-large
 MCS51_C_IHXS += $(foreach f,$(MCS51_C99_FUNCTIONS),$(foreach v,$(MCS51_C99_VARIANTS),c99/$(f)/$(f).$(v).mcs51.ihx))
 
 c99/%.sdcc.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h
@@ -389,6 +390,9 @@ c99/%.sdcc.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h
 
 c99/%.sdccstackauto.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h
 	./mcs51_cc.sh --stack-auto --c99 $< $@
+
+c99/%.sdcc-medium.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h
+	./mcs51_cc.sh --medium --c99 $< $@
 
 c99/%.sdcc-large.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h
 	./mcs51_cc.sh --large --c99 $< $@

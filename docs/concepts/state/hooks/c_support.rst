@@ -50,9 +50,14 @@ their flat addresses, from the linker's map file.  A variadic 8051 model sets
 Models see SDCC's three-byte generic pointers as flat SmallWorld addresses
 (``sdcc_pointer_to_flat`` and ``flat_to_sdcc_pointer`` in
 ``smallworld.state.models.mcs51.sdcc``), with the null pointer as 0, and read
-and write data little-endian, as SDCC stores it.  SDCC's small and large
-memory models are tested; the medium model uses the same pointers but is not,
-and the huge model's banked code is not modeled.  Only the C99 functions
+and write data little-endian, as SDCC stores it.  SDCC's small, medium and
+large memory models are tested, the medium one with the default convention
+only, since SDCC has no medium-model library for the reentrant one; the huge
+model's banked code is not modeled.  pdata, the medium model's home for
+variables, is a page of XDATA, so a pdata pointer and an XDATA pointer can
+name the same byte; a model that returns a pointer into a pdata page one of
+its pointer arguments pointed into returns a pdata pointer.  pdata is taken to
+be XDATA's first page, as SDCC places it by default.  Only the C99 functions
 SDCC's library provides are modeled for the 8051.  ``qsort`` and ``bsearch``
 call their comparator back with SDCC's reentrant convention, as SDCC's library
 does; a program's comparator must be declared ``__reentrant``, which SDCC does

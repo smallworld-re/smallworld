@@ -32,7 +32,10 @@ _ARCH_BYTEORDER = {arch: (full, byteorder) for arch, full, byteorder in _ARCH_MA
 _MCS51_VARIANTS = {
     "sdcc.mcs51": "sdcc",
     "sdccstackauto.mcs51": "sdccstackauto",
-    # SDCC's large memory model, which keeps variables in external RAM.
+    # SDCC's medium and large memory models, which keep variables in one page
+    # of external RAM and in all of it.  SDCC has no medium-model library for
+    # its reentrant convention.
+    "sdcc-medium.mcs51": "sdcc",
     "sdcc-large.mcs51": "sdcc",
     "sdccstackauto-large.mcs51": "sdccstackauto",
 }

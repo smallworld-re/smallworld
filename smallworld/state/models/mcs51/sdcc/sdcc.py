@@ -153,6 +153,10 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     #: argument on (``_<function>_PARM_2``, ``_PARM_3``...).
     parameter_addresses: typing.Sequence[int] = ()
 
+    # Flat addresses of the pdata pages this call's pointer arguments pointed
+    # into; see _encode_result.
+    _pdata_pages: typing.FrozenSet[int] = frozenset()
+
     # Integer masks, by SDCC's type sizes.
     _int_sign_mask = 0x8000
     _int_inv_mask = 0xFFFF
@@ -238,7 +242,31 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     def get_argument(
         self, index: int, kind: ArgumentType, emulator: emulators.Emulator
     ) -> typing.Union[int, float]:
-        return _decode(kind, self._read_bytes(index, _SIZES[kind], emulator))
+        data = self._read_bytes(index, _SIZES[kind], emulator)
+        value = _decode(kind, data)
+        if kind == ArgumentType.POINTER and _is_pdata(data):
+            assert isinstance(value, int)
+            self._pdata_pages = self._pdata_pages | {value & ~0xFF}
+        return value
+
+    def _start_call(self) -> None:
+        # A new call: forget the last one's pointer arguments.
+        self._pdata_pages = frozenset()
+
+    def _encode_result(self, value: typing.Union[int, float]) -> bytes:
+        # pdata is the first page of XDATA, reached through MOVX @Ri, so a
+        # pdata pointer and an XDATA pointer can name the same byte, and SDCC
+        # compares all three bytes of two pointers.  A flat address does not
+        # say which it was; a result in a pdata page a pointer argument
+        # pointed into, as one into the argument's object is, is pdata too.
+        if (
+            self.return_type == ArgumentType.POINTER
+            and isinstance(value, int)
+            and value & ~0xFF in self._pdata_pages
+        ):
+            pointer = (SDCC_GPTR_PDATA << 16) | (value - MCS51_XDATA_BASE)
+            return pointer.to_bytes(3, "little")
+        return _encode(self.return_type, value)
 
     def set_argument(
         self,
@@ -261,7 +289,7 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     ) -> None:
         if self.return_type == ArgumentType.VOID:
             raise exceptions.ConfigurationError("Returning from void function")
-        data = _encode(self.return_type, val)
+        data = self._encode_result(val)
         for register, byte in zip(_VALUE_REGISTERS, data):
             emulator.write_register(register, byte)
 
@@ -382,6 +410,11 @@ class MCS51SDCCCallingContext(CStdCallingContext):
         emulator.write_memory(address, _encode(kind, intval))
 
 
+def _is_pdata(pointer: bytes) -> bool:
+    tag = pointer[2]
+    return not tag & SDCC_GPTR_CODE and tag & SDCC_GPTR_PDATA == SDCC_GPTR_PDATA
+
+
 def _decode(kind: ArgumentType, data: bytes) -> typing.Union[int, float]:
     if kind in (ArgumentType.FLOAT, ArgumentType.DOUBLE):
         return struct.unpack("<f", data)[0]
@@ -460,7 +493,12 @@ class MCS51SDCCVariadicContext(VariadicContext):
 class MCS51SDCCModel(MCS51SDCCCallingContext, CStdModel):
     """Base class for C models using SDCC's default 8051 convention"""
 
-    pass
+    def model(self, emulator: emulators.Emulator) -> None:
+        # A model that calls back into the program, as qsort does, re-enters
+        # with skip_return set; the call it is in goes on.
+        if not self.skip_return:
+            self._start_call()
+        super().model(emulator)
 
 
 __all__ = [

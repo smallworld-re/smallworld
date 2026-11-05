@@ -1,4 +1,4 @@
-from ..... import platforms
+from ..... import emulators, platforms
 from ...cstd import CStdModel
 from ..sdcc.sdcc import _ON_STACK
 from ..sdcc.sdcc import FileDescriptorManager as SDCCFileDescriptorManager
@@ -27,7 +27,11 @@ class MCS51SDCCStackAutoCallingContext(MCS51SDCCCallingContext):
 class MCS51SDCCStackAutoModel(MCS51SDCCStackAutoCallingContext, CStdModel):
     """Base class for C models using SDCC's reentrant 8051 convention"""
 
-    pass
+    def model(self, emulator: emulators.Emulator) -> None:
+        # As MCS51SDCCModel.model.
+        if not self.skip_return:
+            self._start_call()
+        super().model(emulator)
 
 
 __all__ = [
