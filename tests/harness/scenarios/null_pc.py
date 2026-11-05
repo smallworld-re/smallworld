@@ -51,6 +51,8 @@ _ARCHS = (
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",

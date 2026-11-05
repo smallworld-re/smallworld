@@ -344,3 +344,88 @@ class MIPS32BE(MIPSO32PlatformDef):
             "hi3": RegisterAliasDef(name="hi3", parent="ac3", size=4, offset=0),
             "lo3": RegisterAliasDef(name="lo3", parent="ac3", size=4, offset=4),
         }
+
+
+# microMIPS re-encodes MIPS32 (Release 3/5) as a mix of 16- and 32-bit
+# instructions. Hardware switches between it and standard MIPS32 on the low
+# bit of a jump target, but SmallWorld pins one encoding per platform: these
+# platforms decode only microMIPS, so a jalx or jr into standard MIPS32 code
+# is not followed. Mnemonics are spelled as Capstone spells them.
+MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS = MIPSO32PlatformDef.conditional_branch_mnemonics | {
+    # 16-bit compare-to-zero branches
+    "beqz16",
+    "bnez16",
+    # Compact compare-to-zero branches (no delay slot)
+    "beqzc",
+    "bnezc",
+    # Branch-and-link with a 16-bit delay slot
+    "bgezals",
+    "bltzals",
+}
+
+# microMIPS drops the branch-likely instructions.
+MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS -= {
+    "beql",
+    "bnel",
+    "bgezl",
+    "bgtzl",
+    "blezl",
+    "bltzl",
+    "bgezall",
+    "bltzall",
+}
+
+# Compact branches and jumps execute no delay slot.
+MICROMIPS_COMPACT_MNEMONICS = {
+    "beqzc",
+    "bnezc",
+    "jrc",
+    "jraddiusp",
+}
+
+
+class MicroMIPSMixin:
+    architecture = Architecture.MIPS32_MICROMIPS
+
+    conditional_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
+    compare_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
+
+    delay_slot_mnemonics = (
+        {
+            "b",
+            "b16",
+            "bal",
+            "j",
+            "jr",
+            "jr16",
+            "jal",
+            "jals",
+            "jalx",
+            "jalr",
+            "jalrs",
+            "jalrs16",
+        }
+        | MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
+    ) - MICROMIPS_COMPACT_MNEMONICS
+
+    implicit_dereference_mnemonics = {
+        "jr",
+        "jr16",
+        "jrc",
+        "jraddiusp",
+        "jalr",
+        "jalrs",
+        "jalrs16",
+    }
+
+
+class MicroMIPS32EL(MicroMIPSMixin, MIPS32EL):
+    ghidra_language_id = "MIPS:LE:32:micro"
+    capstone_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_MICRO
+
+
+class MicroMIPS32BE(MicroMIPSMixin, MIPS32BE):
+    ghidra_language_id = "MIPS:BE:32:micro"
+    capstone_mode = (
+        capstone.CS_MODE_MIPS32 | capstone.CS_MODE_MICRO | capstone.CS_MODE_BIG_ENDIAN
+    )

@@ -12,6 +12,8 @@ la64,               **Yes**,    **Yes**,    No Support, No,         No Support
 m68k,               **Yes**,    **Yes**,    No Support, No,         **Yes**
 mips32r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips32r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mips32-micromips-be, **Yes**,    **Yes**,    No,         No,         **Yes**
+mips32-micromips-el, **Yes**,    **Yes**,    No,         No,         **Yes**
 mips64r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips64r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 msp430,             **Yes**,    **Yes**,    No Support, No,         No Support

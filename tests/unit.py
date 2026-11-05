@@ -986,6 +986,11 @@ UNIT_TEST_PLATFORMS = {
     "loongarch32": (platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE),
     "loongarch64": (platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE),
     "m68k": (platforms.Architecture.M68K, platforms.Byteorder.BIG),
+    "micromips": (platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG),
+    "micromipsel": (
+        platforms.Architecture.MIPS32_MICROMIPS,
+        platforms.Byteorder.LITTLE,
+    ),
     "mips": (platforms.Architecture.MIPS32, platforms.Byteorder.BIG),
     "mipsel": (platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE),
     "mips64": (platforms.Architecture.MIPS64, platforms.Byteorder.BIG),
@@ -1504,6 +1509,8 @@ class M68KAngrTests(unittest.TestCase):
                 "loongarch32",
                 "loongarch64",
                 "m68k",
+                "micromips",
+                "micromipsel",
                 "msp430",
                 "msp430x",
                 "ppc64",
@@ -10542,6 +10549,44 @@ class ElfUnknownMachineTests(unittest.TestCase):
             self._image(), platform=platform, ignore_platform=True
         )
         self.assertEqual(code.platform, platform)
+
+
+class ElfMicroMIPSTests(unittest.TestCase):
+    """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
+    drops the ISA bit; standard MIPS32 functions in such an image warn."""
+
+    MICRO = BINARIES_TESTS_DIR / "elf" / "elf.micromips.elf"
+    STANDARD = BINARIES_TESTS_DIR / "elf" / "elf.mips.elf"
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_micromips_image(self):
+        with self.MICRO.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertEqual(code.entrypoint, code.get_symbol_value("__start"))
+        self.assertEqual(code.entrypoint & 1, 0)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_mips32_image(self):
+        with self.STANDARD.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.MIPS32)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_standard_function_in_micromips_image_warns(self):
+        # Flag a standard MIPS32 image as microMIPS: __start lacks STO_MICROMIPS.
+        image = bytearray(self.STANDARD.read_bytes())
+        flags = struct.unpack_from(">I", image, 36)[0]
+        struct.pack_into(">I", image, 36, flags | 0x02000000)  # EF_MIPS_MICROMIPS
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertIn("standard MIPS32 functions", "\n".join(logs.output))
+        self.assertIn("__start", "\n".join(logs.output))
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):

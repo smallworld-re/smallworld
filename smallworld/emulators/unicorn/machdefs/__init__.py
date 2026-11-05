@@ -12,6 +12,8 @@ from .i386 import i386MachineDef
 from .m68k import M68KMachineDef
 from .machdef import UnicornMachineDef
 from .mips import (
+    MicroMIPSBEMachineDef,
+    MicroMIPSELMachineDef,
     MIPS64BEMachineDef,
     MIPS64ELMachineDef,
     MIPSBEMachineDef,
@@ -37,6 +39,8 @@ __all__ = [
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
+    "MicroMIPSBEMachineDef",
+    "MicroMIPSELMachineDef",
     "PPC32MachineDef",
     "PPC64MachineDef",
     "RISCV64MachineDef",

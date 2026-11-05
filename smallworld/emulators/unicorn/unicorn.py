@@ -460,6 +460,7 @@ class UnicornEmulator(
 
         if name == "pc":
             content = self._handle_thumb_interwork(content)
+            content = self.machdef.uc_pc_value(content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
         if reg == 0:
@@ -815,7 +816,7 @@ class UnicornEmulator(
                 logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, self.exit_sentinel)
+            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
             self._diagnose_clean_stop()
         except unicorn.UcError as e:
             if (
@@ -842,13 +843,13 @@ class UnicornEmulator(
             logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(pc, self.exit_sentinel)
+            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
             self._diagnose_clean_stop()
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, self.exit_sentinel)
+            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
             self._diagnose_clean_stop()
         except unicorn.UcError as e:
             self._error(e, "exec")
@@ -864,7 +865,7 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, self.exit_sentinel)
+            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
             self._diagnose_clean_stop()
         except exceptions.EmulationStop:
             pass
@@ -964,38 +965,36 @@ class UnicornEmulator(
                 # or a fetch error from the previous instruction,
                 # which is only getting resolved now.
 
-                try:
-                    # This only happens on MIPS,
-                    # which uses 32-bit fixed-width instructions.
-                    # TODO: Detect instruction width for other ISAs;
-                    # if we ever support mips16 or micromips, this will break.
-                    res = self.engine.mem_read(pc - 4, 16)
-                    code = bytes(res)
-                    # on arm32, update disassembler for ARM vs Thumb
-                    _ = self._handle_thumb_interwork(pc)
-                    insns, _ = self._disassemble(code, pc - 4, 1)
-                    insn = insns[0]
+                # The previous instruction ends at pc. MIPS32 instructions
+                # are all 4 bytes; microMIPS ones are 2 or 4, so try both and
+                # keep a decode that is exactly that long.
+                for width in (4, 2):
+                    try:
+                        res = self.engine.mem_read(pc - width, 16)
+                        code = bytes(res)
+                        # on arm32, update disassembler for ARM vs Thumb
+                        _ = self._handle_thumb_interwork(pc)
+                        insns, _ = self._disassemble(code, pc - width, 1)
+                        insn = insns[0]
+                        if insn.size != width:
+                            continue
 
-                    prev_mnem = insn.mnemonic
-                    prev_i = instructions.Instruction.from_capstone(insn)
-                    # A fetch fault's responsible operand is where the branch
-                    # sends the next instruction fetch -- [t9] for jr $t9 --
-                    # which is a fetch, not one of the branch's data reads.
-                    prev_operands = get_unavailable_rw(prev_i, prev_i.fetches())
-                except Exception:
-                    prev_mnem = None
-                    prev_i = None
-                    prev_operands = list()
+                        prev_mnem = insn.mnemonic
+                        prev_i = instructions.Instruction.from_capstone(insn)
+                        # A fetch fault's responsible operand is where the
+                        # branch sends the next instruction fetch -- [t9] for
+                        # jr $t9 -- which is a fetch, not one of the branch's
+                        # data reads.
+                        prev_operands = get_unavailable_rw(prev_i, prev_i.fetches())
+                    except Exception:
+                        continue
 
-                if (
-                    prev_mnem is not None
-                    and prev_mnem in self.platdef.delay_slot_mnemonics
-                    and prev_operands
-                ):
-                    msg = f"{prefix} due to fetch of unmapped memory"
-                    exc = exceptions.EmulationFetchUnmappedFailure(
-                        msg, pc - 4, operands=prev_operands
-                    )
+                    if prev_mnem in self.platdef.delay_slot_mnemonics and prev_operands:
+                        msg = f"{prefix} due to fetch of unmapped memory"
+                        exc = exceptions.EmulationFetchUnmappedFailure(
+                            msg, pc - width, operands=prev_operands
+                        )
+                        break
 
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"

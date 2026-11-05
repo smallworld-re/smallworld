@@ -4,7 +4,7 @@ from .arm import ARMv5T, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
 from .i386 import I386
 from .loongarch import LoongArch32, LoongArch64
 from .m68k import M68K
-from .mips import MIPS32BE, MIPS32EL
+from .mips import MIPS32BE, MIPS32EL, MicroMIPS32BE, MicroMIPS32EL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
@@ -35,6 +35,8 @@ __all__ = [
     "MIPS32BE",
     "MIPS64EL",
     "MIPS64BE",
+    "MicroMIPS32BE",
+    "MicroMIPS32EL",
     "MSP430",
     "MSP430X",
     "PlatformDef",

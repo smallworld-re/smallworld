@@ -93,6 +93,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
         # Context configuration isn't auto-propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
         # Byte ranges the harness has explicitly written. write_memory_label
@@ -624,6 +625,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
+        self.machdef.apply_context(self._thread)
 
         if self._instructions_hook is not None:
             self._instructions_hook(self)

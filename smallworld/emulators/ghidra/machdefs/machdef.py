@@ -3,6 +3,7 @@ import typing
 
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
+from java.math import BigInteger
 
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
@@ -68,7 +69,26 @@ class GhidraMachineDef:
     # userop with no output.
     userops: typing.Mapping[str, Userop] = {}
 
+    # Context fields to hold at fixed values, as {name: value}.
+    #
+    # Some sleigh languages hold several encodings and pick one with a context
+    # field that branches can change. A machine that runs only one encoding
+    # pins the field here, and the emulator reapplies it before every
+    # instruction.
+    context: typing.Dict[str, int] = {}
+
     _registers: typing.Dict[str, typing.Optional[str]]
+
+    def apply_context(self, thread) -> None:
+        """Set this machine's pinned context fields on a p-code thread."""
+        if not self.context:
+            return
+        value = thread.getContext()
+        for name, field in self.context.items():
+            value = value.assign(
+                self.language.getRegister(name), BigInteger.valueOf(field)
+            )
+        thread.overrideContext(value)
 
     def __init__(self):
         # Load the Pcode language definition

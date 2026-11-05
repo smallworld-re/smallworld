@@ -54,6 +54,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
 
@@ -465,6 +466,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
+        self.machdef.apply_context(self._thread)
 
         # Check for instruction hooks.
         # TODO: Should instruction hooks override the instruction?

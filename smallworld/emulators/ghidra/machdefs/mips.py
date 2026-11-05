@@ -159,3 +159,20 @@ class MIPSELMachineDef(MIPSMachineDef):
 
 class MIPSBEMachineDef(MIPSMachineDef):
     byteorder = Byteorder.BIG
+
+
+class MicroMIPSMachineDef(MIPSMachineDef):
+    arch = Architecture.MIPS32_MICROMIPS
+
+    # The microMIPS languages also decode standard MIPS32, and a jump to an
+    # address with its low bit clear switches to it. These platforms run only
+    # microMIPS, so hold the decoder there.
+    context = {"ISA_MODE": 1}
+
+
+class MicroMIPSELMachineDef(MicroMIPSMachineDef):
+    byteorder = Byteorder.LITTLE
+
+
+class MicroMIPSBEMachineDef(MicroMIPSMachineDef):
+    byteorder = Byteorder.BIG

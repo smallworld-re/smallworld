@@ -150,7 +150,11 @@ class PthreadSigmask(CStdModel):
             is_mips = (
                 1
                 if self.platform.architecture
-                in (Architecture.MIPS32, Architecture.MIPS64)
+                in (
+                    Architecture.MIPS32,
+                    Architecture.MIPS32_MICROMIPS,
+                    Architecture.MIPS64,
+                )
                 else 0
             )
 
@@ -212,7 +216,10 @@ class Sigaction(CStdModel):
 
         # Figure out field alignments in the sigaction struct.
         # Of course MIPS has to be different.
-        if self.platform.architecture == Architecture.MIPS32:
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+        ):
             handler_off = 0x4
             mask_off = 0x8
             flags_off = 0x0
@@ -279,7 +286,11 @@ class Sigaddset(CStdModel):
         # This only supports 64 signals for most platforms,
         # 128 for MIPS.
         max_idx = 64
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             max_idx = 128
 
         # Signal numbers are one-indexed
@@ -350,7 +361,11 @@ class Sigdelset(CStdModel):
         # This only supports 64 signals for most platforms,
         # 128 for MIPS.
         max_idx = 64
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             max_idx = 128
 
         # Signal numbers are one-indexed
@@ -403,7 +418,11 @@ class Sigemptyset(CStdModel):
         emulator.write_memory(ptr, b"\0" * 8)
 
         # Of course MIPS is different
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             emulator.write_memory(ptr + 8, b"\0" * 8)
 
         self.set_return_value(emulator, 0)
@@ -435,7 +454,11 @@ class Sigfillset(CStdModel):
             self.write_integer(ptr, 0xFFFFFFFE7FFFFFFF, ArgumentType.ULONG, emulator)
 
         # Of course MIPS is different.
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             # All bits are set, so it doesn't matter how I write this.
             self.write_integer(
                 ptr + 8, 0xFFFFFFFFFFFFFFFF, ArgumentType.ULONGLONG, emulator
@@ -521,7 +544,11 @@ class Sigismember(CStdModel):
         # This only supports 64 signals for most platforms,
         # 128 for MIPS.
         max_idx = 64
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             max_idx = 128
 
         # Signal numbers are one-indexed

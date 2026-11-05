@@ -42,6 +42,8 @@ _ARCHS = (
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "msp430",
@@ -71,6 +73,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "m68k": {"argument_registers": ("d0", "d1")},
     "mips": {"argument_registers": ("a0", "a1")},
     "mipsel": {"argument_registers": ("a0", "a1")},
+    "micromips": {"argument_registers": ("a0", "a1")},
+    "micromipsel": {"argument_registers": ("a0", "a1")},
     "mips64": {"argument_registers": ("a0", "a1")},
     "mips64el": {"argument_registers": ("a0", "a1")},
     "msp430": {

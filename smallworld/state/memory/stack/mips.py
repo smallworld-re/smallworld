@@ -29,3 +29,19 @@ class MIPSELStack(MIPSStack):
     platform = platforms.Platform(
         platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
     )
+
+
+class MicroMIPSBEStack(MIPSStack):
+    """A stack for a big-endian MIPS 32-bit CPU running microMIPS code"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+
+class MicroMIPSELStack(MIPSStack):
+    """A stack for a little-endian MIPS 32-bit CPU running microMIPS code"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.LITTLE
+    )

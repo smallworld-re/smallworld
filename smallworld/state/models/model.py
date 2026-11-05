@@ -295,6 +295,11 @@ class Model(Hook):
         elif self.platform.architecture == platforms.Architecture.V850:
             # v850: jarl leaves the return address in 'lp'
             return emulator.read_register("lp")
+        elif self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS:
+            # microMIPS: branch to register 'ra'. A microMIPS call sets the
+            # low bit of ra to say the caller is microMIPS code; it is not part
+            # of the address.
+            return emulator.read_register("ra") & ~1
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64

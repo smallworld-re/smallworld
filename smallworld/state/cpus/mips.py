@@ -329,3 +329,19 @@ class MIPSBE(MIPS):
         self.add(self.hi3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=4, offset=4)
         self.add(self.lo3)
+
+
+class MicroMIPSEL(MIPSEL):
+    """CPU state for little-endian MIPS32 running microMIPS code."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.LITTLE
+    )
+
+
+class MicroMIPSBE(MIPSBE):
+    """CPU state for big-endian MIPS32 running microMIPS code."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )

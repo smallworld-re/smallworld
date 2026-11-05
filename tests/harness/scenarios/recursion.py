@@ -58,6 +58,8 @@ _ARCHS = (
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
@@ -88,6 +90,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     },
     "mips": {"stack_items": (_fake_return("mips"),)},
     "mipsel": {"stack_items": (_fake_return("mipsel"),)},
+    "micromips": {"stack_items": (_fake_return("micromips"),)},
+    "micromipsel": {"stack_items": (_fake_return("micromipsel"),)},
     "mips64": {"stack_items": (_fake_return("mips64"),)},
     "mips64el": {"stack_items": (_fake_return("mips64el"),)},
     "ppc": {

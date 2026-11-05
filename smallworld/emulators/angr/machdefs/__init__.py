@@ -10,6 +10,7 @@ from .i386 import i386MachineDef
 from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
 from .m68k import M68KMachineDef
 from .machdef import AngrMachineDef
+from .micromips import MicroMIPSBEMachineDef, MicroMIPSELMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
@@ -39,6 +40,8 @@ __all__ = [
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
+    "MicroMIPSBEMachineDef",
+    "MicroMIPSELMachineDef",
     "MSP430MachineDef",
     "MSP430XMachineDef",
     "PowerPC32MachineDef",
