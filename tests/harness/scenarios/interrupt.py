@@ -134,13 +134,6 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "amd64": "Interrupt hook doesn't fire",
             "i386": "Interrupt hook doesn't fire",
-            # No bkpt before ARMv5, so these trap on an undefined instruction,
-            # as x86 does with ud2. Measured: Unicorn stops with
-            # UC_ERR_INSN_INVALID instead of reporting an interrupt.
-            "armv4": "Unicorn stops on undefined instructions; ARMv4 has no bkpt",
-            "armv4be": "Unicorn stops on undefined instructions; ARMv4 has no bkpt",
-            "armv4t": "Unicorn stops on undefined instructions; ARMv4T has no bkpt",
-            "armv4tbe": "Unicorn stops on undefined instructions; ARMv4T has no bkpt",
         },
     ),
     run_factory=just_run(),
