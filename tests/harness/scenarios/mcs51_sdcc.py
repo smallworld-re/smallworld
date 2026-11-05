@@ -204,7 +204,8 @@ def _setup(
     # with emulate_device, from an MCS51Device, which sets the device's
     # interrupts and SFR paging too; either way, it must agree with the
     # device lookup.  A device that pages its SFRs has pages 0-0x0F mapped,
-    # and its page stack enabled, as at reset.
+    # all zero: the programs that take interrupts enable the page stack
+    # themselves, so that they test the SFR the device's table names.
     sfrs = bytearray(0x100)
     if device is not None:
         if code.xpage_sfr != mcs51_xpage_sfr(device):
@@ -215,8 +216,6 @@ def _setup(
             paging = mcs51_device.sfr_paging
             if paging is not None:
                 sfrs = bytearray(0x1000)
-                sfr, mask = paging.stack_enable
-                sfrs[sfr] |= mask
         else:
             cpu.xpage_sfr.set(code.xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
@@ -495,19 +494,9 @@ def _run_flash(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
-def _run_sfrpages(smallworld, build: str, engine: str) -> int:
-    device, emulate_device = _DEVICES[build]
-    platform, machine, code = _setup(
-        smallworld, _DIR / f"sfrpages.{build}.mcs51", device, emulate_device
-    )
-    emulator = make_emulator(smallworld, platform, engine)
-    emulator.add_exit_point(_program_exit(code))
-    machine.emulate(emulator)
-
-    def xdata(name: str, size: int) -> List[int]:
-        return list(emulator.read_memory(code.get_symbol_value(name), size))
-
-    checks = {
+def _sfrpages_checks(xdata) -> Dict[str, Tuple[Any, Any]]:
+    # sfrpages.c's results, for the C8051F040, F060 and F120.
+    return {
         # RCAP2L, RCAP3L and RCAP4L, all at 0xCA, on pages 0, 1 and 2.
         "pages": (xdata("_result", 3), [0x20, 0x31, 0x42]),
         # TR2 set in TMR2CN, and P4_3 in P4, both at 0xC8, on pages 0, 0x0F.
@@ -521,15 +510,34 @@ def _run_sfrpages(smallworld, build: str, engine: str) -> int:
         "handler pages": (xdata("_isr", 4), [0, 1, 1, 0]),
         "handlers": (xdata("_isr_count", 1)[0], 4),
     }
-    return _report(checks, [])
 
 
-def _run_sfrpages_f36x(smallworld, engine: str) -> int:
+def _sfrpages_f36x_checks(xdata) -> Dict[str, Tuple[Any, Any]]:
+    # sfrpages_f36x.c's results, for the C8051F360.
+    result = xdata("_result", 4)
+    return {
+        # MAC0AL and P0MDOUT, both at 0xA4, on pages 0 and 0x0F.
+        "pages": (result[:2], [0x12, 0x34]),
+        "shared": (result[2], 0x5A),
+        "after reti": (result[3], 0x0F),
+        # With the page stack, Timer 0's handler is on page 0, main's page,
+        # 0x0F, in SFRNEXT; without, on main's page, with SFRNEXT as RETI
+        # left it, SFRLAST's 0.
+        "handler pages": (xdata("_isr", 4), [0, 0x0F, 0x0F, 0]),
+        "handlers": (xdata("_isr_count", 1)[0], 4),
+    }
+
+
+_SFRPAGES_CHECKS = {
+    "sfrpages": _sfrpages_checks,
+    "sfrpages_f36x": _sfrpages_f36x_checks,
+}
+
+
+def _run_sfrpages(smallworld, program: str, build: str, engine: str) -> int:
+    device, emulate_device = _DEVICES[build]
     platform, machine, code = _setup(
-        smallworld,
-        _DIR / "sfrpages_f36x.c8051f360.mcs51",
-        "C8051F360",
-        emulate_device=True,
+        smallworld, _DIR / f"{program}.{build}.mcs51", device, emulate_device
     )
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(_program_exit(code))
@@ -538,16 +546,7 @@ def _run_sfrpages_f36x(smallworld, engine: str) -> int:
     def xdata(name: str, size: int) -> List[int]:
         return list(emulator.read_memory(code.get_symbol_value(name), size))
 
-    result = xdata("_result", 4)
-    checks = {
-        # MAC0AL and P0MDOUT, both at 0xA4, on pages 0 and 0x0F.
-        "pages": (result[:2], [0x12, 0x34]),
-        "shared": (result[2], 0x5A),
-        "after reti": (result[3], 0x0F),
-        # Timer 0's handler is on page 0, with main's page in SFRNEXT.
-        "handler pages": (xdata("_isr", 2), [0, 0x0F]),
-    }
-    return _report(checks, [])
+    return _report(_SFRPAGES_CHECKS[program](xdata), [])
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
@@ -562,8 +561,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_interrupts(smallworld, engine)
     if program == "flash":
         return _run_flash(smallworld, engine)
-    if program == "sfrpages_f36x":
-        return _run_sfrpages_f36x(smallworld, engine)
-    if program == "sfrpages":
-        return _run_sfrpages(smallworld, build, engine)
+    if program in _SFRPAGES_CHECKS:
+        return _run_sfrpages(smallworld, program, build, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")

@@ -287,7 +287,9 @@ MCS51_C8051F12X_SFR_PAGING = dataclasses.replace(
 )
 
 #: The C8051F36x's SFR paging, from SDCC 4.6's C8051F360.h, which lists these
-#: SFRs under "All Pages" and every other SFR on page 0 or 0x0F.  SFRPAGE is
+#: SFRs under "All Pages" and every other SFR on page 0 or 0x0F, but for
+#: 0xAB, 0xB4 and 0xE3, which it does not list, and which, as reserved
+#: addresses on other devices' pages are, are taken to be paged.  SFRPAGE is
 #: at 0xA7, and SFR0CN, on page 0x0F, controls the page stack.  SmallWorld
 #: takes the stack to work as the C8051F04x's does, enabled by SFR0CN's bit
 #: 0; the header says neither.

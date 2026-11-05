@@ -9,13 +9,17 @@
  */
 
 __xdata unsigned char result[4];
-__xdata unsigned char isr[2];
+__xdata unsigned char isr[4];
 __xdata unsigned char isr_count;
 
 void timer0_isr(void) __interrupt(1)
 {
-    isr[isr_count++] = SFRPAGE;
-    isr[isr_count++] = SFRNEXT;
+    /* Past the two interrupts main expects, log nothing, rather than
+     * overwrite what follows isr[]. */
+    if (isr_count + 2 <= sizeof isr) {
+        isr[isr_count++] = SFRPAGE;
+        isr[isr_count++] = SFRNEXT;
+    }
 }
 
 void main(void)
@@ -41,11 +45,19 @@ void main(void)
      * are in TCON, on every page, so page 0 - and pushes main's onto
      * SFRNEXT; RETI pops it back. */
     SFRPAGE = 0x0F;
-    SFR0CN = 0x01;
+    SFR0CN = 0x01; /* SFRPGEN */
     TF0 = 1;
     ET0 = 1;
     EA = 1;
     for (i = 0; i < 100 && isr_count != 2; i++)
         ;
     result[3] = SFRPAGE;
+
+    /* With the page stack disabled, an interrupt leaves the page alone. */
+    EA = 0;
+    SFR0CN = 0x00;
+    TF0 = 1;
+    EA = 1;
+    for (i = 0; i < 100 && isr_count != 4; i++)
+        ;
 }

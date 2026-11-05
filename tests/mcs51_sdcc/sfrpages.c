@@ -12,8 +12,12 @@ __xdata unsigned char isr_count;
 
 void timer0_isr(void) __interrupt(1)
 {
-    isr[isr_count++] = SFRPAGE;
-    isr[isr_count++] = SFRNEXT;
+    /* Past the two interrupts main expects, log nothing, rather than
+     * overwrite what follows isr[]. */
+    if (isr_count + 2 <= sizeof isr) {
+        isr[isr_count++] = SFRPAGE;
+        isr[isr_count++] = SFRNEXT;
+    }
 }
 
 void main(void)
