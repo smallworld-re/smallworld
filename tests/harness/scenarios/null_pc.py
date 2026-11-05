@@ -89,30 +89,11 @@ _SPECS = build_specs(NullPcSpec, _ARCHS)
 _SPECS = enroll_triton(_SPECS)
 
 # ppc64 uses angr/pcode only: unicorn's ppc64 support is buggy (matches the
-# branch/unmapped scenarios). PANDA is a supported engine for several arches
-# but is mid-migration and not yet runnable, so its variants are skipped just
-# as they are in the unmapped scenario.
+# branch/unmapped scenarios). The PANDA variants still waiting on panda-ng
+# haven't been retested since the switch; the ARM ones have and run.
 _SKIP_REASONS = {
     "ppc64": "Unicorn ppc64 support buggy",
-    "aarch64.panda": "Waiting for panda-ng",
-    "aarch64v85a.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
-    "armv5t.panda": "Waiting for panda-ng",
-    "armv5tbe.panda": "Waiting for panda-ng",
-    "armv4.panda": "Waiting for panda-ng",
-    "armv4be.panda": "Waiting for panda-ng",
-    "armv4t.panda": "Waiting for panda-ng",
-    "armv4tbe.panda": "Waiting for panda-ng",
-    "armv6k.panda": "Waiting for panda-ng",
-    "armv6kbe.panda": "Waiting for panda-ng",
-    "armv7a.panda": "Waiting for panda-ng",
-    "armv7abe.panda": "Waiting for panda-ng",
-    "armv7r.panda": "Waiting for panda-ng",
-    "armv7rbe.panda": "Waiting for panda-ng",
-    "armv8a.panda": "Waiting for panda-ng",
-    "armv8abe.panda": "Waiting for panda-ng",
-    "armv8r.panda": "Waiting for panda-ng",
-    "armv8rbe.panda": "Waiting for panda-ng",
     "i386.panda": "Waiting for panda-ng",
     "mips.panda": "Waiting for panda-ng",
     "mipsel.panda": "Waiting for panda-ng",

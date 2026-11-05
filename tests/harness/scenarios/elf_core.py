@@ -12,6 +12,10 @@ _MIPS64_LD_ACTUATE = "Pending fix for crashes in mips64 ld.so"
 _PPC64_LD_LOAD = "Pending solution to crashes in ppc64 ld.so"
 _PPC64_LD_ACTUATE = "Pending fix for crashes in ppc64 ld.so"
 _PANDA_NG = "Waiting for panda-ng"
+# With the MMU off, a fetch must fit the CPU's physical address range, and
+# QEMU's ARMv8.0 CPUs have 40 or 44 bits, too few for the core's 47-bit
+# addresses. The v8.5-A machine runs on "max", which has enough.
+_PANDA_PA_RANGE = "PANDA's ARMv8.0 CPUs can't address the core's 47-bit addresses"
 
 _LOAD_VARIANTS = (
     ("aarch64", None),
@@ -55,8 +59,8 @@ _ACTUATE_VARIANTS = (
     ("aarch64v85a.angr", None),
     ("aarch64be.angr", _NIX_SYSROOT.format("aarch64be")),
     ("aarch64v85abe.angr", _NIX_SYSROOT.format("aarch64v85abe")),
-    ("aarch64.panda", _PANDA_NG),
-    ("aarch64v85a.panda", _PANDA_NG),
+    ("aarch64.panda", _PANDA_PA_RANGE),
+    ("aarch64v85a.panda", None),
     ("aarch64.pcode", None),
     ("aarch64v85a.pcode", None),
     ("aarch64be.pcode", _NIX_SYSROOT.format("aarch64be")),

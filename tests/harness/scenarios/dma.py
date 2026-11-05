@@ -183,14 +183,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "armv5t.panda": "Waiting for panda-ng fix",
-            "armv5tbe.panda": "Waiting for panda-ng fix",
-            "armv4.panda": "Waiting for panda-ng fix",
-            "armv4be.panda": "Waiting for panda-ng fix",
-            "armv4t.panda": "Waiting for panda-ng fix",
-            "armv4tbe.panda": "Waiting for panda-ng fix",
-            "armv6k.panda": "Waiting for panda-ng fix",
-            "armv6kbe.panda": "Waiting for panda-ng fix",
             "armv5t.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "armv5tbe.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "armv4.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
