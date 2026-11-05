@@ -20,6 +20,8 @@ be loaded (and the pure-Python helpers used) before the JVM is up.
 
 from __future__ import annotations
 
+import typing
+
 import claripy
 import z3
 
@@ -31,6 +33,30 @@ def _z3_backend():
 _SYMZ3_UF_PREFIX = "load_"
 
 
+def _matching_subterms(
+    expr: "z3.ExprRef", match: typing.Callable[["z3.ExprRef"], bool]
+) -> list:
+    """The distinct applications in ``expr`` that ``match`` accepts, in
+    depth-first order, without looking inside the ones it accepts.
+
+    SymZ3 shares subterms heavily (each flag reuses the same sum), so visit
+    each node once; walking the expression as a tree is exponential.
+    """
+    found: list = []
+    seen: set = set()
+    stack = [expr]
+    while stack:
+        node = stack.pop()
+        if node.get_id() in seen:
+            continue
+        seen.add(node.get_id())
+        if z3.is_app(node) and match(node):
+            found.append(node)
+            continue
+        stack.extend(reversed(node.children()))
+    return found
+
+
 def _substitute_symz3_load_ufs(expr: "z3.ExprRef") -> "z3.ExprRef":
     """Replace SymZ3 ``load_*_*`` UF applications with fresh ``z3.BitVec`` leaves.
 
@@ -40,27 +66,15 @@ def _substitute_symz3_load_ufs(expr: "z3.ExprRef") -> "z3.ExprRef":
     preserves claripy-level equality on round-trip.
     """
     pairs: list = []
-    seen: dict = {}
-
-    def visit(node: "z3.ExprRef") -> None:
-        if z3.is_app(node):
-            decl = node.decl()
-            if decl.kind() == z3.Z3_OP_UNINTERPRETED and decl.name().startswith(
-                _SYMZ3_UF_PREFIX
-            ):
-                key = str(node)
-                if key not in seen:
-                    placeholder = z3.BitVec(
-                        f"_symz3_{decl.name()}_{len(seen)}",
-                        node.sort().size(),
-                    )
-                    seen[key] = placeholder
-                    pairs.append((node, placeholder))
-                return
-        for child in node.children():
-            visit(child)
-
-    visit(expr)
+    for node in _matching_subterms(
+        expr,
+        lambda node: node.decl().kind() == z3.Z3_OP_UNINTERPRETED
+        and node.decl().name().startswith(_SYMZ3_UF_PREFIX),
+    ):
+        placeholder = z3.BitVec(
+            f"_symz3_{node.decl().name()}_{len(pairs)}", node.sort().size()
+        )
+        pairs.append((node, placeholder))
     if not pairs:
         return expr
     return z3.substitute(expr, *pairs)
@@ -72,27 +86,29 @@ def _rewrite_implies(expr: "z3.ExprRef") -> "z3.ExprRef":
     Claripy's z3 backend has no entry for implication, which Ghidra's SymZ3
     uses in, for one, ARM's carry and overflow flags.
     """
-    while True:
-        pairs: list = []
-        seen: set = set()
-
-        def visit(node: "z3.ExprRef") -> None:
-            if z3.is_app(node) and node.decl().kind() == z3.Z3_OP_IMPLIES:
-                key = str(node)
-                if key not in seen:
-                    seen.add(key)
-                    a, b = node.children()
-                    pairs.append((node, z3.Or(z3.Not(a), b)))
-                return
-            for child in node.children():
-                visit(child)
-
-        visit(expr)
-        if not pairs:
-            return expr
-        # An implication nested in another one's operands survives a pass,
-        # so go round until none are left.
-        expr = z3.substitute(expr, *pairs)
+    # SymZ3 shares subterms heavily (each flag reuses the same sum), so
+    # rebuild each node once, children first, rather than walking a tree.
+    rebuilt: dict = {}
+    stack = [expr]
+    while stack:
+        node = stack[-1]
+        if node.get_id() in rebuilt:
+            stack.pop()
+            continue
+        children = node.children() if z3.is_app(node) else []
+        pending = [child for child in children if child.get_id() not in rebuilt]
+        if pending:
+            stack.extend(pending)
+            continue
+        stack.pop()
+        args = [rebuilt[child.get_id()] for child in children]
+        result = node
+        if z3.is_app(node) and node.decl().kind() == z3.Z3_OP_IMPLIES:
+            result = z3.Or(z3.Not(args[0]), args[1])
+        elif any(not arg.eq(child) for arg, child in zip(args, children)):
+            result = node.decl()(*args)
+        rebuilt[node.get_id()] = result
+    return rebuilt[expr.get_id()]
 
 
 def _for_claripy(expr: "z3.ExprRef") -> "z3.ExprRef":
