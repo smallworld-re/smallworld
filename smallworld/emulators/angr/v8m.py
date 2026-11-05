@@ -69,7 +69,9 @@ def _moves(
     # Bits [2:0] of a stack limit are RES0.
     masked = irsb.tyenv.add("Ity_I32")
     return [
-        pyvex.stmt.WrTmp(tmp, pyvex.expr.Get(arch.get_register_offset(core), "Ity_I32")),
+        pyvex.stmt.WrTmp(
+            tmp, pyvex.expr.Get(arch.get_register_offset(core), "Ity_I32")
+        ),
         pyvex.stmt.WrTmp(
             masked,
             pyvex.expr.Binop(
