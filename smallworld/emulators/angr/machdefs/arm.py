@@ -837,7 +837,8 @@ class ARMv6KMachineDef(
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):
-    angr_arch = archinfo.arch_arm.ArchARMEL()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMEL()
     arch = Architecture.ARM_V6K
     byteorder = Byteorder.LITTLE
 
@@ -877,7 +878,8 @@ class ARMv7AMachineDef(
     ARMMachineDef,
 ):
     # TODO: This is a user-space integer only model
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
 
@@ -892,7 +894,8 @@ class ARMv8AMachineDef(
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V8A
     byteorder = Byteorder.LITTLE
 
@@ -906,7 +909,8 @@ class ARMv8RMachineDef(
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V8R
     byteorder = Byteorder.LITTLE
 
@@ -927,7 +931,8 @@ class ARMv7RMachineDef(
     ARMMachineMixinBanked,
     ARMMachineDef,
 ):
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
 

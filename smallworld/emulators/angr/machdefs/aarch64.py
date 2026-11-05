@@ -9,7 +9,8 @@ class AArch64MachineDef(AngrMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
 
-    angr_arch = archinfo.arch_aarch64.ArchAArch64()
+    # Big-endian AArch64 builds its arch with a function, typed as any Arch.
+    angr_arch: archinfo.Arch = archinfo.arch_aarch64.ArchAArch64()
 
     _registers = {
         # *** General Purpose Registers ***
