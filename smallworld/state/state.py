@@ -1131,11 +1131,43 @@ class Machine(StatefulSet):
                 _reset()
             return input_callback(emulator, input_bytes, persistent_round, data)
 
-        unicornafl.uc_afl_fuzz(
+        # unicornafl restarts each run from the pc register, which reads back
+        # without any mode bit Unicorn takes from the start address. On ARM it
+        # puts the Thumb bit back itself; for any other machine that needs one
+        # (see UnicornMachineDef.uc_pc_value), start the runs here instead.
+        start = emulator.read_register("pc")
+        if emulator.machdef.uc_pc_value(start) == start:
+            unicornafl.uc_afl_fuzz(
+                uc=emulator.engine,
+                input_file=input_file_path,
+                place_input_callback=_adapter,
+                exits=emulator.get_exit_points(),
+                validate_crash_callback=crash_callback,
+                always_validate=always_validate,
+                persistent_iters=iterations,
+            )
+            return
+
+        import unicorn
+
+        exits = list(emulator.get_exit_points())
+        if exits:
+            # What uc_afl_fuzz does with its exits argument.
+            emulator.engine.ctl_exits_enabled(True)
+            emulator.engine.ctl_set_exits(exits)
+
+        def _run(uc, _data) -> int:
+            try:
+                uc.emu_start(emulator.machdef.uc_pc_value(start), 0)
+            except unicorn.UcError as e:
+                return e.errno
+            return unicorn.UC_ERR_OK
+
+        unicornafl.uc_afl_fuzz_custom(
             uc=emulator.engine,
             input_file=input_file_path,
             place_input_callback=_adapter,
-            exits=emulator.get_exit_points(),
+            fuzzing_callback=_run,
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
             persistent_iters=iterations,

@@ -107,6 +107,22 @@ _SIMPLE_SPECS = {
         exit_offset=128,
         engine="unicorn",
     ),
+    "micromips": _FuzzSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        exit_offset=128,
+        engine="unicorn",
+    ),
+    "micromipsel": _FuzzSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        exit_offset=128,
+        engine="unicorn",
+    ),
     "ppc": _FuzzSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
@@ -213,6 +229,24 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "micromips": _FuzzSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        exit_offset=128,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
+    "micromipsel": _FuzzSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        exit_offset=128,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
     "ppc": _FuzzSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
@@ -229,7 +263,18 @@ SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
 
 NATIVE_PARITY = True
 
-_FUZZ_ARCHES = ("amd64", "aarch64", "armel", "armhf", "m68k", "mips", "mipsel", "ppc")
+_FUZZ_ARCHES = (
+    "amd64",
+    "aarch64",
+    "armel",
+    "armhf",
+    "m68k",
+    "mips",
+    "mipsel",
+    "micromips",
+    "micromipsel",
+    "ppc",
+)
 
 _AFL_EXPECTED = {
     "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
@@ -239,6 +284,8 @@ _AFL_EXPECTED = {
     "m68k": ("021692:1", "022192:1", "059686:1"),
     "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
+    "micromips": ("013057:1", "022192:1", "036571:1", "052670:1"),
+    "micromipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "ppc": ("002975:1", "022192:1", "050871:1"),
 }
 

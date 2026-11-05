@@ -137,6 +137,11 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   standard MIPS32, but it does not report its ISA mode, so ``isa_mode`` is not
   available and SmallWorld returns to microMIPS whenever a run resumes.
 
+  Unicorn runs a microMIPS compact branch (one with no delay slot, such as
+  ``jrc``, ``jraddiusp``, ``beqzc`` or ``bnezc``) even when a hook stops
+  emulation on it, in both the pip and the nix builds. An exit point placed on
+  such a branch is therefore run past.
+
   Stock Unicorn 2.1.4, as pip installs it, mishandles a load or store in the
   delay slot of a branch that is not taken while a memory hook is installed,
   which SmallWorld always does: the next instruction, if it is a branch, raises

@@ -159,6 +159,8 @@ LA64_CC := zig cc -target $(LA64_ID)
 M68K_CC := $(M68K_ID)-gcc
 MIPS_CC := zig cc -target $(MIPS_ID) 
 MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
+MICROMIPS_CC := zig cc -target $(MIPS_ID)
+MICROMIPSEL_CC := zig cc -target $(MIPSEL_ID)
 MIPS64_CC := zig cc -target $(MIPS64_ID) 
 MIPS64EL_CC := zig cc -target $(MIPS64EL_ID) 
 MSP430_CC := zig cc -target $(MSP430_ID)
@@ -204,6 +206,15 @@ ARMHF_CFLAGS := -marm
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
+# zig cannot build its runtime or libc for microMIPS, and LLD cannot link
+# microMIPS PIC calls (R_MICROMIPS_JALR), so microMIPS C is freestanding,
+# non-PIC and static, entered at main. Only sources that need no library build.
+MICROMIPS_CFLAGS := -mmicromips -fno-pic -mno-abicalls -nostdlib -static
+MICROMIPSEL_CFLAGS := $(MICROMIPS_CFLAGS)
+MICROMIPS_ELF_CFLAGS := -Wl,-e,main
+MICROMIPSEL_ELF_CFLAGS := $(MICROMIPS_ELF_CFLAGS)
+MICROMIPS_C_ELF_ONLY := exitpoint/exitpoint.elf.c unmapped/unmapped.elf.c
+MICROMIPSEL_C_ELF_ONLY := $(MICROMIPS_C_ELF_ONLY)
 MIPS64_CFLAGS := -T mips_linkerscript.ld
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard
@@ -352,9 +363,11 @@ AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 
 define C_ELF_TEMPLATE
 
-$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
-$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
+# A platform that can build only some C sources lists its ELF sources in
+# $(1)_C_ELF_ONLY, and then builds no objects or shared libraries.
+$(1)_C_OBJS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS)))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(or $$($(1)_C_ELF_ONLY),$$(C_ELF_SRCS)))
+$(1)_C_SOS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS)))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
@@ -446,7 +459,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68
 ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
