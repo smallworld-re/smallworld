@@ -613,7 +613,7 @@ class MIPS64BEMachineDef(MIPS64MachineDef):
 
 
 class MicroMIPSMachineDef:
-    """Mixin for MIPS32 running only microMIPS code.
+    """Mixin for MIPS32 with microMIPS, which Unicorn runs as microMIPS only.
 
     Unicorn has no microMIPS mode. It runs microMIPS on a CPU that implements
     it while the low bit of the pc is set: by emu_start(), a write to the pc
@@ -623,6 +623,12 @@ class MicroMIPSMachineDef:
     arch = Architecture.MIPS32_MICROMIPS
 
     uc_cpu: typing.Optional[int] = unicorn.mips_const.UC_CPU_MIPS32_M14KC
+
+    def __init__(self):
+        super().__init__()  # type: ignore[misc]
+        # Unicorn does not report its ISA mode, so isa_mode is unsupported
+        # and runs stay in microMIPS.
+        self._registers["isa_mode"] = unicorn.mips_const.UC_MIPS_REG_INVALID
 
     def uc_pc_value(self, pc: int) -> int:
         return pc | 1

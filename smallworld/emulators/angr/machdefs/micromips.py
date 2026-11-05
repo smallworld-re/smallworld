@@ -96,6 +96,8 @@ class MicroMIPSMachineDef(GhidraMachineDef):
             }
         )
         self._registers.update({f"f{i}": None for i in range(32)})
+        # The engine decodes only microMIPS, so there is no ISA mode to model.
+        self._registers["isa_mode"] = None
 
 
 class MicroMIPSELMachineDef(MicroMIPSMachineDef):

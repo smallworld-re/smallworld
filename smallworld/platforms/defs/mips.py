@@ -348,9 +348,10 @@ class MIPS32BE(MIPSO32PlatformDef):
 
 # microMIPS re-encodes MIPS32 (Release 3/5) as a mix of 16- and 32-bit
 # instructions. Hardware switches between it and standard MIPS32 on the low
-# bit of a jump target, but SmallWorld pins one encoding per platform: these
-# platforms decode only microMIPS, so a jalx or jr into standard MIPS32 code
-# is not followed. Mnemonics are spelled as Capstone spells them.
+# bit of a jump target, and the isa_mode pseudo-register below holds the
+# current choice. Only the Ghidra backend switches; angr and Unicorn run these
+# platforms as microMIPS only. The mnemonics here are microMIPS's, spelled as
+# Capstone spells them.
 MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS = MIPSO32PlatformDef.conditional_branch_mnemonics | {
     # 16-bit compare-to-zero branches
     "beqz16",
@@ -407,6 +408,12 @@ class MicroMIPSMixin:
         }
         | MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
     ) - MICROMIPS_COMPACT_MNEMONICS
+
+    def __init__(self):
+        super().__init__()  # type: ignore[misc]
+        # The ISA mode: 1 runs microMIPS, 0 standard MIPS32. No architectural
+        # register holds it, so SmallWorld models it as a pseudo-register.
+        self._registers["isa_mode"] = RegisterDef(name="isa_mode", size=1)
 
     implicit_dereference_mnemonics = {
         "jr",

@@ -295,15 +295,11 @@ class Model(Hook):
         elif self.platform.architecture == platforms.Architecture.V850:
             # v850: jarl leaves the return address in 'lp'
             return emulator.read_register("lp")
-        elif self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS:
-            # microMIPS: branch to register 'ra'. A microMIPS call sets the
-            # low bit of ra to say the caller is microMIPS code; it is not part
-            # of the address.
-            return emulator.read_register("ra") & ~1
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
@@ -338,6 +334,18 @@ class Model(Hook):
             return
 
         ret = self.get_return_address(emulator, pop=True)
+        if (
+            self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
+            and not ret & 1
+        ):
+            # Return as jr does: a microMIPS caller leaves the low bit of ra
+            # set, and a pc written with it selects microMIPS. An even return
+            # address is standard MIPS32 code, so switch to that first.
+            # Backends that run only microMIPS have no isa_mode to switch.
+            try:
+                emulator.write_register("isa_mode", 0)
+            except exceptions.UnsupportedRegisterError:
+                pass
         emulator.write_register("pc", ret)
 
 

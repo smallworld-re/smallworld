@@ -305,6 +305,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
@@ -326,6 +330,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            return claripy.BVV(
+                self.machdef.read_context(self._thread, reg),
+                self._expected_register_size(name) * 8,
+            )
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         sym = pair.getRight()
@@ -351,6 +360,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            if not isinstance(value, int):
+                raise exceptions.SymbolicValueError(
+                    f"Context register {name} cannot hold a symbolic value"
+                )
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register and isinstance(value, int):
+            value = self.machdef.pc_value(self._thread, value)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()
@@ -625,7 +643,6 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
-        self.machdef.apply_context(self._thread)
 
         if self._instructions_hook is not None:
             self._instructions_hook(self)

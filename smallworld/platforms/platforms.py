@@ -33,7 +33,7 @@ class Architecture(enum.Enum):
     """MIPS32 rel 2"""
 
     MIPS32_MICROMIPS = "mips32-micromips"
-    """MIPS32 running only microMIPS (16/32-bit) code"""
+    """MIPS32 with the microMIPS (16/32-bit) encoding, starting in microMIPS"""
 
     MIPS64 = "mips64"
     """MIPS32 rel 2"""

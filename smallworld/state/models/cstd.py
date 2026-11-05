@@ -1025,14 +1025,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         elif self.platform.architecture == platforms.Architecture.V850:
             # v850: jarl leaves the return address in 'lp'
             emulator.write_register("lp", address)
-        elif self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS:
-            # microMIPS: branch to register 'ra', with the low bit set as a
-            # microMIPS call would set it, so the return stays in microMIPS.
-            emulator.write_register("ra", address | 1)
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU

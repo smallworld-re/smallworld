@@ -331,16 +331,25 @@ class MIPSBE(MIPS):
         self.add(self.lo3)
 
 
-class MicroMIPSEL(MIPSEL):
-    """CPU state for little-endian MIPS32 running microMIPS code."""
+class MicroMIPSMixin:
+    def __init__(self):
+        super().__init__()  # type: ignore[misc]
+        # The ISA mode: 1 runs microMIPS, 0 standard MIPS32. No architectural
+        # register holds it, so SmallWorld models it as a pseudo-register.
+        self.isa_mode = state.Register("isa_mode", size=1)
+        self.add(self.isa_mode)  # type: ignore[attr-defined]
+
+
+class MicroMIPSEL(MicroMIPSMixin, MIPSEL):
+    """CPU state for little-endian MIPS32 with the microMIPS ASE."""
 
     platform = platforms.Platform(
         platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.LITTLE
     )
 
 
-class MicroMIPSBE(MIPSBE):
-    """CPU state for big-endian MIPS32 running microMIPS code."""
+class MicroMIPSBE(MicroMIPSMixin, MIPSBE):
+    """CPU state for big-endian MIPS32 with the microMIPS ASE."""
 
     platform = platforms.Platform(
         platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG

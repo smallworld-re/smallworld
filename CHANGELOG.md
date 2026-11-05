@@ -126,14 +126,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returns its output. `GhidraEmulator` and `GhidraSymbolicEmulator` both use
   them. `GhidraMachineDef.ram_address_size`, for machines whose RAM offsets
   are wider than their pointers.
-- `Architecture.MIPS32_MICROMIPS`, MIPS32 running microMIPS code, big- and
-  little-endian, on angr, Ghidra and Unicorn. The platform decodes only
-  microMIPS; code that switches to standard MIPS32 is not supported. ELF images
-  flagged `EF_MIPS_MICROMIPS` load as this platform, with a warning if their
-  symbols show standard MIPS32 functions too. Two machine-definition hooks
-  carry the mode: `GhidraMachineDef.context` pins sleigh context fields, and
+- `Architecture.MIPS32_MICROMIPS`, MIPS32 with the microMIPS encoding, big-
+  and little-endian. Ghidra switches between microMIPS and standard MIPS32 as
+  hardware does; angr and Unicorn run microMIPS only. An `isa_mode`
+  pseudo-register holds the current encoding, and an odd pc selects microMIPS.
+  ELF images flagged `EF_MIPS_MICROMIPS` load as this platform, with a warning
+  if their symbols show standard MIPS32 functions too. Machine-definition hooks
+  carry the mode: `GhidraMachineDef.context` sets starting context fields,
+  `GhidraMachineDef.isa_bit_context` names the field an odd pc selects, and
   `UnicornMachineDef.uc_pc_value()` adjusts the pc Unicorn is given, at
-  `emu_start()` and on writes to the pc register. PANDA has no microMIPS support.
+  `emu_start()` and on writes to the pc register. The Ghidra emulators read
+  and write sleigh context fields as registers. PANDA has no microMIPS support.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

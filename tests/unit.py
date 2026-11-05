@@ -10551,6 +10551,53 @@ class ElfUnknownMachineTests(unittest.TestCase):
         self.assertEqual(code.platform, platform)
 
 
+class MicroMIPSIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register: Ghidra keeps it in the ISA_MODE decode
+    context and an odd pc selects microMIPS; backends that run only microMIPS
+    do not support it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _ghidra(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraEmulator(self.PLATFORM)
+
+    def test_ghidra_starts_in_micromips(self):
+        self.assertEqual(self._ghidra().read_register("isa_mode"), 1)
+
+    def test_ghidra_isa_mode_round_trips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+        emu.write_register("isa_mode", 1)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_odd_pc_selects_micromips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_even_pc_keeps_isa_mode(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_unicorn_isa_mode_unsupported(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+    def test_angr_isa_mode_unsupported(self):
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+
 class ElfMicroMIPSTests(unittest.TestCase):
     """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
     drops the ISA bit; standard MIPS32 functions in such an image warn."""

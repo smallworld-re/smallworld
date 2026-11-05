@@ -69,26 +69,48 @@ class GhidraMachineDef:
     # userop with no output.
     userops: typing.Mapping[str, Userop] = {}
 
-    # Context fields to hold at fixed values, as {name: value}.
+    # Starting values for context fields, as {name: value}, where they differ
+    # from the language's defaults.
     #
     # Some sleigh languages hold several encodings and pick one with a context
-    # field that branches can change. A machine that runs only one encoding
-    # pins the field here, and the emulator reapplies it before every
-    # instruction.
+    # field that branches can change. The emulator sets these once, when it
+    # creates its thread; after that the program's own jumps change them.
     context: typing.Dict[str, int] = {}
+
+    # A context field that a pc written with its low bit set selects.
+    #
+    # On ISAs that mark the instruction set in the low bit of a jump target
+    # (MIPS's ISA bit), writing an odd pc sets this field to 1 and stores the
+    # even address. An even pc leaves the field as it is.
+    isa_bit_context: typing.Optional[str] = None
 
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def apply_context(self, thread) -> None:
-        """Set this machine's pinned context fields on a p-code thread."""
-        if not self.context:
-            return
-        value = thread.getContext()
+        """Set this machine's starting context fields on a p-code thread."""
         for name, field in self.context.items():
-            value = value.assign(
-                self.language.getRegister(name), BigInteger.valueOf(field)
-            )
+            self.write_context(thread, self.language.getRegister(name), field)
+
+    def read_context(self, thread, reg: Register) -> int:
+        """Read a context field from a p-code thread's decode context."""
+        value = thread.getContext().getRegisterValue(reg)
+        if value is None or not value.hasValue():
+            return 0
+        return int(value.getUnsignedValue().longValue())
+
+    def write_context(self, thread, reg: Register, field: int) -> None:
+        """Write a context field into a p-code thread's decode context."""
+        value = thread.getContext().assign(reg, BigInteger.valueOf(field))
         thread.overrideContext(value)
+
+    def pc_value(self, thread, pc: int) -> int:
+        """The address to store for a pc write, applying the ISA bit."""
+        if self.isa_bit_context is not None and pc & 1:
+            self.write_context(
+                thread, self.language.getRegister(self.isa_bit_context), 1
+            )
+            return pc & ~1
+        return pc
 
     def __init__(self):
         # Load the Pcode language definition

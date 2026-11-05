@@ -111,23 +111,31 @@ gaps:
   holds them in 4 bytes, so a ``movec`` that reads one into a register gives a
   partly symbolic value.
 
-**mips32-micromips:** MIPS32 running microMIPS, which re-encodes MIPS32
+**mips32-micromips:** MIPS32 with microMIPS, which re-encodes MIPS32
 Release 3/5 in 16- and 32-bit instructions over the same registers. Hardware
-switches between microMIPS and standard MIPS32 on the low bit of a jump target;
-SmallWorld does not. This platform decodes only microMIPS, so code that jumps
-into standard MIPS32 (``jalx``, or ``jr`` to an even address) is not
-supported: angr and Ghidra keep decoding it as microMIPS, and Unicorn, which
-does follow the jump, is returned to microMIPS whenever a run resumes.
+switches between microMIPS and standard MIPS32 on the low bit of a jump target
+(``jalx`` switches outright). The current choice is the ``isa_mode``
+pseudo-register: 1 for microMIPS, 0 for standard MIPS32. No architectural
+register holds it, so SmallWorld adds one. Runs start in microMIPS.
 
-- **Ghidra** runs it on the ``MIPS:BE:32:micro`` and ``MIPS:LE:32:micro``
-  languages, holding the ``ISA_MODE`` context field at microMIPS.
-- **angr** runs it on the same languages through its p-code engine rather than
-  VEX, which has no microMIPS decoder. angr's lifter has no way to set a
-  context field, so SmallWorld sets ``ISA_MODE`` on the lifter angr caches for
-  these languages. The FPU registers are not available on angr.
-- **Unicorn** runs it on the M14Kc CPU model, which runs microMIPS while the
-  low bit of the pc is set. SmallWorld sets that bit whenever it starts a run
-  or writes the pc.
+Writing an odd pc selects microMIPS and stores the even address; writing an
+even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
+``isa_mode`` set to 0. The pc always reads back even.
+
+- **Ghidra** switches between the two encodings as hardware does, on the
+  ``MIPS:BE:32:micro`` and ``MIPS:LE:32:micro`` languages. ``isa_mode`` is
+  their ``ISA_MODE`` context field.
+- **angr** runs microMIPS only, on the same languages through its p-code
+  engine rather than VEX, which has no microMIPS decoder. angr's lifter has no
+  way to set a context field, so SmallWorld sets ``ISA_MODE`` on the lifter
+  angr caches for these languages; following a switch would need angr's engine
+  to act on sleigh's ``ISAModeSwitch``. ``isa_mode`` and the FPU registers are
+  not available on angr.
+- **Unicorn** runs microMIPS only, on the M14Kc CPU model, which runs
+  microMIPS while the low bit of the pc is set. SmallWorld sets that bit
+  whenever it starts a run or writes the pc. Unicorn does follow a jump into
+  standard MIPS32, but it does not report its ISA mode, so ``isa_mode`` is not
+  available and SmallWorld returns to microMIPS whenever a run resumes.
 
   Stock Unicorn 2.1.4, as pip installs it, mishandles a load or store in the
   delay slot of a branch that is not taken while a memory hook is installed,
@@ -138,12 +146,15 @@ does follow the jump, is returned to microMIPS whenever a run resumes.
 - **PANDA** is not supported.
 
 An ELF image flagged ``EF_MIPS_MICROMIPS`` loads as this platform, with its
-entrypoint's low bit cleared. The flag says only that the image contains some
-microMIPS code, so SmallWorld warns when function symbols show standard MIPS32
-functions as well; a stripped image cannot be checked.
+entrypoint's low bit cleared, and a warning if the entrypoint is standard
+MIPS32 code. The flag says only that the image contains some microMIPS code,
+so SmallWorld also warns when function symbols show standard MIPS32 functions,
+which only Ghidra runs; a stripped image cannot be checked.
 
-Calls in microMIPS code set the low bit of ``ra``. Function models clear it to
-find the return address, and set it when they write a return address to ``ra``.
+Calls from microMIPS code set the low bit of ``ra``, and calls from standard
+MIPS32 code leave it clear. Function models keep that bit: a model returns as
+``jr ra`` would, to microMIPS for an odd ``ra`` and to standard MIPS32 for an
+even one, where the backend can switch.
 
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.

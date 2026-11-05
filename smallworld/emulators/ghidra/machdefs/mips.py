@@ -164,10 +164,17 @@ class MIPSBEMachineDef(MIPSMachineDef):
 class MicroMIPSMachineDef(MIPSMachineDef):
     arch = Architecture.MIPS32_MICROMIPS
 
-    # The microMIPS languages also decode standard MIPS32, and a jump to an
-    # address with its low bit clear switches to it. These platforms run only
-    # microMIPS, so hold the decoder there.
+    # The microMIPS languages decode both encodings and pick one with the
+    # ISA_MODE context field: 1 for microMIPS, 0 for standard MIPS32. Jumps
+    # switch it as hardware does, from the low bit of the target (sleigh's
+    # ISAModeSwitch). Runs start in microMIPS.
     context = {"ISA_MODE": 1}
+    isa_bit_context = "ISA_MODE"
+
+    def __init__(self):
+        super().__init__()
+        self._registers = dict(self._registers)
+        self._registers["isa_mode"] = "ISA_MODE"
 
 
 class MicroMIPSELMachineDef(MicroMIPSMachineDef):

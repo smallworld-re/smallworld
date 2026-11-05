@@ -515,6 +515,12 @@ class ElfExecutable(Executable):
             ):
                 # The low bit marks the entrypoint as microMIPS code;
                 # it is not part of the address.
+                if not entrypoint & 1:
+                    log.warning(
+                        "The ELF entrypoint is standard MIPS32 code, but runs "
+                        "start in microMIPS; set isa_mode to 0 before running "
+                        "it (Ghidra only)"
+                    )
                 entrypoint &= ~1
             if not self.bounds.contains_value(entrypoint):
                 if (
@@ -635,9 +641,9 @@ class ElfExecutable(Executable):
     def _warn_mixed_micromips(elf) -> None:
         """Warn if a microMIPS image also has standard MIPS32 functions.
 
-        The MIPS32_MICROMIPS platform decodes only microMIPS, and the header
-        flag says only that some of the code is microMIPS. Function symbols
-        say which is which; a stripped image has none to check.
+        Only the Ghidra backend switches between the two encodings, and the
+        header flag says only that some of the code is microMIPS. Function
+        symbols say which is which; a stripped image has none to check.
         """
         standard = sorted(
             sym.name
@@ -650,8 +656,9 @@ class ElfExecutable(Executable):
             shown = ", ".join(standard[:5]) + (", ..." if len(standard) > 5 else "")
             log.warning(
                 "ELF image mixes microMIPS and standard MIPS32 code; loading it "
-                "as MIPS32_MICROMIPS, which decodes only microMIPS. These "
-                f"standard MIPS32 functions will not run correctly: {shown}"
+                "as MIPS32_MICROMIPS. Only the Ghidra backend switches between "
+                "the two; on angr and Unicorn these standard MIPS32 functions "
+                f"will not run correctly: {shown}"
             )
 
     def _rebase_file(self, val: int):
