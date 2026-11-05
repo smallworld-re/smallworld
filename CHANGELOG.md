@@ -144,6 +144,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   devices SDCC's headers declare one for. An image loaded with
   `Executable.from_ihex()` reports the same SFR from an SDCC linker map's
   `__XPAGE`, as `xpage_sfr`.
+- `MCS51Device`, added to a machine, emulates an 8051 device: it sets
+  `xpage_sfr` and makes the Ghidra and angr emulators take the device's
+  interrupts rather than the 8052's. The C8051F330-F335's are tabulated, as
+  `C8051F33xInterrupt`, with their EIE1 and EIP1 enables and priorities and
+  the second enable bits some of their flags need; an `mcs51_sdcc` program
+  built for the C8051F330 tests them. Interrupt sources are now an
+  `MCS51InterruptSource` enum per device, of which `MCS51Interrupt` is the
+  8052's, and `mcs51_interrupt_to_take()` and `mcs51_service_interrupts()`
+  take the device's sources.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

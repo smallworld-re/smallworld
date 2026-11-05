@@ -26,6 +26,11 @@ through EMI0CN, not P2, so the scenario names EMI0CN in the CPU's
 ``xpage_sfr`` - as the linker map records it, which must agree with
 ``mcs51_xpage_sfr`` - and leaves P2 at its reset value, 0xFF: paged through
 P2, pdata would land in the wrong page.
+
+``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
+C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
+adds an ``MCS51Device`` for the C8051F330, so the emulators take them, and
+checks the order the handlers ran in.
 """
 
 from __future__ import annotations
@@ -51,6 +56,7 @@ _PROGRAMS = ("abi", "libc", "libc_models")
 _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc", "cip51"),
     ("libc_models", "cip51"),
+    ("interrupts", "cip51"),
 )
 
 # P2, and its reset value.
@@ -124,7 +130,7 @@ def _parameter_addresses(code, function: str) -> List[int]:
     return addresses
 
 
-def _setup(smallworld, image, cip51: bool = False):
+def _setup(smallworld, image, cip51: bool = False, device: bool = False):
     from smallworld.platforms.defs.mcs51 import (
         MCS51_IDATA_BASE,
         MCS51_SFR_BASE,
@@ -153,11 +159,17 @@ def _setup(smallworld, image, cip51: bool = False):
     for i in range(8):
         getattr(cpu, f"r{i}").set(0)
 
+    # A CIP-51 build takes xpage_sfr from the linker map, or, with device,
+    # from an MCS51Device for the C8051F330, which sets its interrupts too;
+    # either way, it must agree with the device lookup.
     sfrs = bytearray(0x100)
     if cip51:
         if code.xpage_sfr != mcs51_xpage_sfr("C8051F330"):
             raise ValueError(f"the map's __XPAGE is {code.xpage_sfr!r}")
-        cpu.xpage_sfr.set(code.xpage_sfr)
+        if device:
+            machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
+        else:
+            cpu.xpage_sfr.set(code.xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
     for base, content in (
         (MCS51_IDATA_BASE, bytes(0x100)),
@@ -374,6 +386,31 @@ def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
     return _report(checks, [])
 
 
+def _run_interrupts(smallworld, engine: str) -> int:
+    platform, machine, code = _setup(
+        smallworld, _DIR / "interrupts.cip51.mcs51", cip51=True, device=True
+    )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    count = emulator.read_memory(code.get_symbol_value("_n"), 1)[0]
+    order = list(emulator.read_memory(code.get_symbol_value("_order"), count))
+    # Handlers log their interrupt numbers, main its markers, 0xF0 and up.
+    checks = {
+        "order": (
+            order,
+            [6, 7, 10, 14, 0xF0]  # IE and EIE1 sources, in polling order
+            + [14, 6, 0xF1]  # EIP1 priority beats polling order
+            + [7, 14, 0x70, 0xF2]  # high priority nests in low
+            + [0xF3, 5, 0xF4]  # TF2L gated by TF2LEN
+            + [0xF5, 11, 0xF6]  # CCF1 gated by ECCF1
+            + [0xF7, 12, 0xF8],  # CP0RIF gated by CP0RIE
+        ),
+    }
+    return _report(checks, [])
+
+
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     import smallworld
 
@@ -382,4 +419,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     smallworld.logging.setup_logging(level=logging.INFO)
     if program == "abi":
         return _run_abi(smallworld, build, engine)
+    if program == "interrupts":
+        return _run_interrupts(smallworld, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")

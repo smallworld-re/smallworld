@@ -272,11 +272,25 @@ map, which an image loaded with ``Executable.from_ihex()`` reports as
     cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
     cpu.xpage_sfr.set(code.xpage_sfr)  # or, from the map
 
-Ghidra's own CIP-51 language adds nothing an emulator uses, and
-pypcode lacks it.  SFR pages (SFRPAGE), the extra interrupt sources, and the
+A CIP-51 device also has more interrupt sources than the 8052, enabled and
+prioritized through EIE1 and EIP1 as well as IE and IP.  To emulate a device,
+add an ``MCS51Device`` to the machine, beside the CPU: it sets ``xpage_sfr``
+and makes the emulator take the device's interrupts instead of the 8052's
+(don't set the CPU's ``xpage_sfr`` too; which would win is undefined)::
+
+    machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
+
+Only the C8051F330-F335's interrupts are tabulated so far, as
+``C8051F33xInterrupt``, from the data sheet's interrupt summary; other
+devices are refused.  Request flags that a second bit gates, as Timer 2's
+low-byte flag is by TF2LEN and each PCA module's by its ECCFn, request their
+interrupt only while that bit is set.  The data sheet does not say whether a
+write to EIE1 or EIP1 holds interrupts for an instruction as one to IE or IP
+does; SmallWorld assumes it does.  Ghidra's own CIP-51 language adds nothing
+an emulator uses, and pypcode lacks it.  SFR pages (SFRPAGE) and the
 C8051F12x's banked flash are not modeled.
-Both backends take the 8052's six interrupts as the hardware does, when the
-SFRs that control them (TCON through T2CON) are mapped: between any two
+Both backends take the 8052's six interrupts, or a device's, as the hardware
+does, when the SFRs that control them are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and
 whose IP priority beats every interrupt in service, is called through its
 vector, the higher priority first and then in polling order, and the flags
@@ -288,7 +302,8 @@ on its own: there are no timers, serial port or pins, so a harness requests
 an interrupt by setting its flag, from a hook or a model, as hardware would;
 ``mcs51_raise_interrupt`` does that.  Without pins, the external interrupts'
 flags are cleared when taken even in level-triggered mode.  On angr, a block
-ends after any instruction that writes TCON, SCON, IE, IP or T2CON, so
+ends after any instruction that writes one of those SFRs - TCON, SCON, IE, IP
+or T2CON on the 8052 - so
 checking for interrupts between blocks is as good as checking between every
 two instructions; the bits involved must be concrete.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and

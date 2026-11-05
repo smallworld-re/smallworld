@@ -1,4 +1,5 @@
-from ... import platforms
+from ... import emulators, exceptions, platforms
+from ...platforms.defs.mcs51 import mcs51_interrupts, mcs51_xpage_sfr
 from .. import state
 from . import cpu
 
@@ -15,7 +16,8 @@ class MCS51(cpu.CPU):
     ``xpage_sfr`` is not a register of the hardware but a property of the
     device: the address of the SFR that supplies the high byte of MOVX @Ri's
     address.  The emulators set it to P2's (0xA0), as on Intel's 8051; set it
-    to EMI0CN's to emulate a Silicon Labs CIP-51 device.
+    to EMI0CN's to emulate a Silicon Labs CIP-51 device, or add an
+    :class:`MCS51Device` to the machine, which sets it for you.
     """
 
     platform = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
@@ -47,3 +49,46 @@ class MCS51(cpu.CPU):
             reg = state.Register(f"r{i}", 1)
             setattr(self, f"r{i}", reg)
             self.add(reg)
+
+
+class MCS51Device(state.Stateful):
+    """An 8051 device that differs from Intel's 8051 in ways SmallWorld models.
+
+    Add one to a machine, beside the CPU, to emulate the device: it sets the
+    CPU's ``xpage_sfr`` to the SFR that pages the device's MOVX @Ri (see
+    :func:`~smallworld.platforms.defs.mcs51.mcs51_xpage_sfr`), and makes
+    the emulator take the device's interrupts (see
+    :func:`~smallworld.platforms.defs.mcs51.mcs51_interrupts`) instead of
+    the 8052's.  Do not set the CPU's ``xpage_sfr`` as well: which would win
+    is undefined.
+
+    Only the Ghidra and angr emulators can emulate a device.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``; case and
+            suffixes, such as a package code, are ignored.
+
+    Raises:
+        ValueError: If SmallWorld does not know the device's paging SFR or
+            interrupts.
+    """
+
+    def __init__(self, device: str):
+        self.device = device
+        self.xpage_sfr = mcs51_xpage_sfr(device)
+        self.interrupts = mcs51_interrupts(device)
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        # Nothing about the device changes as it runs.
+        pass
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        set_interrupt_sources = getattr(
+            getattr(emulator, "machdef", None), "set_interrupt_sources", None
+        )
+        if set_interrupt_sources is None:
+            raise exceptions.ConfigurationError(
+                f"{type(emulator).__name__} cannot emulate 8051 devices"
+            )
+        emulator.write_register("xpage_sfr", self.xpage_sfr)
+        set_interrupt_sources(emulator, self.interrupts)

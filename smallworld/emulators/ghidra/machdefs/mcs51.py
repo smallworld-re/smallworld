@@ -5,14 +5,16 @@ from ....platforms import Architecture, Byteorder
 from ....platforms.defs.mcs51 import (
     MCS51_ADDRESS_SPACES,
     MCS51_IDATA_BASE,
-    MCS51_INTERRUPT_SFRS,
     MCS51_OPCODE_RETI,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
     MCS51_SFR_P2,
+    MCS51Interrupt,
+    MCS51InterruptSource,
     MCS51InterruptState,
+    mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_psw_with_parity,
     mcs51_service_interrupts,
@@ -61,7 +63,11 @@ class MCS51MachineDef(GhidraMachineDef):
         # The bank PSW selected, and R0-R7, at the last register bank sync;
         # None until the first.
         self._synced_bank: typing.Optional[typing.Tuple[int, typing.List[int]]] = None
-        # Interrupts in service, and the instruction executing.
+        # The device's interrupt sources, the SFRs that decide whether they
+        # are taken, and the interrupts in service and the instruction
+        # executing.
+        self._interrupt_sources: typing.Type[MCS51InterruptSource] = MCS51Interrupt
+        self._interrupt_sfrs = mcs51_interrupt_sfrs(MCS51Interrupt)
         self._interrupts = MCS51InterruptState()
         # Whether, at the last full interrupt check, no interrupt could have
         # been taken even without a hold; and whether an interrupt SFR has
@@ -91,12 +97,11 @@ class MCS51MachineDef(GhidraMachineDef):
         mapped = utils.RangeCollection()
         for region in regions:
             mapped.add_range(region)
-        start, end = MCS51_INTERRUPT_SFRS
         self._banks_mapped = not mapped.get_missing_ranges(
             (MCS51_IDATA_BASE, MCS51_IDATA_BASE + MCS51_REGISTER_BANKS_SIZE)
         )
-        self._interrupt_sfrs_mapped = not mapped.get_missing_ranges(
-            (MCS51_SFR_BASE + start, MCS51_SFR_BASE + end)
+        self._interrupt_sfrs_mapped = all(
+            mapped.contains_value(MCS51_SFR_BASE + sfr) for sfr in self._interrupt_sfrs
         )
         self._mapped_for = regions
 
@@ -104,6 +109,21 @@ class MCS51MachineDef(GhidraMachineDef):
         # MOVX @Ri pages through P2, as on Intel's 8051, unless the harness
         # names another SFR.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
+
+    def set_interrupt_sources(
+        self, emulator, sources: typing.Type[MCS51InterruptSource]
+    ) -> None:
+        """Take the interrupts of a device other than the 8052.
+
+        Arguments:
+            emulator: The emulator.
+            sources: The device's interrupt sources.
+        """
+        self._interrupt_sources = sources
+        self._interrupt_sfrs = mcs51_interrupt_sfrs(sources)
+        self._interrupts_quiet = False
+        self._interrupt_sfrs_written = True
+        self._mapped_for = None
 
     def before_instruction(self, emulator) -> None:
         """Take an interrupt, if the 8051 would take one now.
@@ -128,7 +148,7 @@ class MCS51MachineDef(GhidraMachineDef):
         ):
             opcode = emulator.read_memory(pc, 1)[0]
             self._interrupts = MCS51InterruptState(
-                self._interrupts.in_service, (opcode, previous[1], previous[2])
+                self._interrupts.in_service, (opcode, previous[1])
             )
             return
         self._interrupt_sfrs_written = False
@@ -141,10 +161,14 @@ class MCS51MachineDef(GhidraMachineDef):
             pc,
             read_sfr,
             lambda address: emulator.read_memory(address, 1)[0],
+            sources=self._interrupt_sources,
         )
         if source is None:
             self._interrupts_quiet = (
-                mcs51_interrupt_to_take(read_sfr, self._interrupts.in_service) is None
+                mcs51_interrupt_to_take(
+                    read_sfr, self._interrupts.in_service, self._interrupt_sources
+                )
+                is None
             )
             return
         self._interrupts_quiet = False
@@ -186,8 +210,10 @@ class MCS51MachineDef(GhidraMachineDef):
             registers = set(range(8))
             bank_memory = set(range(MCS51_REGISTER_BANKS_SIZE))
         else:
-            start, end = MCS51_INTERRUPT_SFRS
-            if writes.wrote_memory(MCS51_SFR_BASE + start, MCS51_SFR_BASE + end):
+            written = writes.wrote_memory(MCS51_SFR_BASE, MCS51_SFR_BASE + 0x100)
+            if any(
+                address - MCS51_SFR_BASE in self._interrupt_sfrs for address in written
+            ):
                 self._interrupt_sfrs_written = True
             wrote_psw = writes.wrote_register(psw_offset)
             wrote_acc = writes.wrote_register(self._register_offset("acc"))

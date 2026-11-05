@@ -217,6 +217,10 @@ MCS51_SFR_IE = 0xA8
 MCS51_SFR_IP = 0xB8
 MCS51_SFR_T2CON = 0xC8
 
+#: SFRs of Silicon Labs' CIP-51 devices that control interrupts.
+MCS51_SFR_EIE1 = 0xE6
+MCS51_SFR_EIP1 = 0xF6
+
 #: IE's global enable bit, EA.
 MCS51_IE_EA = 0x80
 
@@ -225,14 +229,59 @@ MCS51_IE_EA = 0x80
 MCS51_OPCODE_RETI = 0x32
 
 
-class MCS51Interrupt(enum.Enum):
-    """The 8052's interrupt sources.
+class MCS51InterruptSource(enum.Enum):
+    """Base for the interrupt sources of an 8051 device.
 
-    Each is a vector, the SFR holding its request flags, the mask of those
-    flags, the flag :func:`mcs51_raise_interrupt` sets, the mask of its
-    enable bit in IE (and priority bit in IP), and the flags the CPU clears
-    when it vectors to the handler.  Declared in the order the CPU polls them
-    within a priority level.
+    Each subclass lists one device's sources, in the order the CPU polls them
+    within a priority level.  Each source is a vector; the SFR holding its
+    request flags, the mask of those flags (``pending_flags``), and the flag
+    :func:`mcs51_raise_interrupt` sets; the mask of its enable bit; the flags
+    the CPU clears when it vectors to the handler; the SFRs that hold its
+    enable bit and its priority bit, at the same position, by default IE and
+    IP; and its gates.
+
+    A gate is a mask of request flags, an SFR and a mask of bits in it: those
+    flags request the interrupt only while one of those bits is set, as a
+    timer's low-byte overflow flag does only while its own enable bit is.
+    """
+
+    def __init__(
+        self,
+        vector: int,
+        flag_sfr: int,
+        flags: int,
+        request: int,
+        enable: int,
+        cleared: int,
+        enable_sfr: int = MCS51_SFR_IE,
+        priority_sfr: int = MCS51_SFR_IP,
+        gates: typing.Tuple[typing.Tuple[int, int, int], ...] = (),
+    ):
+        self.vector = vector
+        self.flag_sfr = flag_sfr
+        self.pending_flags = flags
+        self.request = request
+        self.enable = enable
+        self.cleared = cleared
+        self.enable_sfr = enable_sfr
+        self.priority_sfr = priority_sfr
+        self.gates = gates
+
+    def pending(self, read_sfr: typing.Callable[[int], int]) -> bool:
+        """Whether the source requests its interrupt.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address (0x80-0xFF).
+        """
+        requested = read_sfr(self.flag_sfr) & self.pending_flags
+        for gated, sfr, mask in self.gates:
+            if requested & gated and not read_sfr(sfr) & mask:
+                requested &= ~gated
+        return bool(requested)
+
+
+class MCS51Interrupt(MCS51InterruptSource):
+    """The 8052's interrupt sources.
 
     The external interrupts' flags are cleared on vectoring whether they are
     edge- or level-triggered: SmallWorld has no pins, so a level-triggered
@@ -246,62 +295,170 @@ class MCS51Interrupt(enum.Enum):
     SERIAL = (0x23, MCS51_SFR_SCON, 0x03, 0x01, 0x10, 0x00)
     TIMER2 = (0x2B, MCS51_SFR_T2CON, 0xC0, 0x80, 0x20, 0x00)
 
-    def __init__(
-        self,
-        vector: int,
-        flag_sfr: int,
-        flags: int,
-        request: int,
-        enable: int,
-        cleared: int,
-    ):
-        self.vector = vector
-        self.flag_sfr = flag_sfr
-        self.flags = flags
-        self.request = request
-        self.enable = enable
-        self.cleared = cleared
+
+# The C8051F33x's peripheral SFRs that hold request flags or gate them.
+_F33X_TMR3CN = 0x91
+_F33X_CPT0CN = 0x9B
+_F33X_CPT0MD = 0x9D
+_F33X_SMB0CN = 0xC0
+_F33X_PCA0CN = 0xD8
+_F33X_PCA0MD = 0xD9
+_F33X_PCA0CPM0 = 0xDA
+_F33X_ADC0CN = 0xE8
+_F33X_SPI0CN = 0xF8
+_EIE1 = MCS51_SFR_EIE1
+_EIP1 = MCS51_SFR_EIP1
+
+
+class C8051F33xInterrupt(MCS51InterruptSource):
+    """The interrupt sources of Silicon Labs' C8051F330-F335.
+
+    From the C8051F33x data sheet, revision 1.7: Table 9.4, the IE, IP, EIE1
+    and EIP1 definitions, and the peripherals' flag and enable bits.  The
+    first five are the 8052's, UART0 included; Timer 2's low-byte flag,
+    TF2L, requests only while TF2LEN is set.  Vectors 0x43 and 0x6B are
+    reserved.  As with the 8052, the external interrupts' flags are cleared
+    on vectoring even when level-triggered.
+    """
+
+    EXTERNAL0 = MCS51Interrupt.EXTERNAL0.value
+    TIMER0 = MCS51Interrupt.TIMER0.value
+    EXTERNAL1 = MCS51Interrupt.EXTERNAL1.value
+    TIMER1 = MCS51Interrupt.TIMER1.value
+    UART0 = MCS51Interrupt.SERIAL.value
+    # TF2H and TF2L in TMR2CN, at T2CON's address; TF2L gated by TF2LEN.
+    TIMER2 = (
+        0x2B,
+        MCS51_SFR_T2CON,
+        0xC0,
+        0x80,
+        0x20,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x40, MCS51_SFR_T2CON, 0x20),),
+    )
+    # SPIF, WCOL, MODF and RXOVRN.
+    SPI0 = (0x33, _F33X_SPI0CN, 0xF0, 0x80, 0x40, 0x00)
+    # SI.
+    SMBUS0 = (0x3B, _F33X_SMB0CN, 0x01, 0x01, 0x01, 0x00, _EIE1, _EIP1)
+    # AD0WINT.
+    ADC0_WINDOW = (0x4B, _F33X_ADC0CN, 0x08, 0x08, 0x04, 0x00, _EIE1, _EIP1)
+    # AD0INT.
+    ADC0_CONVERSION = (0x53, _F33X_ADC0CN, 0x20, 0x20, 0x08, 0x00, _EIE1, _EIP1)
+    # CF, gated by PCA0MD's ECF, and CCF0-CCF2, each gated by its module's
+    # ECCFn in PCA0CPMn.
+    PCA0 = (
+        0x5B,
+        _F33X_PCA0CN,
+        0x87,
+        0x80,
+        0x10,
+        0x00,
+        _EIE1,
+        _EIP1,
+        (
+            (0x80, _F33X_PCA0MD, 0x01),
+            (0x01, _F33X_PCA0CPM0, 0x01),
+            (0x02, _F33X_PCA0CPM0 + 1, 0x01),
+            (0x04, _F33X_PCA0CPM0 + 2, 0x01),
+        ),
+    )
+    # CP0FIF and CP0RIF, gated by CPT0MD's CP0FIE and CP0RIE.
+    COMPARATOR0 = (
+        0x63,
+        _F33X_CPT0CN,
+        0x30,
+        0x20,
+        0x20,
+        0x00,
+        _EIE1,
+        _EIP1,
+        ((0x10, _F33X_CPT0MD, 0x10), (0x20, _F33X_CPT0MD, 0x20)),
+    )
+    # TF3H and TF3L; TF3L gated by TF3LEN.
+    TIMER3 = (
+        0x73,
+        _F33X_TMR3CN,
+        0xC0,
+        0x80,
+        0x80,
+        0x00,
+        _EIE1,
+        _EIP1,
+        ((0x40, _F33X_TMR3CN, 0x20),),
+    )
+
+
+#: The interrupt sources, by device family, for :func:`mcs51_interrupts`:
+#: (pattern of part numbers, sources).
+_MCS51_INTERRUPTS: typing.Tuple[
+    typing.Tuple[str, typing.Type[MCS51InterruptSource]], ...
+] = ((r"C8051F33[0-5]", C8051F33xInterrupt),)
+
+
+def mcs51_interrupts(device: str) -> typing.Type[MCS51InterruptSource]:
+    """The interrupt sources of an 8051 device.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's sources, an :class:`MCS51InterruptSource` subclass.
+
+    Raises:
+        ValueError: If SmallWorld has no table of the device's sources.
+    """
+    for pattern, sources in _MCS51_INTERRUPTS:
+        if re.match(pattern, device, re.IGNORECASE):
+            return sources
+    raise ValueError(f"no table of the interrupt sources of 8051 device {device}")
 
 
 def mcs51_interrupt_to_take(
-    read_sfr: typing.Callable[[int], int], in_service: typing.Sequence[int]
-) -> typing.Optional[typing.Tuple[MCS51Interrupt, int]]:
+    read_sfr: typing.Callable[[int], int],
+    in_service: typing.Sequence[int],
+    sources: typing.Type[MCS51InterruptSource] = MCS51Interrupt,
+) -> typing.Optional[typing.Tuple[MCS51InterruptSource, int]]:
     """Choose the interrupt the 8051 takes now, if any.
 
     An interrupt is taken when interrupts are enabled (IE's EA bit), its own
-    enable bit in IE and a request flag are set, and its priority in IP beats
-    every interrupt in service.  Of those, the higher priority wins, then the
-    first in polling order.
+    enable bit is set, it is pending (see :meth:`MCS51InterruptSource.pending`),
+    and its priority beats every interrupt in service.  Of those, the higher
+    priority wins, then the first in polling order.
 
     Arguments:
         read_sfr: Reads an SFR, by its address (0x80-0xFF).
         in_service: The priority levels of the interrupts in service: 0 for
             low, 1 for high.
+        sources: The device's interrupt sources; by default, the 8052's.
 
     Returns:
         The interrupt and its priority level, or None.
     """
-    ie = read_sfr(MCS51_SFR_IE)
-    if not ie & MCS51_IE_EA:
+    if not read_sfr(MCS51_SFR_IE) & MCS51_IE_EA:
         return None
-    ip = read_sfr(MCS51_SFR_IP)
     current = max(in_service, default=-1)
-    chosen: typing.Optional[typing.Tuple[MCS51Interrupt, int]] = None
-    for source in MCS51Interrupt:
-        if not ie & source.enable or not read_sfr(source.flag_sfr) & source.flags:
+    chosen: typing.Optional[typing.Tuple[MCS51InterruptSource, int]] = None
+    for source in sources:
+        if not read_sfr(source.enable_sfr) & source.enable or not source.pending(
+            read_sfr
+        ):
             continue
-        level = 1 if ip & source.enable else 0
+        level = 1 if read_sfr(source.priority_sfr) & source.enable else 0
         if level > current and (chosen is None or level > chosen[1]):
             chosen = (source, level)
     return chosen
 
 
-def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51Interrupt) -> None:
+def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51InterruptSource) -> None:
     """Request an 8051 interrupt, as the hardware that raises it would.
 
-    Sets the source's request flag in its SFR: IE0, TF0, IE1 or TF1 in TCON,
-    RI in SCON, or TF2 in T2CON.  The CPU takes the interrupt at the next
-    instruction boundary, if IE enables it and its priority allows.
+    Sets the source's request flag in its SFR: on the 8052, IE0, TF0, IE1 or
+    TF1 in TCON, RI in SCON, or TF2 in T2CON.  The CPU takes the interrupt
+    at the next instruction boundary, if it is enabled, its gate, if any, is
+    open, and its priority allows.
 
     Arguments:
         emulator: The emulator.
@@ -312,9 +469,42 @@ def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51Interrupt) -> None:
     emulator.write_memory(address, bytes([value | source.request]))
 
 
-#: The SFRs interrupt servicing reads, TCON through T2CON.  Interrupts are
-#: only modeled when they are mapped.
-MCS51_INTERRUPT_SFRS = (MCS51_SFR_TCON, MCS51_SFR_T2CON + 1)
+def mcs51_interrupt_sfrs(
+    sources: typing.Type[MCS51InterruptSource],
+) -> typing.FrozenSet[int]:
+    """The SFRs that decide whether a device's interrupts are taken.
+
+    They are IE, and each source's flag, enable and priority SFRs and the
+    SFRs of its gates.  Interrupts are only modeled when they are all
+    mapped, and only a write to one of them, or RETI, can make an interrupt
+    takeable.
+
+    Arguments:
+        sources: The device's interrupt sources.
+    """
+    sfrs = {MCS51_SFR_IE}
+    for source in sources:
+        sfrs |= {source.flag_sfr, source.enable_sfr, source.priority_sfr}
+        sfrs |= {sfr for _, sfr, _ in source.gates}
+    return frozenset(sfrs)
+
+
+def mcs51_interrupt_control_sfrs(
+    sources: typing.Type[MCS51InterruptSource],
+) -> typing.FrozenSet[int]:
+    """The SFRs that enable a device's interrupts and set their priorities.
+
+    As IE and IP on Intel's 8051, a write to one holds interrupts for one
+    instruction.  Silicon Labs' data sheets do not say whether their
+    extended enable and priority SFRs do; SmallWorld assumes they do.
+
+    Arguments:
+        sources: The device's interrupt sources.
+    """
+    sfrs = {MCS51_SFR_IE, MCS51_SFR_IP}
+    for source in sources:
+        sfrs |= {source.enable_sfr, source.priority_sfr}
+    return frozenset(sfrs)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -324,8 +514,10 @@ class MCS51InterruptState:
     in_service: typing.Tuple[int, ...] = ()
     """The priority levels of the interrupts in service, oldest first."""
 
-    previous: typing.Optional[typing.Tuple[int, int, int]] = None
-    """The opcode of the instruction now executing, and IE and IP before it."""
+    previous: typing.Optional[typing.Tuple[int, typing.Tuple[int, ...]]] = None
+    """The opcode of the instruction now executing, and the values of the
+    SFRs that enable interrupts and set their priorities before it, in
+    address order (see :func:`mcs51_interrupt_control_sfrs`)."""
 
 
 def mcs51_service_interrupts(
@@ -335,13 +527,15 @@ def mcs51_service_interrupts(
     read_code: typing.Callable[[int], int],
     last: typing.Optional[int] = None,
     take: bool = True,
-) -> typing.Tuple[MCS51InterruptState, typing.Optional[MCS51Interrupt]]:
+    sources: typing.Type[MCS51InterruptSource] = MCS51Interrupt,
+) -> typing.Tuple[MCS51InterruptState, typing.Optional[MCS51InterruptSource]]:
     """Decide, between two instructions, whether the 8051 takes an interrupt.
 
     Called at every instruction boundary.  The instruction just executed
     ends an interrupt's service if it was RETI; then, as on hardware, no
-    interrupt is taken if it was RETI or wrote IE or IP, so at least one more
-    instruction runs first.  Otherwise the CPU takes the interrupt
+    interrupt is taken if it was RETI or wrote IE or IP - or, on a CIP-51,
+    another SFR that enables interrupts or sets their priorities - so at
+    least one more instruction runs first.  Otherwise the CPU takes the interrupt
     :func:`mcs51_interrupt_to_take` chooses.
 
     Taking it is the caller's job: push PC as LCALL would, jump to the
@@ -361,23 +555,25 @@ def mcs51_service_interrupts(
         take: False to only record the state, taking no interrupt: for a
             boundary straight after one was taken, before its vector's
             first instruction.
+        sources: The device's interrupt sources; by default, the 8052's.
 
     Returns:
         The state for the next boundary, and the interrupt to take, if any.
     """
-    ie = read_sfr(MCS51_SFR_IE)
-    ip = read_sfr(MCS51_SFR_IP)
+    controls = tuple(
+        read_sfr(sfr) for sfr in sorted(mcs51_interrupt_control_sfrs(sources))
+    )
     in_service = state.in_service
     hold = not take
     if take and state.previous is not None:
-        opcode, previous_ie, previous_ip = state.previous
+        opcode, previous_controls = state.previous
         if opcode == MCS51_OPCODE_RETI:
             in_service = in_service[:-1]
             hold = True
-        if ie != previous_ie or ip != previous_ip:
+        if controls != previous_controls:
             hold = True
 
-    taken = None if hold else mcs51_interrupt_to_take(read_sfr, in_service)
+    taken = None if hold else mcs51_interrupt_to_take(read_sfr, in_service, sources)
     if taken is not None:
         source, level = taken
         in_service = in_service + (level,)
@@ -385,6 +581,6 @@ def mcs51_service_interrupts(
     elif last is None:
         last = pc
     return (
-        MCS51InterruptState(in_service, (read_code(last), ie, ip)),
+        MCS51InterruptState(in_service, (read_code(last), controls)),
         None if taken is None else taken[0],
     )

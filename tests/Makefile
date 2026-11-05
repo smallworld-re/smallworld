@@ -379,6 +379,12 @@ MCS51_C_IHXS += mcs51_sdcc/libc.cip51.mcs51.ihx
 mcs51_sdcc/libc.cip51.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
 	./mcs51_cc.sh --medium --device C8051F330.h --pdata 0x7e00 $< $@
 
+# interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
+MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx
+
+mcs51_sdcc/interrupts.cip51.mcs51.ihx : mcs51_sdcc/interrupts.cip51.c
+	./mcs51_cc.sh --device C8051F330.h $< $@
+
 # The C99 library-model tests whose functions have 8051 models, built the
 # same way from their shared sources, and again in SDCC's medium and large
 # memory models; see mcs51_cc.sh.  SDCC has no medium-model library for its

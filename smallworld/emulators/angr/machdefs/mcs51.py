@@ -7,24 +7,22 @@ import pypcode
 from angr.errors import AngrError
 from angr.utils.constants import DEFAULT_STATEMENT
 
-from ....exceptions import EmulationError
+from ....exceptions import ConfigurationError, EmulationError
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.mcs51 import (
     MCS51_ADDRESS_SPACES,
     MCS51_IDATA_BASE,
-    MCS51_INTERRUPT_SFRS,
     MCS51_OPCODE_RETI,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
-    MCS51_SFR_IE,
-    MCS51_SFR_IP,
     MCS51_SFR_P2,
-    MCS51_SFR_SCON,
-    MCS51_SFR_T2CON,
-    MCS51_SFR_TCON,
+    MCS51Interrupt,
+    MCS51InterruptSource,
     MCS51InterruptState,
+    mcs51_interrupt_control_sfrs,
+    mcs51_interrupt_sfrs,
     mcs51_return_address,
     mcs51_service_interrupts,
 )
@@ -121,16 +119,9 @@ _INTERRUPTS = "mcs51_interrupts"
 _JUST_TAKEN = "mcs51_interrupt_taken"
 _ONE_INSTRUCTION = "mcs51_one_instruction"
 
-# SFRs whose writes can make an interrupt takeable: the request flags, IE and
-# IP.  A write to IE or IP also holds interrupts for one instruction.
-_INTERRUPT_SFRS = {
-    MCS51_SFR_TCON,
-    MCS51_SFR_SCON,
-    MCS51_SFR_IE,
-    MCS51_SFR_IP,
-    MCS51_SFR_T2CON,
-}
-_HOLDING_SFRS = {MCS51_SFR_IE, MCS51_SFR_IP}
+# The extension holding the device's interrupt sources, when they are not the
+# 8052's.
+_INTERRUPT_SOURCES = "mcs51_interrupt_sources"
 
 
 def _writes_sfrs(ops, sfrs) -> bool:
@@ -375,11 +366,15 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             if address < MCS51_REGISTER_BANKS_SIZE:
                 self._written_bank_memory.add(address)
 
+    def _interrupt_sources(self) -> typing.Type[MCS51InterruptSource]:
+        extensions = getattr(self.state.scratch, "extensions", {})
+        return extensions.get(_INTERRUPT_SOURCES, MCS51Interrupt)
+
     def _interrupts_modeled(self) -> bool:
         memory_map = getattr(self.state.scratch, "memory_map", None)
-        start, end = MCS51_INTERRUPT_SFRS
-        return memory_map is not None and not memory_map.get_missing_ranges(
-            (MCS51_SFR_BASE + start, MCS51_SFR_BASE + end)
+        return memory_map is not None and all(
+            memory_map.contains_value(MCS51_SFR_BASE + sfr)
+            for sfr in mcs51_interrupt_sfrs(self._interrupt_sources())
         )
 
     def _concrete_byte(self, address: int, what: str) -> int:
@@ -404,6 +399,7 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         def read_sfr(address: int) -> int:
             return self._concrete_byte(MCS51_SFR_BASE + address, f"SFR {address:#x}")
 
+        sources = self._interrupt_sources()
         last, last_ops = _instructions(irsb)[-1]
         interrupts, source = mcs51_service_interrupts(
             globals_map.get(_INTERRUPTS, MCS51InterruptState()),
@@ -415,16 +411,20 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             # instruction runs before the next check, as on the Ghidra
             # backend.
             take=not globals_map.get(_JUST_TAKEN, False),
+            sources=sources,
         )
         globals_map[_INTERRUPTS] = interrupts
         globals_map[_JUST_TAKEN] = source is not None
         if source is None:
-            # After RETI or a write to IE or IP, one more instruction runs
+            # After RETI or a write to IE, IP or another SFR that enables
+            # interrupts or sets their priorities, one more instruction runs
             # before the next interrupt, so the next block is that one.
             assert interrupts.previous is not None
             globals_map[_ONE_INSTRUCTION] = interrupts.previous[
                 0
-            ] == MCS51_OPCODE_RETI or _writes_sfrs(last_ops, _HOLDING_SFRS)
+            ] == MCS51_OPCODE_RETI or _writes_sfrs(
+                last_ops, mcs51_interrupt_control_sfrs(sources)
+            )
             return False
         globals_map[_ONE_INSTRUCTION] = False
 
@@ -457,9 +457,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     def _instructions_before_interrupts_change(self, addr: int, **kwargs) -> int:
         """How many instructions a block at addr may run.
 
-        The block ends after the first instruction that writes TCON, SCON,
-        IE, IP or T2CON, the only state other than RETI that decides whether
-        an interrupt is takeable.  8051 instructions name the SFRs they write
+        The block ends after the first instruction that writes one of the
+        device's interrupt SFRs (see :func:`mcs51_interrupt_sfrs`) - on the
+        8052, TCON, SCON, IE, IP or T2CON - the only state other than RETI
+        that decides whether an interrupt is takeable.  8051 instructions name the SFRs they write
         in their encoding - indirect addressing reaches internal RAM, not
         SFRs - so lifting the block shows every such write.  RETI ends a
         block anyway, as every return does.
@@ -473,8 +474,9 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             extra_stop_points=kwargs.get("extra_stop_points"),
         )
         instructions = _instructions(irsb)
+        sfrs = mcs51_interrupt_sfrs(self._interrupt_sources())
         for count, (_, ops) in enumerate(instructions, start=1):
-            if _writes_sfrs(ops, _INTERRUPT_SFRS):
+            if _writes_sfrs(ops, sfrs):
                 return count
         return len(instructions)
 
@@ -614,6 +616,27 @@ class MCS51MachineDef(GhidraMachineDef):
     def initialize_state(self, emulator: typing.Any) -> None:
         # As the Ghidra machine definition.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
+
+    def set_interrupt_sources(
+        self, emulator: typing.Any, sources: typing.Type[MCS51InterruptSource]
+    ) -> None:
+        """Take the interrupts of a device other than the 8052.
+
+        The sources are kept with each path's state, which is where the
+        engine looks for them.
+
+        Arguments:
+            emulator: The emulator.
+            sources: The device's interrupt sources.
+
+        Raises:
+            ConfigurationError: If the emulator already has a device's
+                sources.
+        """
+        try:
+            emulator.add_extension(_INTERRUPT_SOURCES, sources)
+        except KeyError:
+            raise ConfigurationError("the 8051 device's interrupts are already set")
 
     def function_return_address(self, emulator: typing.Any) -> typing.Optional[int]:
         # The return address is in internal RAM, which no angr calling
