@@ -155,14 +155,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MCS51InterruptSource` enum per device, of which `MCS51Interrupt` is the
   8052's, and `mcs51_interrupt_to_take()` and `mcs51_service_interrupts()`
   take the device's sources.
-- Silicon Labs' paged SFRs, for the C8051F04x, F06x and F12x/F13x: an
+- Silicon Labs' paged SFRs, for the C8051F04x, F06x, F12x/F13x and F36x: an
   `MCS51Device` for one has SFRs on the page SFRPAGE selects, and takes
   interrupts through the SFR page stack. SFRs are now in a space with a page above each SFR, `PSFR`, whose
   page 0 is where SFRs were; Ghidra's bit space moves to 0x30100. The 8051
   language's patch adds the space and the registers that page it,
   `sfr_page`, `sfr_paged_lo` and `sfr_paged_hi`. `mcs51_sdcc` programs built
-  for the C8051F040, F060 and F120 test it, and the C8051F040's EMI0CN, at
-  0xA2.
+  for the C8051F040, F060, F120 and F360 test it, and the C8051F040's EMI0CN,
+  at 0xA2.
 - Silicon Labs' flash programming, for the C8051F330-F335: an `MCS51Device`
   for one sends MOVX writes to flash while PSCTL's PSWE is set, writing or
   erasing it once FLKEY is unlocked, as the data sheet describes. Ghidra

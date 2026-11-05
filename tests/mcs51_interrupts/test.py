@@ -14,6 +14,7 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F04X_SFR_PAGING,
     MCS51_C8051F12X_SFR_PAGING,
     MCS51_C8051F33X_FLASH,
+    MCS51_C8051F36X_SFR_PAGING,
     MCS51_CODE_BASE,
     MCS51_FLKEY_DISABLED,
     MCS51_FLKEY_FIRST_KEY,
@@ -337,17 +338,26 @@ class MCS51SFRPagingTests(unittest.TestCase):
         self.assertIs(mcs51_sfr_paging("c8051f041-gq"), self.paging)
         self.assertIs(mcs51_sfr_paging("C8051F064"), self.paging)
         self.assertIs(mcs51_sfr_paging("C8051F131"), MCS51_C8051F12X_SFR_PAGING)
+        self.assertIs(mcs51_sfr_paging("C8051F368"), MCS51_C8051F36X_SFR_PAGING)
         for device in ("C8051F330", "C8051F020"):
             with self.subTest(device=device):
                 self.assertIsNone(mcs51_sfr_paging(device))
-        for device in ("C8051F360", "C8051F920"):
+        for device in ("C8051F920",):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     mcs51_sfr_paging(device)
 
     def test_devices_paged_without_a_table_are_not_paged(self):
         with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
-            self.assertIsNone(MCS51Device("C8051F360").sfr_paging)
+            self.assertIsNone(MCS51Device("C8051F920").sfr_paging)
+
+    def test_c8051f36x_pages_through_0xa7(self):
+        paging = MCS51_C8051F36X_SFR_PAGING
+        self.assertEqual((paging.sfrpage, paging.stack_enable), (0xA7, (0xFE5, 1)))
+        lo, hi = paging.paged_masks()
+        # SFRPAGE and TCON are shared; PSCTL and FLKEY, on page 0, are not.
+        self.assertEqual((lo >> 0x27 & 1, lo >> 0x08 & 1), (0, 0))
+        self.assertEqual((lo >> 0x0F & 1, lo >> 0x37 & 1), (1, 1))
 
     def test_c8051f12x_shares_psbank(self):
         paging = MCS51_C8051F12X_SFR_PAGING

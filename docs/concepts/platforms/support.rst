@@ -297,22 +297,24 @@ an emulator uses, and pypcode lacks it.
 Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
 through which the CPU reaches most of them, so that one address holds a
 different SFR on each page, and taking an interrupt pushes SFRPAGE onto a
-stack, SFRNEXT and SFRLAST, and selects the interrupt's page, which RETI
-pops.  An ``MCS51Device`` for the C8051F04x or F06x pages them so, from
-``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h``
-and ``C8051F060.h``: the SFRs they list under "All Pages" are on page 0, and
-the rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
-``MCS51_C8051F12X_SFR_PAGING`` is the same with PSBANK on every page too,
-from ``C8051F120.h``.  Map the pages a program uses, and SFRPAGE, SFRNEXT,
-SFRLAST and SFRPGCN, on page 0x0F, whose bit 0 enables the stack; paging is
-only modeled when they are mapped.  A hook or model that writes SFRPAGE
-changes the page from the next instruction on Ghidra, and the next block on
-angr.  The header does not say which bit of
-SFRPGCN enables the stack, nor does SmallWorld have a data sheet that says
-how the stack works; both are taken from memory of Silicon Labs' data sheets
-for now.  Other devices that page their SFRs - the C8051F36x and F92x - are
-emulated with their SFRs unpaged, with a warning, and the C8051F12x's banked
-flash is not modeled.
+stack, SFRNEXT and SFRLAST, and selects the interrupt's page, which RETI pops.
+An ``MCS51Device`` for the C8051F04x or F06x pages them so, from
+``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h`` and
+``C8051F060.h``: the SFRs they list under "All Pages" are on page 0, and the
+rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
+``MCS51_C8051F12X_SFR_PAGING`` is the same with PSBANK on every page too, from
+``C8051F120.h``.  The C8051F36x's, ``MCS51_C8051F36X_SFR_PAGING``, from
+``C8051F360.h``, has SFRPAGE at 0xA7, pages 0 and 0x0F, and SFR0CN, on page
+0x0F, in place of SFRPGCN.  Map the pages a program uses, and SFRPAGE,
+SFRNEXT, SFRLAST and the SFR that enables the stack, with its bit 0 - SFRPGCN
+or SFR0CN, on page 0x0F; paging is only modeled when they are mapped.  A hook
+or model that writes SFRPAGE changes the page from the next instruction on
+Ghidra, and the next block on angr.  The headers do not say which bit enables
+the stack, nor does SmallWorld have a data sheet that says how the stack
+works; both are taken from memory of Silicon Labs' data sheets for now, and
+the C8051F36x's stack is taken to work as the C8051F04x's does.  The
+C8051F92x, which pages its SFRs differently, is emulated with its SFRs
+unpaged, with a warning, and the C8051F12x's banked flash is not modeled.
 
 Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
 bit is set, a MOVX write goes to code memory instead of XDATA, clearing the

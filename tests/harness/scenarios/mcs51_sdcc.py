@@ -42,7 +42,9 @@ checks what it read back, and that XDATA was left alone.
 ``mcs51_sdcc.sfrpages.<device>``: ``sfrpages.c``, built for the C8051F040,
 C8051F060 and C8051F120, reaches SFRs on several pages, and takes an
 interrupt with the SFR page stack enabled and disabled.  The scenario
-checks what it read.
+checks what it read.  ``mcs51_sdcc.sfrpages_f36x.c8051f360``:
+``sfrpages_f36x.c`` does the like for the C8051F360, which pages its SFRs
+differently.
 
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
@@ -82,6 +84,7 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("sfrpages", "c8051f040"),
     ("sfrpages", "c8051f060"),
     ("sfrpages", "c8051f120"),
+    ("sfrpages_f36x", "c8051f360"),
 )
 
 # The device each CIP-51 build is for, and whether the scenario emulates it
@@ -92,6 +95,7 @@ _DEVICES = {
     "c8051f040": ("C8051F040", True),
     "c8051f060": ("C8051F060", True),
     "c8051f120": ("C8051F120", True),
+    "c8051f360": ("C8051F360", True),
 }
 
 # P2, and its reset value.
@@ -520,6 +524,32 @@ def _run_sfrpages(smallworld, build: str, engine: str) -> int:
     return _report(checks, [])
 
 
+def _run_sfrpages_f36x(smallworld, engine: str) -> int:
+    platform, machine, code = _setup(
+        smallworld,
+        _DIR / "sfrpages_f36x.c8051f360.mcs51",
+        "C8051F360",
+        emulate_device=True,
+    )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    def xdata(name: str, size: int) -> List[int]:
+        return list(emulator.read_memory(code.get_symbol_value(name), size))
+
+    result = xdata("_result", 4)
+    checks = {
+        # MAC0AL and P0MDOUT, both at 0xA4, on pages 0 and 0x0F.
+        "pages": (result[:2], [0x12, 0x34]),
+        "shared": (result[2], 0x5A),
+        "after reti": (result[3], 0x0F),
+        # Timer 0's handler is on page 0, with main's page in SFRNEXT.
+        "handler pages": (xdata("_isr", 2), [0, 0x0F]),
+    }
+    return _report(checks, [])
+
+
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     import smallworld
 
@@ -532,6 +562,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_interrupts(smallworld, engine)
     if program == "flash":
         return _run_flash(smallworld, engine)
+    if program == "sfrpages_f36x":
+        return _run_sfrpages_f36x(smallworld, engine)
     if program == "sfrpages":
         return _run_sfrpages(smallworld, build, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")
