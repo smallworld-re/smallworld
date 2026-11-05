@@ -63,6 +63,11 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="esp",
     ),
+    "la32": UnmappedSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "la64": UnmappedSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",

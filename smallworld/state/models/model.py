@@ -283,7 +283,8 @@ class Model(Hook):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             return emulator.read_register("lr")
         elif (
-            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            self.platform.architecture == platforms.Architecture.LOONGARCH32
+            or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64

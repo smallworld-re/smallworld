@@ -65,6 +65,13 @@ _SPECS = {
         stack_pointer_register="esp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "la32": ElfSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "la64": ElfSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pointer_size=8,

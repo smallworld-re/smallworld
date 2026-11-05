@@ -52,6 +52,7 @@ _ARCHS = (
     "armel",
     "armhf",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mips",
@@ -75,6 +76,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
         "arg_register": None,
         "stack_items": (StackItem("argument", 4), _fake_return("i386")),
     },
+    "la32": {"stack_items": (_fake_return("la32"),)},
     "la64": {"stack_items": (_fake_return("la64"),)},
     "m68k": {
         "arg_register": None,

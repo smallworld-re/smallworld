@@ -103,6 +103,24 @@ _SPECS = {
         ),
         stack_pointer_register="esp",
     ),
+    "la32": StackCaseSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("a0", 0x1111),
+            ("a1", 0x01010101),
+            ("a2", 0x2222),
+            ("a3", 0x01010101),
+            ("a4", 0x3333),
+            ("a5", 0x01010101),
+            ("a6", 0x4444),
+            ("a7", 0x01010101),
+        ),
+        stack_arguments=((0x5555, 4), (0x01010101, 4)),
+        add_stack_guard=False,
+    ),
     "la64": StackCaseSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -371,6 +389,7 @@ NATIVE_PARITY = True
 
 _STACK_RES = {
     "aarch64": "0xffffffff",
+    "la32": "0xffff",
     "la64": "0xffff",
     "mips": "0xaaaa",
     "mips64": "0xffff",

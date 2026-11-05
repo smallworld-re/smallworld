@@ -39,6 +39,25 @@ It appears to support up to arm-v7 application code,
 but its privileged features are a mash-up of v6, v7, A-series, and M-series.  
 Support for privileged operations is unknown.
 
+**la32:** 32-bit LoongArch, on Ghidra and angr. Both run Ghidra's
+``Loongarch:LE:32:ilp32d`` language, the one with the double-precision FPU's
+8-byte registers; angr runs it through its p-code engine, as pypcode ships it.
+Single-precision and soft-float code runs on it too. Unicorn, PANDA, Styx and
+Capstone have no LoongArch32 support.
+
+That language is not either published LoongArch32 variant. It is
+LoongArch64's base instruction set without the 64-bit-wide operations, so it
+runs LA32R (reduced) and LA32S (standard) code, both subsets of it, but it
+also decodes and executes a few instructions that only LoongArch64 has, such as
+``pcaddu18i``, ``ldptr.w``/``stptr.w``, the CRC and bounds-checked load/store
+instructions, ``asrtgt.d``/``asrtle.d`` and the ``iocsr`` accesses, where real
+LoongArch32 hardware would raise an exception.
+
+The test suite assembles LoongArch32 with zig. zig has no LoongArch32 libc, and
+its LLVM has no 32-bit LoongArch CPU model to compile C for, so the tests are
+assembly only; exitpoint and unmapped have hand-written stand-ins. There are no
+System V ABI models for LoongArch32 yet.
+
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.

@@ -263,10 +263,26 @@ class LoongArchPlatformDef(PlatformDef):
         }
 
 
+class LoongArch32(LoongArchPlatformDef):
+    """32-bit LoongArch: LA32R and LA32S code.
+
+    Ghidra's 32-bit sleigh is a superset of both: it is LoongArch64's base
+    instruction set without the 64-bit-wide operations, so it also decodes a
+    few instructions that only LoongArch64 has (pcaddu18i, ldptr.w/stptr.w,
+    the CRC and bounds-checked load/store instructions, asrtgt.d/asrtle.d and
+    the iocsr accesses) instead of faulting on them. ilp32d is the language
+    with the double-precision FPU's 8-byte registers.
+    """
+
+    architecture = Architecture.LOONGARCH32
+    ghidra_language_id = "Loongarch:LE:32:ilp32d"
+    address_size = 4
+
+
 class LoongArch64(LoongArchPlatformDef):
     architecture = Architecture.LOONGARCH64
     ghidra_language_id = "Loongarch:LE:64:lp64d"
     address_size = 8
 
 
-__all__ = ["LoongArch64"]
+__all__ = ["LoongArch32", "LoongArch64"]

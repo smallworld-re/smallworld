@@ -23,6 +23,9 @@ ARMEL_ID := arm-linux-gnueabi.2.40
 ARMHF_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
+# zig has no LoongArch32 libc, and its LLVM no 32-bit LoongArch CPU to compile
+# C for, so LoongArch32 tests are assembly only.
+LA32_ID := loongarch32-linux
 LA64_ID := loongarch64-linux-gnu.2.40
 M68K_ID := m68k-unknown-linux-gnu
 MIPS_ID := mips-linux-gnueabihf.2.40
@@ -47,6 +50,7 @@ AMD64_ASM_AS := ./nasm_wrapper.sh
 ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
+LA32_ASM_AS := zig build-exe -target $(LA32_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
 MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
@@ -73,6 +77,7 @@ AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
 ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
+LA32_ELF_AS := zig build-exe -target $(LA32_ID)
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
 MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
@@ -100,6 +105,7 @@ AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
 ARMEL_OBJCOPY := zig objcopy
 ARMHF_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
+LA32_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
 MIPS_OBJCOPY := zig objcopy
@@ -201,6 +207,7 @@ ARMEL_EXT := armel
 ARMHF_EXT := armhf
 I386_EXT := i386
 I386_MINGW_EXT := i386
+LA32_EXT := la32
 LA64_EXT := la64
 M68K_EXT := m68k
 MIPS_EXT := mips
@@ -226,6 +233,7 @@ AMD64_SRC_EXT := $(AMD64_EXT)
 ARMEL_SRC_EXT := $(ARMEL_EXT)
 ARMHF_SRC_EXT := $(ARMHF_EXT)
 I386_SRC_EXT := $(I386_EXT)
+LA32_SRC_EXT := $(LA32_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
 M68K_SRC_EXT := $(M68K_EXT)
 MIPS_SRC_EXT := $(MIPS_EXT)
@@ -395,10 +403,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

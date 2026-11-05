@@ -8,7 +8,7 @@ from .arm import (
     Armv7RElfRelocator,
 )
 from .i386 import I386ElfRelocator
-from .loongarch import LoongArch64ElfRelocator
+from .loongarch import LoongArch32ElfRelocator, LoongArch64ElfRelocator
 from .m68k import M68KElfRelocator
 from .mips import MIPSELElfRelocator, MIPSElfRelocator
 from .ppc import PowerPCElfRelocator
@@ -32,6 +32,7 @@ __all__ = [
     "Armv7MElfRelocator",
     "Armv7RElfRelocator",
     "I386ElfRelocator",
+    "LoongArch32ElfRelocator",
     "LoongArch64ElfRelocator",
     "M68KElfRelocator",
     "MIPSElfRelocator",

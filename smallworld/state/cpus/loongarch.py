@@ -287,6 +287,15 @@ class LoongArch(cpu.CPU):
         self.add(self.fs7)
 
 
+class LoongArch32(LoongArch):
+    platform = platforms.Platform(
+        platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE
+    )
+
+    def __init__(self):
+        super().__init__(4)
+
+
 class LoongArch64(LoongArch):
     platform = platforms.Platform(
         platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
@@ -296,4 +305,4 @@ class LoongArch64(LoongArch):
         super().__init__(8)
 
 
-__all__ = ["LoongArch64"]
+__all__ = ["LoongArch32", "LoongArch64"]

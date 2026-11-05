@@ -197,7 +197,7 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_AARCH64: _fixed_architecture(Architecture.AARCH64),
     EM_ARM: _arm_architecture,
     EM_LOONGARCH: _architecture_by_class(
-        None, Architecture.LOONGARCH64, "LoongArch32 not supported"
+        Architecture.LOONGARCH32, Architecture.LOONGARCH64
     ),
     # TODO: There are more MIPS parameters than just word size
     EM_MIPS: _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64),
