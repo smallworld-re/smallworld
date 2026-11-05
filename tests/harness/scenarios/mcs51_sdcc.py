@@ -25,7 +25,11 @@ convention and pdata moved to XDATA 0x7E00.  That device pages MOVX @Ri
 through EMI0CN, not P2, so the scenario names EMI0CN in the CPU's
 ``xpage_sfr`` - as the linker map records it, which must agree with
 ``mcs51_xpage_sfr`` - and leaves P2 at its reset value, 0xFF: paged through
-P2, pdata would land in the wrong page.
+P2, pdata would land in the wrong page.  They are built a fourth time,
+``c8051f020``, the same way for the C8051F020, whose EMI0CN is at another
+address, 0xAF; that build adds an ``MCS51Device`` for the C8051F020 to the
+machine instead, which sets ``xpage_sfr``, and, with no table of the
+device's interrupts, leaves the emulator taking the 8052's.
 
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
@@ -40,7 +44,7 @@ import io
 import logging
 import struct
 import sys
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .common import TestsPath, make_emulator, split_variant
 from .spec import ScenarioInfo, from_variants, just_run
@@ -56,8 +60,14 @@ _PROGRAMS = ("abi", "libc", "libc_models")
 _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc", "cip51"),
     ("libc_models", "cip51"),
+    ("libc", "c8051f020"),
+    ("libc_models", "c8051f020"),
     ("interrupts", "cip51"),
 )
+
+# The device each CIP-51 build is for, and whether the scenario emulates it
+# with an MCS51Device rather than setting xpage_sfr from the linker map.
+_DEVICES = {"cip51": ("C8051F330", False), "c8051f020": ("C8051F020", True)}
 
 # P2, and its reset value.
 _SFR_P2 = 0xA0
@@ -130,7 +140,9 @@ def _parameter_addresses(code, function: str) -> List[int]:
     return addresses
 
 
-def _setup(smallworld, image, cip51: bool = False, device: bool = False):
+def _setup(
+    smallworld, image, device: Optional[str] = None, emulate_device: bool = False
+):
     from smallworld.platforms.defs.mcs51 import (
         MCS51_IDATA_BASE,
         MCS51_SFR_BASE,
@@ -159,15 +171,15 @@ def _setup(smallworld, image, cip51: bool = False, device: bool = False):
     for i in range(8):
         getattr(cpu, f"r{i}").set(0)
 
-    # A CIP-51 build takes xpage_sfr from the linker map, or, with device,
-    # from an MCS51Device for the C8051F330, which sets its interrupts too;
-    # either way, it must agree with the device lookup.
+    # A build for a CIP-51 device takes xpage_sfr from the linker map, or,
+    # with emulate_device, from an MCS51Device, which sets the device's
+    # interrupts too; either way, it must agree with the device lookup.
     sfrs = bytearray(0x100)
-    if cip51:
-        if code.xpage_sfr != mcs51_xpage_sfr("C8051F330"):
+    if device is not None:
+        if code.xpage_sfr != mcs51_xpage_sfr(device):
             raise ValueError(f"the map's __XPAGE is {code.xpage_sfr!r}")
-        if device:
-            machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
+        if emulate_device:
+            machine.add(smallworld.state.cpus.MCS51Device(device))
         else:
             cpu.xpage_sfr.set(code.xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
@@ -319,8 +331,9 @@ def _run_abi(smallworld, abi_name: str, engine: str) -> int:
 def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
     from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
 
+    device, emulate_device = _DEVICES.get(build, (None, False))
     platform, machine, code = _setup(
-        smallworld, _DIR / f"libc.{build}.mcs51", cip51=build == "cip51"
+        smallworld, _DIR / f"libc.{build}.mcs51", device, emulate_device
     )
     abi = (
         smallworld.platforms.ABI.SDCCSTACKAUTO
@@ -388,7 +401,7 @@ def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
 
 def _run_interrupts(smallworld, engine: str) -> int:
     platform, machine, code = _setup(
-        smallworld, _DIR / "interrupts.cip51.mcs51", cip51=True, device=True
+        smallworld, _DIR / "interrupts.cip51.mcs51", "C8051F330", emulate_device=True
     )
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(_program_exit(code))

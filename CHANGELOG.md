@@ -138,7 +138,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   device's EMI0CN. 8051 models read pdata pointers in the page that SFR
   selects, as SDCC's library does, rather than always in XDATA's first page.
   Machine definitions on Ghidra and angr can set initial state through
-  `initialize_state()`. An `mcs51_sdcc` build for the C8051F330 tests it.
+  `initialize_state()`. `mcs51_sdcc` builds for the C8051F330 and the
+  C8051F020, whose EMI0CN are at 0xAA and 0xAF, test it.
 - `mcs51_xpage_sfr()` looks up the SFR that pages `movx @Ri` on an 8051
   device by part number, for Silicon Labs' CIP-51 families and the other
   devices SDCC's headers declare one for. An image loaded with

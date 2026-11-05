@@ -379,6 +379,12 @@ MCS51_C_IHXS += mcs51_sdcc/libc.cip51.mcs51.ihx
 mcs51_sdcc/libc.cip51.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
 	./mcs51_cc.sh --medium --device C8051F330.h --pdata 0x7e00 $< $@
 
+# And again for the C8051F020, whose EMI0CN is at another address.
+MCS51_C_IHXS += mcs51_sdcc/libc.c8051f020.mcs51.ihx
+
+mcs51_sdcc/libc.c8051f020.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F020.h --pdata 0x7e00 $< $@
+
 # interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
 MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx
 

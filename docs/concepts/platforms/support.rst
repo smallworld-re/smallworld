@@ -315,7 +315,8 @@ C models for the 8051 follow SDCC's calling conventions, ``ABI.SDCC`` and
 ``ABI.SDCCSTACKAUTO``; see :ref:`models`.  ``Executable.from_ihex()`` loads
 the Intel HEX images SDCC builds, and with the linker's map, finds symbols in
 the right space.  The ``mcs51_sdcc`` scenarios load C compiled by SDCC that
-way, and run it from the reset vector, one of them built for the C8051F330.
+way, and run it from the reset vector, some of them built for the C8051F330
+and the C8051F020, whose EMI0CN are at different addresses.
 The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
 ucsim_51: its programs run from a random starting state and must end in the
 state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;
