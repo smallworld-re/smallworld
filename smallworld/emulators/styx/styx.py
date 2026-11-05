@@ -191,6 +191,7 @@ class StyxEmulator(
         # Processor deadlocks if used mid-run, so register and memory access
         # in a hook goes through the core instead.
         self._hook_cpu: typing.Optional[typing.Any] = None
+        self._hook_error: typing.Optional[BaseException] = None
 
     # ------------------------------------------------------------------ build
 
@@ -252,8 +253,43 @@ class StyxEmulator(
         self._hook_cpu = cpu
         try:
             return function(self, *args)
+        except BaseException as e:
+            # Styx aborts the process on an exception from a hook, so stop
+            # the CPU and raise it once Styx has stopped, as Unicorn does.
+            if self._hook_error is None:
+                self._hook_error = e
+            cpu.stop()
+            return None
         finally:
             self._hook_cpu = outer
+
+    def _stopped(self, report: typing.Any) -> None:
+        error, self._hook_error = self._hook_error, None
+        if error is not None:
+            raise error
+        self._translate_exit(report)
+
+    @staticmethod
+    def _substituting(cpu: typing.Any, function: typing.Callable) -> typing.Callable:
+        """Wrap a read hook to write what it returns where the read will look.
+
+        Styx ignores what a read hook returns, but the hook runs before the
+        read, so a substitute written into memory is what it reads.
+        """
+
+        def substitute(emu, address, size, data):
+            ret = function(emu, address, size, data)
+            if ret is None:
+                return
+            # Any other length would spill into the neighbouring memory or
+            # leave stale bytes in the read.
+            if len(ret) != size:
+                raise exceptions.EmulationError(
+                    f"Read hook at {hex(address)} returned {len(ret)} bytes; need {size} bytes"
+                )
+            cpu.write_data(address, bytes(ret))
+
+        return substitute
 
     def _core_register(self, name: str) -> str:
         # The core names registers as the Processor's enum does, as a string.
@@ -414,7 +450,7 @@ class StyxEmulator(
         assert proc is not None  # _lazy_build set it
         proc.start(inst=1)
         report = proc.wait_for_stop()
-        self._translate_exit(report)
+        self._stopped(report)
 
     def step_block(self) -> None:
         # Styx has no native "single block" step; approximate by installing a
@@ -446,7 +482,7 @@ class StyxEmulator(
         try:
             proc.start()
             report = proc.wait_for_stop()
-            self._translate_exit(report)
+            self._stopped(report)
         finally:
             try:
                 proc.delete_hook(state["token"])
@@ -460,7 +496,10 @@ class StyxEmulator(
         assert proc is not None  # _lazy_build set it above
         proc.start()
         report = proc.wait_for_stop()
-        self._translate_exit(report)
+        try:
+            self._stopped(report)
+        except exceptions.EmulationStop:
+            pass
 
     # ----------------------------------------------------------------- hooks
 
@@ -527,11 +566,9 @@ class StyxEmulator(
         super().hook_memory_read(start, end, function)
 
         def _cb(cpu, addr, size, data, _self=self, _fn=function):
-            # Styx ignores what a read hook returns, but the hook runs before
-            # the read, so a substitute written into memory is what it reads.
-            ret = _self._in_hook(cpu, _fn, int(addr), int(size), bytes(data))
-            if ret is not None:
-                cpu.write_data(int(addr), bytes(ret))
+            _self._in_hook(
+                cpu, _self._substituting(cpu, _fn), int(addr), int(size), bytes(data)
+            )
 
         self._register_styx_hook(MemoryReadHook(start, end, _cb))
 
@@ -544,9 +581,9 @@ class StyxEmulator(
         super().hook_memory_reads(function)
 
         def _cb(cpu, addr, size, data, _self=self, _fn=function):
-            ret = _self._in_hook(cpu, _fn, int(addr), int(size), bytes(data))
-            if ret is not None:
-                cpu.write_data(int(addr), bytes(ret))
+            _self._in_hook(
+                cpu, _self._substituting(cpu, _fn), int(addr), int(size), bytes(data)
+            )
 
         self._register_styx_hook(MemoryReadHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
