@@ -3815,6 +3815,50 @@ class StyxEmulatorTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxHookExecutionTests(unittest.TestCase):
+    """Hooks that touch emulator state while Styx runs."""
+
+    def _run(self, hook):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # ldr r0, [r1]; nop; nop
+        emu.write_code(0x1000, bytes.fromhex("000091e5" "00f020e3" "00f020e3"))
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("r1", 0x2000)
+        emu.add_exit_point(0x1008)
+        hook(emu)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_instruction_hook_reads_and_writes_state(self):
+        def hook(emu):
+            emu.write_memory_content(0x2000, (7).to_bytes(4, "little"))
+
+            def cb(e):
+                e.write_register_content("r2", e.read_register_content("r0") + 1)
+                e.write_memory_content(0x2100, e.read_memory_content(0x2000, 4))
+
+            emu.hook_instruction(0x1004, cb)
+
+        emu = self._run(hook)
+        self.assertEqual(emu.read_register_content("r2"), 8)
+        self.assertEqual(emu.read_memory_content(0x2100, 4), (7).to_bytes(4, "little"))
+
+    def test_memory_read_hook_substitutes_value(self):
+        def hook(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2004, lambda e, addr, size, data: (42).to_bytes(4, "little")
+            )
+
+        self.assertEqual(self._run(hook).read_register_content("r0"), 42)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxPowerPCExecutionTests(unittest.TestCase):
     """End-to-end execution checks for PowerPC on Styx.
 

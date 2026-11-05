@@ -63,6 +63,8 @@ class TestFloatSpec:
     compares_flags: bool = False
     stack_base: int = 0x2000
     stack_size: int = 0x4000
+    # Where the input region starts; the output region follows it.
+    data_base: int = 0x00100000
 
 
 @dataclasses.dataclass(frozen=True)

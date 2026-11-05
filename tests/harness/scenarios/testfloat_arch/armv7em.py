@@ -76,6 +76,8 @@ SPECS: Dict[str, TestFloatSpec] = {
         count_register="r2",
         setup={"f32": {"r3": FPSCR_INIT}},
         kernels=KERNELS,
+        # Styx's Kinetis21 maps nothing at the default 0x100000.
+        data_base=0x60100000,
     ),
 }
 
@@ -95,15 +97,8 @@ def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
     return None
 
 
-# Measured: writing the output buffer fails with
-# UnmappedMemory(UnmappedStart(0x200000)) before the first instruction runs.
-_STYX_NO_BUFFERS = (
-    "Styx's Kinetis21 target has no memory at testfloat's buffer addresses"
-)
-
 SUPPORT = ArchSupport(
     specs=SPECS,
-    variant_skips={"armv7em.styx": _STYX_NO_BUFFERS},
     function_skip=function_skip,
 )
 
