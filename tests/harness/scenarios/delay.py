@@ -34,19 +34,11 @@ _VARIANTS = (
     )
     + tuple(
         # microMIPS keeps MIPS's delay slots; its angr machdef is p-code-based.
+        # The Unicorn variants need the nix environment's patched Unicorn;
+        # see the microMIPS notes in docs/concepts/platforms/support.rst.
         (variant, None)
         for arch in ("micromips", "micromipsel")
-        for variant in (f"{arch}.angr", f"{arch}.pcode")
-    )
-    + tuple(
-        (
-            arch,
-            "Unicorn's microMIPS raises a reserved-instruction exception at a "
-            "branch right after the delay slot of a not-taken branch, when that "
-            "slot accesses memory and a memory hook is installed (SmallWorld "
-            "always installs them); the branch at 0x1028 here is such a case",
-        )
-        for arch in ("micromips", "micromipsel")
+        for variant in (arch, f"{arch}.angr", f"{arch}.pcode")
     )
 )
 

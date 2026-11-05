@@ -128,6 +128,13 @@ does follow the jump, is returned to microMIPS whenever a run resumes.
 - **Unicorn** runs it on the M14Kc CPU model, which runs microMIPS while the
   low bit of the pc is set. SmallWorld sets that bit whenever it starts a run
   or writes the pc.
+
+  Stock Unicorn 2.1.4, as pip installs it, mishandles a load or store in the
+  delay slot of a branch that is not taken while a memory hook is installed,
+  which SmallWorld always does: the next instruction, if it is a branch, raises
+  a reserved-instruction exception. The Unicorn that SmallWorld's nix
+  environment builds, from the ``mmio_map_pc_sync`` branch of
+  ``appleflyerv3/unicorn``, does not have this bug.
 - **PANDA** is not supported.
 
 An ELF image flagged ``EF_MIPS_MICROMIPS`` loads as this platform, with its
