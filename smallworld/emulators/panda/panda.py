@@ -437,6 +437,12 @@ class PandaEmulator(
                         pc = self.panda.arch.get_pc(cpu)
                     except Exception:  # noqa: BLE001
                         pc = self.manager.pc
+                    # An exit point outside QEMU's memory faults on fetch
+                    # before on_insn sees it, so reaching it ends the run.
+                    if pc in self.manager._exit_points:
+                        self.update_state(cpu, pc)
+                        self.signal_and_wait()
+                        return
                     try:
                         self.machdef.handle_interrupt(exception_index, pc)
                         # handle_interrupt always raises; guard a non-raising override.
