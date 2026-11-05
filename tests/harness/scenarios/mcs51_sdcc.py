@@ -23,8 +23,9 @@ Both libc programs are built a third time, ``cip51``, for a Silicon Labs
 CIP-51 device, the C8051F330: in the medium memory model, with SDCC's default
 convention and pdata moved to XDATA 0x7E00.  That device pages MOVX @Ri
 through EMI0CN, not P2, so the scenario names EMI0CN in the CPU's
-``xpage_sfr`` and leaves P2 at its reset value, 0xFF: paged through P2,
-pdata would land in the wrong page.
+``xpage_sfr`` - as the linker map records it, which must agree with
+``mcs51_xpage_sfr`` - and leaves P2 at its reset value, 0xFF: paged through
+P2, pdata would land in the wrong page.
 """
 
 from __future__ import annotations
@@ -52,8 +53,7 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc_models", "cip51"),
 )
 
-# The C8051F330's EMI0CN, which pages its MOVX @Ri, and P2's reset value.
-_C8051F330_EMI0CN = 0xAA
+# P2, and its reset value.
 _SFR_P2 = 0xA0
 _P2_RESET = 0xFF
 
@@ -129,6 +129,7 @@ def _setup(smallworld, image, cip51: bool = False):
         MCS51_IDATA_BASE,
         MCS51_SFR_BASE,
         MCS51_XDATA_BASE,
+        mcs51_xpage_sfr,
     )
 
     platform = smallworld.platforms.Platform(
@@ -154,7 +155,9 @@ def _setup(smallworld, image, cip51: bool = False):
 
     sfrs = bytearray(0x100)
     if cip51:
-        cpu.xpage_sfr.set(_C8051F330_EMI0CN)
+        if code.xpage_sfr != mcs51_xpage_sfr("C8051F330"):
+            raise ValueError(f"the map's __XPAGE is {code.xpage_sfr!r}")
+        cpu.xpage_sfr.set(code.xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
     for base, content in (
         (MCS51_IDATA_BASE, bytes(0x100)),

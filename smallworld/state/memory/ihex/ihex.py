@@ -192,6 +192,24 @@ class IHexExecutable(Executable):
             raise ConfigurationError(f"No symbol named {name}")
         return self._symbol_address(self._symbols[name])
 
+    @property
+    def xpage_sfr(self) -> typing.Optional[int]:
+        """The SFR that pages MOVX @Ri on the device the 8051 program is for.
+
+        SDCC records it in the linker map as ``__XPAGE``: P2's address,
+        unless the program includes a device header that declares
+        ``_XPAGE``.  To emulate the device, set the CPU's ``xpage_sfr``
+        register to it::
+
+            cpu.xpage_sfr.set(code.xpage_sfr)
+
+        ``None`` if no map was loaded, or the map has no ``__XPAGE``, as
+        maps of programs not built with SDCC's runtime do not; then see
+        :func:`~smallworld.platforms.defs.mcs51.mcs51_xpage_sfr`.
+        """
+        symbol = self._symbols.get("__XPAGE")
+        return None if symbol is None else symbol.value
+
     def get_symbol_names(self) -> typing.List[str]:
         """List the symbols the linker map defines."""
         return list(self._symbols)

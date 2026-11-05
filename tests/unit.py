@@ -55,6 +55,7 @@ from harness.scenarios import static_buf as static_buf_scenario
 from ihex.test import (  # noqa: F401 - registers the TestCases
     AsxxxxMapTests,
     IHexLoaderTests,
+    MCS51XpageSfrTests,
 )
 from mcs51_interrupts.test import (  # noqa: F401 - registers the TestCases
     MCS51InterruptChoiceTests,

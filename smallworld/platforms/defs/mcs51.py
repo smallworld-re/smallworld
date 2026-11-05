@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import re
 import typing
 
 from ..platforms import Architecture, Byteorder
@@ -134,6 +135,63 @@ def mcs51_psw_with_parity(psw: int, acc: int) -> int:
 #: set ``xpage_sfr`` to its address (SDCC's device headers declare it as
 #: ``_XPAGE``) to emulate one.
 MCS51_SFR_P2 = 0xA0
+
+#: The SFR that pages MOVX @Ri, by device family, for :func:`mcs51_xpage_sfr`:
+#: (pattern of part numbers, SFR address).  Taken from the ``_XPAGE``
+#: declarations in SDCC 4.6's device headers.
+_MCS51_XPAGE_SFRS: typing.Tuple[typing.Tuple[str, int], ...] = (
+    # Silicon Labs CIP-51: EMI0CN.
+    (r"C8051F0[0-2]\d", 0xAF),
+    (r"C8051F2\d\d", 0xAF),
+    (r"C8051F0[46]\d", 0xA2),
+    (r"C8051F1[23]\d", 0xA2),
+    (r"C8051F3[1-6]\d", 0xAA),
+    (r"C8051F41\d", 0xAA),
+    (r"C8051F9[23]\d", 0xAA),
+    (r"C8051T6[13]\d", 0xAA),
+    # Axsem: XPAGE.
+    (r"AX8052", 0xD9),
+    # Chipcon and Texas Instruments: MPAGE.
+    (r"CC(1110|2430|251[01]|253\d)", 0x93),
+    (r"MSC12\d\d", 0x92),
+    # Infineon: XADDRH, which shares its address with SFRs on other SFR
+    # pages; SmallWorld does not model SFR pages.
+    (r"XC866", 0xB3),
+)
+
+
+def mcs51_xpage_sfr(device: str) -> int:
+    """The SFR that pages MOVX @Ri on an 8051 device, for ``xpage_sfr``.
+
+    Many 8051 derivatives page MOVX @Ri through an SFR of their own instead
+    of P2 - Silicon Labs' CIP-51 devices through EMI0CN, for one.  To
+    emulate one, set the CPU's ``xpage_sfr`` register to this::
+
+        cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
+
+    A program built with SDCC records the same address in its linker map, as
+    ``__XPAGE``; see :attr:`~smallworld.state.memory.ihex.IHexExecutable.xpage_sfr`.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``, ``CC2530``
+            or ``XC866``; case and suffixes, such as a package code, are
+            ignored.
+
+    Returns:
+        The address of the SFR in the SFR space.
+
+    Raises:
+        ValueError: If the device is not one SmallWorld knows.  Intel's 8051
+            and the many derivatives that keep its P2 paging are not listed:
+            leave ``xpage_sfr`` unset for those.
+    """
+    for pattern, sfr in _MCS51_XPAGE_SFRS:
+        if re.match(pattern, device, re.IGNORECASE):
+            return sfr
+    raise ValueError(
+        f"unknown 8051 device {device}: set xpage_sfr to the address of the SFR "
+        "that pages MOVX @Ri, which SDCC's device header declares as _XPAGE"
+    )
 
 
 def mcs51_pdata_page(emulator: typing.Any) -> int:

@@ -1,4 +1,5 @@
-"""Unit tests for Executable.from_ihex and the ASxxxx linker map reader."""
+"""Unit tests for Executable.from_ihex, the ASxxxx linker map reader, and
+the 8051 device lookup that stands in for a map's ``__XPAGE``."""
 
 import io
 import unittest
@@ -8,6 +9,7 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_CODE_BASE,
     MCS51_IDATA_BASE,
     MCS51_XDATA_BASE,
+    mcs51_xpage_sfr,
 )
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.ihex import read_asxxxx_map
@@ -47,6 +49,7 @@ Area                                    Addr        Size        Decimal Bytes (A
          Value  Global                             Global Defined In Module
          -----  --------------------------------   ------------------------
      00000090  _P1                                prog
+     000000AA  __XPAGE                            prog
 
 \fASxxxx Linker V05.50.4-SDLD,  page 3.
 Hexadecimal  [32-Bits]
@@ -170,7 +173,8 @@ class AsxxxxMapTests(unittest.TestCase):
     def test_reads_every_global_with_its_area(self):
         symbols = read_asxxxx_map(MAP)
         self.assertEqual(
-            sorted(symbols), ["_P1", "_buf", "_f", "_f_PARM_2", "_main", "l_SSEG"]
+            sorted(symbols),
+            ["_P1", "__XPAGE", "_buf", "_f", "_f_PARM_2", "_main", "l_SSEG"],
         )
         self.assertEqual(symbols["_main"].area, "CSEG")
         self.assertEqual(symbols["_main"].module, "prog")
@@ -200,6 +204,15 @@ class AsxxxxMapTests(unittest.TestCase):
         with self.assertRaises(exceptions.ConfigurationError):
             self.load().get_symbol_value("_nothing")
 
+    def test_xpage_sfr_is_the_maps_xpage(self):
+        self.assertEqual(self.load(platform=MCS51).xpage_sfr, 0xAA)
+
+    def test_xpage_sfr_needs_xpage_in_the_map(self):
+        self.assertIsNone(Executable.from_ihex(io.StringIO(END)).xpage_sfr)
+        without = MAP.replace("__XPAGE", "_EMI0CN")
+        image = Executable.from_ihex(io.StringIO(END), map_file=io.StringIO(without))
+        self.assertIsNone(image.xpage_sfr)
+
     def test_other_text_is_refused(self):
         with self.assertRaises(exceptions.ConfigurationError):
             read_asxxxx_map("Memory Configuration\n\nName Origin Length\n")
@@ -207,6 +220,42 @@ class AsxxxxMapTests(unittest.TestCase):
     def test_non_hexadecimal_maps_are_refused(self):
         with self.assertRaises(exceptions.ConfigurationError):
             read_asxxxx_map(MAP.replace("Hexadecimal  [32-Bits]", "Octal  [32-Bits]"))
+
+
+class MCS51XpageSfrTests(unittest.TestCase):
+    def test_silicon_labs_families(self):
+        for device, sfr in (
+            ("C8051F005", 0xAF),
+            ("C8051F019", 0xAF),
+            ("C8051F206", 0xAF),
+            ("C8051F040", 0xA2),
+            ("C8051F064", 0xA2),
+            ("C8051F131", 0xA2),
+            ("C8051F330", 0xAA),
+            ("C8051F368", 0xAA),
+            ("C8051F411", 0xAA),
+            ("C8051F931", 0xAA),
+            ("C8051T634", 0xAA),
+        ):
+            with self.subTest(device=device):
+                self.assertEqual(mcs51_xpage_sfr(device), sfr)
+
+    def test_other_vendors(self):
+        self.assertEqual(mcs51_xpage_sfr("CC2530"), 0x93)
+        self.assertEqual(mcs51_xpage_sfr("AX8052F143"), 0xD9)
+        self.assertEqual(mcs51_xpage_sfr("MSC1210"), 0x92)
+        self.assertEqual(mcs51_xpage_sfr("XC866"), 0xB3)
+
+    def test_case_and_suffixes_are_ignored(self):
+        self.assertEqual(mcs51_xpage_sfr("c8051f330-gm"), 0xAA)
+
+    def test_unknown_devices_are_refused(self):
+        # The C8051F30x has no _XPAGE in SDCC's headers; the 80C51 pages
+        # through P2, which is the default.
+        for device in ("C8051F300", "80C51", "8051"):
+            with self.subTest(device=device):
+                with self.assertRaises(ValueError):
+                    mcs51_xpage_sfr(device)
 
 
 if __name__ == "__main__":

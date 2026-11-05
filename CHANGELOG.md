@@ -139,6 +139,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   selects, as SDCC's library does, rather than always in XDATA's first page.
   Machine definitions on Ghidra and angr can set initial state through
   `initialize_state()`. An `mcs51_sdcc` build for the C8051F330 tests it.
+- `mcs51_xpage_sfr()` looks up the SFR that pages `movx @Ri` on an 8051
+  device by part number, for Silicon Labs' CIP-51 families and the other
+  devices SDCC's headers declare one for. An image loaded with
+  `Executable.from_ihex()` reports the same SFR from an SDCC linker map's
+  `__XPAGE`, as `xpage_sfr`.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
