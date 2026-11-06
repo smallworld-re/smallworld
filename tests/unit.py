@@ -1860,6 +1860,80 @@ class AngrMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class AngrArmV8MLiftTests(unittest.TestCase):
+    """ARMv8-M's angr engine finds stack-limit moves in what angr lifted.
+
+    The engine re-reads each instruction VEX lifted to nothing, so it must
+    read the same bytes angr did: insn_bytes, then clemory, then state.
+    """
+
+    # msr msplim, r0; mrs r1, psplim
+    CODE = bytes.fromhex("80f30a88" "eff30b81")
+    ADDR = 0x2000
+
+    def setUp(self):
+        import cle
+
+        self.cle = cle
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.AngrEmulator(platform)
+        emu.write_code(0x1000, 0x10 * b"\x00")
+        emu.initialize()
+        self.project = emu.proj
+        self.arch = emu.proj.arch
+
+    def _written(self, irsb):
+        """Which of msplim and r1 the block writes"""
+        import pyvex
+
+        written = {
+            stmt.offset for stmt in irsb.statements if isinstance(stmt, pyvex.stmt.Put)
+        }
+        return {
+            name
+            for name in ("msplim", "r1")
+            if self.arch.get_register_offset(name) in written
+        }
+
+    def _lift(self, **kwargs):
+        return self._written(
+            self.project.factory.default_engine.lift_vex(
+                addr=self.ADDR | 1, thumb=True, size=len(self.CODE), **kwargs
+            )
+        )
+
+    def _clemory(self, data):
+        memory = self.cle.Clemory(self.arch, root=True)
+        memory.add_backer(self.ADDR, data)
+        return memory
+
+    def test_reads_insn_bytes(self):
+        self.assertEqual(
+            self._lift(insn_bytes=self.CODE, arch=self.arch), {"msplim", "r1"}
+        )
+
+    def test_reads_insn_bytes_from_offset(self):
+        self.assertEqual(
+            self._lift(insn_bytes=b"\xff\xff" + self.CODE, offset=2, arch=self.arch),
+            {"msplim", "r1"},
+        )
+
+    def test_reads_clemory(self):
+        self.assertEqual(self._lift(clemory=self._clemory(self.CODE)), {"msplim", "r1"})
+
+    def test_leaves_instructions_it_cant_read(self):
+        # The clemory ends after the msr, so the mrs stays as angr lifted it.
+        self.assertEqual(self._lift(clemory=self._clemory(self.CODE[:4])), {"msplim"})
+
+    def test_factory_block_with_insn_bytes(self):
+        block = self.project.factory.block(
+            self.ADDR | 1, insn_bytes=self.CODE, thumb=True
+        )
+        self.assertEqual(self._written(block.vex), {"msplim", "r1"})
+
+
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
