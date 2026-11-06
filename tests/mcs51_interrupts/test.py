@@ -20,6 +20,7 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_FLKEY_FIRST_KEY,
     MCS51_FLKEY_LOCKED,
     MCS51_FLKEY_UNLOCKED,
+    MCS51_IDATA_BASE,
     MCS51_IE_EA,
     MCS51_OPCODE_RETI,
     MCS51_PSCTL_PSEE,
@@ -44,8 +45,11 @@ from smallworld.platforms.defs.mcs51 import (
     mcs51_pop_sfr_page,
     mcs51_push_sfr_page,
     mcs51_raise_interrupt,
+    mcs51_read_idata,
+    mcs51_return_address,
     mcs51_service_interrupts,
     mcs51_sfr_paging,
+    mcs51_write_idata,
 )
 from smallworld.state.cpus import MCS51Device
 
@@ -477,6 +481,48 @@ class MCS51FlashTests(unittest.TestCase):
         self.store(MCS51_XDATA_BASE + 0x1A00, 0x00)
         self.assertNotIn(MCS51_CODE_BASE + 0x1A00, self.memory)
         self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_DISABLED)
+
+
+class MCS51StackWrapTests(unittest.TestCase):
+    """The 8051's stack wraps past internal RAM 0xFF to 0x00."""
+
+    class Emulator:
+        def __init__(self, sp: int):
+            self.memory: typing.Dict[int, int] = {}
+            self.sp = sp
+
+        def read_register(self, name: str) -> int:
+            assert name == "sp"
+            return self.sp
+
+        def write_register(self, name: str, value: int) -> None:
+            assert name == "sp"
+            self.sp = value
+
+        def read_memory(self, address: int, size: int) -> bytes:
+            for a in range(address, address + size):
+                assert MCS51_IDATA_BASE <= a < MCS51_IDATA_BASE + 0x100, hex(a)
+            return bytes(self.memory.get(a, 0) for a in range(address, address + size))
+
+        def write_memory(self, address: int, content: bytes) -> None:
+            for i, byte in enumerate(content):
+                assert MCS51_IDATA_BASE <= address + i < MCS51_IDATA_BASE + 0x100
+                self.memory[address + i] = byte
+
+    def test_return_address_across_the_wrap(self):
+        # LCALL pushed 0x1234 low byte first at 0xFF, then high at 0x00.
+        emulator = self.Emulator(sp=0x00)
+        emulator.memory[MCS51_IDATA_BASE + 0xFF] = 0x34
+        emulator.memory[MCS51_IDATA_BASE + 0x00] = 0x12
+        self.assertEqual(mcs51_return_address(emulator, pop=True), 0x1234)
+        self.assertEqual(emulator.sp, 0xFE)
+
+    def test_reads_and_writes_wrap(self):
+        emulator = self.Emulator(sp=0)
+        mcs51_write_idata(emulator, -1, b"\x01\x02\x03")
+        self.assertEqual(emulator.memory[MCS51_IDATA_BASE + 0xFF], 0x01)
+        self.assertEqual(emulator.memory[MCS51_IDATA_BASE + 0x01], 0x03)
+        self.assertEqual(mcs51_read_idata(emulator, 0xFF, 3), b"\x01\x02\x03")
 
 
 if __name__ == "__main__":

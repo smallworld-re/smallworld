@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - On angr, a function hook that moves the program counter carries on there
   instead of returning to the hook's caller, so a model can call back into
-  the program, as `qsort` and `bsearch` do with their comparator.
+  the program, as `qsort` and `bsearch` do with their comparator. A hook that
+  set the program counter to its return address, counting on angr to pop
+  it, must now pop it itself, as on the other backends.
 - `GhidraEmulator` no longer drops a write to a fixed memory address. When an
   instruction stored to a constant address, which p-code expresses as a COPY
   into a memory varnode, the backend ran the write hooks and then skipped the
@@ -135,8 +137,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Silicon Labs' CIP-51 devices, emulated as an 8051. The 8051's new
   `xpage_sfr` register names the SFR that supplies the high byte of
   `movx @Ri`'s address: P2, as before, unless the harness sets it to the
-  device's EMI0CN. 8051 models read pdata pointers in the page that SFR
-  selects, as SDCC's library does, rather than always in XDATA's first page.
+  device's EMI0CN. `movx @Ri` takes the page from the `xpage` register,
+  which the emulators keep in step with that SFR, or at 0 where it is not
+  mapped. 8051 models read pdata pointers in that page, as SDCC's library
+  does, rather than always in XDATA's first page.
   Machine definitions on Ghidra and angr can set initial state through
   `initialize_state()`. `mcs51_sdcc` builds for the C8051F330 and the
   C8051F020, whose EMI0CN are at 0xAA and 0xAF, test it.

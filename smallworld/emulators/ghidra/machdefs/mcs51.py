@@ -94,6 +94,12 @@ class MCS51MachineDef(GhidraMachineDef):
         # whether the SFRs that control it are mapped.
         self._flash: typing.Optional[MCS51FlashProgramming] = None
         self._flash_mapped = False
+        # The SFR xpage_sfr names, and the memory map, when xpage was last
+        # brought in step with it.
+        self._xpage_sfr: typing.Optional[int] = None
+        self._xpage_synced_for: typing.Optional[
+            typing.Tuple[typing.Tuple[int, int], ...]
+        ] = None
         # Register offsets in Ghidra's register space, by name.
         self._register_offsets: typing.Dict[str, int] = {}
 
@@ -138,7 +144,7 @@ class MCS51MachineDef(GhidraMachineDef):
         # MOVX @Ri pages through P2, as on Intel's 8051, unless the harness
         # names another SFR; no SFR is paged.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
-        for register in ("sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
+        for register in ("xpage", "sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
             emulator.write_register(register, 0)
 
     def set_sfr_paging(self, emulator, paging: MCS51SFRPaging) -> None:
@@ -304,7 +310,8 @@ class MCS51MachineDef(GhidraMachineDef):
         mapped; otherwise R0-R7 are plain registers.
 
         Ghidra's language never computes the parity flag either, so it is
-        recomputed after ACC or PSW is written.
+        recomputed after ACC or PSW is written; and ``xpage``, from which
+        MOVX @Ri takes its page, is kept in step with the SFR that holds it.
 
         Only what ``writes`` shows changed is acted on; with no record, as on
         the first call, everything is.
@@ -339,11 +346,42 @@ class MCS51MachineDef(GhidraMachineDef):
         if self._banks_mapped and (registers or bank_memory or wrote_psw):
             self._sync_register_bank(emulator, registers, bank_memory, wrote_psw)
 
+        self._sync_xpage(emulator, writes)
+
         if wrote_acc or wrote_psw:
             psw = emulator.read_register("psw")
             new_psw = mcs51_psw_with_parity(psw, emulator.read_register("acc"))
             if new_psw != psw:
                 emulator.write_register("psw", new_psw)
+
+    def _sync_xpage(self, emulator, writes) -> None:
+        """Keep xpage in step with the SFR that pages MOVX @Ri.
+
+        MOVX @Ri takes its page from xpage, so as not to read an SFR the
+        harness may not have mapped; it is that SFR's value, or 0 where it is
+        not mapped.  Only a write to xpage_sfr or to the SFR, or a change to
+        the memory map, can change it.
+        """
+        stale = self._xpage_synced_for is not self._mapped_for
+        if (
+            writes is None
+            or self._xpage_sfr is None
+            or writes.wrote_register(self._register_offset("xpage_sfr"))
+        ):
+            self._xpage_sfr = emulator.read_register("xpage_sfr")
+            stale = True
+        assert self._xpage_sfr is not None
+        address = MCS51_SFR_BASE + self._xpage_sfr
+        if not stale and not writes.wrote_memory(address, address + 1):
+            return
+        self._xpage_synced_for = self._mapped_for
+        page = (
+            emulator.read_memory(address, 1)[0]
+            if emulator.is_memory_mapped(address, 1)
+            else 0
+        )
+        if page != emulator.read_register("xpage"):
+            emulator.write_register("xpage", page)
 
     def _sync_register_bank(
         self,
@@ -400,6 +438,7 @@ class MCS51MachineDef(GhidraMachineDef):
         "dph": "DPH",
         "dpl": "DPL",
         "xpage_sfr": "XPAGE_SFR",
+        "xpage": "XPAGE",
         "sfr_page": "SFR_PAGE",
         "sfr_paged_lo": "SFR_PAGED_LO",
         "sfr_paged_hi": "SFR_PAGED_HI",

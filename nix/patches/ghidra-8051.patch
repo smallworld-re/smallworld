@@ -15,8 +15,9 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
   alone.
 - MOVX @Ri ignores P2, which supplies the high address byte, so code that
   pages external RAM, as SDCC's startup code does, stays in its first 256
-  bytes.  The patch reads the page from the SFR a new register, XPAGE_SFR,
-  names, since Silicon Labs' CIP-51 devices page through an EMI0CN instead.
+  bytes.  The patch takes the page from a new register, XPAGE, which the host
+  keeps in step with the SFR another, XPAGE_SFR, names, since Silicon Labs'
+  CIP-51 devices page through an EMI0CN instead.
 - SFRs have no pages, so Silicon Labs' devices that page their SFRs through
   SFRPAGE cannot be emulated.  The patch moves SFR accesses to a new space,
   PSFR, whose addresses have a second byte, the page, as the CIP-51 variant's
@@ -40,7 +41,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  
  # It's sometimes clearer for decompilation to omit the pushing and
  # restoring of the return value for function calls.
-@@ -201,6 +204,23 @@
+@@ -201,6 +204,25 @@
  define register offset=0x40  size=$(SP_SIZE) [ SP ];
  define register offset=0x44  size=$(PTRSIZE) [ PC ];
  define register offset=0x48  size=1 [ PSW ];
@@ -48,8 +49,10 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
 +# SmallWorld: the address of the SFR that supplies the high byte of MOVX @Ri's
 +# address.  Not a register of the hardware but a property of the device: P2
 +# (0xA0) on Intel's 8051, an EMI0CN on Silicon Labs' CIP-51 devices.  The host
-+# sets it before emulation starts.
++# sets it before emulation starts, and keeps XPAGE in step with that SFR - or
++# zero, where it is not mapped - so that MOVX @Ri reads no SFR itself.
 +define register offset=0x4C  size=1 [ XPAGE_SFR ];
++define register offset=0x4E  size=1 [ XPAGE ];
 +# SmallWorld: SFR paging, as on Silicon Labs' devices with an SFRPAGE SFR.
 +# SFRs are emulated in PSFR, whose addresses have a second byte, the page, as
 +# the CIP-51 variant's SFR space has; unpaged SFRs are on page 0.  None of
@@ -64,7 +67,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  @if defined(DUAL_DPTR)
  # Dual DPTR
  # Rather than model it as context, we're just going
-@@ -380,23 +400,42 @@
+@@ -380,23 +402,42 @@
  # PSW = PSW | ((op1 < op2) << 7);
  #}
  
@@ -116,16 +119,17 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  }
  
  macro push8(val) {
-@@ -602,6 +641,16 @@
+@@ -602,6 +643,17 @@
  RiX:     @ri       is ri      { ptr:3 = zext(ri); export *[RAM]:1 ptr; }
  @endif
  
 +# SmallWorld: on the 8051, MOVX @Ri takes the high byte of its address from
-+# an SFR, as the hardware does - P2 on Intel's 8051; XPAGE_SFR names it.  SDCC
++# an SFR, as the hardware does - P2 on Intel's 8051; XPAGE_SFR names it, and
++# XPAGE holds its value.  SDCC
 +# pages external RAM through it to initialize data, and to reach pdata and an
 +# external stack.  Other variants keep RiX.
 +@if defined(MCS51)
-+RiXP:    @ri       is ri      { local xpage:2 = zext(XPAGE_SFR); local page:1 = *[PSFR]:1 xpage; ptr:2 = (zext(page) << 8) | zext(ri); export *[EXTMEM]:1 ptr; }
++RiXP:    @ri       is ri      { ptr:2 = (zext(XPAGE) << 8) | zext(ri); export *[EXTMEM]:1 ptr; }
 +@else
 +RiXP:    RiX       is RiX     { export RiX; }
 +@endif
@@ -133,7 +137,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  Data:    "#"data   is data	  { export *[const]:1 data; }
  Data16:  "#"data16 is data16  { export *[const]:2 data16; }
  @if defined(MCS80390)
-@@ -615,11 +664,27 @@
+@@ -615,11 +667,27 @@
  @elif defined(MCS51) || defined(MCS80390) || defined(CIP51)
  Direct:  mainreg   is bank=0 & mainreg	{ export *[INTMEM]:1 mainreg; }
  @endif
@@ -161,7 +165,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  Direct:  DPH       is bank=1 & direct=0x83 & DPH  { export DPH;  }
  @if defined(MCS80390)
  Direct:  DPX       is bank=1 & direct=0x93 & DPX  { export DPX;  }
-@@ -635,11 +700,19 @@
+@@ -635,11 +703,19 @@
  @elif defined(MCS51) || defined(MCS80390) || defined(CIP51)
  Direct2:  mainreg2  is bank2=0 & mainreg2	{ export *[INTMEM]:1 mainreg2; }
  @endif
@@ -181,7 +185,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  Direct2:  DPH      is bank2=1 & direct2=0x83 & DPH  { export DPH;  }
  @if defined(MCS80390)
  Direct2:  DPX      is bank2=1 & direct2=0x93 & DPX  { export DPX;  }
-@@ -666,7 +739,12 @@
+@@ -666,7 +742,12 @@
  BitAddr2: "/"bitaddr is bitbank=0 & lowbyte & sfrbit [ bitaddr =(lowbyte << 3)+sfrbit; ] { export *[BITS]:1 bitaddr; }
  @endif
  
@@ -194,7 +198,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  BitByteAddr: "A" 		is bitbank=1 & sfrbyte=0x1C & sfrbit { export ACC; }
  BitByteAddr: B 			is bitbank=1 & sfrbyte=0x1E & sfrbit & B { export B; }
  BitByteAddr: PSW 	    is bitbank=1 & sfrbyte=0x1A & sfrbit & PSW { export PSW; }
-@@ -704,15 +782,15 @@
+@@ -704,15 +785,15 @@
  :ACALL  Addr11 is  $(GROUP1) & aaddrfill=1 & aoplo=1 & Addr11   { ret:2 = inst_next; push16(ret); call Addr11; }
  @endif
  
@@ -219,7 +223,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  
  #TODO: which GROUP does AJMP belong to ??
  @if defined(MCS80390)
-@@ -874,9 +952,9 @@
+@@ -874,9 +955,9 @@
  :MOVC  Areg,ADPTR is $(GROUP1) & ophi=9 & oplo=3 & ADPTR & Areg		{ ACC = *:1 ADPTR; }
  :MOVC  Areg,APC   is $(GROUP1) & ophi=8 & oplo=3 & APC   & Areg		{ ACC = *:1 APC; }
  
@@ -231,7 +235,7 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  :MOVX  ATDPTR,Areg  is $(GROUP1) & ophi=15 & oplo=0 & Areg & ATDPTR	{ ATDPTR = ACC; }
  
  :MUL ABreg         is $(GROUP1) & ophi=10 & oplo=4 & ABreg	   { PSW = PSW & 0x7b; tmp:2 = zext(ACC) * zext(B); ACC = tmp(0); B = tmp(1); PSW = PSW | ((B!=0)<<2); }
-@@ -946,10 +1024,10 @@
+@@ -946,10 +1027,10 @@
  
  :SJMP Rel8        is $(GROUP1) & ophi=8 & oplo=0; Rel8			{ goto Rel8; }
  

@@ -7,6 +7,8 @@ from .....platforms.defs.mcs51 import (
     MCS51_IDATA_BASE,
     MCS51_XDATA_BASE,
     mcs51_pdata_page,
+    mcs51_read_idata,
+    mcs51_write_idata,
 )
 from ...cstd import (
     ArgumentType,
@@ -218,9 +220,10 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     def _argument_address(self, index: int, emulator: emulators.Emulator) -> int:
         offset = self._offsets[index]
         if self._locations[index] == _ON_STACK:
-            # SP points at the return address's high byte.
+            # SP points at the return address's high byte.  The stack wraps
+            # past 0xFF to 0.
             sp = emulator.read_register("sp")
-            return MCS51_IDATA_BASE + sp - 1 - offset
+            return MCS51_IDATA_BASE + ((sp - 1 - offset) & 0xFF)
         if offset >= len(self.parameter_addresses):
             raise exceptions.ConfigurationError(
                 f"{self.__class__.__name__} needs the address of argument "
@@ -314,9 +317,7 @@ class MCS51SDCCCallingContext(CStdCallingContext):
         if push:
             sp = (sp + 2) & 0xFF
             emulator.write_register("sp", sp)
-        emulator.write_memory(
-            MCS51_IDATA_BASE + sp - 1, int.to_bytes(address & 0xFFFF, 2, "little")
-        )
+        mcs51_write_idata(emulator, sp - 1, int.to_bytes(address & 0xFFFF, 2, "little"))
 
     def function_pointer(
         self,
@@ -492,8 +493,7 @@ class MCS51SDCCVariadicContext(VariadicContext):
             raise exceptions.ConfigurationError(f"Unknown argument type {kind}")
         self._stack_depth += _SIZES[kind]
         sp = emulator.read_register("sp")
-        address = MCS51_IDATA_BASE + sp - 1 - self._stack_depth
-        return emulator.read_memory(address, _SIZES[kind])
+        return mcs51_read_idata(emulator, sp - 1 - self._stack_depth, _SIZES[kind])
 
 
 class MCS51SDCCModel(MCS51SDCCCallingContext, CStdModel):

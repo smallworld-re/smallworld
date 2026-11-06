@@ -65,6 +65,7 @@ from mcs51_interrupts.test import (  # noqa: F401 - registers the TestCases
     MCS51InterruptServiceTests,
     MCS51RaiseInterruptTests,
     MCS51SFRPagingTests,
+    MCS51StackWrapTests,
 )
 from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     AddressMaskingTests,
@@ -11066,6 +11067,85 @@ class HookableChainOverlappingTests(unittest.TestCase):
         emu.hook_memory_write(0x2000, 0x2004, self._noop)
         emu.hook_memory_write(0x2008, 0x200C, self._noop)  # disjoint from first
         self.assertEqual(len(emu.iter_memory_write_hooks(0x2002, 8)), 2)
+
+
+class PrintfPointerTests(unittest.TestCase):
+    class Varargs:
+        def __init__(self, *widths: int):
+            self.widths = list(widths)
+
+        def get_next_argument(self, kind, emulator):
+            return self.widths.pop(0)
+
+        def format_next_pointer(self, emulator) -> str:
+            return "0x1234"
+
+    def format(self, spec: str, *widths: int) -> str:
+        from smallworld.state.models.c99.fmt_print import handle_pointer, pointer_re
+
+        match = pointer_re.match(spec)
+        assert match is not None
+        return handle_pointer("", self.Varargs(*widths), match, None)
+
+    def test_width_and_left_justification(self):
+        self.assertEqual(self.format("%p"), "0x1234")
+        self.assertEqual(self.format("%10p"), "    0x1234")
+        self.assertEqual(self.format("%-10p"), "0x1234    ")
+        self.assertEqual(self.format("%*p", 10), "    0x1234")
+
+    def test_negative_star_width_left_justifies(self):
+        # C: a negative width argument is a '-' flag and a positive width.
+        self.assertEqual(self.format("%*p", -10), "0x1234    ")
+        self.assertEqual(self.format("%-*p", -10), "0x1234    ")
+
+
+class MCS51MovxPagingTests(unittest.TestCase):
+    """MOVX @Ri takes its page from the SFR xpage_sfr names, where mapped."""
+
+    def run_movx(self, emulator_class, p2: typing.Optional[int]) -> int:
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51_IDATA_BASE,
+            MCS51_SFR_BASE,
+            MCS51_XDATA_BASE,
+        )
+
+        platform = platforms.Platform(
+            platforms.Architecture.MCS51, platforms.Byteorder.BIG
+        )
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        for register in ("pc", "acc", "b", "psw", "dptr", "r0"):
+            getattr(cpu, register).set(0)
+        cpu.sp.set(0x07)
+        cpu.r0.set(0x10)
+        machine.add(cpu)
+        # movx a,@r0
+        machine.add(state.memory.code.Executable.from_bytes(b"\xe2\x00", address=0))
+        xdata = bytearray(0x200)
+        xdata[0x010] = 0x42
+        xdata[0x110] = 0x55
+        machine.add(state.memory.RawMemory.from_bytes(bytes(xdata), MCS51_XDATA_BASE))
+        machine.add(state.memory.RawMemory.from_bytes(bytes(0x100), MCS51_IDATA_BASE))
+        if p2 is not None:
+            sfrs = bytearray(0x100)
+            sfrs[0xA0] = p2
+            machine.add(state.memory.RawMemory.from_bytes(bytes(sfrs), MCS51_SFR_BASE))
+        emulator = emulator_class(platform)
+        emulator.add_exit_point(1)
+        machine.emulate(emulator)
+        return emulator.read_register("acc")
+
+    def test_pages_through_p2(self):
+        for emulator_class in (emulators.ghidra.GhidraEmulator, emulators.AngrEmulator):
+            with self.subTest(emulator=emulator_class.__name__):
+                self.assertEqual(self.run_movx(emulator_class, 1), 0x55)
+
+    def test_unmapped_p2_reaches_the_first_page(self):
+        # Neither backend reads the unmapped SFR: Ghidra would refuse, and
+        # angr would make the page symbolic.
+        for emulator_class in (emulators.ghidra.GhidraEmulator, emulators.AngrEmulator):
+            with self.subTest(emulator=emulator_class.__name__):
+                self.assertEqual(self.run_movx(emulator_class, None), 0x42)
 
 
 if __name__ == "__main__":

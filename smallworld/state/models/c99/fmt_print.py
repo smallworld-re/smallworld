@@ -762,11 +762,13 @@ def handle_pointer(
     flags = m.group(1)
     width = m.group(2)
 
-    # The only flag is '-', which left-justifies.
+    # The only flag pointer_re accepts is '-', which left-justifies.
     align = "<" if flags == "-" else ">"
 
-    # Handle width
+    # Handle width.  A negative width from '*' left-justifies too, as C says.
     width = handle_width(width, varargs, emulator)
+    if width.startswith("-"):
+        align, width = "<", width[1:]
 
     # How the pointer is shown is up to the platform's C library.
     text = varargs.format_next_pointer(emulator)

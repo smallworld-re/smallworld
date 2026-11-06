@@ -64,9 +64,11 @@ class MCS51(PlatformDef):
             "dptr": RegisterDef(name="dptr", size=2),
             "dph": RegisterAliasDef(name="dph", parent="dptr", size=1, offset=1),
             "dpl": RegisterAliasDef(name="dpl", parent="dptr", size=1, offset=0),
-            # Not registers of the hardware: the SFR that pages MOVX @Ri (see
-            # MCS51_SFR_P2), and SFR paging (see MCS51SFRPaging).
+            # Not registers of the hardware: the SFR that pages MOVX @Ri, and
+            # its value (see MCS51_SFR_P2), and SFR paging (see
+            # MCS51SFRPaging).
             "xpage_sfr": RegisterDef(name="xpage_sfr", size=1),
+            "xpage": RegisterDef(name="xpage", size=1),
             "sfr_page": RegisterDef(name="sfr_page", size=1),
             "sfr_paged_lo": RegisterDef(name="sfr_paged_lo", size=8),
             "sfr_paged_hi": RegisterDef(name="sfr_paged_hi", size=8),
@@ -100,6 +102,40 @@ MCS51_SFR_BASE = 0x20100
 MCS51_BITS_BASE = 0x30100
 
 
+def mcs51_read_idata(emulator: typing.Any, offset: int, size: int) -> bytes:
+    """Read internal RAM as the 8051's stack does, wrapping past 0xFF to 0.
+
+    Arguments:
+        emulator: The emulator to read from.
+        offset: The offset into internal RAM of the first byte; taken modulo
+            256, so it may be negative.
+        size: The number of bytes.
+    """
+    offset &= 0xFF
+    if offset + size <= 0x100:
+        return emulator.read_memory(MCS51_IDATA_BASE + offset, size)
+    first = 0x100 - offset
+    return emulator.read_memory(MCS51_IDATA_BASE + offset, first) + mcs51_read_idata(
+        emulator, 0, size - first
+    )
+
+
+def mcs51_write_idata(emulator: typing.Any, offset: int, content: bytes) -> None:
+    """Write internal RAM as the 8051's stack does, wrapping past 0xFF to 0.
+
+    Arguments:
+        emulator: The emulator to write to.
+        offset: The offset into internal RAM of the first byte; taken modulo
+            256, so it may be negative.
+        content: The bytes.
+    """
+    offset &= 0xFF
+    first = min(len(content), 0x100 - offset)
+    emulator.write_memory(MCS51_IDATA_BASE + offset, content[:first])
+    if first < len(content):
+        mcs51_write_idata(emulator, 0, content[first:])
+
+
 def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
     """Read the return address an 8051 call left on the stack.
 
@@ -115,7 +151,7 @@ def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
         The return address.
     """
     sp = emulator.read_register("sp")
-    ret = int.from_bytes(emulator.read_memory(MCS51_IDATA_BASE + sp - 1, 2), "little")
+    ret = int.from_bytes(mcs51_read_idata(emulator, sp - 1, 2), "little")
     if pop:
         emulator.write_register("sp", (sp - 2) & 0xFF)
     return ret
@@ -142,6 +178,11 @@ def mcs51_psw_with_parity(psw: int, acc: int) -> int:
 #: Silicon Labs' CIP-51 devices page MOVX @Ri through their EMI0CN instead:
 #: set ``xpage_sfr`` to its address (SDCC's device headers declare it as
 #: ``_XPAGE``) to emulate one.
+#:
+#: MOVX @Ri itself takes the page from the ``xpage`` register, which the
+#: emulators keep in step with the SFR ``xpage_sfr`` names, so that it reads
+#: no SFR: where that SFR is not mapped, ``xpage`` is 0, and MOVX @Ri reaches
+#: XDATA's first page.
 MCS51_SFR_P2 = 0xA0
 
 #: The SFR that pages MOVX @Ri, by device family, for :func:`mcs51_xpage_sfr`:
@@ -206,7 +247,8 @@ def mcs51_pdata_page(emulator: typing.Any) -> int:
     """The page of XDATA that MOVX @Ri reaches now: pdata.
 
     It is the value of the SFR the ``xpage_sfr`` register names - P2 on
-    Intel's 8051, EMI0CN on Silicon Labs' CIP-51 devices.
+    Intel's 8051, EMI0CN on Silicon Labs' CIP-51 devices - as the ``xpage``
+    register holds it: 0 where that SFR is not mapped.
 
     Arguments:
         emulator: The emulator to read from.
@@ -214,8 +256,7 @@ def mcs51_pdata_page(emulator: typing.Any) -> int:
     Returns:
         The page, the high byte of the XDATA address.
     """
-    sfr = emulator.read_register("xpage_sfr")
-    return emulator.read_memory(MCS51_SFR_BASE + sfr, 1)[0]
+    return emulator.read_register("xpage")
 
 
 @dataclasses.dataclass(frozen=True)

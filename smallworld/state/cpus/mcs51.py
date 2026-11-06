@@ -30,8 +30,10 @@ class MCS51(cpu.CPU):
     to EMI0CN's to emulate a Silicon Labs CIP-51 device, or add an
     :class:`MCS51Device` to the machine, which sets it for you.
 
-    ``sfr_page``, ``sfr_paged_lo`` and ``sfr_paged_hi`` are not the
-    hardware's either: they page SFRs on a device that pages them (see
+    ``xpage`` is the value of the SFR ``xpage_sfr`` names, or 0 where it is
+    not mapped, which the emulators keep in step with it; MOVX @Ri takes its
+    page from it.  ``sfr_page``, ``sfr_paged_lo`` and ``sfr_paged_hi`` are
+    not the hardware's either: they page SFRs on a device that pages them (see
     :class:`~smallworld.platforms.defs.mcs51.MCS51SFRPaging`).  An
     :class:`MCS51Device` sets them; leave them alone.
     """
@@ -61,6 +63,8 @@ class MCS51(cpu.CPU):
         self.add(self.dpl)
         self.xpage_sfr = state.Register("xpage_sfr", 1)
         self.add(self.xpage_sfr)
+        self.xpage = state.Register("xpage", 1)
+        self.add(self.xpage)
         self.sfr_page = state.Register("sfr_page", 1)
         self.add(self.sfr_page)
         self.sfr_paged_lo = state.Register("sfr_paged_lo", 8)

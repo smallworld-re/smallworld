@@ -42,10 +42,16 @@ class GhidraEmulator(AbstractGhidraEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
-        # Whether the machine may redirect stores; most never do, and asking
-        # costs every store a read of its address and data.
+        # Whether the machine may redirect stores, and whether it derives
+        # state from what instructions write; most do neither, and asking
+        # costs every store a read of its address and data, and every op a
+        # look at what it writes.
         self._redirects_stores = (
             type(self.machdef).redirect_store is not GhidraMachineDef.redirect_store
+        )
+        self._tracks_writes = (
+            type(self.machdef).update_derived_state
+            is not GhidraMachineDef.update_derived_state
         )
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
@@ -573,7 +579,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # Bring derived state up to date with anything written since the
         # last instruction, by the harness say; then the machine may
         # redirect execution between instructions.
-        if self._writes is None or self._writes:
+        if self._tracks_writes and (self._writes is None or self._writes):
             self._update_derived_state()
         self.machdef.before_instruction(self)
 
@@ -632,7 +638,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 opcode = op.getOpcode()
 
                 # Record what it writes, for the machine definition.
-                out = op.getOutput()
+                out = op.getOutput() if self._tracks_writes else None
                 if out is not None:
                     if out.isRegister():
                         self._note_register_write(out.getOffset(), out.getSize())
@@ -732,7 +738,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
                     # This is not a memory access.  No need to break
 
-        self._update_derived_state()
+        if self._tracks_writes:
+            self._update_derived_state()
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

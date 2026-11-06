@@ -275,6 +275,11 @@ map, which an image loaded with ``Executable.from_ihex()`` reports as
     cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
     cpu.xpage_sfr.set(code.xpage_sfr)  # or, from the map
 
+MOVX @Ri takes the page from the ``xpage`` register, which the emulators keep
+in step with the SFR ``xpage_sfr`` names, or at 0 where that SFR is not
+mapped, so a harness that maps no SFRs still runs MOVX @Ri, in XDATA's first
+page.
+
 A CIP-51 device also has more interrupt sources than the 8052, enabled and
 prioritized through EIE1 and EIP1 as well as IE and IP.  To emulate a device,
 add an ``MCS51Device`` to the machine, beside the CPU: it sets ``xpage_sfr``

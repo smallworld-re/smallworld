@@ -207,8 +207,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     _parity_stale: bool = False
 
     # Whether the instruction executing may have written SFRPAGE, on a device
-    # that pages its SFRs, so that sfr_page must be brought in step with it.
+    # that pages its SFRs, so that sfr_page must be brought in step with it;
+    # and the SFR that pages MOVX @Ri, so that xpage must be.
     _wrote_sfrpage: bool = False
+    _wrote_xpage: bool = False
 
     def _register_offset(self, name: str) -> int:
         return self.project.arch.registers[name][0]
@@ -352,6 +354,9 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             paging = self._sfr_paging()
             if paging is not None:
                 self._sync_sfr_page(paging)
+        if self._wrote_xpage:
+            self._wrote_xpage = False
+            self._sync_xpage()
 
     def _execute_current_op(self) -> None:
         # Sync at each instruction boundary, and before an op that passes the
@@ -438,14 +443,16 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         return True
 
     def _note_sfr_write(self, address) -> None:
+        def may_be(target: int) -> bool:
+            if isinstance(address, int):
+                return address == target
+            return address.symbolic or address.concrete_value == target
+
+        if may_be(self._xpage_address()):
+            self._wrote_xpage = True
         extensions = getattr(self.state.scratch, "extensions", {})
         paging = extensions.get(_SFR_PAGING)
-        if paging is None:
-            return
-        target = MCS51_SFR_BASE + paging.sfrpage
-        if isinstance(address, int):
-            self._wrote_sfrpage |= address == target
-        elif address.symbolic or address.concrete_value == target:
+        if paging is not None and may_be(MCS51_SFR_BASE + paging.sfrpage):
             self._wrote_sfrpage = True
 
     def _note_internal_ram_write(self, offset, size: int) -> None:
@@ -475,6 +482,30 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         if not all(memory_map.contains_value(MCS51_SFR_BASE + sfr) for sfr in sfrs):
             return None
         return paging
+
+    def _xpage_address(self) -> int:
+        # The flat address of the SFR that pages MOVX @Ri.
+        sfr = self.state.solver.eval_upto(self._load_register("xpage_sfr"), 2)
+        if len(sfr) != 1:
+            raise EmulationError("The 8051's xpage_sfr is symbolic")
+        return MCS51_SFR_BASE + sfr[0]
+
+    def _sync_xpage(self) -> None:
+        """Keep xpage in step with the SFR that pages MOVX @Ri.
+
+        MOVX @Ri takes its page from xpage, so as not to read an SFR the
+        harness may not have mapped; it is that SFR's value, or 0 where it is
+        not mapped.
+        """
+        address = self._xpage_address()
+        memory_map = getattr(self.state.scratch, "memory_map", None)
+        if memory_map is not None and memory_map.contains_value(address):
+            page = self.state.memory.load(
+                address, 1, inspect=False, disable_actions=True
+            )
+        else:
+            page = claripy.BVV(0, 8)
+        self._store_register("xpage", page)
 
     def _sync_sfr_page(self, paging: MCS51SFRPaging) -> None:
         # sfr_page mirrors SFRPAGE, from which instructions take the page of
@@ -652,8 +683,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         self._wrote_bank_memory_somewhere = False
         self._wrote_psw = False
         self._wrote_sfrpage = False
+        self._wrote_xpage = False
         self._update_parity()
         self._sync_register_bank()
+        self._sync_xpage()
         paging = self._sfr_paging()
         if paging is not None:
             self._sync_sfr_page(paging)
@@ -759,6 +792,7 @@ class MCS51MachineDef(GhidraMachineDef):
         "dph": "dph",
         "dpl": "dpl",
         "xpage_sfr": "xpage_sfr",
+        "xpage": "xpage",
         "sfr_page": "sfr_page",
         "sfr_paged_lo": "sfr_paged_lo",
         "sfr_paged_hi": "sfr_paged_hi",
@@ -775,7 +809,7 @@ class MCS51MachineDef(GhidraMachineDef):
     def initialize_state(self, emulator: typing.Any) -> None:
         # As the Ghidra machine definition.
         emulator.write_register("xpage_sfr", MCS51_SFR_P2)
-        for register in ("sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
+        for register in ("xpage", "sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
             emulator.write_register(register, 0)
 
     def set_flash_programming(
