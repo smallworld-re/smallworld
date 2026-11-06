@@ -98,22 +98,62 @@ def _ignored_imarks(irsb: pyvex.IRSB) -> typing.List[int]:
     ]
 
 
+def _instruction(
+    at: int,
+    addr: int,
+    state: typing.Any,
+    clemory: typing.Any,
+    insn_bytes: typing.Optional[bytes],
+    offset: typing.Optional[int],
+) -> typing.Optional[bytes]:
+    """The 4 bytes at `at`, from the source angr lifted from, if it has them"""
+    # angr's priority: insn_bytes (from offset, for the block's address
+    # without the Thumb bit), then clemory, then state.
+    try:
+        if insn_bytes is not None:
+            start = (offset or 0) + at - (addr & ~1)
+            insn = bytes(insn_bytes[start : start + 4]) if start >= 0 else b""
+        elif clemory is not None:
+            insn = clemory.load(at, 4)
+        elif state is not None:
+            insn = state.solver.eval(state.memory.load(at, 4), cast_to=bytes)
+        else:
+            return None
+    except KeyError:
+        # Nothing mapped there in clemory
+        return None
+    return insn if len(insn) == 4 else None
+
+
 class ARMv8MEngine(UberEngine):
     """angr's VEX engine, moving ARMv8-M's stack-limit registers"""
 
-    def lift_vex(self, *args, **kwargs):
-        irsb = super().lift_vex(*args, **kwargs)
+    def lift_vex(
+        self,
+        addr=None,
+        state=None,
+        clemory=None,
+        insn_bytes=None,
+        offset=None,
+        *args,
+        **kwargs,
+    ):
+        irsb = super().lift_vex(
+            addr, state, clemory, insn_bytes, offset, *args, **kwargs
+        )
         if irsb.statements is None:
             return irsb
-        state = kwargs.get("state")
         found = []
         for index in _ignored_imarks(irsb):
-            addr = irsb.statements[index].addr
-            if state is not None:
-                insn = state.solver.eval(state.memory.load(addr, 4), cast_to=bytes)
-            else:
-                insn = self.project.loader.memory.load(addr, 4)
-            decoded = _decode(insn)
+            insn = _instruction(
+                irsb.statements[index].addr,
+                irsb.addr if addr is None else addr,
+                state,
+                clemory,
+                insn_bytes,
+                offset,
+            )
+            decoded = None if insn is None else _decode(insn)
             if decoded is not None:
                 found.append((index, decoded))
         if not found:
