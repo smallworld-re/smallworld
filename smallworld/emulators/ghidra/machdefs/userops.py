@@ -378,9 +378,10 @@ def _fp_min_max_num(maximum: bool):
     def userop(emu: typing.Any, mnemonic: str, args: typing.Sequence[int]) -> int:
         insn = _arm_fp_instruction(emu)
         if _field(insn, 27, 23) == 0b11101:
-            # Floating point: one element, of the size field's size.
+            # Floating point: one element, of the size field's size. An f16
+            # result is zero-extended into its S register.
             esize = {0b01: 16, 0b10: 32, 0b11: 64}[_field(insn, 9, 8)]
-            width = max(esize, 32)
+            width = esize
             # Default NaN and flush-to-zero modes are FPSCR.DN and FZ.
             default_nan = bool((emu.read_register_content("fpscr") >> 25) & 1)
             flush_to_zero = _scalar_flush_to_zero(emu)
