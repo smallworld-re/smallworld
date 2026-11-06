@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import functools
 import re
 import typing
 
@@ -910,6 +911,7 @@ def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51InterruptSource) ->
     emulator.write_memory(address, bytes([value | source.request]))
 
 
+@functools.lru_cache(maxsize=None)
 def mcs51_interrupt_sfrs(
     sources: typing.Type[MCS51InterruptSource],
 ) -> typing.FrozenSet[int]:

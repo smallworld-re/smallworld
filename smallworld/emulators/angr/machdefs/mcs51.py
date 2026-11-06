@@ -628,8 +628,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         )
         return True
 
-    def _instructions_before_interrupts_change(self, addr: int, **kwargs) -> int:
-        """How many instructions a block at addr may run.
+    def _instructions_before_interrupts_change(
+        self, addr: int, **kwargs
+    ) -> typing.Tuple[int, typing.Any]:
+        """How many instructions a block at addr may run, and the whole block.
 
         The block ends after the first instruction that writes one of the
         device's interrupt SFRs (see :func:`mcs51_interrupt_sfrs`) - on the
@@ -638,6 +640,9 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         in their encoding - indirect addressing reaches internal RAM, not
         SFRs - so lifting the block shows every such write.  RETI ends a
         block anyway, as every return does.
+
+        The whole block comes back too, so that, when it may all run, as
+        most blocks may, it need not be lifted again.
         """
         irsb = self.lift_pcode(
             addr=addr,
@@ -651,8 +656,8 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         sfrs = mcs51_interrupt_sfrs(self._interrupt_sources())
         for count, (_, ops) in enumerate(instructions, start=1):
             if _writes_sfrs(ops, sfrs):
-                return count
-        return len(instructions)
+                return count, irsb
+        return len(instructions), irsb
 
     def process_successors(self, successors, *args, **kwargs):
         addr = successors.addr
@@ -666,10 +671,16 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             )
             if globals_map.get(_ONE_INSTRUCTION, False):
                 kwargs["num_inst"] = 1
-            else:
-                kwargs["num_inst"] = self._instructions_before_interrupts_change(
+            elif kwargs.get("irsb") is None:
+                count, irsb = self._instructions_before_interrupts_change(
                     addr, **kwargs
                 )
+                if count == len(_instructions(irsb)):
+                    # angr's lift cache is off - it is for any lift with a
+                    # state - so hand it the block rather than lift it again.
+                    kwargs["irsb"] = irsb
+                else:
+                    kwargs["num_inst"] = count
         return super().process_successors(successors, *args, **kwargs)
 
     def handle_pcode_block(self, irsb) -> None:

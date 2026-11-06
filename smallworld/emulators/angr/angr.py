@@ -1456,7 +1456,9 @@ class AngrEmulator(
 
         # As soon as we start executing, disable value access
         self._dirty = True
-        if self._linear:
+        # Disassembling the block lifts it once more, so do it only when the
+        # message will be shown.
+        if self._linear and log.isEnabledFor(logging.DEBUG):
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
                 try:
                     disas = self.state.block(opt_level=0).disassembly
