@@ -15,22 +15,25 @@ from ....platforms.defs.mcs51 import (
     MCS51_OPCODE_RETI,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
+    MCS51_PSW_CARRY,
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
-    MCS51_SFR_P2,
     MCS51FlashProgramming,
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
+    MCS51Operations,
     MCS51SFRPaging,
+    mcs51_decimal_adjust,
     mcs51_flash_owns_store,
     mcs51_flash_store,
+    mcs51_initialize_state,
     mcs51_interrupt_control_sfrs,
     mcs51_interrupt_sfrs,
     mcs51_pop_sfr_page,
-    mcs51_push_sfr_page,
     mcs51_return_address,
     mcs51_service_interrupts,
+    mcs51_take_interrupt,
 )
 from .machdef import GhidraMachineDef
 
@@ -58,23 +61,25 @@ def handle_nop(engine, op):
     pass
 
 
+_SYMBOLIC_OPERATIONS = MCS51Operations(
+    if_then_else=claripy.If,
+    or_=claripy.Or,
+    and_=claripy.And,
+    unsigned_greater=claripy.UGT,
+)
+
+
 def handle_decimal_adjust(engine, op):
     # DA A: adjust the accumulator after a BCD addition.  The op returns only
     # the new accumulator; the carry it may set lives in PSW.
-    acc = engine._get_value(op.inputs[1]).zero_extend(1)
     psw = engine.state.regs.psw
-    carry = psw[7] == 1
-    aux_carry = psw[6] == 1
-
-    adjust_low = claripy.Or(claripy.ULT(9, acc & 0xF), aux_carry)
-    acc = claripy.If(adjust_low, acc + 0x06, acc)
-    carry = claripy.Or(carry, claripy.And(adjust_low, claripy.UGT(acc, 0xFF)))
-
-    adjust_high = claripy.Or(claripy.ULT(9, (acc >> 4) & 0xF), carry)
-    acc = claripy.If(adjust_high, acc + 0x60, acc)
-    carry = claripy.Or(carry, claripy.And(adjust_high, claripy.UGT(acc, 0xFF)))
-
-    engine.state.regs.psw = claripy.If(carry, psw | 0x80, psw)
+    acc, carry = mcs51_decimal_adjust(
+        engine._get_value(op.inputs[1]).zero_extend(1),
+        psw[7] == 1,
+        psw[6] == 1,
+        _SYMBOLIC_OPERATIONS,
+    )
+    engine.state.regs.psw = claripy.If(carry, psw | MCS51_PSW_CARRY, psw)
     engine._set_value(op.output, acc[7:0])
 
 
@@ -597,25 +602,20 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             return False
         globals_map[_ONE_INSTRUCTION] = False
 
-        # Call the handler as LCALL would: push PC low byte first.
-        sp = state.solver.eval_one(typing.cast(claripy.ast.bv.BV, state.regs.sp))
-        for byte in irsb.addr.to_bytes(2, "little"):
-            sp = (sp + 1) & 0xFF
-            state.memory.store(
-                MCS51_IDATA_BASE + sp, claripy.BVV(byte, 8), disable_actions=True
-            )
+        sp, paged = mcs51_take_interrupt(
+            source,
+            irsb.addr,
+            state.solver.eval_one(typing.cast(claripy.ast.bv.BV, state.regs.sp)),
+            lambda offset, value: state.memory.store(
+                MCS51_IDATA_BASE + offset, claripy.BVV(value, 8), disable_actions=True
+            ),
+            read_sfr,
+            write_sfr,
+            paging,
+        )
         state.regs.sp = claripy.BVV(sp, 8)
-        if source.cleared:
-            flags = read_sfr(source.flag_sfr) & ~source.cleared
-            state.memory.store(
-                MCS51_SFR_BASE + source.flag_sfr,
-                claripy.BVV(flags, 8),
-                disable_actions=True,
-            )
-        # The interrupt's page is that of its request flags.
-        if paging is not None and mcs51_push_sfr_page(
-            paging, read_sfr, write_sfr, source.flag_sfr >> 8
-        ):
+        if paged:
+            assert paging is not None
             self._sync_sfr_page(paging)
         assert self.successors is not None
         self.successors.add_successor(
@@ -807,10 +807,7 @@ class MCS51MachineDef(GhidraMachineDef):
     }
 
     def initialize_state(self, emulator: typing.Any) -> None:
-        # As the Ghidra machine definition.
-        emulator.write_register("xpage_sfr", MCS51_SFR_P2)
-        for register in ("xpage", "sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
-            emulator.write_register(register, 0)
+        mcs51_initialize_state(emulator)
 
     def set_flash_programming(
         self, emulator: typing.Any, flash: MCS51FlashProgramming

@@ -173,6 +173,62 @@ def mcs51_psw_with_parity(psw: int, acc: int) -> int:
     return (psw & ~MCS51_PSW_PARITY) | (bin(acc & 0xFF).count("1") & 1)
 
 
+#: PSW's carry and auxiliary-carry flags.
+MCS51_PSW_CARRY = 0x80
+MCS51_PSW_AUX_CARRY = 0x40
+
+
+class MCS51Operations(typing.NamedTuple):
+    """The operations :func:`mcs51_decimal_adjust` computes with.
+
+    So that one description of an instruction serves Python integers and
+    symbolic values alike: :data:`MCS51_CONCRETE_OPERATIONS` for integers, or
+    claripy's ``If``, ``Or``, ``And`` and ``UGT`` for angr.
+    """
+
+    if_then_else: typing.Callable[[typing.Any, typing.Any, typing.Any], typing.Any]
+    or_: typing.Callable[[typing.Any, typing.Any], typing.Any]
+    and_: typing.Callable[[typing.Any, typing.Any], typing.Any]
+    unsigned_greater: typing.Callable[[typing.Any, typing.Any], typing.Any]
+
+
+MCS51_CONCRETE_OPERATIONS = MCS51Operations(
+    if_then_else=lambda condition, then, otherwise: then if condition else otherwise,
+    or_=lambda a, b: a or b,
+    and_=lambda a, b: a and b,
+    unsigned_greater=lambda a, b: a > b,
+)
+
+
+def mcs51_decimal_adjust(
+    acc: typing.Any,
+    carry: typing.Any,
+    aux_carry: typing.Any,
+    operations: MCS51Operations = MCS51_CONCRETE_OPERATIONS,
+) -> typing.Tuple[typing.Any, typing.Any]:
+    """DA A: adjust the accumulator after a BCD addition.
+
+    Arguments:
+        acc: The accumulator, at least nine bits wide, so that a carry out
+            of it shows.
+        carry: PSW's carry flag.
+        aux_carry: PSW's auxiliary-carry flag.
+        operations: What to compute with.
+
+    Returns:
+        The adjusted accumulator, still as wide, and the new carry flag.  DA
+        A only ever sets the carry, never clears it.
+    """
+    ops = operations
+    adjust_low = ops.or_(ops.unsigned_greater(acc & 0x0F, 9), aux_carry)
+    acc = ops.if_then_else(adjust_low, acc + 0x06, acc)
+    carry = ops.or_(carry, ops.and_(adjust_low, ops.unsigned_greater(acc, 0xFF)))
+    adjust_high = ops.or_(ops.unsigned_greater((acc >> 4) & 0x0F, 9), carry)
+    acc = ops.if_then_else(adjust_high, acc + 0x60, acc)
+    carry = ops.or_(carry, ops.and_(adjust_high, ops.unsigned_greater(acc, 0xFF)))
+    return acc, carry
+
+
 #: P2, the SFR that supplies the high byte of MOVX @Ri's address on Intel's
 #: 8051, and the default of the ``xpage_sfr`` register, which names that SFR.
 #: Silicon Labs' CIP-51 devices page MOVX @Ri through their EMI0CN instead:
@@ -184,6 +240,29 @@ def mcs51_psw_with_parity(psw: int, acc: int) -> int:
 #: no SFR: where that SFR is not mapped, ``xpage`` is 0, and MOVX @Ri reaches
 #: XDATA's first page.
 MCS51_SFR_P2 = 0xA0
+
+
+#: The registers that are not the hardware's (see :class:`MCS51`), as they
+#: start: MOVX @Ri pages through P2, as on Intel's 8051, until a harness
+#: names another SFR, and no SFR is paged.
+MCS51_INITIAL_REGISTERS: typing.Dict[str, int] = {
+    "xpage_sfr": MCS51_SFR_P2,
+    "xpage": 0,
+    "sfr_page": 0,
+    "sfr_paged_lo": 0,
+    "sfr_paged_hi": 0,
+}
+
+
+def mcs51_initialize_state(emulator: typing.Any) -> None:
+    """Set the registers that are not the hardware's to their initial values.
+
+    For the emulators' machine definitions; see
+    :data:`MCS51_INITIAL_REGISTERS`.
+    """
+    for register, value in MCS51_INITIAL_REGISTERS.items():
+        emulator.write_register(register, value)
+
 
 #: The SFR that pages MOVX @Ri, by device family, for :func:`mcs51_xpage_sfr`:
 #: (pattern of part numbers, SFR address).  Taken from the ``_XPAGE``
@@ -900,8 +979,7 @@ def mcs51_service_interrupts(
     least one more instruction runs first.  Otherwise the CPU takes the interrupt
     :func:`mcs51_interrupt_to_take` chooses.
 
-    Taking it is the caller's job: push PC as LCALL would, jump to the
-    vector, and clear the source's ``cleared`` flags.
+    Taking it is the caller's job; see :func:`mcs51_take_interrupt`.
 
     A caller that runs several instructions before the next boundary - a
     block, all but whose last instruction leave interrupts alone - says
@@ -946,3 +1024,44 @@ def mcs51_service_interrupts(
         MCS51InterruptState(in_service, (read_code(last), controls)),
         None if taken is None else taken[0],
     )
+
+
+def mcs51_take_interrupt(
+    source: MCS51InterruptSource,
+    pc: int,
+    sp: int,
+    write_idata: typing.Callable[[int, int], None],
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+    paging: typing.Optional[MCS51SFRPaging] = None,
+) -> typing.Tuple[int, bool]:
+    """Take an interrupt :func:`mcs51_service_interrupts` chose.
+
+    Calls the handler as LCALL would, pushing PC low byte first; clears the
+    source's ``cleared`` flags; and, on a device that pages its SFRs,
+    switches to the page of its request flags (see
+    :func:`mcs51_push_sfr_page`).  Jumping to ``source.vector`` is the
+    caller's job.
+
+    Arguments:
+        source: The interrupt to take.
+        pc: The address of the instruction it interrupts.
+        sp: The stack pointer.
+        write_idata: Writes a byte of internal RAM, by its offset and value.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+        paging: The device's SFR paging, if it pages its SFRs and they are
+            mapped.
+
+    Returns:
+        The new stack pointer, and whether SFRPAGE changed.
+    """
+    for byte in pc.to_bytes(2, "little"):
+        sp = (sp + 1) & 0xFF
+        write_idata(sp, byte)
+    if source.cleared:
+        write_sfr(source.flag_sfr, read_sfr(source.flag_sfr) & ~source.cleared)
+    paged = paging is not None and mcs51_push_sfr_page(
+        paging, read_sfr, write_sfr, source.flag_sfr >> 8
+    )
+    return sp, paged

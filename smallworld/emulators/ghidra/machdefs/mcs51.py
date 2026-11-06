@@ -6,24 +6,27 @@ from ....platforms.defs.mcs51 import (
     MCS51_ADDRESS_SPACES,
     MCS51_IDATA_BASE,
     MCS51_OPCODE_RETI,
+    MCS51_PSW_AUX_CARRY,
     MCS51_PSW_BANK_SELECT,
     MCS51_PSW_BANK_SHIFT,
+    MCS51_PSW_CARRY,
     MCS51_REGISTER_BANKS_SIZE,
     MCS51_SFR_BASE,
-    MCS51_SFR_P2,
     MCS51FlashProgramming,
     MCS51Interrupt,
     MCS51InterruptSource,
     MCS51InterruptState,
     MCS51SFRPaging,
+    mcs51_decimal_adjust,
     mcs51_flash_owns_store,
     mcs51_flash_store,
+    mcs51_initialize_state,
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_pop_sfr_page,
     mcs51_psw_with_parity,
-    mcs51_push_sfr_page,
     mcs51_service_interrupts,
+    mcs51_take_interrupt,
 )
 from .machdef import GhidraMachineDef, GhidraUserOp
 
@@ -36,17 +39,14 @@ def handle_nop(emulator, op):
 def handle_decimal_adjust(emulator, op):
     # DA A: adjust the accumulator after a BCD addition.  The op returns only
     # the new accumulator; the carry it may set lives in PSW.
-    acc = emulator._read_varnode(op.getInputs()[1])
     psw = emulator.read_register("psw")
-    carry = bool(psw & 0x80)
-    if (acc & 0x0F) > 9 or psw & 0x40:
-        acc += 0x06
-        carry = carry or acc > 0xFF
-    if ((acc >> 4) & 0x0F) > 9 or carry:
-        acc += 0x60
-        carry = carry or acc > 0xFF
-    emulator.write_register("psw", (psw | 0x80) if carry else psw)
-    emulator._write_varnode(op.getOutput(), acc)
+    acc, carry = mcs51_decimal_adjust(
+        emulator._read_varnode(op.getInputs()[1]),
+        bool(psw & MCS51_PSW_CARRY),
+        bool(psw & MCS51_PSW_AUX_CARRY),
+    )
+    emulator.write_register("psw", (psw | MCS51_PSW_CARRY) if carry else psw)
+    emulator._write_varnode(op.getOutput(), acc & 0xFF)
 
 
 class MCS51UserOp(GhidraUserOp):
@@ -141,11 +141,7 @@ class MCS51MachineDef(GhidraMachineDef):
         self._mapped_for = regions
 
     def initialize_state(self, emulator) -> None:
-        # MOVX @Ri pages through P2, as on Intel's 8051, unless the harness
-        # names another SFR; no SFR is paged.
-        emulator.write_register("xpage_sfr", MCS51_SFR_P2)
-        for register in ("xpage", "sfr_page", "sfr_paged_lo", "sfr_paged_hi"):
-            emulator.write_register(register, 0)
+        mcs51_initialize_state(emulator)
 
     def set_sfr_paging(self, emulator, paging: MCS51SFRPaging) -> None:
         """Page SFRs as a device that pages them does.
@@ -280,20 +276,20 @@ class MCS51MachineDef(GhidraMachineDef):
             )
             return
         self._interrupts_quiet = False
-        # Call the handler as LCALL would: push PC low byte first.
-        sp = emulator.read_register("sp")
-        for byte in pc.to_bytes(2, "little"):
-            sp = (sp + 1) & 0xFF
-            emulator.write_memory(MCS51_IDATA_BASE + sp, bytes([byte]))
+        sp, paged = mcs51_take_interrupt(
+            source,
+            pc,
+            emulator.read_register("sp"),
+            lambda offset, value: emulator.write_memory(
+                MCS51_IDATA_BASE + offset, bytes([value])
+            ),
+            read_sfr,
+            write_sfr,
+            paging,
+        )
         emulator.write_register("sp", sp)
         emulator.write_register("pc", source.vector)
-        if source.cleared:
-            flags = read_sfr(source.flag_sfr) & ~source.cleared
-            emulator.write_memory(MCS51_SFR_BASE + source.flag_sfr, bytes([flags]))
-        # The interrupt's page is that of its request flags.
-        if paging is not None and mcs51_push_sfr_page(
-            paging, read_sfr, write_sfr, source.flag_sfr >> 8
-        ):
+        if paged:
             self._sync_sfr_page(emulator)
 
     def update_derived_state(self, emulator, writes=None) -> None:

@@ -11085,7 +11085,9 @@ class PrintfPointerTests(unittest.TestCase):
 
         match = pointer_re.match(spec)
         assert match is not None
-        return handle_pointer("", self.Varargs(*widths), match, None)
+        # Varargs stands in for a VariadicContext, and %p needs no emulator.
+        varargs = typing.cast(typing.Any, self.Varargs(*widths))
+        return handle_pointer("", varargs, match, typing.cast(typing.Any, None))
 
     def test_width_and_left_justification(self):
         self.assertEqual(self.format("%p"), "0x1234")
@@ -11146,6 +11148,69 @@ class MCS51MovxPagingTests(unittest.TestCase):
         for emulator_class in (emulators.ghidra.GhidraEmulator, emulators.AngrEmulator):
             with self.subTest(emulator=emulator_class.__name__):
                 self.assertEqual(self.run_movx(emulator_class, None), 0x42)
+
+
+class MCS51SharedHelperTests(unittest.TestCase):
+    """The 8051 helpers both emulators' machine definitions share."""
+
+    def test_decimal_adjust_agrees_on_integers_and_claripy(self):
+        # The Ghidra backend runs DA A on integers, the angr backend on
+        # claripy values; both must give the same result for every input.
+        import claripy
+
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51Operations,
+            mcs51_decimal_adjust,
+        )
+
+        symbolic = MCS51Operations(claripy.If, claripy.Or, claripy.And, claripy.UGT)
+        solver = claripy.Solver()
+        for acc in range(0x100):
+            for carry in (False, True):
+                for aux_carry in (False, True):
+                    concrete = mcs51_decimal_adjust(acc, carry, aux_carry)
+                    value, flag = mcs51_decimal_adjust(
+                        claripy.BVV(acc, 9),
+                        claripy.BoolV(carry),
+                        claripy.BoolV(aux_carry),
+                        symbolic,
+                    )
+                    self.assertEqual(
+                        (solver.eval(value, 1)[0] & 0xFF, solver.is_true(flag)),
+                        (concrete[0] & 0xFF, bool(concrete[1])),
+                        f"acc={acc:#x} carry={carry} aux_carry={aux_carry}",
+                    )
+
+    def test_decimal_adjust(self):
+        from smallworld.platforms.defs.mcs51 import mcs51_decimal_adjust
+
+        # 0x19 + 0x28 = 0x41, which DA A makes 0x47; 0x99 + 0x01 = 0x9A,
+        # which it makes 0x00 with a carry.
+        self.assertEqual(mcs51_decimal_adjust(0x41, False, True), (0x47, False))
+        acc, carry = mcs51_decimal_adjust(0x9A, False, False)
+        self.assertEqual((acc & 0xFF, carry), (0x00, True))
+
+    def test_take_interrupt_wraps_the_stack_and_clears_flags(self):
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51Interrupt,
+            mcs51_take_interrupt,
+        )
+
+        idata: typing.Dict[int, int] = {}
+        sfrs = {0x88: 0xFF}
+        source = MCS51Interrupt.TIMER0
+        sp, paged = mcs51_take_interrupt(
+            source,
+            0x1234,
+            0xFF,
+            idata.__setitem__,
+            sfrs.__getitem__,
+            sfrs.__setitem__,
+        )
+        # Pushed low byte first, wrapping from 0xFF to 0.
+        self.assertEqual((sp, paged), (0x01, False))
+        self.assertEqual(idata, {0x00: 0x34, 0x01: 0x12})
+        self.assertEqual(sfrs[0x88], 0xFF & ~source.cleared)
 
 
 if __name__ == "__main__":
