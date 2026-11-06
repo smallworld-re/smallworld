@@ -1,5 +1,5 @@
     .text
 test:
-    li.w    $a7,63
+    li.w    $a7,64
     syscall 0
     nop

@@ -48,10 +48,13 @@ Capstone have no LoongArch32 support.
 That language is not either published LoongArch32 variant. It is
 LoongArch64's base instruction set without the 64-bit-wide operations, so it
 runs LA32R (reduced) and LA32S (standard) code, both subsets of it, but it
-also decodes and executes a few instructions that only LoongArch64 has, such as
-``pcaddu18i``, ``ldptr.w``/``stptr.w``, the CRC and bounds-checked load/store
-instructions, ``asrtgt.d``/``asrtle.d`` and the ``iocsr`` accesses, where real
-LoongArch32 hardware would raise an exception.
+also decodes a few instructions that only LoongArch64 has, where real
+LoongArch32 hardware would raise an exception. ``pcaddu18i`` and
+``ldptr.w``/``stptr.w`` execute. The CRC instructions, the bounds-checked
+load/store instructions and ``asrtgt.d``/``asrtle.d`` stop emulation with an
+error instead, because SmallWorld implements none of the p-code user
+operations they lift to; angr raises when it lifts the block, even where an
+assertion would pass.
 
 The test suite assembles LoongArch32 with zig. zig has no LoongArch32 libc, and
 its LLVM has no 32-bit LoongArch CPU model to compile C for, so the tests are

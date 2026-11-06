@@ -32,16 +32,13 @@ data = b"Hello, world!\n\0"
 stack.push_bytes(data, None)
 arg1 = stack.get_pointer()
 
-# Push a fake return address
-stack.push_integer(0xFFFFFFFF, 4, None)
-
 # set the stack pointer
 cpu.sp.set(stack.get_pointer())
 
-# Initialize call to write():
-# - edi: File descriptor 1 (stdout)
-# - rsi: Buffer containing output
-# - rdx: Size of output buffer
+# Initialize call to write(), syscall 64 in LoongArch's generic table:
+# - a0: File descriptor 1 (stdout)
+# - a1: Buffer containing output
+# - a2: Size of output buffer
 cpu.a0.set(0x1)
 cpu.a1.set(arg1)
 cpu.a2.set(len(data) - 1)
@@ -57,7 +54,7 @@ def write_hook(emu: smallworld.emulators.Emulator) -> None:
 
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.hook_syscalls(syscall_hook)
-emulator.hook_syscall(63, write_hook)
+emulator.hook_syscall(64, write_hook)
 
 # Emulate
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
