@@ -10372,6 +10372,14 @@ class ArmV8FpUseropTests(unittest.TestCase):
         self.assertEqual(self._max(vmaxnm, _f32(1.0), snan), 0x7FC00001)
         self.assertEqual(self._max(vmaxnm, _f32(1.0), snan, fpscr=1 << 25), qnan)
 
+    def test_scalar_f16_maxnum_clears_the_upper_half(self):
+        vmaxnm, vminnm = 0xFE801920, 0xFE801960  # v{max,min}nm.f16 s2, s0, s1
+        one, two = 0x3C00, 0x4000
+        # The upper halves of the operands mustn't reach the result.
+        a, b = 0x12340000 | one, 0x56780000 | two
+        self.assertEqual(self._max(vmaxnm, a, b), two)
+        self.assertEqual(self._min(vminnm, a, b), one)
+
     def test_simd_maxnum_works_lane_by_lane(self):
         vmaxnm_d = 0xF3010F12  # vmaxnm.f32 d0, d1, d2
         self.assertEqual(
