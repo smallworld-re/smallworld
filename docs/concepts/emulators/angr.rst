@@ -63,6 +63,20 @@ In linear mode (the default), it is possible to access emulator state once emula
    ``AngrEmulator`` cannot single-step on platforms with delay slots,
    particularly MIPS and MIPS64.
 
+.. note::
+   On arm32, ``AngrEmulator.set_thumb()`` and ``AngrEmulator.get_thumb()``
+   work as they do on Unicorn: they set and report whether the core
+   runs ARM or Thumb code, writing an odd ``pc`` enters Thumb state,
+   and writing an even one keeps the state the core is in.
+
+   angr itself addresses Thumb code with bit 0 set.
+   ``AngrEmulator`` hides that: ``pc`` reads without it,
+   and hooks, exit points and bounds take the address of the instruction,
+   as on the other emulators.
+
+   Once a run is over, an ``AngrEmulator`` can't start another;
+   use a fresh one.
+
 Exit Points and Bounds
 ----------------------
 
@@ -80,6 +94,17 @@ it will raise a ``SymbolicValueError``.
 
 It's possible to access the symbolic expression using ``Emulator.read_register_symbolic()``,
 and write back a symbolic expression using ``Emulator.write_register_symbolic()``.
+
+.. note::
+   angr has no ``cpsr`` on arm32 A- and R-profile platforms,
+   so ``AngrEmulator`` builds one from the condition flags,
+   the Q and GE flags, and Thumb state, and writes those back.
+   angr has no processor modes:
+   the mode and mask bits always read as SVC with A, I and F masked,
+   an A-profile core's state out of reset, E reads set on big-endian
+   (BE8) platforms, and writes to those bits, and to the IT bits,
+   are ignored.
+   ``cpsr`` can't hold a label.
 
 ``Emulator.write_register_label()`` has a special interaction with ``AngrEmulator``.
 It will replace the contents of the register with a symbolic variable

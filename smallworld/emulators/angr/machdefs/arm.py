@@ -1,4 +1,9 @@
+import typing
+
+import angr
 import archinfo
+import claripy
+from angr.engines.vex.claripy import ccall
 
 from ....platforms import Architecture, Byteorder
 from ..be8 import BE8Engine, be8_arch
@@ -7,6 +12,8 @@ from .machdef import AngrMachineDef
 
 
 class ARMMachineDef(AngrMachineDef):
+    thumb_bit_in_pc = True
+
     def __init__(self):
         self._registers = {
             # *** General-purpose registers ***
@@ -96,6 +103,60 @@ class ARMMachineMixinMMainline(ARMMachineMixinM):
 
 class ARMMachineMixinBanked:
     """Mixin for ARM CPUs with the classic banked-register model (non-M-profile)"""
+
+    # angr has no cpsr. VEX keeps the condition flags as a thunk, Q and GE
+    # in registers of their own, and Thumb state in bit 0 of pc; build cpsr
+    # from those. angr has no processor modes, so the mode and mask bits
+    # read as an A-profile core's out of reset (SVC, with A, I and F
+    # masked) and are ignored on a write, as are the IT bits.
+    has_cpsr = True
+    angr_engine: typing.Any
+
+    _CPSR_FIXED = 0x1D3
+    _CPSR_E = 1 << 9
+    _CPSR_T = 1 << 5
+    _CPSR_Q = 1 << 27
+    _CPSR_GE_SHIFT = 16
+    _CPSR_NZCV = 0xF0000000
+
+    def read_cpsr(self, state: angr.SimState) -> claripy.ast.bv.BV:
+        regs = state.regs
+        cpsr = ccall.armg_calculate_flags_nzcv(
+            state, regs.cc_op, regs.cc_dep1, regs.cc_dep2, regs.cc_ndep
+        )
+        fixed = self._CPSR_FIXED
+        if self.angr_engine is BE8Engine:
+            fixed |= self._CPSR_E
+        cpsr |= claripy.BVV(fixed, 32)
+        cpsr |= claripy.If(
+            regs.qflag32 != 0, claripy.BVV(self._CPSR_Q, 32), claripy.BVV(0, 32)
+        )
+        for i in range(4):
+            cpsr |= claripy.If(
+                getattr(regs, f"geflag{i}") != 0,
+                claripy.BVV(1 << (self._CPSR_GE_SHIFT + i), 32),
+                claripy.BVV(0, 32),
+            )
+        pc = typing.cast(claripy.ast.bv.BV, regs.pc)
+        cpsr |= (pc & 1) << 5
+        return cpsr
+
+    def write_cpsr(self, state: angr.SimState, value: claripy.ast.bv.BV) -> None:
+        regs = state.regs
+        # A copied thunk holds NZCV as they are, in bits 31:28.
+        regs.cc_op = claripy.BVV(ccall.ARMG_CC_OP_COPY, 32)
+        regs.cc_dep1 = value & self._CPSR_NZCV
+        regs.cc_dep2 = claripy.BVV(0, 32)
+        regs.cc_ndep = claripy.BVV(0, 32)
+        regs.qflag32 = value & self._CPSR_Q
+        for i in range(4):
+            setattr(
+                regs,
+                f"geflag{i}",
+                value & (1 << (self._CPSR_GE_SHIFT + i)),
+            )
+        pc = typing.cast(claripy.ast.bv.BV, regs.pc)
+        regs.pc = (pc & ~1) | ((value & self._CPSR_T) >> 5)
 
     def __init__(self):
         super().__init__()

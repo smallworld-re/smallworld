@@ -3,6 +3,7 @@ import typing
 
 import angr
 import archinfo
+import claripy
 
 from .... import exceptions, platforms, utils
 
@@ -28,9 +29,17 @@ class AngrMachineDef:
         """The angr architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    # Is this thumb?
+    # Is this Thumb-only (M-profile)?
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False
+
+    # Is bit 0 of pc the Thumb bit, as on every 32-bit ARM?
+    # angr addresses Thumb code with it set.
+    thumb_bit_in_pc: bool = False
+
+    # Does this machine build a cpsr angr has no register for?
+    # See read_cpsr() and write_cpsr().
+    has_cpsr: bool = False
 
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
@@ -102,13 +111,21 @@ class AngrMachineDef:
         else:
             exit_points = state.scratch.exit_points
 
-        if self.is_thumb:
+        if self.thumb_bit_in_pc:
             # angr addresses Thumb code with the Thumb bit set.
             exit_points = exit_points | {p | 1 for p in exit_points}
 
         return state.project.factory.successors(
             state, extra_stop_points=exit_points, **kwargs
         )
+
+    def read_cpsr(self, state: angr.SimState) -> claripy.ast.bv.BV:
+        """Build cpsr from angr's state"""
+        raise exceptions.UnsupportedRegisterError(f"No cpsr for {self.arch}")
+
+    def write_cpsr(self, state: angr.SimState, value: claripy.ast.bv.BV) -> None:
+        """Write cpsr's bits to where angr's state keeps them"""
+        raise exceptions.UnsupportedRegisterError(f"No cpsr for {self.arch}")
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

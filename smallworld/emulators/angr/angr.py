@@ -122,6 +122,8 @@ class AngrEmulator(
             str, typing.Union[int, claripy.ast.bv.BV]
         ] = dict()
         self._register_labels: typing.Dict[str, str] = dict()
+        # Thumb state before initialization, for 32-bit ARM
+        self._pending_thumb: bool = False
         self._memory_maps: typing.List[typing.Tuple[int, int]] = list()
         self._memory_contents: typing.List[
             typing.Tuple[int, typing.Union[bytes, claripy.ast.bv.BV]]
@@ -349,6 +351,10 @@ class AngrEmulator(
         for name, content in self._register_contents.items():
             self.write_register_content(name, content)
 
+        if self.machdef.thumb_bit_in_pc and not self.machdef.is_thumb:
+            # The pending writes left the core in this state.
+            self.set_thumb(self._pending_thumb)
+
         for name, label in self._register_labels.items():
             self.write_register_label(name, label)
 
@@ -413,12 +419,15 @@ class AngrEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
+        if name == "cpsr" and self.machdef.has_cpsr:
+            return self.machdef.read_cpsr(self.state)
+
         off, size = self.machdef.angr_reg(name)
         value = self.state.registers.load(off, size)
-        if is_pc and self.machdef.is_thumb:
+        if is_pc and self.machdef.thumb_bit_in_pc:
             # angr addresses Thumb code with the Thumb bit set; report the
             # address the core executes at, as the other emulators do.
-            value = value & claripy.BVV(~1 & ((1 << (size * 8)) - 1), size * 8)
+            value = self._with_thumb_bit(value, False)
         return value
 
     def read_register_content(self, name: str) -> int:
@@ -445,6 +454,10 @@ class AngrEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
+        if name == "cpsr" and self.machdef.has_cpsr:
+            # Built from several of angr's registers, so never a pure label
+            return None
+
         try:
             # This considers all BVSs to be labeled values;
             # if it has a name, we're giving it to you.
@@ -470,14 +483,16 @@ class AngrEmulator(
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
+        if name == "cpsr" and self.machdef.has_cpsr and content is not None:
+            self._write_cpsr(content)
+            return
+
         if (
             (name == "pc" or name == self.platdef.pc_register)
-            and self.machdef.is_thumb
+            and self.machdef.thumb_bit_in_pc
             and content is not None
         ):
-            # angr addresses Thumb code with the Thumb bit set; reads of PC
-            # clear it, so writes restore it.
-            content = content | 1
+            content = self._thumb_pc(content)
 
         if not self._initialized and content is not None:
             if name == "pc":
@@ -520,6 +535,52 @@ class AngrEmulator(
         self, name: str, type: typing.Optional[typing.Any] = None
     ) -> None:
         pass
+
+    # Bit 5 of cpsr is the Thumb bit.
+    _CPSR_T = 1 << 5
+
+    @staticmethod
+    def _with_thumb_bit(value: claripy.ast.bv.BV, thumb: bool) -> claripy.ast.bv.BV:
+        size = value.size()
+        value = value & claripy.BVV(~1 & ((1 << size) - 1), size)
+        return value | 1 if thumb else value
+
+    def _thumb_pc(
+        self, content: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        """The value angr's pc holds for a write of `content` to pc
+
+        angr addresses Thumb code with the Thumb bit set, and keeps Thumb
+        state nowhere else.
+        """
+        if self.machdef.is_thumb:
+            # Reads of pc clear the bit, so writes restore it.
+            return content | 1
+        if isinstance(content, claripy.ast.bv.BV):
+            if content.symbolic:
+                return content
+            content = content.concrete_value
+        # As on Unicorn, an odd pc enters Thumb state, and an even one keeps
+        # the core in the state it's in, so pc can be written back as read.
+        thumb = bool(content & 1) or self.get_thumb()
+        if not self._initialized:
+            # initialize() sets the bit once every pending write is in.
+            self._pending_thumb = thumb
+            return content & ~1
+        return content & ~1 | int(thumb)
+
+    def _write_cpsr(self, content: typing.Union[int, claripy.ast.bv.BV]) -> None:
+        value = claripy.BVV(content, 32) if isinstance(content, int) else content
+        if not self._initialized:
+            self._register_contents["cpsr"] = content
+            if not value.symbolic:
+                self._pending_thumb = bool(value.concrete_value & self._CPSR_T)
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        else:
+            self.machdef.write_cpsr(self.state, value)
 
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
@@ -768,13 +829,16 @@ class AngrEmulator(
                 # Unclobber it, just in case
                 state.inspect.action_attrs_set = True
 
-            bp = self.state.inspect.b(
-                "instruction",
-                when=angr.BP_BEFORE,
-                action=hook_handler,
-                instruction=address,
-            )
-            self.state.scratch.insn_bps[address] = bp
+            # angr addresses Thumb code with the Thumb bit set.
+            self.state.scratch.insn_bps[address] = [
+                self.state.inspect.b(
+                    "instruction",
+                    when=angr.BP_BEFORE,
+                    action=hook_handler,
+                    instruction=addr,
+                )
+                for addr in self._code_addresses(address)
+            ]
 
     def unhook_instruction(self, address: int) -> None:
         if not self._initialized:
@@ -793,10 +857,11 @@ class AngrEmulator(
             )
 
         else:
-            bp = self.state.scratch.insn_bps[address]
+            bps = self.state.scratch.insn_bps[address]
             del self.state.scratch.insn_bps[address]
 
-            self.state.inspect.remove_breakpoint("instruction", bp)
+            for bp in bps:
+                self.state.inspect.remove_breakpoint("instruction", bp)
 
     def hook_instructions(
         self, function: typing.Callable[[emulator.Emulator], None]
@@ -881,9 +946,44 @@ class AngrEmulator(
 
         angr addresses Thumb code with the Thumb bit set.
         """
-        if self.machdef.is_thumb:
+        if self.machdef.thumb_bit_in_pc:
             return (address & ~1, address | 1)
         return (address,)
+
+    def get_thumb(self) -> bool:
+        if not self.machdef.thumb_bit_in_pc:
+            raise exceptions.ConfigurationError(
+                "called get_thumb() on non-ARM32 system"
+            )
+        if self.machdef.is_thumb:
+            return True
+        if not self._initialized:
+            return self._pending_thumb
+        off, size = self.machdef.angr_reg(self.platdef.pc_register)
+        pc = self.state.registers.load(off, size)
+        if pc.symbolic:
+            raise exceptions.SymbolicValueError("pc is symbolic")
+        return bool(pc.concrete_value & 1)
+
+    def set_thumb(self, enabled=True) -> None:
+        if not self.machdef.thumb_bit_in_pc:
+            raise exceptions.ConfigurationError(
+                "called set_thumb() on non-ARM32 system"
+            )
+        if self.machdef.is_thumb:
+            if not enabled:
+                raise exceptions.ConfigurationError(f"{self.platform} is Thumb-only")
+            return
+        if not self._initialized:
+            self._pending_thumb = bool(enabled)
+            return
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        off, size = self.machdef.angr_reg(self.platdef.pc_register)
+        pc = self.state.registers.load(off, size)
+        self.state.registers.store(off, self._with_thumb_bit(pc, enabled))
 
     def hook_syscall(
         self, number: int, function: typing.Callable[[emulator.Emulator], None]
@@ -1557,7 +1657,7 @@ class AngrEmulator(
 
         def filter_func(state):
             ip = state.solver.eval_exact(state._ip, 1)[0]
-            if self.machdef.is_thumb:
+            if self.machdef.thumb_bit_in_pc:
                 # angr addresses Thumb code with the Thumb bit set.
                 ip &= ~1
             if (
