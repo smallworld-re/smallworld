@@ -19,7 +19,8 @@ elif [ "$platform" = "aarch64v85a" ]; then
 elif [ "$platform" = "amd64" ]; then
     sysroot=$AMD64_SYSROOT
     qemu_bin="qemu-x86_64"
-elif [ "$platform" = "armv6k" ] || [ "$platform" = "armv7a" ]; then
+elif [ "${platform#armv}" != "$platform" ]; then
+    # Every 32-bit ARM platform (armv4t through armv8m)
     echo "FIXME: No sysroot for arm32 in Nix"
     exit 0
 elif [ "$platform" = "i386" ]; then
