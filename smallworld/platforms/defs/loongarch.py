@@ -269,10 +269,16 @@ class LoongArch32(LoongArchPlatformDef):
     Ghidra's 32-bit sleigh is a superset of both: it is LoongArch64's base
     instruction set without the 64-bit-wide operations, so it also decodes a
     few instructions that only LoongArch64 has instead of faulting on them.
-    pcaddu18i and ldptr.w/stptr.w execute; the CRC and bounds-checked
-    load/store instructions and asrtgt.d/asrtle.d lift to p-code user
-    operations no emulator implements, so they stop emulation with an error.
-    ilp32d is the language with the double-precision FPU's 8-byte registers.
+    pcaddu18i and ldptr.w/stptr.w execute, and the CRC instructions stop
+    emulation with an error. The bounds-checked load/store instructions and
+    asrtgt.d/asrtle.d execute on Ghidra when their check passes; angr refuses
+    any block containing one. ilp32d is the language with the double-precision
+    FPU's 8-byte registers.
+
+    The sleigh computes rotr.w/rotri.w of values with bit 31 set, bstrins.w
+    and bytepick.w wrong on both emulators; see the LoongArch32 notes in
+    docs/concepts/platforms/support.rst for these and the instructions that
+    stop emulation.
     """
 
     architecture = Architecture.LOONGARCH32
