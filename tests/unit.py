@@ -2633,7 +2633,9 @@ class PlatformDefMetadataTests(unittest.TestCase):
         # SW-081: the Thumb platform inherited CS_MODE_ARM, so a disassembler
         # built from capstone_mode decoded ARM instead of Thumb.
         pdef = self._pdef(platforms.Architecture.ARM_V6M)
-        self.assertEqual(pdef.capstone_mode, capstone.CS_MODE_THUMB)
+        self.assertEqual(
+            pdef.capstone_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
+        )
 
     def test_armv7r_has_v7_ghidra_language_id(self):
         # SW-164: v7R inherited None, skipping the p-code use/def analysis.
@@ -5031,7 +5033,8 @@ class ArmInstructionPlatformTests(unittest.TestCase):
             ARMV8MInstruction.platform.architecture, platforms.Architecture.ARM_V8M
         )
         self.assertEqual(
-            ARMV8MInstruction.cs_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
+            ARMV8MInstruction.cs_mode,
+            capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS | capstone.CS_MODE_V8,
         )
 
     def test_armv6k_instruction_platform(self):
@@ -5048,7 +5051,9 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         self.assertEqual(
             ARMV6MInstruction.platform.architecture, platforms.Architecture.ARM_V6M
         )
-        self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB)
+        self.assertEqual(
+            ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
+        )
 
     def test_from_capstone_with_platform_picks_its_format(self):
         # Every A32 platform shares Capstone's ARM architecture and mode, so
@@ -5106,6 +5111,77 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         insn = Instruction.from_bytes(b"\x01\x20", 0x1000, thumb)
         self.assertEqual(type(insn).__name__, "ARMV6MInstruction")
         self.assertIn("movs", insn.disasm)
+
+
+class MProfileDecodeTests(unittest.TestCase):
+    """M-profile decodes its special-register moves.
+
+    Without CS_MODE_MCLASS, Capstone doesn't know primask, control and the
+    rest, so mrs and msr on them didn't decode at all.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    SPECIAL = {
+        "eff31080": "mrs r0, primask",
+        "80f31188": "msr basepri, r0",
+        "eff31480": "mrs r0, control",
+        "80f30a88": "msr msplim, r0",
+    }
+
+    @staticmethod
+    def platform(arch):
+        return platforms.Platform(arch, platforms.Byteorder.LITTLE)
+
+    def test_platform_capstone_mode_decodes_special_registers(self):
+        for arch in self.M_PROFILES:
+            pdef = platforms.PlatformDef.for_platform(self.platform(arch))
+            for raw, text in self.SPECIAL.items():
+                with self.subTest(arch=arch.name, insn=text):
+                    insn = _disasm_one(
+                        bytes.fromhex(raw),
+                        0x1000,
+                        pdef.capstone_arch,
+                        pdef.capstone_mode,
+                    )
+                    self.assertEqual(f"{insn.mnemonic} {insn.op_str}", text)
+
+    def test_from_bytes_decodes_special_registers(self):
+        for arch in self.M_PROFILES:
+            for raw, text in self.SPECIAL.items():
+                with self.subTest(arch=arch.name, insn=text):
+                    insn = Instruction.from_bytes(
+                        bytes.fromhex(raw), 0x1000, self.platform(arch)
+                    )
+                    self.assertEqual(insn.disasm, f"1000 {text}")
+
+    def test_from_capstone_matches_the_platforms_mode(self):
+        # Without a platform, from_capstone matches the instruction's mode
+        # exactly, so the format must use the platform's mode.
+        pdef = platforms.PlatformDef.for_platform(
+            self.platform(platforms.Architecture.ARM_V8M)
+        )
+        cs_insn = _disasm_one(
+            bytes.fromhex("eff31080"), 0x1000, pdef.capstone_arch, pdef.capstone_mode
+        )
+        insn = Instruction.from_capstone(cs_insn)
+        self.assertEqual(type(insn).__name__, "ARMV8MInstruction")
+
+    def test_undecodable_bytes_raise_decode_error(self):
+        # The first half of a 32-bit Thumb instruction.
+        with self.assertRaises(exceptions.InstructionDecodeError) as ctx:
+            Instruction.from_bytes(
+                bytes.fromhex("eff3"),
+                0x1000,
+                self.platform(platforms.Architecture.ARM_V7M),
+            )
+        self.assertIn("eff3", str(ctx.exception))
+        self.assertIn("0x1000", str(ctx.exception))
 
 
 class X86ImmediateOperandTests(unittest.TestCase):
