@@ -4136,6 +4136,108 @@ class StyxHookExecutionTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxArmHookRegisterTests(unittest.TestCase):
+    """ARM register aliases and the status register inside Styx hooks.
+
+    A hook reaches registers through the CPU it's handed, which knows only
+    the core registers and the status register by their plain names, so
+    aliases (ip, fp, r13, ...) and M-profile's xPSR were unreachable.
+    """
+
+    A_PROFILES = (platforms.Architecture.ARM_V6K, platforms.Architecture.ARM_V7A)
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+    )
+    ALIASES = {
+        "sb": "r9",
+        "sl": "r10",
+        "fp": "r11",
+        "ip": "r12",
+        "r13": "sp",
+        "r14": "lr",
+    }
+
+    def run_hooked(self, arch, cb):
+        emu = emulators.StyxEmulator(
+            platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        )
+        if arch in self.M_PROFILES:
+            emu.write_code(0x1000, bytes.fromhex("00bf00bf00bf"))
+        else:
+            emu.write_code(0x1000, bytes.fromhex("00f020e3" * 3))
+        emu.write_register_content("pc", 0x1000)
+        emu.add_exit_point(0x1008 if arch in self.A_PROFILES else 0x1004)
+        emu.hook_instruction(0x1000, cb)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_aliases_in_a_hook(self):
+        for arch in self.A_PROFILES + self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = {}
+
+                def cb(e):
+                    for n, (alias, base) in enumerate(self.ALIASES.items()):
+                        e.write_register_content(base, 0x100 + n)
+                        seen[f"read {alias}"] = e.read_register_content(alias)
+                        e.write_register_content(alias, 0x200 + n)
+                        seen[f"write {alias}"] = e.read_register_content(base)
+                    seen["read r15"] = e.read_register_content("r15")
+                    seen["read pc"] = e.read_register_content("pc")
+
+                self.run_hooked(arch, cb)
+                for n, alias in enumerate(self.ALIASES):
+                    self.assertEqual(seen[f"read {alias}"], 0x100 + n, alias)
+                    self.assertEqual(seen[f"write {alias}"], 0x200 + n, alias)
+                self.assertEqual(seen["read r15"], seen["read pc"])
+
+    def test_a_profile_cpsr_in_a_hook(self):
+        for arch in self.A_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = []
+                emu = self.run_hooked(
+                    arch, lambda e: seen.append(e.read_register_content("cpsr"))
+                )
+                self.assertEqual(seen, [emu.read_register_content("cpsr")])
+
+    def test_m_profile_psr_in_a_hook(self):
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = []
+
+                def cb(e):
+                    seen.append(e.read_register_content("psr"))
+                    seen.append(e.read_register_content("cpsr"))
+
+                emu = self.run_hooked(arch, cb)
+                psr = emu.read_register_content("psr")
+                # The xPSR's Thumb bit
+                self.assertTrue(psr & (1 << 24))
+                self.assertEqual(seen, [psr, psr])
+
+    def test_fp_registers_in_a_hook_are_unsupported(self):
+        for reg in ("s0", "d0", "fpscr"):
+            for write in (False, True):
+                with self.subTest(reg=reg, write=write):
+
+                    def cb(e):
+                        if write:
+                            e.write_register_content(reg, 0)
+                        else:
+                            e.read_register_content(reg)
+
+                    with self.assertRaisesRegex(
+                        exceptions.UnsupportedRegisterError, "hooks can't reach"
+                    ):
+                        self.run_hooked(platforms.Architecture.ARM_V7EM, cb)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxPowerPCExecutionTests(unittest.TestCase):
     """End-to-end execution checks for PowerPC on Styx.
 
