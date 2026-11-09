@@ -80,7 +80,10 @@ _ANGR_NO_MAXNUM = "angr doesn't implement VEX's Iop_MaxNumF32 (vmaxnm)"
 _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] = {
     "v8_acqrel": (
         ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m"),
-        ((5, 2 * 5 + 1), (100, 2 * 100 + 1)),
+        # The final lda, the first, and the stlex status, a byte each. A
+        # stlex that fails gives 0x01xxxx, one that never writes its status
+        # 0x7fxxxx.
+        ((5, 0x000506), (100, 0x006465)),
         {
             f"{arch}.triton": _TRITON_NO_ACQREL
             for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m")
