@@ -7,6 +7,8 @@ VFP (ARM) or anything at all (AArch64), so lift from a little-endian guest
 and then make every load and store big-endian.
 """
 
+import typing
+
 import angr
 import archinfo
 import claripy
@@ -71,10 +73,73 @@ class _LittleEndianLiftEngine(UberEngine):
         return irsb
 
 
+def _swapped_words(
+    irsb: pyvex.IRSB, value: pyvex.expr.IRExpr
+) -> typing.Tuple[int, typing.List[pyvex.stmt.IRStmt]]:
+    """A temporary holding `value`'s two words swapped, and its statements"""
+    lo = irsb.tyenv.add("Ity_I32")
+    hi = irsb.tyenv.add("Ity_I32")
+    swapped = irsb.tyenv.add("Ity_I64")
+    rd = pyvex.expr.RdTmp.get_instance
+    return swapped, [
+        pyvex.stmt.WrTmp(lo, pyvex.expr.Unop("Iop_64to32", [value])),
+        pyvex.stmt.WrTmp(hi, pyvex.expr.Unop("Iop_64HIto32", [value])),
+        pyvex.stmt.WrTmp(swapped, pyvex.expr.Binop("Iop_32HLto64", [rd(lo), rd(hi)])),
+    ]
+
+
+def swap_exclusive_doublewords(irsb: pyvex.IRSB) -> pyvex.IRSB:
+    """Put ldrexd's and strexd's first register at the lower address
+
+    VEX lifts them as one 64-bit linked access whose low half is the first
+    register, which is the word at the lower address only when data is
+    little-endian. Returns a changed copy, or `irsb` if there is nothing to do.
+    """
+
+    def doubleword(stmt: pyvex.stmt.IRStmt) -> typing.Optional[pyvex.stmt.LLSC]:
+        if not isinstance(stmt, pyvex.stmt.LLSC):
+            return None
+        if stmt.storedata is None:
+            size = irsb.tyenv.lookup(stmt.result)
+        else:
+            size = stmt.storedata.result_type(irsb.tyenv)
+        return stmt if size == "Ity_I64" else None
+
+    if not any(doubleword(stmt) for stmt in irsb.statements):
+        return irsb
+    # angr caches the lifted block, so leave its copy alone.
+    irsb = irsb.copy()
+    statements: typing.List[pyvex.stmt.IRStmt] = []
+    for stmt in irsb.statements:
+        llsc = doubleword(stmt)
+        if llsc is None:
+            statements.append(stmt)
+        elif llsc.storedata is None:
+            loaded = irsb.tyenv.add("Ity_I64")
+            swapped, swap = _swapped_words(irsb, pyvex.expr.RdTmp.get_instance(loaded))
+            result = llsc.result
+            llsc.result = loaded
+            statements.append(llsc)
+            statements.extend(swap)
+            statements.append(
+                pyvex.stmt.WrTmp(result, pyvex.expr.RdTmp.get_instance(swapped))
+            )
+        else:
+            swapped, swap = _swapped_words(irsb, llsc.storedata)
+            statements.extend(swap)
+            llsc.storedata = pyvex.expr.RdTmp.get_instance(swapped)
+            statements.append(llsc)
+    irsb.statements = statements
+    return irsb
+
+
 class BE8Engine(_LittleEndianLiftEngine):
     """angr's VEX engine, lifting BE8 code"""
 
     lift_arch = archinfo.ArchARMEL()
+
+    def lift_vex(self, *args, **kwargs):
+        return swap_exclusive_doublewords(super().lift_vex(*args, **kwargs))
 
 
 class AArch64BEEngine(_LittleEndianLiftEngine):
@@ -123,4 +188,5 @@ __all__ = [
     "aarch64_be_arch",
     "be8_arch",
     "make_big_endian",
+    "swap_exclusive_doublewords",
 ]
