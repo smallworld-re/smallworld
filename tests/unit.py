@@ -10598,6 +10598,73 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
             emu.write_register("isa_mode", 0)
 
 
+class MicroMIPSAngrJalxTests(unittest.TestCase):
+    """Decoding a jalx leaves sleigh's context saying standard MIPS32 starts
+    at its target; angr's microMIPS engine must not keep decoding with it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    JALX = bytes.fromhex("f0000800")  # jalx 0x2000
+    NOP16 = bytes.fromhex("0c00")
+
+    @staticmethod
+    def _addiu_v0(value: int) -> bytes:
+        return bytes.fromhex("3040") + value.to_bytes(2, "big")
+
+    def _image(self) -> bytes:
+        image = bytearray(self.NOP16 * 0x1008)
+        # 0x1000: jalx 0x2000, with a 16-bit nop in its delay slot.
+        image[0:4] = self.JALX
+        # 0x1ff8: a block that starts below the jalx target and runs into it.
+        image[0x1000:0x1004] = self._addiu_v0(7)
+        # 0x3000: microMIPS well above the jalx target.
+        image[0x2000:0x2004] = self._addiu_v0(5)
+        return bytes(image)
+
+    def _emulator(self):
+        image = self._image()
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, len(image))
+        emu.write_code(0x1000, image)
+        emu.write_register("v0", 0)
+        return emu
+
+    def _run(self, emu, start: int, stop: int) -> int:
+        emu.write_register("pc", start)
+        emu.add_exit_point(stop)
+        emu.run()
+        return emu.read_register("v0")
+
+    def _lifter_context(self, emu):
+        import angr
+
+        arch = emu.proj.arch
+        return angr.engines.pcode.lifter.PcodeLifter.get_lifter(arch).context
+
+    def test_jalx_does_not_reach_a_later_emulator(self):
+        self._run(self._emulator(), 0x1000, 0x2000)
+        self.assertEqual(self._run(self._emulator(), 0x3000, 0x3004), 5)
+
+    def test_jalx_target_decodes_as_micromips(self):
+        self.assertEqual(self._run(self._emulator(), 0x1000, 0x2004), 7)
+
+    def test_block_running_into_jalx_target(self):
+        emu = self._emulator()
+        emu.initialize()
+        # Lift the jalx without running it; the factory bounds blocks by pc.
+        emu.write_register("pc", 0x1000)
+        emu.state.block(0x1000).vex
+        self.assertEqual(self._run(emu, 0x1FF8, 0x2004), 7)
+
+    def test_jalx_lifted_outside_the_engine(self):
+        emu = self._emulator()
+        emu.initialize()
+        self._lifter_context(emu).translate(self.JALX + self.NOP16, 0x1000)
+        self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
+
+
 class ElfMicroMIPSTests(unittest.TestCase):
     """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
     drops the ISA bit; standard MIPS32 functions in such an image warn."""

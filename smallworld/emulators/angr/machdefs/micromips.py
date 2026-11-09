@@ -1,6 +1,8 @@
 import typing
 
 import angr
+import archinfo
+import pypcode
 
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
@@ -8,18 +10,15 @@ from .mips import MIPSMachineDef
 from .superh import pcode_arch
 
 
-def _pin_micromips(arch) -> None:
-    """Make angr's p-code lifter for ``arch`` decode microMIPS.
+def _micromips_context(language: str) -> pypcode.Context:
+    """A sleigh context for ``language`` that decodes microMIPS everywhere.
 
-    The sleigh language holds both encodings and picks one with the ISA_MODE
-    context bit, which defaults to standard MIPS32. angr exposes no way to set
-    a context bit, so this sets the default on the lifter angr caches for the
-    language. angr keys that cache by language, and only these platforms use
-    the microMIPS languages, so the setting reaches nothing else. It is also
-    what Block.disassembly() decodes with.
+    The language holds both encodings and picks one with the ISA_MODE context
+    bit, which defaults to standard MIPS32; this makes microMIPS the default.
     """
-    lifter = angr.engines.pcode.lifter.PcodeLifter.get_lifter(arch)
-    lifter.context.setVariableDefault("ISA_MODE", 1)
+    context = pypcode.Context(language)
+    context.setVariableDefault("ISA_MODE", 1)
+    return context
 
 
 class MicroMIPSReturnAddress(angr.calling_conventions.SimRegArg):
@@ -64,15 +63,64 @@ class MicroMIPSEnginePcode(angr.engines.UberEnginePcode):
     This pins the encoding rather than tracking it: the ISAModeSwitch register
     that sleigh writes on a jump is ignored, so a jalx or jr into standard
     MIPS32 code still decodes as microMIPS.
+
+    angr exposes no way to set a context bit, so the engine gives the lifter
+    angr caches for the language its own context, one that decodes microMIPS
+    by default. angr shares that lifter among every project in the process,
+    Block.disassembly() included.
+
+    Pinning the default is not enough on its own. Decoding a jalx runs sleigh's
+    globalset, which records in the context that everything from the jump
+    target up is standard MIPS32, and that record outlives the lift: later
+    blocks, and later emulators, would decode that code as MIPS32. The engine
+    replaces the context whenever it may hold such a record: when the engine
+    is created, after lifting a block with a jalx in it, and before lifting
+    at an address that no longer decodes as microMIPS, which catches a jalx
+    lifted by something other than this engine. pypcode's own Context.reset()
+    would clear the record too, but it frees the translator that p-code
+    lifted earlier still points into.
     """
 
     def __init__(self, project, *args, **kwargs):
         super().__init__(project, *args, **kwargs)
-        _pin_micromips(project.arch)
+        arch = project.arch
+        self._lifter = angr.engines.pcode.lifter.PcodeLifter.get_lifter(arch)
+        # Two 16-bit nops: one 2-byte instruction as microMIPS, but a 4-byte
+        # jal as standard MIPS32.
+        nop16 = (0x0C00).to_bytes(
+            2, "big" if arch.memory_endness == archinfo.Endness.BE else "little"
+        )
+        self._canary = nop16 * 2
+        self._refresh_context()
 
-    def lift_pcode(self, *args, **kwargs):
-        _pin_micromips(self.project.arch)
-        return super().lift_pcode(*args, **kwargs)
+    def _refresh_context(self) -> None:
+        self._lifter.context = _micromips_context(self.project.arch.name)
+
+    def _decodes_micromips(self, addr: int) -> bool:
+        try:
+            insns = self._lifter.context.disassemble(
+                self._canary, addr, max_instructions=1
+            ).instructions
+        except (pypcode.BadDataError, pypcode.DecoderError, pypcode.LowlevelError):
+            return False
+        return len(insns) == 1 and insns[0].length == 2
+
+    def lift_pcode(self, addr=None, state=None, *args, **kwargs):
+        # angr's lift_vex passes everything positionally.
+        where = addr
+        if where is None and state is not None:
+            where = state.solver.eval(state._ip)
+        if where is not None and not self._decodes_micromips(where):
+            self._refresh_context()
+
+        irsb = super().lift_pcode(addr, state, *args, **kwargs)
+
+        disassembly = getattr(irsb, "disassembly", None)
+        if disassembly is not None and any(
+            insn.mnemonic == "jalx" for insn in disassembly.insns
+        ):
+            self._refresh_context()
+        return irsb
 
 
 class MicroMIPSMachineDef(GhidraMachineDef):

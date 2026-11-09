@@ -127,10 +127,11 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   their ``ISA_MODE`` context field.
 - **angr** runs microMIPS only, on the same languages through its p-code
   engine rather than VEX, which has no microMIPS decoder. angr's lifter has no
-  way to set a context field, so SmallWorld sets ``ISA_MODE`` on the lifter
-  angr caches for these languages; following a switch would need angr's engine
-  to act on sleigh's ``ISAModeSwitch``. ``isa_mode`` and the FPU registers are
-  not available on angr.
+  way to set a context field, so SmallWorld gives the lifter angr caches for
+  these languages a context that decodes microMIPS. A ``jalx``, or a ``jr`` to
+  an even address, still decodes as microMIPS: following a switch would need
+  angr's engine to act on sleigh's ``ISAModeSwitch``. ``isa_mode`` and the FPU
+  registers are not available on angr.
 - **Unicorn** runs microMIPS only, on the M14Kc CPU model, which runs
   microMIPS while the low bit of the pc is set. SmallWorld sets that bit
   whenever it starts a run or writes the pc. Unicorn does follow a jump into
