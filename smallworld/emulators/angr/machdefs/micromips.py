@@ -48,8 +48,44 @@ def _o32_cc(language: str) -> typing.Type[angr.calling_conventions.SimCC]:
     return SimCCMicroMIPS
 
 
+def _o32_syscall_cc(
+    language: str,
+) -> typing.Type[angr.calling_conventions.SimCCSyscall]:
+    """The o32 Linux syscall convention, for one microMIPS language."""
+
+    class SimCCMicroMIPSLinuxSyscall(angr.calling_conventions.SimCCO32LinuxSyscall):
+        ARCH = pcode_arch(language)  # type: ignore
+
+    return SimCCMicroMIPSLinuxSyscall
+
+
 for _language in ("MIPS:BE:32:micro", "MIPS:LE:32:micro"):
     angr.calling_conventions.register_default_cc(_language, _o32_cc(_language))
+    angr.calling_conventions.register_syscall_cc(
+        _language, "default", _o32_syscall_cc(_language)
+    )
+
+
+def _end_block_in_syscall(irsb, i: int) -> None:
+    """End `irsb` with the syscall whose CALLOTHER is op `i`.
+
+    Sleigh lifts syscall to a bare user op, which angr's p-code engine cannot
+    run, and no p-code opcode means "syscall", so the lifter never gives a
+    block the Ijk_Sys_syscall jumpkind that sends angr to its syscall
+    handling. Cut the block before the op and say so instead, as the
+    LoongArch, SuperH and Xtensa machine definitions do.
+    """
+    imark = next(
+        op for op in reversed(irsb._ops[:i]) if op.opcode == pypcode.OpCode.IMARK
+    ).inputs[0]
+    next_addr = imark.offset + imark.size
+    irsb._ops = irsb._ops[0:i]
+    irsb.next = next_addr
+    irsb._size = next_addr - irsb.addr
+    irsb._instruction_addresses = [
+        addr for addr in irsb._instruction_addresses if addr < next_addr
+    ]
+    irsb.jumpkind = "Ijk_Sys_syscall"
 
 
 # MERGE NOTE: two unmerged branches replace GhidraMachineDef's default
@@ -127,6 +163,43 @@ class MicroMIPSMachineDef(GhidraMachineDef):
     arch = Architecture.MIPS32_MICROMIPS
 
     angr_engine = MicroMIPSEnginePcode
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        # Turn syscall into a syscall exit; see _end_block_in_syscall. Other
+        # user ops are left to the engine as before.
+        assert hasattr(state.scratch, "exit_points")
+
+        if "extra_stop_points" in kwargs:
+            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
+            del kwargs["extra_stop_points"]
+        else:
+            exit_points = state.scratch.exit_points
+
+        if "irsb" in kwargs and kwargs["irsb"] is not None:
+            irsb = kwargs["irsb"]
+        else:
+            kwargs["opt_level"] = 0
+            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+
+        disassembly = getattr(irsb, "disassembly", None)
+        mnemonics = (
+            {insn.address: insn.mnemonic for insn in disassembly.insns}
+            if disassembly is not None
+            else {}
+        )
+        address = None
+        for i, op in enumerate(irsb._ops):
+            if op.opcode == pypcode.OpCode.IMARK:
+                address = op.inputs[0].offset
+            elif (
+                op.opcode == pypcode.OpCode.CALLOTHER
+                and mnemonics.get(address) == "syscall"
+            ):
+                _end_block_in_syscall(irsb, i)
+                break
+
+        kwargs["irsb"] = irsb
+        return super().successors(state, **kwargs)
 
     def __init__(self):
         super().__init__()
