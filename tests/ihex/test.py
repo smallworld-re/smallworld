@@ -144,6 +144,17 @@ class IHexLoaderTests(unittest.TestCase):
         self.assertEqual(list(image.keys()), [0x10002])
         self.assertEqual(image.entrypoint, 0x10002)
 
+    def test_mcs51_code_must_fit_its_64_kib(self):
+        # Banked code, as SDCC places it for parts with more flash, would
+        # land in XDATA.
+        text = record(0x04, 0, b"\x00\x01") + record(0x00, 0x8000, b"\x01") + END
+        with self.assertRaises(exceptions.ConfigurationError):
+            self.load(text, platform=MCS51)
+        with self.assertRaises(exceptions.ConfigurationError):
+            self.load(record(0x00, 0xFFFF, b"\x01\x02") + END, platform=MCS51)
+        self.load(record(0x00, 0xFFFF, b"\x01") + END, platform=MCS51)
+        self.assertEqual(list(self.load(text).bounds), [(0x18000, 0x18001)])
+
     def test_bad_checksum_is_refused(self):
         line = record(0x00, 0, b"\x01")
         bad = line[:-3] + ("00" if line[-3:-1] != "00" else "01") + "\n"
@@ -191,6 +202,26 @@ class AsxxxxMapTests(unittest.TestCase):
         image = self.load(platform=MCS51)
         self.assertEqual(image.get_symbol_value("_P1"), 0x90)
         self.assertEqual(image.get_symbol_value("l_SSEG"), 0xDF)
+
+    def test_absolute_xdata_symbols_land_in_xdata(self):
+        # SDCC puts an initialized `__xdata __at(0x1300)` variable in XABS.
+        xabs = """\
+\fASxxxx Linker V05.50.4-SDLD,  page 7.
+Hexadecimal  [32-Bits]
+
+Area                                    Addr        Size        Decimal Bytes (Attributes)
+--------------------------------        ----        ----        ------- ----- ------------
+XABS2                               00001300    00000001 =           1. bytes (ABS,CON,XDATA)
+
+         Value  Global                             Global Defined In Module
+         -----  --------------------------------   ------------------------
+D:   00001300  _xinit                             prog
+
+"""
+        image = Executable.from_ihex(
+            io.StringIO(END), map_file=io.StringIO(MAP + xabs), platform=MCS51
+        )
+        self.assertEqual(image.get_symbol_value("_xinit"), MCS51_XDATA_BASE + 0x1300)
 
     def test_other_platforms_move_symbols_with_the_image(self):
         image = self.load(address=0x100)

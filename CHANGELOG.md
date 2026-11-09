@@ -120,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in
-  SmallWorld's flat map.
+  SmallWorld's flat map, and the image must fit the 64 KiB of code space.
 - The C99 library-model tests run on the 8051, under both SDCC conventions,
   in SDCC's small and large memory models and, under the default convention,
   its medium one, for the functions with 8051 models.  An 8051 model that

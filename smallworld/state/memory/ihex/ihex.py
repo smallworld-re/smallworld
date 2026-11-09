@@ -65,9 +65,12 @@ class IHexExecutable(Executable):
     On the 8051, a map's symbols land in the flat address space SmallWorld
     lays the 8051's memories out in: a symbol in a code area at its code
     address, one in an XDATA area (pdata included) in XDATA, and the rest in
-    internal RAM.  Symbols in absolute areas - constants, and variables or
-    SFRs placed with ``__at`` - keep their values, since the map does not say
-    which space they are in.  On other platforms, symbols keep their values,
+    internal RAM.  That goes for an absolute XDATA area too, which holds
+    XDATA variables placed with ``__at``; symbols in other absolute areas -
+    constants, such as the linker's area starts and lengths, and SFRs and
+    variables placed with ``__at`` - keep their values, since the map does
+    not say which space they are in.  The image itself must fit the 8051's
+    64 KiB of code space.  On other platforms, symbols keep their values,
     moved with the image.
 
     Arguments:
@@ -149,6 +152,20 @@ class IHexExecutable(Executable):
                     last += content
                     continue
             ordered.append((start, content))
+        if (
+            platform is not None
+            and platform.architecture == Architecture.MCS51
+            and ordered
+        ):
+            # Past the 8051's 64 KiB of code is XDATA in SmallWorld's flat
+            # map; banked code, for parts with more flash, has nowhere to go.
+            start, content = ordered[-1]
+            if base + start + len(content) > MCS51_XDATA_BASE:
+                raise ConfigurationError(
+                    f"Intel HEX data up to {hex(base + start + len(content))} "
+                    f"is past the 8051's code space, which ends at "
+                    f"{hex(MCS51_XDATA_BASE)}"
+                )
         for start, content in ordered:
             self[start] = BytesValue(bytes(content), None)
             self.bounds.add_range((base + start, base + start + len(content)))
@@ -158,17 +175,19 @@ class IHexExecutable(Executable):
             self._symbols = read_asxxxx_map(_read_text(map_file))
 
     def _symbol_address(self, symbol: AsxxxxSymbol) -> int:
-        if "ABS" in symbol.attributes:
-            return symbol.value
         if (
             self.platform is not None
             and self.platform.architecture == Architecture.MCS51
         ):
-            if "CODE" in symbol.attributes:
-                return self.address + MCS51_CODE_BASE + symbol.value
             if "XDATA" in symbol.attributes:
                 return MCS51_XDATA_BASE + symbol.value
+            if "ABS" in symbol.attributes:
+                return symbol.value
+            if "CODE" in symbol.attributes:
+                return self.address + MCS51_CODE_BASE + symbol.value
             return MCS51_IDATA_BASE + symbol.value
+        if "ABS" in symbol.attributes:
+            return symbol.value
         return self.address + symbol.value
 
     def get_symbol_value(self, name: str) -> int:

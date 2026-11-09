@@ -33,9 +33,11 @@ them up with ``get_symbol_value()``, as with an ELF; maps from the ASxxxx
 linker, which SDCC uses, are supported.  Intel HEX does not record the
 platform either, and on the 8051 symbols need it to land in the right address
 space: a symbol in a code area at its code address, one in an XDATA area in
-XDATA, and the rest in internal RAM.  Symbols in absolute areas, such as
-constants, SFRs and variables placed with ``__at``, keep their values, since
-the map does not say which space they are in.
+XDATA, absolute XDATA areas included, and the rest in internal RAM.  Symbols
+in other absolute areas, such as constants, and SFRs and other variables
+placed with ``__at``, keep their values, since the map does not say which
+space they are in.  An 8051 image must fit the 64 KiB of code space;
+banked code, for parts with more flash, is not supported.
 
 .. code-block:: python
 
