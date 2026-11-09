@@ -149,7 +149,10 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   Unicorn runs a microMIPS compact branch (one with no delay slot, such as
   ``jrc``, ``jraddiusp``, ``beqzc`` or ``bnezc``) even when a hook stops
   emulation on it, in both the pip and the nix builds. An exit point placed on
-  such a branch is therefore run past.
+  such a branch is therefore run past, and single-stepping runs it too: the
+  step that reaches the branch also takes it, ending at its target rather than
+  at the branch, so a step-by-step trace on Unicorn leaves the branch out. This
+  is a Unicorn bug that SmallWorld does not work around.
 
   Stock Unicorn 2.1.4, as pip installs it, mishandles a load or store in the
   delay slot of a branch that is not taken while a memory hook is installed,
