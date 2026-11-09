@@ -85,8 +85,8 @@ class ARMV6KInstruction(ARMInstruction):
 
 
 class ARMV6MInstruction(ARMInstruction):
-    # M-profile is Thumb-only.
-    cs_mode = capstone.CS_MODE_THUMB
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
     )
@@ -99,16 +99,16 @@ class ARMV7AInstruction(ARMInstruction):
 
 
 class ARMV7MInstruction(ARMInstruction):
-    # M-profile is Thumb-only.
-    cs_mode = capstone.CS_MODE_THUMB
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
     )
 
 
 class ARMV7EMInstruction(ARMInstruction):
-    # M-profile is Thumb-only.
-    cs_mode = capstone.CS_MODE_THUMB
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
     )
@@ -135,8 +135,8 @@ class ARMV8RInstruction(ARMInstruction):
 
 
 class ARMV8MInstruction(ARMInstruction):
-    # M-profile is Thumb-only.
-    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS | capstone.CS_MODE_V8
     platform = platforms.Platform(
         platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
     )

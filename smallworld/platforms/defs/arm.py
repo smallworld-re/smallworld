@@ -1071,7 +1071,8 @@ class ARMv6M(ARMPlatformMixinM, ARMPlatformDef):
     """
 
     architecture = Architecture.ARM_V6M
-    capstone_mode = capstone.CS_MODE_THUMB
+    # MCLASS decodes the M-profile special registers (primask, control, ...).
+    capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     # Ghidra's Cortex language is its Thumb-only M-profile model.
     ghidra_language_id = "ARM:LE:32:Cortex"
 
@@ -1084,7 +1085,8 @@ class ARMv7M(ARMPlatformMixinMMainline, ARMPlatformDef):
     """
 
     architecture = Architecture.ARM_V7M
-    capstone_mode = capstone.CS_MODE_THUMB
+    # MCLASS decodes the M-profile special registers (primask, control, ...).
+    capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     # Ghidra's Cortex language is its Thumb-only M-profile model.
     ghidra_language_id = "ARM:LE:32:Cortex"
 
@@ -1102,7 +1104,8 @@ class ARMv7EM(ARMPlatformMixinFPD16, ARMPlatformMixinMMainline, ARMPlatformDef):
     """
 
     architecture = Architecture.ARM_V7EM
-    capstone_mode = capstone.CS_MODE_THUMB
+    # MCLASS decodes the M-profile special registers (primask, control, ...).
+    capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     # Ghidra's Cortex language is its Thumb-only M-profile model,
     # and includes the FPU.
     ghidra_language_id = "ARM:LE:32:Cortex"
@@ -1197,7 +1200,10 @@ class ARMv8M(ARMPlatformMixinV8MMainline, ARMPlatformDef):
     """
 
     architecture = Architecture.ARM_V8M
-    capstone_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_V8
+    # MCLASS decodes the M-profile special registers (primask, msplim, ...).
+    capstone_mode = (
+        capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS | capstone.CS_MODE_V8
+    )
     ghidra_language_id = "ARM:LE:32:v8-m"
 
 
