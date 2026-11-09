@@ -284,7 +284,7 @@ _MCS51_XPAGE_SFRS: typing.Tuple[typing.Tuple[str, int], ...] = (
     (r"CC(1110|2430|251[01]|253\d)", 0x93),
     (r"MSC12\d\d", 0x92),
     # Infineon: XADDRH, which shares its address with SFRs on other SFR
-    # pages; SmallWorld does not model SFR pages.
+    # pages; SmallWorld has no table of the XC866's paging.
     (r"XC866", 0xB3),
 )
 
@@ -441,7 +441,7 @@ _MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
 )
 
 #: Devices that page their SFRs in ways SmallWorld has no table of.
-_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d",)
+_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"XC866")
 
 
 def mcs51_sfr_paging(device: str) -> typing.Optional[MCS51SFRPaging]:

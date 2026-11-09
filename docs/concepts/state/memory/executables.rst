@@ -14,11 +14,11 @@ It should be initialized using ``Executable.from_file()`` or ``Executable.from_f
    - angr uses a different memory backend for code than it does for data.
      Specifying large (more than tens of MBs) of memory as data
      will make the execution engine unusably slow.
-   - Ghidra and Panda can model architectures
-     that use different address spaces when accessing code
-     and data.  For the one SmallWorld supports, the 8051, the spaces sit
-     side by side in one flat address map, and an object's address decides
-     which space it lands in; see :ref:`the 8051's support notes <platforms_support>`.
+   - Some architectures use different address spaces when accessing code
+     and data.  For the one SmallWorld supports, the 8051, which runs on
+     Ghidra and angr, the spaces sit side by side in one flat address map,
+     and an object's address decides which space it lands in; see
+     :ref:`the 8051's support notes <platforms_support>`.
 
 Intel HEX
 ---------

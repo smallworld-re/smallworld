@@ -22,7 +22,10 @@ class MCS51(cpu.CPU):
     they live in internal RAM at 0x00-0x1F, in the bank PSW's RS bits select.
     When internal RAM 0x00-0x1F is mapped, the emulators keep these registers
     and that bank in step, and these values are written into the selected
-    bank when emulation starts; otherwise they are registers of their own.
+    bank when emulation starts - all eight, so one left unset writes its
+    reset value, 0, over what the bank held; to keep a bank loaded with
+    internal RAM, set them from it.  Otherwise they are registers of their
+    own.
 
     ``xpage_sfr`` is not a register of the hardware but a property of the
     device: the address of the SFR that supplies the high byte of MOVX @Ri's

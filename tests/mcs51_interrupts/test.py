@@ -349,14 +349,16 @@ class MCS51SFRPagingTests(unittest.TestCase):
         for device in ("C8051F330", "C8051F020"):
             with self.subTest(device=device):
                 self.assertIsNone(mcs51_sfr_paging(device))
-        for device in ("C8051F920",):
+        for device in ("C8051F920", "XC866"):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     mcs51_sfr_paging(device)
 
     def test_devices_paged_without_a_table_are_not_paged(self):
-        with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
-            self.assertIsNone(MCS51Device("C8051F920").sfr_paging)
+        for device in ("C8051F920", "XC866"):
+            with self.subTest(device=device):
+                with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
+                    self.assertIsNone(MCS51Device(device).sfr_paging)
 
     def test_c8051f36x_pages_through_0xa7(self):
         paging = MCS51_C8051F36X_SFR_PAGING

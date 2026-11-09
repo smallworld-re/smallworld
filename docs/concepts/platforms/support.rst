@@ -256,14 +256,16 @@ banks: on the 8051, R0-R7 are eight bytes of internal RAM 0x00-0x1F in the bank
 PSW's RS bits select, and compiled code reaches them by address too (SDCC's
 ``push ar7``). When internal RAM 0x00-0x1F is mapped, both backends keep R0-R7
 and the selected bank in step around every instruction, and the ``cpu.r0`` to
-``cpu.r7`` a machine starts with are written into the bank PSW selects;
-otherwise R0-R7 are plain registers.
-Silicon Labs' CIP-51 devices (the C8051 and EFM8 families) run the 8051's
+``cpu.r7`` a machine starts with are written into the bank PSW selects - all
+eight, so one left unset writes 0 over what the bank held, and a harness that
+loads internal RAM from a snapshot must set them from it too; otherwise R0-R7
+are plain registers.
+Silicon Labs' C8051 CIP-51 devices run the 8051's
 instructions and are emulated as an 8051, with one difference SmallWorld
 models: ``movx @Ri`` takes its high address byte from the device's EMI0CN, not
 P2.  The ``xpage_sfr`` register, which is not the hardware's but a property of
 the device, names that SFR; it is P2's address, 0xA0, unless the harness sets
-it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x and F12x,
+it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x, F12x and F13x,
 0xAF on the C8051F00x, F01x, F02x and F2xx; SDCC's device headers declare it as
 ``_XPAGE``).  ``mcs51_xpage_sfr()``, in ``smallworld.platforms.defs.mcs51``,
 looks the address up by part number, for these and the other 8051s whose
@@ -318,8 +320,9 @@ Ghidra, and the next block on angr.  The headers do not say which bit enables
 the stack, nor does SmallWorld have a data sheet that says how the stack
 works; both are taken from memory of Silicon Labs' data sheets for now, and
 the C8051F36x's stack is taken to work as the C8051F04x's does.  The
-C8051F92x, which pages its SFRs differently, is emulated with its SFRs
-unpaged, with a warning, and the C8051F12x's banked flash is not modeled.
+C8051F92x and F93x, and Infineon's XC866, which page their SFRs differently,
+are emulated with their SFRs unpaged, with a warning, and the C8051F12x's
+banked flash is not modeled.
 
 Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
 bit is set, a MOVX write goes to code memory instead of XDATA, clearing the
