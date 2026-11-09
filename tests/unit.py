@@ -10705,6 +10705,64 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         self.assertEqual(emu.read_register("pc"), 0x1001)
 
 
+class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register and an odd pc on the symbolic Ghidra
+    emulator, which handles them as the concrete one does."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _emu(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraSymbolicEmulator(self.PLATFORM)
+
+    def test_starts_in_micromips(self):
+        self.assertEqual(self._emu().read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_round_trips(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+        emu.write_register_content("isa_mode", 1)
+        self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_reads_as_concrete_bv(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        value = emu.read_register_symbolic("isa_mode")
+        self.assertFalse(value.symbolic)
+        self.assertEqual(value.concrete_value, 0)
+
+    def test_symbolic_isa_mode_rejected(self):
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self._emu().write_register_content("isa_mode", claripy.BVS("mode", 8))
+
+    def test_odd_pc_selects_micromips(self):
+        for value in (0x1001, claripy.BVV(0x1001, 32)):
+            with self.subTest(value=value):
+                emu = self._emu()
+                emu.write_register_content("isa_mode", 0)
+                emu.write_register_content("pc", value)
+                self.assertEqual(emu.read_register_content("pc"), 0x1000)
+                self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_even_pc_keeps_isa_mode(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        emu.write_register_content("pc", 0x1000)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+
+    def test_runs_micromips_from_odd_pc(self):
+        emu = self._emu()
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))
+        emu.write_register_content("v0", 0)
+        emu.write_register_content("pc", 0x1001)
+        emu.step()
+        self.assertEqual(emu.read_register_content("v0"), 5)
+
+
 class MicroMIPSAngrJalxTests(unittest.TestCase):
     """Decoding a jalx leaves sleigh's context saying standard MIPS32 starts
     at its target; angr's microMIPS engine must not keep decoding with it."""
