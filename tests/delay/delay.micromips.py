@@ -42,7 +42,7 @@ exit_point = cpu.pc.get() + code.get_capacity()
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
-expected_writes: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x1038: 1}
+expected_writes: typing.Dict[int, int] = {0x100E: 1, 0x101C: 2, 0x102E: 1}
 actual_writes: typing.Dict[int, int] = dict()
 
 
@@ -53,7 +53,7 @@ def hook_memory_write(emu, addr, size, data):
 
 emulator.hook_memory_write(0x2000, 0x2004, hook_memory_write)
 
-expected_delay_slots: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x102C: 1}
+expected_delay_slots: typing.Dict[int, int] = {0x100E: 1, 0x101C: 2, 0x1024: 1}
 actual_delay_slots: typing.Dict[int, int] = dict()
 
 
@@ -70,14 +70,14 @@ def hook_unexpected_instruction(emu):
 
 
 # Delay slot instructions
-emulator.hook_instruction(0x1010, hook_expected_instruction)
+emulator.hook_instruction(0x100E, hook_expected_instruction)
+emulator.hook_instruction(0x101C, hook_expected_instruction)
 emulator.hook_instruction(0x1024, hook_expected_instruction)
-emulator.hook_instruction(0x102C, hook_expected_instruction)
 
 # Instructions skipped by branches
+emulator.hook_instruction(0x1010, hook_unexpected_instruction)
 emulator.hook_instruction(0x1014, hook_unexpected_instruction)
-emulator.hook_instruction(0x1018, hook_unexpected_instruction)
-emulator.hook_instruction(0x1030, hook_unexpected_instruction)
+emulator.hook_instruction(0x1026, hook_unexpected_instruction)
 
 try:
     for final_machine in machine.step(emulator):

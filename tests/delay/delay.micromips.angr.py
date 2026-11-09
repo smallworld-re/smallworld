@@ -42,7 +42,7 @@ exit_point = cpu.pc.get() + code.get_capacity()
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
-expected_writes: typing.Dict[int, int] = {0x100C: 1, 0x1020: 2, 0x1038: 1}
+expected_writes: typing.Dict[int, int] = {0x100C: 1, 0x101A: 2, 0x102E: 1}
 actual_writes: typing.Dict[int, int] = dict()
 
 
@@ -56,8 +56,8 @@ emulator.hook_memory_write(0x2000, 0x2004, hook_memory_write)
 # angr's p-code engine folds the delay slot into its parent branch, as Ghidra
 # does, but unlike Ghidra it still fires the delay slot's instruction hook,
 # reporting the parent branch's address as the pc: the hooks registered on
-# 0x1010, 0x1024 and 0x102c are observed at 0x100c, 0x1020 and 0x1028.
-expected_delay_slots: typing.Dict[int, int] = {0x100C: 1, 0x1020: 2, 0x1028: 1}
+# 0x100e, 0x101c and 0x1024 are observed at 0x100c, 0x101a and 0x1022.
+expected_delay_slots: typing.Dict[int, int] = {0x100C: 1, 0x101A: 2, 0x1022: 1}
 actual_delay_slots: typing.Dict[int, int] = dict()
 
 
@@ -74,14 +74,14 @@ def hook_unexpected_instruction(emu):
 
 
 # Delay slot instructions
-emulator.hook_instruction(0x1010, hook_expected_instruction)
+emulator.hook_instruction(0x100E, hook_expected_instruction)
+emulator.hook_instruction(0x101C, hook_expected_instruction)
 emulator.hook_instruction(0x1024, hook_expected_instruction)
-emulator.hook_instruction(0x102C, hook_expected_instruction)
 
 # Instructions skipped by branches
+emulator.hook_instruction(0x1010, hook_unexpected_instruction)
 emulator.hook_instruction(0x1014, hook_unexpected_instruction)
-emulator.hook_instruction(0x1018, hook_unexpected_instruction)
-emulator.hook_instruction(0x1030, hook_unexpected_instruction)
+emulator.hook_instruction(0x1026, hook_unexpected_instruction)
 
 try:
     for final_machine in machine.step(emulator):
