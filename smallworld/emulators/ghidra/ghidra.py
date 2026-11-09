@@ -430,7 +430,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         """Read a p-code varnode as an unsigned integer."""
         state = self._thread.getState()
         val = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
-        return int.from_bytes(self.bytes_java_to_py(val), self._byteorder_name())
+        return int.from_bytes(val, self._byteorder_name())
 
     def _write_varnode(self, var: Varnode, value: int) -> None:
         """Write an integer to a p-code varnode, truncated to its size."""
