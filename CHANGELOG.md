@@ -138,8 +138,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `emu_start()` and on writes to the pc register, and
   `AngrMachineDef.pc_value()` adjusts the pc angr stores when it is written;
   `Machine.fuzz()` starts unicornafl runs at Unicorn's adjusted pc too. The
-  Ghidra emulators read and write sleigh context fields as registers. PANDA
-  has no microMIPS support.
+  Ghidra emulators read and write sleigh context fields as registers. The
+  System V C and POSIX models cover microMIPS as they do MIPS32. PANDA has no
+  microMIPS support.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

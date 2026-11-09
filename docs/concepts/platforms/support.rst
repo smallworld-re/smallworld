@@ -163,6 +163,11 @@ MIPS32 code leave it clear. Function models keep that bit: a model returns as
 ``jr ra`` would, to microMIPS for an odd ``ra`` and to standard MIPS32 for an
 even one, where the backend can switch.
 
+microMIPS code calls with MIPS32's o32 convention, so the System V C and POSIX
+models exist for this platform as they do for MIPS32. Those that pass or
+return floating-point values need the FPU registers, which angr and Unicorn do
+not provide here.
+
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.

@@ -10771,6 +10771,105 @@ class MicroMIPSAngrJalxTests(unittest.TestCase):
         self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
 
 
+class MicroMIPSSysVModelTests(unittest.TestCase):
+    """microMIPS uses MIPS32's o32 calling convention, so the System V C and
+    POSIX models exist for it as for MIPS32, and behave the same."""
+
+    BYTEORDERS = (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
+
+    @staticmethod
+    def _platform(arch, byteorder):
+        return platforms.Platform(arch, byteorder)
+
+    def _micro(self, byteorder):
+        return self._platform(platforms.Architecture.MIPS32_MICROMIPS, byteorder)
+
+    def test_lookups(self):
+        sysv = platforms.ABI.SYSTEMV
+        for byteorder in self.BYTEORDERS:
+            platform = self._micro(byteorder)
+            with self.subTest(byteorder=byteorder.name):
+                for name in ("strlen", "malloc", "printf", "open", "sigaction"):
+                    model = state.models.Model.lookup(name, platform, sysv, 0x2000)
+                    self.assertEqual(model.platform, platform)
+                context = state.models.cstd.CStdCallingContext.for_platform_and_abi(
+                    platform, sysv
+                )
+                self.assertNotIsInstance(context, state.models.Model)
+                self.assertEqual(context.platform, platform)
+                state.models.errno.ErrnoResolver.for_platform(platform, sysv)
+
+    def _call_llabs(self, platform, value: int):
+        # Calls the model directly, on registers set up as a caller would.
+        emu = emulators.UnicornEmulator(platform)
+        model = state.models.Model.lookup(
+            "llabs", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        for register in ("a0", "a1", "a2", "a3", "v0", "v1"):
+            emu.write_register(register, 0)
+        model.set_argument(0, emu, value)
+        model.model(emu)
+        return emu.read_register("v0"), emu.read_register("v1")
+
+    def test_eight_byte_return_matches_mips32(self):
+        value = -0x123456789  # llabs gives 0x123456789, spanning v0 and v1
+        for byteorder in self.BYTEORDERS:
+            with self.subTest(byteorder=byteorder.name):
+                mips32 = self._platform(platforms.Architecture.MIPS32, byteorder)
+                self.assertEqual(
+                    self._call_llabs(self._micro(byteorder), value),
+                    self._call_llabs(mips32, value),
+                )
+
+    def _run_strlen(self, platform, engine):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        # jalr t9, with a 32-bit nop in its delay slot.
+        code = bytes.fromhex("03f90f3c" "00000000")
+        if platform.byteorder == platforms.Byteorder.LITTLE:
+            code = b"".join(code[i : i + 2][::-1] for i in range(0, len(code), 2))
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        trampolines = state.memory.Memory(0x2000, 0x10)
+        trampolines[0] = state.BytesValue(bytes(0x10), None)
+        machine.add(trampolines)
+        string = state.memory.Memory(0x3000, 0x10)
+        string[0] = state.BytesValue(b"hello\0".ljust(0x10, b"\0"), None)
+        machine.add(string)
+        machine.add(
+            state.models.Model.lookup("strlen", platform, platforms.ABI.SYSTEMV, 0x2000)
+        )
+        cpu.pc.set(0x1000)
+        cpu.t9.set(0x2001)  # a pointer to microMIPS code
+        cpu.a0.set(0x3000)
+        cpu.v0.set(0)
+        machine.add_exit_point(0x1008)
+        return machine.emulate(engine(platform)).get_cpu()
+
+    def test_strlen_model_runs(self):
+        _ensure_pyghidra_started()
+        engines = (
+            emulators.UnicornEmulator,
+            emulators.GhidraEmulator,
+            emulators.AngrEmulator,
+        )
+        for byteorder in self.BYTEORDERS:
+            for engine in engines:
+                with self.subTest(byteorder=byteorder.name, engine=engine.__name__):
+                    cpu = self._run_strlen(self._micro(byteorder), engine)
+                    self.assertEqual(cpu.v0.get(), 5)
+                    self.assertEqual(cpu.pc.get(), 0x1008)
+
+    def test_model_pickles(self):
+        platform = self._micro(platforms.Byteorder.BIG)
+        model = state.models.Model.lookup(
+            "strlen", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        copied = pickle.loads(pickle.dumps(model))
+        self.assertIs(type(copied), type(model))
+        self.assertEqual(copied.platform, platform)
+
+
 class UnicornDelaySlotFaultTests(unittest.TestCase):
     """Unicorn reports a branch's fetch fault as a read fault in its delay
     slot. Telling the two apart needs the instruction that ran before the
