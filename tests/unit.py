@@ -7870,6 +7870,78 @@ class ElfArmFlaglessPlatformTests(unittest.TestCase):
         self.assertEqual(elf.platform.architecture, platforms.Architecture.ARM_V7A)
 
 
+class ElfArmFloatAbiPlatformTests(unittest.TestCase):
+    """A requested ARM32 platform wins over the ELF's float ABI.
+
+    The float ABI is a build choice, not the architecture, but loading
+    honored a requested platform only if its C models used the same float
+    ABI, so a soft-float Cortex-M4 image couldn't load as ARMv7E-M.
+    """
+
+    LOGGER = "smallworld.state.memory.elf.elf"
+    SOFT = ("elf", "elf.armv7m.elf")
+    HARD = ("elf", "elf.armv7a.elf")
+
+    def load(self, parts, arch, byteorder=platforms.Byteorder.LITTLE):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built")
+        platform = platforms.Platform(arch, byteorder)
+        with open(path, "rb") as f:
+            return ElfExecutable(f, platform=platform), platform
+
+    def test_soft_float_image_on_hard_float_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V7EM,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V8A,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertLogs(self.LOGGER, "WARNING") as caught:
+                    elf, platform = self.load(self.SOFT, arch)
+                self.assertEqual(elf.platform, platform)
+                self.assertIn("soft-float ABI", "\n".join(caught.output))
+
+    def test_hard_float_image_on_soft_float_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7M,
+            platforms.Architecture.ARM_V8M,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertLogs(self.LOGGER, "WARNING") as caught:
+                    elf, platform = self.load(self.HARD, arch)
+                self.assertEqual(elf.platform, platform)
+                self.assertIn("hard-float ABI", "\n".join(caught.output))
+
+    def test_matching_float_abi_loads_without_a_warning(self):
+        for parts, arch in (
+            (self.SOFT, platforms.Architecture.ARM_V7M),
+            (self.HARD, platforms.Architecture.ARM_V7R),
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertNoLogs(self.LOGGER, "WARNING"):
+                    elf, platform = self.load(parts, arch)
+                self.assertEqual(elf.platform, platform)
+
+    def test_unrequested_platform_follows_the_float_abi(self):
+        for parts, arch in (
+            (self.SOFT, platforms.Architecture.ARM_V5T),
+            (self.HARD, platforms.Architecture.ARM_V7A),
+        ):
+            with self.subTest(arch=arch.name):
+                path = os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
+                with open(path, "rb") as f:
+                    elf = ElfExecutable(f)
+                self.assertEqual(elf.platform.architecture, arch)
+
+    def test_byteorder_mismatch_still_raises(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "mismatch"):
+            self.load(
+                self.SOFT, platforms.Architecture.ARM_V7EM, platforms.Byteorder.BIG
+            )
+
+
 class ElfPickleCompatibilityTests(unittest.TestCase):
     """An ElfExecutable pickled before the TLS fields existed (#447) must
     unpickle with the defaults of an image that has no thread-locals."""
