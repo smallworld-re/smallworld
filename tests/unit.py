@@ -2064,6 +2064,45 @@ class AngrThumbTests(unittest.TestCase):
         self.assertEqual(emu.read_register("cpsr") & 0x200, 0x200)
 
 
+class AngrArmIpTests(unittest.TestCase):
+    """ip is r12 on angr arm32, not pc.
+
+    The machdef passed "ip" to archinfo, which resolves it to pc, its
+    generic instruction pointer.
+    """
+
+    PLATFORMS = (
+        (platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG),
+    )
+
+    @staticmethod
+    def emulator(arch, byteorder):
+        emu = emulators.AngrEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes(8))
+        emu.write_register("r12", 0x1234)
+        emu.write_register("pc", 0x1000)
+        emu.initialize()
+        return emu
+
+    def test_ip_reads_r12(self):
+        for arch, byteorder in self.PLATFORMS:
+            with self.subTest(arch=arch.name, byteorder=byteorder.name):
+                emu = self.emulator(arch, byteorder)
+                self.assertEqual(emu.read_register("ip"), 0x1234)
+
+    def test_ip_writes_r12(self):
+        for arch, byteorder in self.PLATFORMS:
+            with self.subTest(arch=arch.name, byteorder=byteorder.name):
+                emu = self.emulator(arch, byteorder)
+                emu.write_register("ip", 0x5678)
+                self.assertEqual(emu.read_register("r12"), 0x5678)
+                self.assertEqual(emu.read_register("pc"), 0x1000)
+
+
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
