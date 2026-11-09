@@ -4238,6 +4238,65 @@ class StyxArmHookRegisterTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxArmHookReturnTests(unittest.TestCase):
+    """A Styx function hook returns to its caller's instruction set.
+
+    The return cleared bit 0 of lr on every platform but Thumb-only ones, so
+    a model called from Thumb code returned in ARM state, decoded the caller
+    as ARM and ran on past its exit point.
+    """
+
+    PLATFORMS = (platforms.Architecture.ARM_V5T, platforms.Architecture.ARM_V7A)
+
+    def call_model(self, arch, code, pc, exit_point):
+        emu = emulators.StyxEmulator(
+            platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        )
+        emu.write_code(0x1000, code)
+        emu.write_code(0x1100, bytes(16))
+        emu.write_register_content("r0", 0)
+        emu.write_register_content("pc", pc)
+        emu.add_exit_point(exit_point)
+        emu.hook_function(0x1100, lambda e: None)
+        steps = []
+
+        def count(e):
+            # A wrong return runs on forever; stop it instead.
+            steps.append(e.read_register_content("pc"))
+            if len(steps) > 16:
+                raise exceptions.EmulationStop()
+
+        emu.hook_instructions(count)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_thumb_caller_returns_in_thumb_state(self):
+        # bl 0x1100; movs r0, #5
+        for arch in self.PLATFORMS:
+            with self.subTest(arch=arch.name):
+                emu = self.call_model(
+                    arch, bytes.fromhex("00f07ef80520"), 0x1001, 0x1006
+                )
+                self.assertEqual(emu.read_register_content("pc"), 0x1006)
+                self.assertEqual(emu.read_register_content("r0"), 5)
+                self.assertTrue(emu.read_register_content("cpsr") & 0x20)
+
+    def test_arm_caller_returns_in_arm_state(self):
+        # bl 0x1100; mov r0, #5
+        for arch in self.PLATFORMS:
+            with self.subTest(arch=arch.name):
+                emu = self.call_model(
+                    arch, bytes.fromhex("3e0000eb0500a0e3"), 0x1000, 0x1008
+                )
+                self.assertEqual(emu.read_register_content("pc"), 0x1008)
+                self.assertEqual(emu.read_register_content("r0"), 5)
+                self.assertFalse(emu.read_register_content("cpsr") & 0x20)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxPowerPCExecutionTests(unittest.TestCase):
     """End-to-end execution checks for PowerPC on Styx.
 
