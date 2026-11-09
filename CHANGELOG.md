@@ -115,6 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   interrupt they raise is taken at the next instruction, as on Ghidra;
   state that decides how the 8051 runs, such as an interrupt SFR, raises
   `SymbolicValueError` if it is symbolic.
+  `GhidraSymbolicEmulator` refuses the 8051, whose address spaces and user
+  operations it does not implement.
 - `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in

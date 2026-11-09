@@ -11354,6 +11354,13 @@ class MCS51DerivedStateTests(unittest.TestCase):
             for _ in range(4):
                 emulator.step()
 
+    def test_the_symbolic_ghidra_emulator_refuses_the_8051(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulators.GhidraSymbolicEmulator(
+                platforms.Platform(
+                    platforms.Architecture.MCS51, platforms.Byteorder.BIG
+                )
+            )
 
 
 class MCS51SharedHelperTests(unittest.TestCase):
