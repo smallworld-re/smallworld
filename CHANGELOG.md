@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ELF loader reports a machine type LIEF does not know as an unknown
   `e_machine` value, rather than failing with an `AttributeError`, and loads
   such an image when given a platform with `ignore_platform`.
+- The p-code use/def analysis no longer misreads MIPS32 code above a `jalx`
+  target that it analyzed after the `jalx`. Decoding a `jalx` left its cached
+  SLEIGH context decoding those addresses as MIPS16, so their reads and
+  writes came back empty or wrong; the context is now rebuilt after one.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook

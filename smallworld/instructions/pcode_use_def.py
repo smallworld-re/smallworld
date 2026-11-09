@@ -65,9 +65,18 @@ logger = logging.getLogger(__name__)
 #
 # One Context per language, kept for the life of the process: building one
 # costs tens of milliseconds, translating against it is sub-millisecond.
-# Translation is stateless, so unlike the pyghidra implementation there is no
-# program to repopulate, nothing to evict on error and nothing to tear down.
+# Unlike the pyghidra implementation there is no program to repopulate,
+# nothing to evict on error and nothing to tear down. But translation is not
+# quite stateless: decoding some instructions writes the context later code
+# decodes with (see _CONTEXT_WRITING_MNEMONICS), so a context that decoded one
+# is dropped.
 _contexts: dict = {}
+
+#: Instructions whose decoding records, in the context, how later code
+#: decodes. MIPS's jalx says its target, and everything above it, is in the
+#: other encoding, so after one a context would decode standard MIPS32 at
+#: those addresses as MIPS16 or microMIPS.
+_CONTEXT_WRITING_MNEMONICS = frozenset({"jalx"})
 
 
 def _get_context(language_id: str) -> "pypcode.Context":
@@ -84,6 +93,14 @@ def _get_context(language_id: str) -> "pypcode.Context":
             raise ValueError(f"unknown SLEIGH language {language_id!r}: {e}") from e
         _contexts[language_id] = ctx
     return ctx
+
+
+def _drop_context(language_id: str) -> None:
+    """Forget a cached Context, so the next analysis builds a clean one."""
+    ctx = _contexts.pop(language_id, None)
+    if ctx is not None:
+        # Keyed by id(), which a new Context could reuse.
+        _register_intervals.pop(id(ctx), None)
 
 
 # Space names SLEIGH uses. `ram` is the only address-type space this
@@ -1122,9 +1139,11 @@ def _analyze_locked(byte_data, arch, base_address):
     # Report its own length; that is what callers check their disassembler on.
     size = int(imark.inputs[0].size)
 
+    mnemonic = ""
     try:
         disassembly = ctx.disassemble(data, base, max_instructions=1)
         insn = disassembly.instructions[0]
+        mnemonic = insn.mnem
         text = f"{insn.mnem} {insn.body}".strip()
     except Exception:
         text = ""  # presentation only; never fail an analysis over it
@@ -1132,6 +1151,13 @@ def _analyze_locked(byte_data, arch, base_address):
     uses, defs, indirect_targets, address_only = _instruction_use_def(
         ctx, ops, text, base
     )
+    if mnemonic.lower() in _CONTEXT_WRITING_MNEMONICS:
+        # This decode changed how ctx decodes later code. Pypcode's
+        # Context.reset() would undo that, but it frees what translations
+        # already taken point into; a new Context is safe, and what this
+        # analysis keeps of the old one is plain data. Dropped after the
+        # analysis above, which caches by the Context's id().
+        _drop_context(arch)
     return InstructionUseDef(
         disassembly=text,
         size=size,
@@ -1214,8 +1240,11 @@ def analyze(
 
       * Context reuse: one SLEIGH context per architecture, built on
         first use and kept. That build (tens of milliseconds) is the
-        only per-architecture cost; translation itself is stateless and
-        sub-millisecond. `warm()` moves it off the first analysis.
+        only per-architecture cost; translation itself is
+        sub-millisecond. `warm()` moves it off the first analysis. The
+        exception is an instruction such as MIPS's jalx, whose decoding
+        changes how the context decodes later code: the context is
+        rebuilt after one.
     """
     # Normalize byte_data so memoryview/bytearray callers also hit the cache
     if not isinstance(byte_data, bytes):

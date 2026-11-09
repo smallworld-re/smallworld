@@ -1099,6 +1099,44 @@ class AddressOnlyReadsCapstoneFallbackTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
+class DecodeStateTests(unittest.TestCase):
+    """A cached SLEIGH context keeps state from earlier analyses; none of it
+    may change what a later one reports."""
+
+    def _rw(self, arch, byteorder, hexbytes, address):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture[arch], Byteorder[byteorder])
+        instruction = Instruction.from_bytes(bytes.fromhex(hexbytes), address, platform)
+        return (
+            sorted(str(o) for o in instruction.reads),
+            sorted(str(o) for o in instruction.writes),
+        )
+
+    def _cleared(self):
+        from smallworld.instructions import pcode_use_def
+
+        pcode_use_def.analyze.cache_clear()
+        pcode_use_def._contexts.clear()
+
+    def test_jalx_leaves_code_above_its_target_alone(self):
+        # Decoding a jalx records that its target and everything above it is
+        # in the other encoding; code there must still decode as itself.
+        cases = [
+            # jalx 0x2000, then li v0, 5 at 0x3000.
+            ("MIPS32", "BIG", "74000800", 0x1000, "24020005", 0x3000),
+        ]
+        for arch, byteorder, jalx, jalx_at, after, after_at in cases:
+            with self.subTest(arch=arch):
+                self._cleared()
+                expected = self._rw(arch, byteorder, after, after_at)
+                self._cleared()
+                self._rw(arch, byteorder, jalx, jalx_at)
+                self.assertEqual(self._rw(arch, byteorder, after, after_at), expected)
+
+
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
 
