@@ -1934,6 +1934,136 @@ class AngrArmV8MLiftTests(unittest.TestCase):
         self.assertEqual(self._written(block.vex), {"msplim", "r1"})
 
 
+class AngrThumbTests(unittest.TestCase):
+    """angr addresses Thumb code with bit 0 set; harnesses use the address."""
+
+    # movs r0, #1; movs r1, #2; movs r2, #3; nop; movs r3, #7; nop
+    THUMB = bytes.fromhex("0120" "0221" "0322" "00bf" "0723" "00bf")
+    # cmp r0, r0; nop
+    CMP = bytes.fromhex("000050e1" "00f020e3")
+
+    def emulator(self, arch, code, pc, byteorder=platforms.Byteorder.LITTLE):
+        platform = platforms.Platform(arch, byteorder)
+        emu = emulators.AngrEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        emu.write_register("pc", pc)
+        for reg in ("r0", "r1", "r2", "r3"):
+            emu.write_register(reg, 0)
+        return emu
+
+    def hooked_run(self, arch, pc, unhook=False):
+        emu = self.emulator(arch, self.THUMB, pc)
+        seen = []
+        emu.hook_instruction(0x1002, lambda e: seen.append(e.read_register("r0")))
+        if unhook:
+            emu.unhook_instruction(0x1002)
+        emu.add_exit_point(0x1006)
+        emu.run()
+        return seen
+
+    def test_instruction_hook_fires_on_m_profile(self):
+        for arch in (platforms.Architecture.ARM_V7M, platforms.Architecture.ARM_V8M):
+            with self.subTest(arch=arch):
+                self.assertEqual(self.hooked_run(arch, 0x1000), [1])
+
+    def test_instruction_unhook_on_m_profile(self):
+        self.assertEqual(
+            self.hooked_run(platforms.Architecture.ARM_V7M, 0x1000, unhook=True), []
+        )
+
+    def test_instruction_hook_fires_in_a_profile_thumb_code(self):
+        self.assertEqual(self.hooked_run(platforms.Architecture.ARM_V7A, 0x1001), [1])
+
+    def test_exit_point_in_a_profile_thumb_code(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1001)
+        emu.add_exit_point(0x1006)
+        emu.run()
+        self.assertEqual(emu.read_register("pc"), 0x1006)
+        self.assertEqual(emu.read_register("r3"), 0)
+
+    def test_pc_reads_without_the_thumb_bit(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1001)
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+        self.assertTrue(emu.get_thumb())
+        # Writing back the even pc keeps Thumb state, as on Unicorn.
+        emu.write_register("pc", 0x1002)
+        self.assertTrue(emu.get_thumb())
+        emu.step()
+        self.assertEqual(emu.read_register("r1"), 2)
+
+    def test_bl_into_hooked_thumb_function(self):
+        # blx 0x1100 (into Thumb); mov r0, #5
+        code = bytes.fromhex("3e0000fa" "0500a0e3")
+        emu = self.emulator(platforms.Architecture.ARM_V7A, code, 0x1000)
+        seen = []
+        emu.hook_function(0x1100, lambda e: seen.append(e.get_thumb()))
+        emu.add_exit_point(0x1008)
+        emu.run()
+        self.assertEqual(seen, [True])
+        # The hook returns to the ARM caller.
+        self.assertEqual(emu.read_register("r0"), 5)
+        self.assertFalse(emu.get_thumb())
+
+    def test_set_thumb_before_and_after_initialization(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
+        self.assertFalse(emu.get_thumb())
+        emu.set_thumb(True)
+        self.assertTrue(emu.get_thumb())
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 1)
+        emu.set_thumb(False)
+        self.assertFalse(emu.get_thumb())
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_m_profile_is_thumb_only(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7M, self.THUMB, 0x1000)
+        self.assertTrue(emu.get_thumb())
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_thumb(False)
+
+    def test_get_thumb_needs_arm32(self):
+        emu = emulators.AngrEmulator(
+            platforms.Platform(
+                platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+            )
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_thumb()
+
+    def test_cpsr_holds_flags_and_thumb_state(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.CMP, 0x1000)
+        emu.add_exit_point(0x1008)
+        emu.step()
+        # Z and C, in SVC mode with A, I and F masked, in ARM state
+        self.assertEqual(emu.read_register("cpsr"), 0x600001D3)
+        emu.write_register("cpsr", 0x88070030)
+        # N, Q and GE[2:0] stick, mode bits read fixed, and T moves pc.
+        self.assertEqual(emu.read_register("cpsr"), 0x880701F3)
+        self.assertTrue(emu.get_thumb())
+        self.assertEqual(emu.read_register("pc"), 0x1004)
+
+    def test_cpsr_before_initialization_sets_thumb_state(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
+        emu.write_register("cpsr", 0x20)
+        self.assertTrue(emu.get_thumb())
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 1)
+        self.assertEqual(emu.read_register("cpsr") & 0x20, 0x20)
+
+    def test_be8_cpsr_reports_big_endian_data(self):
+        emu = self.emulator(
+            platforms.Architecture.ARM_V7A, self.CMP, 0x1000, platforms.Byteorder.BIG
+        )
+        emu.add_exit_point(0x1008)
+        emu.step()
+        self.assertEqual(emu.read_register("cpsr") & 0x200, 0x200)
+
+
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
