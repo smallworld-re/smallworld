@@ -189,6 +189,11 @@ THUMB_NOP_W = 0xF3AF8000
 class ArmElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.LITTLE
 
+    # Does the architecture have BLX (ARMv5 and later)? Without it, an Arm
+    # call to Thumb needs an interworking veneer, which this loader can't
+    # emit.
+    has_blx = True
+
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
 
@@ -823,6 +828,11 @@ class ArmElfRelocator(ElfRelocator):
             value = sym_t + self._get_arm_branch_addend(rela, elf) - rela.offset
             orig = self._read_arm32(rela, elf)
             if sym_t & 1:
+                if not self.has_blx:
+                    self._missing_context(
+                        rela,
+                        f"an Arm-to-Thumb interworking veneer ({self.arch} has no BLX)",
+                    )
                 self._check_range(value & ~1, -(1 << 25), 1 << 25, rela, "Arm BLX call")
                 self._check_aligned(value & ~1, 2, rela, "Arm BLX call")
                 return self._pack_arm32(self._patch_arm_blx(value))
@@ -1314,10 +1324,12 @@ class ArmElfRelocator(ElfRelocator):
 
 class Armv4ElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V4
+    has_blx = False
 
 
 class Armv4TElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V4T
+    has_blx = False
 
 
 class Armv5TElfRelocator(ArmElfRelocator):
