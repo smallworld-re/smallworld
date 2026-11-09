@@ -10728,6 +10728,79 @@ class MicroMIPSAngrJalxTests(unittest.TestCase):
         self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
 
 
+class UnicornDelaySlotFaultTests(unittest.TestCase):
+    """Unicorn reports a branch's fetch fault as a read fault in its delay
+    slot. Telling the two apart needs the instruction that ran before the
+    fault, which on microMIPS can be 2 or 4 bytes long."""
+
+    # Each case: (architecture, code as big-endian halfwords or words,
+    # expected failure, offset of the pc it reports).
+    CASES = {
+        # The halfword 0x4599 inside this addiu decodes as jr16 $t9, and t9
+        # is unmapped; the fault is still the lw's read of a0.
+        "addiu_then_load": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "31004599" "fc440000" "0c000c00",  # addiu t0,zero,0x4599; lw v0,0(a0)
+            exceptions.EmulationReadUnmappedFailure,
+            4,
+        ),
+        "jr": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "00190f3c" "00000000" "0c000c00",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+        "jr16": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "0c00" "4599" "0c00" "0c000c00",  # nop16; jr16 t9; nop16
+            exceptions.EmulationFetchUnmappedFailure,
+            2,
+        ),
+        "mips32_jr": (
+            platforms.Architecture.MIPS32,
+            "03200008" "00000000" "00000000",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+    }
+
+    @staticmethod
+    def _code(arch, hexcode: str, byteorder) -> bytes:
+        code = bytes.fromhex(hexcode)
+        if byteorder == platforms.Byteorder.BIG:
+            return code
+        # Little-endian microMIPS stores each halfword little-endian.
+        unit = 2 if arch == platforms.Architecture.MIPS32_MICROMIPS else 4
+        return b"".join(code[i : i + unit][::-1] for i in range(0, len(code), unit))
+
+    def _fault(self, name: str, byteorder, step: bool):
+        arch, hexcode, _, _ = self.CASES[name]
+        code = self._code(arch, hexcode, byteorder)
+        emu = emulators.UnicornEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code + bytes(0x20))
+        for register in ("t9", "a0", "v0", "t0"):
+            emu.write_register(register, 0)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(code))
+        with self.assertRaises(exceptions.EmulationError) as caught:
+            if step:
+                for _ in range(len(code)):
+                    emu.step()
+            else:
+                emu.run()
+        return caught.exception
+
+    def test_faults(self):
+        for name, (_, _, expected, offset) in self.CASES.items():
+            for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+                for step in (False, True):
+                    with self.subTest(case=name, byteorder=byteorder.name, step=step):
+                        fault = self._fault(name, byteorder, step)
+                        self.assertIs(type(fault), expected)
+                        self.assertEqual(fault.pc, 0x1000 + offset)
+
+
 class ElfMicroMIPSSymbolTests(unittest.TestCase):
     """A microMIPS symbol's value is its code's address, whichever table it
     comes from; relocated pointers to the code carry the ISA bit."""

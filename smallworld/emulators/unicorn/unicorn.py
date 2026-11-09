@@ -89,6 +89,10 @@ class UnicornEmulator(
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
         self.curr_pc: int = 0
+        # The (address, size) of the last two instructions the code hook saw,
+        # the latest last; see the delay-slot check in _error.
+        self._prev_insn: typing.Optional[typing.Tuple[int, int]] = None
+        self._curr_insn: typing.Optional[typing.Tuple[int, int]] = None
 
         # Address passed as the `until` argument to unicorn's emu_start().
         # Unicorn treats this address as a natural stopping point: if execution
@@ -135,6 +139,13 @@ class UnicornEmulator(
             # If you actually care about executing interrupt handlers,
             # please, for the love of all that's good use Panda.
             self.curr_pc = address
+
+            # Remember the instruction before this one. The hook fires again
+            # for the same instruction when a step stops before it and the
+            # next run starts there; that is still the same instruction.
+            if self._curr_insn is None or self._curr_insn[0] != address:
+                self._prev_insn = self._curr_insn
+            self._curr_insn = (address, size)
 
             # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
@@ -965,36 +976,42 @@ class UnicornEmulator(
                 # or a fetch error from the previous instruction,
                 # which is only getting resolved now.
 
-                # The previous instruction ends at pc. MIPS32 instructions
-                # are all 4 bytes; microMIPS ones are 2 or 4, so try both and
-                # keep a decode that is exactly that long.
-                for width in (4, 2):
+                # The code hook recorded the instruction that ran before this
+                # one; decoding backwards from pc would have to guess its
+                # width, and microMIPS mixes 2- and 4-byte instructions. A
+                # delay slot directly follows its branch, so anything else ran
+                # before is not this slot's branch.
+                prev = self._prev_insn
+                if (
+                    prev is not None
+                    and self._curr_insn is not None
+                    and self._curr_insn[0] == pc
+                    and prev[0] + prev[1] == pc
+                ):
+                    prev_addr, prev_size = prev
+                    prev_mnem = None
+                    prev_operands = []
                     try:
-                        res = self.engine.mem_read(pc - width, 16)
+                        res = self.engine.mem_read(prev_addr, prev_size)
                         code = bytes(res)
                         # on arm32, update disassembler for ARM vs Thumb
                         _ = self._handle_thumb_interwork(pc)
-                        insns, _ = self._disassemble(code, pc - width, 1)
-                        insn = insns[0]
-                        if insn.size != width:
-                            continue
-
-                        prev_mnem = insn.mnemonic
-                        prev_i = instructions.Instruction.from_capstone(insn)
+                        insns, _ = self._disassemble(code, prev_addr, 1)
+                        prev_mnem = insns[0].mnemonic
+                        prev_i = instructions.Instruction.from_capstone(insns[0])
                         # A fetch fault's responsible operand is where the
                         # branch sends the next instruction fetch -- [t9] for
                         # jr $t9 -- which is a fetch, not one of the branch's
                         # data reads.
                         prev_operands = get_unavailable_rw(prev_i, prev_i.fetches())
                     except Exception:
-                        continue
+                        pass
 
                     if prev_mnem in self.platdef.delay_slot_mnemonics and prev_operands:
                         msg = f"{prefix} due to fetch of unmapped memory"
                         exc = exceptions.EmulationFetchUnmappedFailure(
-                            msg, pc - width, operands=prev_operands
+                            msg, prev_addr, operands=prev_operands
                         )
-                        break
 
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
