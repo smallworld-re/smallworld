@@ -37,7 +37,8 @@ class ARMMachineDef(AngrMachineDef):
             "fp": "fp",
             # r12 doubles as the Intra-call scratch register
             "r12": "r12",
-            "ip": "ip",
+            # archinfo resolves "ip" to pc, its generic instruction pointer.
+            "ip": "r12",
             "sp": "sp",
             "r13": "sp",
             "lr": "lr",
