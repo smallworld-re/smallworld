@@ -770,13 +770,13 @@ class UnicornEmulator(
         # emu_start clears thumb mode if the low bit of pc != 1.
         # We use CPSR to determine if unicorn was previously in thumb
         # mode and set the low bit to 1 to maintain it. We also set
-        # the mode of the disassembler.
-        endian = self.platdef.capstone_mode & capstone.CS_MODE_BIG_ENDIAN
+        # the mode of the disassembler, keeping the platform's other
+        # mode bits (V8, MCLASS, big-endian).
+        mode = self.platdef.capstone_mode & ~capstone.CS_MODE_THUMB
         if self.get_thumb() or pc & 1:
             pc |= 1
-            self.disassembler.mode = capstone.CS_MODE_THUMB | endian
-        else:
-            self.disassembler.mode = capstone.CS_MODE_ARM | endian
+            mode |= capstone.CS_MODE_THUMB
+        self.disassembler.mode = mode
 
         return pc
 
