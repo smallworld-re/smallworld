@@ -8,7 +8,7 @@ import capstone
 
 from smallworld.platforms import Platform, PlatformDef
 
-from .. import emulators, utils
+from .. import emulators, exceptions, utils
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,12 @@ class Instruction(metaclass=abc.ABCMeta):
             md = capstone.Cs(self.cs_arch, self.cs_mode)
             md.detail = True
 
-            _instruction = md.disasm(instruction, address).__next__()
+            _instruction = next(md.disasm(instruction, address), None)
+            if _instruction is None:
+                raise exceptions.InstructionDecodeError(
+                    f"{instruction.hex()} at {address:#x} doesn't decode "
+                    f"as an instruction for {self.platform}"
+                )
 
         self._instruction = _instruction
         self.disasm = f"{self._instruction.address:x} {self._instruction.mnemonic} {self._instruction.op_str}"
