@@ -1161,6 +1161,14 @@ class Machine(StatefulSet):
                 uc.emu_start(emulator.machdef.uc_pc_value(start), 0)
             except unicorn.UcError as e:
                 return e.errno
+            except Exception as e:
+                # A hook raised: an exit model's EmulationStop, a bound, a
+                # user hook's error. Unicorn stopped the run, and uc_afl_fuzz,
+                # which calls uc_emu_start from C, never sees the exception and
+                # reports UC_ERR_OK; report the same. Left uncaught, it would
+                # escape this ctypes callback, and unicornafl would read a
+                # garbage result as a crash.
+                logger.debug(f"hook stopped the fuzzing run: {e!r}")
             return unicorn.UC_ERR_OK
 
         unicornafl.uc_afl_fuzz_custom(

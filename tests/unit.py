@@ -9296,6 +9296,68 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
+class UnicornFuzzCustomCallbackTests(unittest.TestCase):
+    """The fuzzing callback ``Machine._fuzz_with_unicorn`` hands
+    ``uc_afl_fuzz_custom`` for microMIPS, whose start pc needs its ISA bit,
+    must report what ``uc_afl_fuzz`` reports for the same run: a run a hook
+    stopped is ``UC_ERR_OK``, a fault is its error. ``uc_afl_fuzz_custom`` is
+    mocked out, and the callback it would have been given is driven
+    directly."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LW_V0_ZERO = bytes.fromhex("fc400000")  # lw v0, 0(zero): an unmapped read
+
+    def _result(self, first_insn=bytes(4), setup=lambda emulator: None) -> int:
+        import unicornafl
+
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        cpu.pc.set_content(0x1000)
+        machine.add(cpu)
+        machine.add(
+            state.memory.code.Executable.from_bytes(
+                first_insn + bytes(12), address=0x1000
+            )
+        )
+        emulator = emulators.UnicornEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1010)
+        setup(emulator)
+
+        with mock.patch.object(unicornafl, "uc_afl_fuzz_custom") as fuzz:
+            machine.fuzz_with_file(emulator, lambda *_args: None, "/nonexistent")
+        run = fuzz.call_args.kwargs["fuzzing_callback"]
+        return run(emulator.engine, None)
+
+    def test_clean_run(self):
+        import unicorn
+
+        self.assertEqual(self._result(), unicorn.UC_ERR_OK)
+
+    def test_hook_stop_is_not_a_crash(self):
+        import unicorn
+
+        def stop(_emulator):
+            raise exceptions.EmulationStop("stop")
+
+        result = self._result(setup=lambda e: e.hook_instruction(0x1008, stop))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_leaving_a_bound_is_not_a_crash(self):
+        import unicorn
+
+        result = self._result(setup=lambda e: e.add_bound(0x1000, 0x1008))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_fault_reports_its_error(self):
+        import unicorn
+
+        result = self._result(first_insn=self.LW_V0_ZERO)
+        self.assertEqual(result, unicorn.UC_ERR_READ_UNMAPPED)
+
+
+@unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
 class UnicornFuzzPersistentSnapshotTests(unittest.TestCase):
     """Persistent-mode state restoration in ``Machine._fuzz_with_unicorn``.
 
