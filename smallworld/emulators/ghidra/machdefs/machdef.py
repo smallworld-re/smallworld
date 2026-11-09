@@ -76,6 +76,11 @@ class GhidraMachineDef:
     # back out.
     split_bits: typing.Mapping[str, typing.Mapping[int, str]] = {}
 
+    # Does this machine run Thumb code only (ARM M-profile)? Its language
+    # decodes Thumb at any pc, so writes to pc drop the Thumb bit that
+    # interworking addresses (e.g. lr) carry.
+    thumb_only: bool = False
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):

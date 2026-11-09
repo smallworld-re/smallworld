@@ -80,6 +80,8 @@ class ARMMachineDef(GhidraMachineDef):
 class ARMMachineMixinM:
     """Mixin for ARM series M CPUs"""
 
+    thumb_only = True
+
     def __init__(self):
         super().__init__()
         self._registers.update(

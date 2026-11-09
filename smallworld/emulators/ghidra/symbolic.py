@@ -355,6 +355,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             return
         if name == "pc":
             name = self.platdef.pc_register
+        if name == self.platdef.pc_register and self.machdef.thumb_only:
+            # Thumb-only platforms run Ghidra's Thumb-only language, so a
+            # Thumb-tagged address (e.g. a return through lr) is just aligned.
+            value = value & ~1
         self._write_register(self.machdef.pcode_reg(name), name, value)
         for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
             flag: typing.Union[int, claripy.ast.bv.BV]
