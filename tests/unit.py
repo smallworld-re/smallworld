@@ -134,6 +134,7 @@ from smallworld.state.memory.elf.rela.loongarch import (
     LoongArch64ElfRelocator,
 )
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
+from smallworld.state.memory.elf.rela.mips import MIPSElfRelocator
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
@@ -10725,6 +10726,75 @@ class MicroMIPSAngrJalxTests(unittest.TestCase):
         emu.initialize()
         self._lifter_context(emu).translate(self.JALX + self.NOP16, 0x1000)
         self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
+
+
+class ElfMicroMIPSSymbolTests(unittest.TestCase):
+    """A microMIPS symbol's value is its code's address, whichever table it
+    comes from; relocated pointers to the code carry the ISA bit."""
+
+    LINK_ELF = BINARIES_TESTS_DIR / "link_elf"
+    LIB_BASE = 0x800000
+    FOO = 0x10260  # foo's address in the library, as .symtab records it
+
+    def _load(self, name: str, user_base=None) -> ElfExecutable:
+        path = self.LINK_ELF / name
+        if not path.exists():
+            self.skipTest(f"{path} not built (run `make micromips` in tests/)")
+        with path.open("rb") as f:
+            return ElfExecutable(f, user_base=user_base)
+
+    def _word(self, elf: ElfExecutable, symbol: str) -> int:
+        return elf.read_int(elf.get_symbol_value(symbol), 4, elf.platform.byteorder)
+
+    def test_symbol_tables_agree(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # .dynsym has the ISA bit set and .symtab does not.
+                self.assertEqual(lib.get_symbol_value("foo"), self.LIB_BASE + self.FOO)
+
+    def test_pointer_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                self.assertEqual(
+                    self._word(lib, "fooptr"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def test_linked_import_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                exe = self._load(f"micromips_import.{ext}.elf")
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # Unresolved, the import stays null.
+                self.assertEqual(self._word(exe, "fooref"), 0)
+                exe.link_elf(lib)
+                self.assertEqual(
+                    self._word(exe, "fooref"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def _relocate(self, type_: int, micromips: bool, defined: bool = True) -> int:
+        symbol = _make_symbol(value=0x1000, baseaddr=0x400000)
+        symbol.micromips = micromips
+        symbol.defined = defined
+        rela = ElfRela(is_rela=True, offset=0x2000, type=type_, symbol=symbol, addend=0)
+        relocator = MIPSElfRelocator(
+            platforms.Platform(
+                platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+            )
+        )
+        value = relocator._compute_value(rela, _FakeElf())
+        return int.from_bytes(value, "big")
+
+    def test_relocations_add_isa_bit(self):
+        # R_MIPS_32, R_MIPS_REL32 and the GOT's R_MIPS_JUMP_SLOT.
+        for type_ in (2, 3, 127):
+            with self.subTest(type=type_):
+                self.assertEqual(self._relocate(type_, True), 0x401001)
+                self.assertEqual(self._relocate(type_, False), 0x401000)
+
+    def test_unresolved_import_stays_null(self):
+        self.assertEqual(self._relocate(2, True, defined=False) & 1, 0)
 
 
 class ElfMicroMIPSTests(unittest.TestCase):

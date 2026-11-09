@@ -54,6 +54,7 @@ PF_PPC_VLE = 0x10000000
 
 # MIPS-specific flag values
 EF_MIPS_MICROMIPS = 0x02000000  # ASE: the image contains microMIPS code
+STO_MIPS_ISA = 0xC0  # st_other: the bits that say which MIPS ISA a symbol is
 STO_MICROMIPS = 0x80  # st_other: this symbol is microMIPS code
 
 # SuperH-specific flag values.
@@ -650,7 +651,7 @@ class ElfExecutable(Executable):
             for sym in elf.symbols
             if sym.type == lief.ELF.Symbol.TYPE.FUNC
             and sym.value != 0
-            and not sym.other & STO_MICROMIPS
+            and sym.other & STO_MIPS_ISA != STO_MICROMIPS
         )
         if standard:
             shown = ", ".join(standard[:5]) + (", ..." if len(standard) > 5 else "")
@@ -934,6 +935,9 @@ class ElfExecutable(Executable):
             # Relative symbols will be relative to the load address
             baseaddr = self.address
 
+        # The st_other bits above visibility are processor-specific.
+        is_mips = elf.header.machine_type.value == EM_MIPS
+
         dynsyms = set(elf.dynamic_symbols)
         idx = 0
         dynamic = True
@@ -944,6 +948,13 @@ class ElfExecutable(Executable):
             if dynamic and s not in dynsyms:
                 idx = 0
                 dynamic = False
+
+            # A microMIPS symbol's value may have the ISA bit set: LLD sets
+            # it in .dynsym and not in .symtab. Keep the address as the
+            # value, so the two agree and name the code's address, and
+            # remember the bit for the relocations that point at the code.
+            micromips = is_mips and s.other & STO_MIPS_ISA == STO_MICROMIPS
+            value = s.value & ~1 if micromips else s.value
 
             # Build a symbol
             sym = ElfSymbol(
@@ -957,10 +968,11 @@ class ElfExecutable(Executable):
                 # above them, such as STO_MICROMIPS.
                 visibility=s.other & 0x3,
                 shndx=s.shndx,
-                value=s.value,
+                value=value,
                 size=s.size,
                 baseaddr=baseaddr,
                 defined=(s.shndx != 0),
+                micromips=micromips,
             )
             # Save the sym, and temporarily tie it to its lief partner
             if dynamic:
@@ -1365,6 +1377,10 @@ class ElfExecutable(Executable):
             # Value provided is absolute; rebase it to the symbol's base address
             value -= syms[0].baseaddr
 
+        if syms[0].micromips:
+            # The value is the code's address; relocation adds the ISA bit.
+            value &= ~1
+
         # Update the value
         for sym in syms:
             sym.value = value
@@ -1503,6 +1519,9 @@ class ElfExecutable(Executable):
                 continue
 
             o_sym = o_syms[0]
+            # An import is microMIPS code if its definition is; the importing
+            # image need not say so, and its pointers to it need the ISA bit.
+            my_sym.micromips = o_sym.micromips
             if o_sym.type == STT_TLS:
                 # A block offset, not an address: rebasing would leave the
                 # delta between the two load addresses, which indexes nothing

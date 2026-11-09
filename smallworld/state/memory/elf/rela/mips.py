@@ -49,6 +49,11 @@ class MIPSElfRelocator(ElfRelocator):
             )
 
         val = rela.symbol.value + rela.symbol.baseaddr
+        if rela.symbol.micromips and rela.symbol.defined:
+            # A pointer to microMIPS code carries the ISA bit, or a jump
+            # through it would run the code as standard MIPS32. An
+            # unresolved import stays null.
+            val |= 1
         is_64 = False
         for i in range(0, 3):
             rela_type = rela_types[i]

@@ -435,7 +435,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_ASM_SOS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
@@ -467,6 +467,24 @@ C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
 
 # Populate the ASM templates
 $(foreach platform,$(ASM_PLATFORMS),$(eval $(call ASM_TEMPLATE,$(platform))))
+
+# A microMIPS shared library, and an executable that imports from it, for the
+# ELF loader's ISA-bit handling. They are assembly because microMIPS C cannot
+# be linked PIC (see MICROMIPS_CFLAGS), and the executable has explicit rules
+# because it links against the library.
+define MICROMIPS_SO_TEMPLATE
+
+$(1)_ASM_SOS := link_elf/micromips_lib.$$($(1)_EXT).so link_elf/micromips_import.$$($(1)_EXT).elf
+
+link_elf/micromips_lib.$$($(1)_EXT).so : link_elf/micromips_lib.$$($(1)_SRC_EXT).so.s
+	$$($(1)_CC) -shared -nostdlib -o $$@ $$<
+
+link_elf/micromips_import.$$($(1)_EXT).elf : link_elf/micromips_import.$$($(1)_SRC_EXT).elf.s link_elf/micromips_lib.$$($(1)_EXT).so
+	$$($(1)_CC) -nostdlib -o $$@ $$^
+
+endef
+
+$(foreach platform,MICROMIPS MICROMIPSEL,$(eval $(call MICROMIPS_SO_TEMPLATE,$(platform))))
 
 # Populate the C ELF templates
 $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))
