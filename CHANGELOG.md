@@ -143,8 +143,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AngrMachineDef.pc_value()` adjusts the pc angr stores when it is written;
   `Machine.fuzz()` starts unicornafl runs at Unicorn's adjusted pc too. The
   Ghidra emulators read and write sleigh context fields as registers. The
-  System V C and POSIX models cover microMIPS as they do MIPS32. PANDA has no
-  microMIPS support.
+  System V C and POSIX models cover microMIPS as they do MIPS32. The p-code
+  use/def analysis covers it too: `PlatformDef.ghidra_context` names the
+  context values a platform's code decodes with, and
+  `pcode_use_def.analyze()` takes them. PANDA has no microMIPS support.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

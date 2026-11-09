@@ -388,6 +388,10 @@ MICROMIPS_COMPACT_MNEMONICS = {
 class MicroMIPSMixin:
     architecture = Architecture.MIPS32_MICROMIPS
 
+    # The microMIPS languages also hold standard MIPS32, which their
+    # ISA_MODE context field selects by default.
+    ghidra_context = {"ISA_MODE": 1}
+
     conditional_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
     compare_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
 
