@@ -123,7 +123,13 @@ from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela.aarch64 import AArch64ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
-from smallworld.state.memory.elf.rela.arm import Armv7AElfRelocator
+from smallworld.state.memory.elf.rela.arm import (
+    Armv4ElfRelocator,
+    Armv4TBEElfRelocator,
+    Armv4TElfRelocator,
+    Armv5TElfRelocator,
+    Armv7AElfRelocator,
+)
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
@@ -9268,6 +9274,52 @@ class ArmGotEntryRelocatorTests(unittest.TestCase):
         val = relocator._compute_value(self._rela(symbol), elf)
         self.assertEqual(int.from_bytes(val, "little"), 0x8010 - 0x1000)
         self.assertEqual(elf.slots, {})
+
+
+class ArmCallToThumbRelocatorTests(unittest.TestCase):
+    """An Arm call to Thumb becomes BLX only where the architecture has it.
+
+    ARMv4 and ARMv4T have no BLX, but the relocator patched one in anyway,
+    leaving an instruction those cores can't execute.
+    """
+
+    _R_ARM_CALL = 28
+    BL = 0xEBFFFFFE  # bl .
+
+    class _Object(_FakeArmObject):
+        def __init__(self, word, byteorder):
+            super().__init__()
+            self.word = word
+
+        def read_int(self, offset, size, byteorder):
+            return self.word
+
+    def relocate(self, relocator, target):
+        symbol = _make_symbol(value=target, baseaddr=0x400000)
+        rela = ElfRela(
+            is_rela=False,
+            offset=0x1000,
+            type=self._R_ARM_CALL,
+            symbol=symbol,
+            addend=0,
+        )
+        symbol.relas.append(rela)
+        out = relocator._compute_value(rela, self._Object(self.BL, relocator.byteorder))
+        return int.from_bytes(out, relocator.byteorder.name.lower())
+
+    def test_no_blx_on_v4_and_v4t(self):
+        for cls in (Armv4ElfRelocator, Armv4TElfRelocator, Armv4TBEElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                with self.assertRaisesRegex(exceptions.ConfigurationError, "no BLX"):
+                    self.relocate(cls(), 0x2001)
+
+    def test_blx_from_v5t(self):
+        for cls in (Armv5TElfRelocator, Armv7AElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                self.assertEqual(self.relocate(cls(), 0x2001) >> 25, 0xFA >> 1)
+
+    def test_v4t_arm_call_stays_bl(self):
+        self.assertEqual(self.relocate(Armv4TElfRelocator(), 0x2000) >> 24, 0xEB)
 
 
 class _FakeAArch64Object(_FakeArmObject):
