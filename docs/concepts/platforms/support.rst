@@ -143,7 +143,7 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   ``hook_syscalls``, with the o32 convention (the number in ``v0``), because the
   machine definition rewrites it into a syscall exit as the SuperH ones do for
   ``trapa`` (see below).
-- **Unicorn** runs microMIPS only, on the M14Kc CPU model, which runs
+- **Unicorn** starts every run in microMIPS, on the M14Kc CPU model, which runs
   microMIPS while the low bit of the pc is set. SmallWorld sets that bit
   whenever it starts a run or writes the pc. Unicorn does follow a jump into
   standard MIPS32, but it does not report its ISA mode, so ``isa_mode`` is not

@@ -100,6 +100,13 @@ class GhidraMachineDef:
 
     def write_context(self, thread, reg: Register, field: int) -> None:
         """Write a context field into a p-code thread's decode context."""
+        bits = reg.getBitLength()
+        if not 0 <= field < 1 << bits:
+            # Ghidra would keep only the field's low bits, without a word.
+            raise ValueError(
+                f"context field {reg.getName()} is {bits} bits wide; "
+                f"{field} does not fit"
+            )
         value = thread.getContext().assign(reg, BigInteger.valueOf(field))
         thread.overrideContext(value)
 

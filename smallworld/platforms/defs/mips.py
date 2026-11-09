@@ -349,9 +349,12 @@ class MIPS32BE(MIPSO32PlatformDef):
 # microMIPS re-encodes MIPS32 (Release 3/5) as a mix of 16- and 32-bit
 # instructions. Hardware switches between it and standard MIPS32 on the low
 # bit of a jump target, and the isa_mode pseudo-register below holds the
-# current choice. Only the Ghidra backend switches; angr and Unicorn run these
-# platforms as microMIPS only. The mnemonics here are microMIPS's, spelled as
-# Capstone spells them.
+# current choice. Only the Ghidra backend tracks that choice: angr decodes only
+# microMIPS, and Unicorn follows a jump into standard MIPS32 but returns to
+# microMIPS whenever a run resumes. The mnemonics here are microMIPS's, spelled
+# as Capstone spells them. Capstone spells microMIPS's bal as its encoding,
+# bgezal $zero, so it is classed as a conditional branch here; these
+# mnemonic-only sets cannot tell the two apart.
 MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS = MIPSO32PlatformDef.conditional_branch_mnemonics | {
     # 16-bit compare-to-zero branches
     "beqz16",

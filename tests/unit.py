@@ -10651,6 +10651,14 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         emu.write_register("pc", 0x1000)
         self.assertEqual(emu.read_register("isa_mode"), 0)
 
+    def test_ghidra_isa_mode_out_of_range(self):
+        emu = self._ghidra()
+        for value in (2, -1):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    emu.write_register("isa_mode", value)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
     def test_unicorn_isa_mode_unsupported(self):
         emu = emulators.UnicornEmulator(self.PLATFORM)
         with self.assertRaises(exceptions.UnsupportedRegisterError):
@@ -10761,6 +10769,57 @@ class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
         emu.write_register_content("pc", 0x1001)
         emu.step()
         self.assertEqual(emu.read_register_content("v0"), 5)
+
+
+class MicroMIPSAngrMIPS32JumpTests(unittest.TestCase):
+    """angr runs microMIPS only, so it warns, once, when the code jumps into
+    standard MIPS32 code."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LOGGER = "smallworld.emulators.angr.machdefs.micromips"
+
+    # jr t9 with a nop in its delay slot, at 0x1000.
+    JR_T9 = bytes.fromhex("00190f3c" "00000000") + bytes(24)
+
+    def _run(self, code: bytes, registers, exit_point: int, target=None) -> None:
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, 0x2000)
+        emu.write_code(0x1000, code)
+        # 0x2000: addiu v0, zero, 5, unless given other code.
+        emu.write_code(0x2000, target or bytes.fromhex("30400005") + bytes(12))
+        for name, value in registers.items():
+            emu.write_register(name, value)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(exit_point)
+        emu.run()
+
+    def test_jump_to_even_address_warns_once(self):
+        # Two jumps to even addresses: 0x1000 to 0x2000, whose jr t8 goes back
+        # to 0x1010.
+        back = bytes.fromhex("00180f3c" "00000000") + bytes(8)
+        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+            self._run(self.JR_T9, {"t9": 0x2000, "t8": 0x1010}, 0x1014, back)
+        self.assertEqual(len(logs.output), 1)
+
+    def test_jump_to_odd_address_is_quiet(self):
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(self.JR_T9, {"t9": 0x2001, "v0": 0}, 0x2004)
+
+    def test_return_to_exit_point_is_quiet(self):
+        # jrc ra, to a harness's even exit address.
+        code = bytes.fromhex("45bf") + bytes(14)
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(code, {"ra": 0x3000}, 0x3000)
+
+    def test_calling_convention_is_o32(self):
+        import angr
+
+        cc = angr.calling_conventions.DEFAULT_CC["MIPS:BE:32:micro"]["Linux"]
+        self.assertTrue(issubclass(cc, angr.calling_conventions.SimCCO32))
+        self.assertEqual(cc.CALLER_SAVED_REGS, ["t9", "gp"])
+        self.assertEqual(cc.FP_ARG_REGS, [])
 
 
 class MicroMIPSAngrJalxTests(unittest.TestCase):
@@ -11077,6 +11136,12 @@ class ElfMicroMIPSTests(unittest.TestCase):
 
     MICRO = BINARIES_TESTS_DIR / "elf" / "elf.micromips.elf"
     STANDARD = BINARIES_TESTS_DIR / "elf" / "elf.mips.elf"
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_static_image_has_no_got_to_miss(self):
+        with self.assertNoLogs("smallworld.state.memory.elf.elf", level="ERROR"):
+            with self.MICRO.open("rb") as f:
+                Executable.from_elf(f)
 
     @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
     def test_micromips_image(self):

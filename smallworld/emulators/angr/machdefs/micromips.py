@@ -1,3 +1,4 @@
+import logging
 import typing
 
 import angr
@@ -8,6 +9,8 @@ from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
 from .mips import MIPSMachineDef
 from .superh import pcode_arch
+
+logger = logging.getLogger(__name__)
 
 
 def _micromips_context(language: str) -> pypcode.Context:
@@ -36,12 +39,9 @@ class MicroMIPSReturnAddress(angr.calling_conventions.SimRegArg):
 def _o32_cc(language: str) -> typing.Type[angr.calling_conventions.SimCC]:
     """The o32 calling convention, for one microMIPS language."""
 
-    class SimCCMicroMIPS(angr.calling_conventions.SimCC):
-        ARG_REGS = ["a0", "a1", "a2", "a3"]
+    class SimCCMicroMIPS(angr.calling_conventions.SimCCO32):
+        # The FPU registers are not available on this machine definition.
         FP_ARG_REGS: typing.List[str] = []
-        STACKARG_SP_BUFF = 16
-        RETURN_VAL = angr.calling_conventions.SimRegArg("v0", 4)
-        OVERFLOW_RETURN_VAL = angr.calling_conventions.SimRegArg("v1", 4)
         RETURN_ADDR = MicroMIPSReturnAddress("ra", 4)
         ARCH = pcode_arch(language)  # type: ignore
 
@@ -166,7 +166,8 @@ class MicroMIPSMachineDef(GhidraMachineDef):
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         # Turn syscall into a syscall exit; see _end_block_in_syscall. Other
-        # user ops are left to the engine as before.
+        # user ops are left to the engine as before. Also warn, once, when
+        # the code jumps into standard MIPS32, which angr cannot follow.
         assert hasattr(state.scratch, "exit_points")
 
         if "extra_stop_points" in kwargs:
@@ -199,7 +200,48 @@ class MicroMIPSMachineDef(GhidraMachineDef):
                 break
 
         kwargs["irsb"] = irsb
-        return super().successors(state, **kwargs)
+        successors = super().successors(state, **kwargs)
+        if not self._warned_mips32 and self._switches_to_mips32(
+            irsb, successors, mnemonics, exit_points
+        ):
+            self._warned_mips32 = True
+            logger.warning(
+                "microMIPS code jumped to standard MIPS32 code, which angr runs "
+                "as microMIPS; only the Ghidra backend switches encodings"
+            )
+        return successors
+
+    _warned_mips32 = False
+
+    @staticmethod
+    def _switches_to_mips32(irsb, successors, mnemonics, exit_points) -> bool:
+        """Did this block jump into standard MIPS32 code?
+
+        A jalx always does. Sleigh's jr and jalr forms set ISAModeSwitch to
+        the target's low bit, which the engine ignores; a 0 there after a
+        block that wrote it marks a jump to an even address. A jump to an
+        exit point is not one: harnesses return to an even exit address, and
+        nothing runs there.
+        """
+        if "jalx" in mnemonics.values():
+            return True
+        offset, size = successors.initial_state.arch.registers["isamodeswitch"]
+        wrote = any(
+            op.output is not None
+            and op.output.space.name == "register"
+            and op.output.offset == offset
+            for op in irsb._ops
+        )
+        if not wrote:
+            return False
+        for successor in successors.flat_successors:
+            target = successor._ip
+            if not target.symbolic and successor.solver.eval(target) in exit_points:
+                continue
+            value = successor.registers.load(offset, size)
+            if not value.symbolic and successor.solver.eval(value) == 0:
+                return True
+        return False
 
     def __init__(self):
         super().__init__()

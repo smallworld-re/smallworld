@@ -995,7 +995,10 @@ class ElfExecutable(Executable):
             # All MIPS dynamic symbols have an implicit rela.
             # MIPS dynamic symbols always have a GOT entry;
             # to save space, the ABI just assumes that the rela exists
-            if (
+            if not self._dtags:
+                # No dynamic section: a static image, with no GOT to find.
+                pass
+            elif (
                 DT_MIPS_GOTSYM not in self._dtags
                 or DT_MIPS_LOCAL_GOTNO not in self._dtags
                 or DT_PLTGOT not in self._dtags
