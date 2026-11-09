@@ -125,6 +125,13 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
 - **Ghidra** switches between the two encodings as hardware does, on the
   ``MIPS:BE:32:micro`` and ``MIPS:LE:32:micro`` languages. ``isa_mode`` is
   their ``ISA_MODE`` context field.
+
+  Ghidra's disassembler remembers the encoding it first decoded each address
+  in, so code that one emulator has run in one encoding keeps decoding that
+  way. Writing ``isa_mode``, or an odd pc, does not change it, though
+  ``isa_mode`` reads back the new value; neither does a jump into that code in
+  the other encoding. Run it in the other encoding on a fresh emulator. Ghidra
+  offers no public way to clear that memory.
 - **angr** runs microMIPS only, on the same languages through its p-code
   engine rather than VEX, which has no microMIPS decoder. angr's lifter has no
   way to set a context field, so SmallWorld gives the lifter angr caches for
