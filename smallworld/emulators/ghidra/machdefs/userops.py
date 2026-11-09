@@ -12,12 +12,26 @@ import struct
 import typing
 
 from .... import exceptions
+from .machdef import Userop
 
 # Reflected CRC-32 and CRC-32C (Castagnoli) polynomials.
 _CRC32_POLY = 0xEDB88320
 _CRC32C_POLY = 0x82F63B78
 
 _CRC32_SIZES = {"b": 1, "h": 2, "w": 4}
+
+
+def _crc32(acc: int, value: int, size: int, poly: int) -> int:
+    """Fold ``size`` bytes of ``value`` into ``acc`` with a reflected poly.
+
+    The architecture folds the value's low byte in first, with no initial
+    or final inversion.
+    """
+    for byte in (value & ((1 << (size * 8)) - 1)).to_bytes(size, "little"):
+        acc ^= byte
+        for _ in range(8):
+            acc = (acc >> 1) ^ (poly if acc & 1 else 0)
+    return acc
 
 
 def crc32_calc(emu: typing.Any, mnemonic: str, args: typing.Sequence[int]) -> int:
@@ -29,14 +43,31 @@ def crc32_calc(emu: typing.Any, mnemonic: str, args: typing.Sequence[int]) -> in
     """
     acc, value = args
     poly = _CRC32C_POLY if mnemonic.startswith("crc32c") else _CRC32_POLY
-    size = _CRC32_SIZES[mnemonic[-1]]
-    # The architecture folds the value's low byte in first, with no initial
-    # or final inversion.
-    for byte in (value & ((1 << (size * 8)) - 1)).to_bytes(size, "little"):
-        acc ^= byte
-        for _ in range(8):
-            acc = (acc >> 1) ^ (poly if acc & 1 else 0)
-    return acc
+    return _crc32(acc, value, _CRC32_SIZES[mnemonic[-1]], poly)
+
+
+# AArch64 passes the polynomial as written, not reflected.
+_AARCH64_CRC32_POLYS = {0x04C11DB7: _CRC32_POLY, 0x1EDC6F41: _CRC32C_POLY}
+
+
+def _aarch64_crc32(size: int) -> Userop:
+    def crc32(emu: typing.Any, mnemonic: str, args: typing.Sequence[int]) -> int:
+        acc, value, poly = args
+        if poly not in _AARCH64_CRC32_POLYS:
+            raise exceptions.EmulationError(
+                f"{mnemonic}: unexpected CRC polynomial {poly:#x}"
+            )
+        return _crc32(acc, value, size, _AARCH64_CRC32_POLYS[poly])
+
+    return crc32
+
+
+#: ``crc32b(acc, value, poly)`` and the rest, for AArch64's crc32 and crc32c
+#: instructions. The userop's name gives the size.
+aarch64_crc32_userops: typing.Mapping[str, Userop] = {
+    f"crc32{suffix}": _aarch64_crc32(size)
+    for suffix, size in (("b", 1), ("h", 2), ("w", 4), ("x", 8))
+}
 
 
 def _signed(value: int, bits: int) -> int:

@@ -2,7 +2,7 @@ import typing
 
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef, Userop
-from .userops import neon_sqrdml_as_h
+from .userops import aarch64_crc32_userops, neon_sqrdml_as_h
 
 
 class AArch64MachineDef(GhidraMachineDef):
@@ -15,7 +15,10 @@ class AArch64MachineDef(GhidraMachineDef):
     nop_userops = frozenset(
         {"Yield", "SendEvent", "SendEventLocally", "LOAcquire", "LORelease"}
     )
-    userops: typing.Mapping[str, Userop] = {"NEON_sqrdml_as_h": neon_sqrdml_as_h}
+    userops: typing.Mapping[str, Userop] = {
+        "NEON_sqrdml_as_h": neon_sqrdml_as_h,
+        **aarch64_crc32_userops,
+    }
 
     _registers = {
         # *** General Purpose Registers ***
