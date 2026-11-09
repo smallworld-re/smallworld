@@ -9,7 +9,7 @@ and MCS51Device, which the mcs51_sdcc scenario's interrupts program runs.
 import typing
 import unittest
 
-from smallworld import exceptions
+from smallworld import exceptions, platforms
 from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F04X_SFR_PAGING,
     MCS51_C8051F12X_SFR_PAGING,
@@ -52,8 +52,11 @@ from smallworld.platforms.defs.mcs51 import (
     mcs51_write_idata,
 )
 from smallworld.state.cpus import MCS51Device
+from smallworld.state.memory.stack import Stack
 
 NOP = 0x00
+
+MCS51 = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
 
 
 def sfrs(**values: int) -> typing.Callable[[int], int]:
@@ -481,6 +484,33 @@ class MCS51FlashTests(unittest.TestCase):
         self.store(MCS51_XDATA_BASE + 0x1A00, 0x00)
         self.assertNotIn(MCS51_CODE_BASE + 0x1A00, self.memory)
         self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_DISABLED)
+
+
+class MCS51StackTests(unittest.TestCase):
+    """MCS51Stack grows up through internal RAM, as SP does."""
+
+    def test_pushes_grow_up_little_endian(self):
+        stack = Stack.for_platform(MCS51, MCS51_IDATA_BASE + 0x30, 0x10)
+        self.assertEqual(stack.get_pointer(), MCS51_IDATA_BASE + 0x2F)
+        stack.push_integer(0x1234, 2, "return address")
+        stack.push_integer(0x56, 1, "byte")
+        self.assertEqual(stack.get_pointer(), MCS51_IDATA_BASE + 0x32)
+        self.assertEqual(stack.to_bytes()[:3], b"\x34\x12\x56")
+
+    def test_sp_wraps_below_internal_ram(self):
+        # Empty at the start of internal RAM, SP is 0xFF; a push wraps it to 0.
+        stack = Stack.for_platform(MCS51, MCS51_IDATA_BASE, 0x10)
+        self.assertEqual((stack.get_pointer() - MCS51_IDATA_BASE) & 0xFF, 0xFF)
+
+    def test_stacks_outside_internal_ram_are_refused(self):
+        for address, size in (
+            (MCS51_IDATA_BASE + 0xF8, 0x20),
+            (MCS51_XDATA_BASE, 0x10),
+        ):
+            with self.subTest(address=hex(address), size=size):
+                with self.assertRaises(exceptions.ConfigurationError):
+                    Stack.for_platform(MCS51, address, size)
+        Stack.for_platform(MCS51, MCS51_IDATA_BASE + 0xF0, 0x10)
 
 
 class MCS51StackWrapTests(unittest.TestCase):

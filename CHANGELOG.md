@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `dma`, `call`, `hooking`, `stack`, `static_buf`, `null_pc`,
   `exitpoint` and `unmapped` integration cases cover the 8051 on angr and
   Ghidra. `MCS51Stack` models its upward-growing stack in internal RAM, and
+  refuses a region outside it, and
   `Model` returns from 8051 function hooks. angr machine definitions can
   supply `function_return_address` for a return address angr's calling
   conventions cannot describe; the 8051's lives in internal RAM.
