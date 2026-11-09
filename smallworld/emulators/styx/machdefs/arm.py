@@ -48,6 +48,30 @@ _BASE_REGS = {
     "spsr": ArmRegister.Spsr,
 }
 
+# A hook's CPU knows only the core registers and the status register, by
+# their plain names, so aliases go by the register they alias. Floating-point
+# registers, apsr and spsr can't be reached from a hook.
+_HOOK_REGS = {
+    **{f"r{i}": f"r{i}" for i in range(13)},
+    "sb": "r9",
+    "sl": "r10",
+    "fp": "r11",
+    "ip": "r12",
+    "r13": "sp",
+    "sp": "sp",
+    "r14": "lr",
+    "lr": "lr",
+    "r15": "pc",
+    "pc": "pc",
+}
+
+# The A-profile target's status register is cpsr.
+_A_PROFILE_HOOK_REGS = {**_HOOK_REGS, "cpsr": "cpsr"}
+
+# M-profile's status register is the xPSR, which SmallWorld calls psr.
+_M_PROFILE_REGS = {**_BASE_REGS, "psr": ArmRegister.Xpsr}
+_M_PROFILE_HOOK_REGS = {**_HOOK_REGS, "cpsr": "xpsr", "psr": "xpsr"}
+
 
 class StyxARMv4MachineDef(StyxMachineDef):
     arch = Architecture.ARM_V4
@@ -59,6 +83,7 @@ class StyxARMv4MachineDef(StyxMachineDef):
     pc_register = "pc"
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
+    hook_registers = _A_PROFILE_HOOK_REGS
 
 
 class StyxARMv4TMachineDef(StyxMachineDef):
@@ -71,6 +96,7 @@ class StyxARMv4TMachineDef(StyxMachineDef):
     pc_register = "pc"
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
+    hook_registers = _A_PROFILE_HOOK_REGS
 
 
 class StyxARMv5TMachineDef(StyxMachineDef):
@@ -82,6 +108,7 @@ class StyxARMv5TMachineDef(StyxMachineDef):
     pc_register = "pc"
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
+    hook_registers = _A_PROFILE_HOOK_REGS
 
 
 class StyxARMv6KMachineDef(StyxMachineDef):
@@ -93,6 +120,7 @@ class StyxARMv6KMachineDef(StyxMachineDef):
     pc_register = "pc"
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
+    hook_registers = _A_PROFILE_HOOK_REGS
 
 
 class StyxARMv6MMachineDef(StyxMachineDef):
@@ -105,7 +133,8 @@ class StyxARMv6MMachineDef(StyxMachineDef):
     address_size = 4
     pc_register = "pc"
     lr_register = "lr"
-    _registers = dict(_BASE_REGS)
+    _registers = dict(_M_PROFILE_REGS)
+    hook_registers = _M_PROFILE_HOOK_REGS
 
 
 class StyxARMv7EMMachineDef(StyxMachineDef):
@@ -117,8 +146,9 @@ class StyxARMv7EMMachineDef(StyxMachineDef):
     address_size = 4
     pc_register = "pc"
     lr_register = "lr"
+    hook_registers = _M_PROFILE_HOOK_REGS
     _registers = {
-        **_BASE_REGS,
+        **_M_PROFILE_REGS,
         "fpscr": ArmRegister.Fpscr,
         **{f"s{i}": getattr(ArmRegister, f"S{i}") for i in range(32)},
         **{f"d{i}": getattr(ArmRegister, f"D{i}") for i in range(16)},
@@ -134,4 +164,5 @@ class StyxARMv7MMachineDef(StyxMachineDef):
     address_size = 4
     pc_register = "pc"
     lr_register = "lr"
-    _registers = dict(_BASE_REGS)
+    _registers = dict(_M_PROFILE_REGS)
+    hook_registers = _M_PROFILE_HOOK_REGS

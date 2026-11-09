@@ -11,6 +11,7 @@ from styx_emulator.cpu import Backend
 from styx_emulator.processor import Target
 
 from ....platforms import Architecture, Byteorder
+from .arm import _A_PROFILE_HOOK_REGS
 from .machdef import StyxMachineDef
 
 
@@ -22,6 +23,7 @@ class StyxARMv7AMachineDef(StyxMachineDef):
     address_size = 4
     pc_register = "pc"
     lr_register = "lr"
+    hook_registers = _A_PROFILE_HOOK_REGS
 
     _registers = {
         "r0": ArmRegister.R0,

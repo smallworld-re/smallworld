@@ -57,6 +57,16 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
     address_size: int = 4
     """Address size in bytes (4 for 32-bit ARM)."""
 
+    hook_registers: typing.Optional[typing.Mapping[str, str]] = None
+    """Map from SmallWorld register name (lowercase) to the name a hook's CPU
+    knows it by, if that differs from the Styx register enum's name.
+
+    A hook can't use the Processor, so it reaches registers through the CPU
+    it's handed, which takes a name and knows fewer registers. A register
+    missing from this map can't be reached from a hook. ``None`` means every
+    register goes by its enum's name.
+    """
+
     def styx_register(self, name: str) -> typing.Any:
         """Translate a SmallWorld register name into a Styx register enum value."""
         key = name.lower()
@@ -65,6 +75,20 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
                 f"Styx machine def for {self.arch}:{self.byteorder} has no register '{name}'"
             )
         return self._registers[key]
+
+    def hook_register(self, name: str) -> str:
+        """Translate a SmallWorld register name into the name a hook's CPU uses."""
+        enum = self.styx_register(name)
+        if self.hook_registers is None:
+            # The CPU names registers as the enum does, as a string.
+            return str(enum).rsplit(".", 1)[-1]
+        key = name.lower()
+        if key not in self.hook_registers:
+            raise exceptions.UnsupportedRegisterError(
+                f"Styx hooks can't reach register '{name}' on "
+                f"{self.arch}:{self.byteorder}"
+            )
+        return self.hook_registers[key]
 
     def _resolve_cpu_model(
         self, cpu_model: typing.Optional[str]

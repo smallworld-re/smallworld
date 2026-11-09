@@ -117,7 +117,15 @@ class StyxEmulator(
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
 ):
-    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH)."""
+    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH).
+
+    Hooks reach registers through the CPU Styx hands them, which knows fewer
+    registers than the emulator does outside a hook. On ARM, a hook can use
+    the core registers, their aliases and the status register (cpsr, or psr
+    on M-profile), but not the floating-point registers, fpscr, apsr or spsr;
+    those raise ``UnsupportedRegisterError``. A model that takes or returns
+    a float on hard-float ARMv7E-M can't run on Styx.
+    """
 
     name = "styx-emulator"
     description = "emulator based on the styx-emulator firmware emulation framework"
@@ -291,10 +299,6 @@ class StyxEmulator(
 
         return substitute
 
-    def _core_register(self, name: str) -> str:
-        # The core names registers as the Processor's enum does, as a string.
-        return str(self.machdef.styx_register(name)).rsplit(".", 1)[-1]
-
     def _do_write(self, address: int, data: bytes, *, is_code: bool) -> None:
         if self._hook_cpu is not None:
             if is_code:
@@ -313,7 +317,7 @@ class StyxEmulator(
         if self._thumb_only and name == self.machdef.pc_register:
             value |= 1
         if self._hook_cpu is not None:
-            self._hook_cpu.write_register(self._core_register(name), int(value))
+            self._hook_cpu.write_register(self.machdef.hook_register(name), int(value))
             return
         assert self._proc is not None
         # The Styx pyi names the single-register-write method ``write_registers``
@@ -324,7 +328,7 @@ class StyxEmulator(
 
     def read_register_content(self, name: str) -> int:
         if self._hook_cpu is not None:
-            value = self._hook_cpu.read_register(self._core_register(name))
+            value = self._hook_cpu.read_register(self.machdef.hook_register(name))
         else:
             self._lazy_build()
             reg = self.machdef.styx_register(name)
