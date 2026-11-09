@@ -59,9 +59,9 @@ _ARM32_ARCHITECTURES = frozenset(
     }
 )
 
-# ARM32 platforms that a soft- or hard-float ELF can explicitly request.
-# ELF's ARM flags stop distinguishing versions at EABI 5, so a request for one
-# of these wins over the default the flags imply.
+# ARM32 platforms whose C models pass floats soft- or hard-float.
+# The float ABI is a build choice, so an ELF's can differ from its platform's;
+# loading warns when it does, since float arguments to models won't match.
 _ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
     {
         Architecture.ARM_V4,
@@ -375,36 +375,39 @@ class ElfExecutable(Executable):
 
             # NOTE: ELF stopped numbering ARM version numbers at 5.
             # This would be fine, except v6 and v7 are absolutely not
-            # binary compatible with v5.
-            if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
-                # This is either ARMv5T or some kind of ARMv6.
-                # We're currently assuming v5T,
-                # unless the user specifically asks for v6.
-                if (
-                    self.platform is not None
-                    and self.platform.architecture in _ARM32_SOFT_FLOAT_ARCHITECTURES
-                ):
-                    architecture = self.platform.architecture
-                else:
-                    log.warning("Ambiguous ARM ABI version; assuming v5t")
-                    architecture = Architecture.ARM_V5T
-            elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
-                # This is ARMv7a, as built by gcc, unless the user asks for
-                # another hard-float platform.
-                if (
-                    self.platform is not None
-                    and self.platform.architecture in _ARM32_HARD_FLOAT_ARCHITECTURES
-                ):
-                    architecture = self.platform.architecture
-                else:
-                    architecture = Architecture.ARM_V7A
-            elif (
+            # binary compatible with v5. Past that, the flags only record
+            # the float ABI, which is a build choice, not the architecture.
+            soft_float = EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags
+            hard_float = EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags
+            if (
                 self.platform is not None
                 and self.platform.architecture in _ARM32_ARCHITECTURES
             ):
-                # The file might be a core dump, which carries no ABI flags;
-                # an explicitly requested ARM32 platform wins.
+                # An explicitly requested ARM32 platform wins, whatever the
+                # float ABI. The file might also be a core dump, which
+                # carries no ABI flags.
                 architecture = self.platform.architecture
+                if (soft_float and architecture in _ARM32_HARD_FLOAT_ARCHITECTURES) or (
+                    hard_float and architecture in _ARM32_SOFT_FLOAT_ARCHITECTURES
+                ):
+                    elf_abi, model_abi = (
+                        ("soft", "hard") if soft_float else ("hard", "soft")
+                    )
+                    log.warning(
+                        f"ELF uses the {elf_abi}-float ABI, but {architecture}'s "
+                        f"C models use {model_abi}-float; float arguments and "
+                        "return values of C models won't match"
+                    )
+            elif soft_float:
+                # This is either ARMv5T or some kind of ARMv6.
+                # We're currently assuming v5T,
+                # unless the user specifically asks for another platform.
+                log.warning("Ambiguous ARM ABI version; assuming v5t")
+                architecture = Architecture.ARM_V5T
+            elif hard_float:
+                # This is ARMv7a, as built by gcc, unless the user asks for
+                # another platform.
+                architecture = Architecture.ARM_V7A
             else:
                 # The file might be a core dump or some uncommon flavor of ARM.
                 # Fallback to a default if flags are missing.
