@@ -12,7 +12,8 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
 - Bit instructions use a separate byte per bit (BIT_OPS "BIT_ADDRS") instead of
   the bits of internal RAM 0x20-0x2F and of the SFRs.
 - SP has no direct-address alias, so `mov sp,#n` writes SFR 0x81 and leaves SP
-  alone.
+  alone.  With the alias, PUSH and POP of SP would use SP as both operand and
+  stack pointer, so the patch passes their operand through a temporary.
 - MOVX @Ri ignores P2, which supplies the high address byte, so code that
   pages external RAM, as SDCC's startup code does, stays in its first 256
   bytes.  The patch takes the page from a new register, XPAGE, which the host
@@ -235,7 +236,21 @@ emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
  :MOVX  ATDPTR,Areg  is $(GROUP1) & ophi=15 & oplo=0 & Areg & ATDPTR	{ ATDPTR = ACC; }
  
  :MUL ABreg         is $(GROUP1) & ophi=10 & oplo=4 & ABreg	   { PSW = PSW & 0x7b; tmp:2 = zext(ACC) * zext(B); ACC = tmp(0); B = tmp(1); PSW = PSW | ((B!=0)<<2); }
-@@ -946,10 +1027,10 @@
+@@ -904,9 +985,11 @@
+ :ORL CY,BitAddr2 is $(GROUP1) & CY & ophi=10 & oplo=0; BitAddr2 & sfrbit & BitByteAddr {$(CY)=$(CY)| (((BitByteAddr>>sfrbit)&1)^1); }
+ @endif
+ 
+-:POP  Direct is $(GROUP1) & ophi=13 & oplo=0; Direct	{ pop8(Direct); }
++# SmallWorld: through a temporary, so that, with SP as a direct operand, POP
++# leaves SP the byte popped, and PUSH pushes SP as it was, as the hardware does.
++:POP  Direct is $(GROUP1) & ophi=13 & oplo=0; Direct	{ local val:1 = 0; pop8(val); Direct = val; }
+ 
+-:PUSH Direct is $(GROUP1) & ophi=12 & oplo=0; Direct	{ push8(Direct); }
++:PUSH Direct is $(GROUP1) & ophi=12 & oplo=0; Direct	{ local val:1 = Direct; push8(val); }
+ 
+ :RET  is $(GROUP1) & ophi=2 & oplo=2	{
+ @if defined(MCS251) || defined(MX51)
+@@ -946,10 +1029,10 @@
  
  :SJMP Rel8        is $(GROUP1) & ophi=8 & oplo=0; Rel8			{ goto Rel8; }
  

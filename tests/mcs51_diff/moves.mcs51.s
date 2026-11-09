@@ -1,5 +1,5 @@
     ; Data movement: mov in every form, upper internal RAM through @Ri, movx,
-    ; movc, xch, xchd, push and pop.
+    ; movc, xch, xchd, push and pop, of SP too.
     ; Part of the mcs51_diff scenario; see harness/scenarios/mcs51_diff.py.
     ; It starts from a random state (registers, PSW flags, internal RAM
     ; 0x20-0xFF and XDATA 0x0000-0x00FF) and the scenario compares where it
@@ -63,4 +63,10 @@ _start:
     pop     0x3F
     mov     a, sp
     SNAP    0x52
+    push    sp              ; pushes SP as it was
+    mov     a, sp
+    SNAP    0x54
+    pop     sp              ; leaves SP the byte popped
+    mov     a, sp
+    SNAP    0x56
     nop
