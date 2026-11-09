@@ -544,8 +544,10 @@ class StyxEmulator(
             if _lr is None:
                 return
             # Step out of the hooked function by jumping to the link register.
-            # Mask the Thumb bit if present so PC stays aligned, unless the
-            # platform is Thumb-only, where the bit must stay set.
+            # On a Thumb-only platform the Thumb bit must stay set. Where
+            # bit 0 selects ARM or Thumb, keep it, as bx lr does, so a Thumb
+            # caller gets its Thumb state back. Elsewhere, mask it so pc
+            # stays aligned.
             try:
                 ret = cpu.read_register(_lr)
             except Exception:
@@ -554,6 +556,8 @@ class StyxEmulator(
                 return
             if _self._thumb_only:
                 cpu.write_register("pc", int(ret) | 0x1)
+            elif _self.machdef.interworking:
+                cpu.write_register("pc", int(ret))
             else:
                 cpu.write_register("pc", int(ret) & ~0x1)
 

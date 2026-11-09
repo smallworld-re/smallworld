@@ -97,6 +97,7 @@ class StyxARMv4TMachineDef(StyxMachineDef):
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
     hook_registers = _A_PROFILE_HOOK_REGS
+    interworking = True
 
 
 class StyxARMv5TMachineDef(StyxMachineDef):
@@ -109,6 +110,7 @@ class StyxARMv5TMachineDef(StyxMachineDef):
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
     hook_registers = _A_PROFILE_HOOK_REGS
+    interworking = True
 
 
 class StyxARMv6KMachineDef(StyxMachineDef):
@@ -121,6 +123,7 @@ class StyxARMv6KMachineDef(StyxMachineDef):
     lr_register = "lr"
     _registers = dict(_BASE_REGS)
     hook_registers = _A_PROFILE_HOOK_REGS
+    interworking = True
 
 
 class StyxARMv6MMachineDef(StyxMachineDef):

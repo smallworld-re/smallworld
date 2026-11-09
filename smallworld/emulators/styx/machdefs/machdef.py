@@ -57,6 +57,13 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
     address_size: int = 4
     """Address size in bytes (4 for 32-bit ARM)."""
 
+    interworking: bool = False
+    """Does bit 0 of an address written to pc select the instruction set?
+
+    True for ARM with both ARM and Thumb (A- and R-profile, v4T and later):
+    an odd address runs Thumb, an even one ARM, as ``bx`` does.
+    """
+
     hook_registers: typing.Optional[typing.Mapping[str, str]] = None
     """Map from SmallWorld register name (lowercase) to the name a hook's CPU
     knows it by, if that differs from the Styx register enum's name.

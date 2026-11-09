@@ -24,6 +24,7 @@ class StyxARMv7AMachineDef(StyxMachineDef):
     pc_register = "pc"
     lr_register = "lr"
     hook_registers = _A_PROFILE_HOOK_REGS
+    interworking = True
 
     _registers = {
         "r0": ArmRegister.R0,
