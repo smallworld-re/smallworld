@@ -5796,6 +5796,45 @@ class BE8Tests(unittest.TestCase):
         self.assertEqual(len(ends), 3)
         self.assertEqual(set(ends), {archinfo.Endness.BE})
 
+    def run_exclusive_doubleword(self, emulator, code, pc):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        memory = state.memory.Memory(0x2000, 0x10)
+        memory[0] = state.BytesValue(bytes.fromhex("0000000100000002"), None)
+        machine.add(memory)
+        cpu.pc.set(pc)
+        cpu.r4.set(0x2000)
+        cpu.r8.set(0xAA)
+        cpu.r9.set(0xBB)
+        emulator.add_exit_point(0x1000 + len(code))
+        cpu = machine.emulate(emulator).get_cpu()
+        # The first register is the word at the lower address.
+        self.assertEqual((cpu.r0.get(), cpu.r1.get()), (1, 2))
+        self.assertEqual(cpu.r2.get(), 0)
+        self.assertEqual((cpu.r5.get(), cpu.r6.get()), (0xAA, 0xBB))
+
+    def test_angr_exclusive_doubleword_word_order(self):
+        # ldrexd r0, r1, [r4]; strexd r2, r8, r9, [r4];
+        # ldr r5, [r4]; ldr r6, [r4, #4]
+        code = bytes.fromhex("9f0fb4e1982fa4e1005094e5046094e5")
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_exclusive_doubleword(emulators.AngrEmulator(platform), code, 0x1000)
+
+    def test_angr_thumb_exclusive_doubleword_word_order(self):
+        # The same in Thumb
+        code = bytes.fromhex("d4e87f01c4e8728925686668")
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_exclusive_doubleword(emulators.AngrEmulator(platform), code, 0x1001)
+
     def test_unicorn_holds_cpsr_e(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
