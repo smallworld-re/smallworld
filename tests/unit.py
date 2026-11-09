@@ -5184,6 +5184,76 @@ class MProfileDecodeTests(unittest.TestCase):
         self.assertIn("0x1000", str(ctx.exception))
 
 
+class UnicornDisassemblerModeTests(unittest.TestCase):
+    """Unicorn's disassembler keeps the platform's mode across interworking.
+
+    Switching between ARM and Thumb reset the mode to bare ARM or Thumb,
+    dropping V8 and MCLASS, so v8 and M-profile special-register
+    instructions stopped decoding as soon as pc was written.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    def stepped(self, arch, code, pc=0x1000, byteorder=platforms.Byteorder.LITTLE):
+        """The instruction after the first, once pc is written and stepped"""
+        emu = emulators.UnicornEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        for reg in ("r0", "r1", "r2"):
+            emu.write_register(reg, 0)
+        emu.write_register("pc", pc)
+        emu.add_exit_point(0x1100)
+        emu.step()
+        insn = emu.current_instruction()
+        self.assertIsNotNone(insn)
+        return f"{insn.mnemonic} {insn.op_str}"
+
+    def test_v8_arm_code_keeps_v8(self):
+        # nop; crc32b r0, r1, r2
+        for arch in (platforms.Architecture.ARM_V8A, platforms.Architecture.ARM_V8R):
+            with self.subTest(arch=arch.name):
+                self.assertEqual(
+                    self.stepped(arch, bytes.fromhex("00f020e3420001e1")),
+                    "crc32b r0, r1, r2",
+                )
+
+    def test_v8_thumb_code_keeps_v8(self):
+        # nop; crc32b r0, r1, r2, entered through an odd pc
+        self.assertEqual(
+            self.stepped(
+                platforms.Architecture.ARM_V8A,
+                bytes.fromhex("00bfc1fa82f0"),
+                pc=0x1001,
+            ),
+            "crc32b r0, r1, r2",
+        )
+
+    def test_m_profile_keeps_mclass(self):
+        # nop; mrs r0, primask
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                self.assertEqual(
+                    self.stepped(arch, bytes.fromhex("00bfeff31080")),
+                    "mrs r0, primask",
+                )
+
+    def test_be32_keeps_big_endian(self):
+        # mov r0, r0; add r0, r1, r2, big-endian
+        self.assertEqual(
+            self.stepped(
+                platforms.Architecture.ARM_V5T,
+                bytes.fromhex("e1a00000e0810002"),
+                byteorder=platforms.Byteorder.BIG,
+            ),
+            "add r0, r1, r2",
+        )
+
+
 class X86ImmediateOperandTests(unittest.TestCase):
     """x86Instruction.reads hit `assert 1 == 0` on immediate operands."""
 
