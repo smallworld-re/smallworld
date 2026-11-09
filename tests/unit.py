@@ -10024,6 +10024,79 @@ class GhidraNegativeRegisterWriteTests(unittest.TestCase):
         self.assertEqual(self.emu.read_register("eax"), 0xFFFFFFFF)
 
 
+class GhidraThumbOnlyPcTests(unittest.TestCase):
+    """M-profile pc writes drop the Thumb bit on both Ghidra emulators.
+
+    The Thumb-only language decodes at whatever pc holds, so an odd pc, such
+    as a model's return through lr, faulted as a misaligned fetch.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    # movs r0, #1; movs r1, #2; nop
+    MOVS = bytes.fromhex("0120022100bf")
+    # bl 0x1100; movs r0, #5
+    CALL = bytes.fromhex("00f07ef80520")
+
+    def emulator(self, cls, arch, code):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(arch, platforms.Byteorder.LITTLE))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        return emu
+
+    def test_odd_pc_write_steps_thumb_code(self):
+        for cls in (
+            emulators.ghidra.GhidraEmulator,
+            emulators.ghidra.GhidraSymbolicEmulator,
+        ):
+            for arch in self.M_PROFILES:
+                with self.subTest(emulator=cls.__name__, arch=arch.name):
+                    emu = self.emulator(cls, arch, self.MOVS)
+                    emu.write_register("r0", 0)
+                    emu.write_register("pc", 0x1001)
+                    self.assertEqual(emu.read_register("pc"), 0x1000)
+                    emu.step()
+                    self.assertEqual(emu.read_register("pc"), 0x1002)
+                    self.assertEqual(emu.read_register("r0"), 1)
+
+    def test_symbolic_function_hook_returns_through_lr(self):
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                emu = self.emulator(
+                    emulators.ghidra.GhidraSymbolicEmulator, arch, self.CALL
+                )
+                emu.write_register("r0", 0)
+                emu.write_register("pc", 0x1000)
+                emu.add_exit_point(0x1006)
+                lrs = []
+
+                def model(emu):
+                    lrs.append(emu.read_register("lr"))
+                    emu.write_register("pc", emu.read_register("lr"))
+
+                emu.hook_function(0x1100, model)
+                emu.run()
+                self.assertEqual(lrs, [0x1005])
+                self.assertEqual(emu.read_register("r0"), 5)
+
+    def test_only_m_profile_is_thumb_only(self):
+        for arch in (
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.X86_64,
+        ):
+            with self.subTest(arch=arch.name):
+                self.assertFalse(_ghidra_concrete_emulator(arch).machdef.thumb_only)
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                self.assertTrue(_ghidra_concrete_emulator(arch).machdef.thumb_only)
+
+
 class _GhidraFakeConcretePair:
     """Stand-in for a Java Pair<byte[], SymValueZ3> with no symbolic side.
 
