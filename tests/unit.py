@@ -11071,6 +11071,8 @@ class HookableChainOverlappingTests(unittest.TestCase):
 
 class PrintfPointerTests(unittest.TestCase):
     class Varargs:
+        pads_pointers = True
+
         def __init__(self, *widths: int):
             self.widths = list(widths)
 
@@ -11080,13 +11082,13 @@ class PrintfPointerTests(unittest.TestCase):
         def format_next_pointer(self, emulator) -> str:
             return "0x1234"
 
-    def format(self, spec: str, *widths: int) -> str:
+    def format(self, spec: str, *widths: int, varargs_class=None) -> str:
         from smallworld.state.models.c99.fmt_print import handle_pointer, pointer_re
 
         match = pointer_re.match(spec)
         assert match is not None
         # Varargs stands in for a VariadicContext, and %p needs no emulator.
-        varargs = typing.cast(typing.Any, self.Varargs(*widths))
+        varargs = typing.cast(typing.Any, (varargs_class or self.Varargs)(*widths))
         return handle_pointer("", varargs, match, typing.cast(typing.Any, None))
 
     def test_width_and_left_justification(self):
@@ -11099,6 +11101,14 @@ class PrintfPointerTests(unittest.TestCase):
         # C: a negative width argument is a '-' flag and a positive width.
         self.assertEqual(self.format("%*p", -10), "0x1234    ")
         self.assertEqual(self.format("%-*p", -10), "0x1234    ")
+
+    def test_unpadded_where_the_library_does_not_pad(self):
+        # SDCC's printf ignores %p's width, though it still takes a '*' one.
+        class Varargs(self.Varargs):
+            pads_pointers = False
+
+        self.assertEqual(self.format("%10p", varargs_class=Varargs), "0x1234")
+        self.assertEqual(self.format("%-*p", 10, varargs_class=Varargs), "0x1234")
 
 
 class MCS51MovxPagingTests(unittest.TestCase):
@@ -11361,6 +11371,114 @@ class MCS51DerivedStateTests(unittest.TestCase):
                     platforms.Architecture.MCS51, platforms.Byteorder.BIG
                 )
             )
+
+
+class MCS51SDCCModelTests(unittest.TestCase):
+    """C models under SDCC's default convention, on a plain memory."""
+
+    class Emulator:
+        def __init__(self):
+            self.registers: typing.Dict[str, int] = {"sp": 0x40, "xpage": 0}
+            self.memory = bytearray(0x30000)
+
+        def read_register(self, name: str) -> int:
+            return self.registers.get(name, 0)
+
+        def write_register(self, name: str, value: int) -> None:
+            self.registers[name] = value
+
+        def read_memory(self, address: int, size: int) -> bytes:
+            return bytes(self.memory[address : address + size])
+
+        def write_memory(self, address: int, content: bytes) -> None:
+            self.memory[address : address + len(content)] = content
+
+        def set_pointer(self, pointer: bytes) -> None:
+            # The first argument, in DPL, DPH and B.
+            for register, byte in zip(("dpl", "dph", "b"), pointer):
+                self.registers[register] = byte
+
+        def returned(self) -> bytes:
+            return bytes(self.registers[r] for r in ("dpl", "dph", "b"))
+
+    XDATA = b"\x00"
+    PDATA = b"\x60"
+
+    def call(self, model_class, emulator, first: bytes, second: bytes) -> bytes:
+        from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
+
+        model = model_class(0x100)
+        model.parameter_addresses = [MCS51_XDATA_BASE + 0x800]
+        emulator.set_pointer(first)
+        emulator.write_memory(MCS51_XDATA_BASE + 0x800, second)
+        model.model(emulator)
+        return emulator.returned()
+
+    def test_a_returned_pointer_takes_its_arguments_tag(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
+        from smallworld.state.models.mcs51.sdcc import MCS51SDCCStrcpy
+
+        # pdata and XDATA share page 0, as in SDCC's medium model.
+        emulator = self.Emulator()
+        emulator.write_memory(MCS51_XDATA_BASE + 0x01, b"hi\0")
+        emulator.write_memory(MCS51_XDATA_BASE + 0x40, b"hi\0")
+        self.assertEqual(
+            self.call(
+                MCS51SDCCStrcpy,
+                emulator,
+                b"\x40\x00" + self.XDATA,
+                b"\x01\x00" + self.PDATA,
+            ),
+            b"\x40\x00" + self.XDATA,
+        )
+        self.assertEqual(
+            self.call(
+                MCS51SDCCStrcpy,
+                emulator,
+                b"\x01\x00" + self.PDATA,
+                b"\x40\x00" + self.XDATA,
+            ),
+            b"\x01\x00" + self.PDATA,
+        )
+
+    def test_strtok_keeps_its_strings_tag(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
+        from smallworld.state.models.mcs51.sdcc import MCS51SDCCStrtok
+
+        emulator = self.Emulator()
+        emulator.write_memory(MCS51_XDATA_BASE + 0x01, b"a,b\0")
+        emulator.write_memory(MCS51_XDATA_BASE + 0x40, b",\0")
+        model = MCS51SDCCStrtok(0x100)
+        model.parameter_addresses = [MCS51_XDATA_BASE + 0x800]
+        emulator.write_memory(MCS51_XDATA_BASE + 0x800, b"\x40\x00" + self.XDATA)
+        emulator.set_pointer(b"\x01\x00" + self.PDATA)
+        model.model(emulator)
+        self.assertEqual(emulator.returned(), b"\x01\x00" + self.PDATA)
+        emulator.set_pointer(b"\x00\x00\x00")
+        model.model(emulator)
+        self.assertEqual(emulator.returned(), b"\x03\x00" + self.PDATA)
+
+    def test_percent_n_prints_n_as_sdcc_does(self):
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51_IDATA_BASE,
+            MCS51_XDATA_BASE,
+        )
+        from smallworld.state.models.mcs51.sdcc import MCS51SDCCSprintf
+
+        # sprintf(buf, "a%n%d", 7): SDCC's printf has no %n, so it prints the
+        # letter and takes no argument.  Variadic, so every argument is on
+        # the stack, below the return address.
+        emulator = self.Emulator()
+        emulator.write_memory(MCS51_XDATA_BASE + 0x100, b"a%n%d\0")
+        sp = emulator.registers["sp"]
+        for offset, pointer in ((4, 0x200), (7, 0x100)):
+            emulator.write_memory(
+                MCS51_IDATA_BASE + sp - offset,
+                pointer.to_bytes(2, "little") + self.XDATA,
+            )
+        emulator.write_memory(MCS51_IDATA_BASE + sp - 9, b"\x07\x00")
+        MCS51SDCCSprintf(0x100).model(emulator)
+        self.assertEqual(emulator.read_memory(MCS51_XDATA_BASE + 0x200, 4), b"aN7\0")
 
 
 class MCS51SharedHelperTests(unittest.TestCase):

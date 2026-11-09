@@ -55,8 +55,9 @@ large memory models are tested, the medium one with the default convention
 only, since SDCC has no medium-model library for the reentrant one; the huge
 model's banked code is not modeled.  pdata, the medium model's home for
 variables, is a page of XDATA, so a pdata pointer and an XDATA pointer can
-name the same byte; a model that returns a pointer into a pdata page one of
-its pointer arguments pointed into returns a pdata pointer.  As in SDCC's
+name the same byte; a model that returns a pointer into a pdata pointer
+argument's object - the nearest pointer argument at or below it, in the same
+page - returns a pdata pointer.  As in SDCC's
 library, a pdata pointer reaches the page the paging SFR - P2, or the SFR the
 CPU's ``xpage_sfr`` names - holds at the time of the call.  Only the C99 functions
 SDCC's library provides are modeled for the 8051.  ``qsort`` and ``bsearch``

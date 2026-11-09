@@ -124,18 +124,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The C99 library-model tests run on the 8051, under both SDCC conventions,
   in SDCC's small and large memory models and, under the default convention,
   its medium one, for the functions with 8051 models.  An 8051 model that
-  returns a pointer into a pdata page one of its pointer arguments pointed
-  into returns a pdata pointer, as SDCC would, rather than an XDATA one to
-  the same byte, which SDCC compares as different. They build from the same sources as
-  on other architectures, with stubs, built as a
-  module of their own, for what SDCC's library lacks, and
-  `tests/mcs51_runner.py` runs them, failing a test whose function's model
-  never runs, since SDCC's own library would run instead. The 8051's
-  `strerror` model gains the errno resolver it needed, and `rand` stays
-  within SDCC's `RAND_MAX`, which `Rand.rand_max` now sets per C library.
+  returns a pointer into a pdata pointer argument's object - the nearest
+  pointer argument at or below it, in the same page - returns a pdata
+  pointer, as SDCC would, rather than an XDATA one to the same byte, which
+  SDCC compares as different. They build from the same sources as on other
+  architectures, with stubs, built as a module of their own, for what SDCC's
+  library lacks, and `tests/mcs51_runner.py` runs them, failing a test whose
+  function's model never runs, since SDCC's own library would run instead.
+  The 8051's `strerror` model gains the errno resolver it needed, and `rand`
+  stays within SDCC's `RAND_MAX`, which `Rand.rand_max` now sets per C
+  library.
   How `%p` shows a pointer is up to the calling convention, through
   `VariadicContext.format_next_pointer()`; on the 8051 it names the
-  pointer's space as SDCC's library does (`X:0x002a`).
+  pointer's space as SDCC's library does (`X:0x002a`), without padding it to
+  a field width; and, as SDCC's library has no `%n`, it prints `N` there and
+  takes no argument. Elsewhere, `%n` writes the count through the calling
+  convention, as an `int` of its size and byte order.
 - `qsort` and `bsearch` models for the 8051, which call the program's
   comparator back with SDCC's reentrant convention, as SDCC's library does.
   A calling context now hands models a function pointer with the right

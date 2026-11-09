@@ -1273,10 +1273,20 @@ class VariadicContext:
         CStdCallingContext.add_argument(self, index, kind)
         return CStdCallingContext.get_argument(self, index, kind, emulator)
 
+    #: Whether printf pads %p to the field width, as it does other
+    #: conversions.
+    pads_pointers = True
+
+    #: Whether printf's %n writes the count of characters so far through its
+    #: pointer argument, as C says.  SDCC's library has no %n, and prints
+    #: ``N`` in its place, taking no argument.
+    writes_counts = True
+
     def format_next_pointer(self, emulator: emulators.Emulator) -> str:
         """Get the next argument as a pointer, as printf's %p shows it
 
-        This is the text before any padding to a field width.
+        This is the text before any padding to a field width; see
+        :attr:`pads_pointers`.
         """
         val = self.get_next_argument(ArgumentType.POINTER, emulator)
         assert isinstance(val, int)

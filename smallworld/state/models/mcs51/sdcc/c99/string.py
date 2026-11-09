@@ -1,3 +1,6 @@
+import typing
+
+from ...... import emulators
 from ....c99.string import (
     Memchr,
     Memcmp,
@@ -113,7 +116,20 @@ class MCS51SDCCStrstr(Strstr, MCS51SDCCModel):
 
 
 class MCS51SDCCStrtok(Strtok, MCS51SDCCModel):
-    pass
+    # strtok(NULL, ...) goes on through the string an earlier call was given,
+    # so what it returns points into that string, pdata or not.
+    _string: typing.Tuple[typing.Tuple[int, bool], ...] = ()
+
+    def get_argument(
+        self, index: int, kind: ArgumentType, emulator: emulators.Emulator
+    ) -> typing.Union[int, float]:
+        value = super().get_argument(index, kind, emulator)
+        if index == 0:
+            if value:
+                self._string = self._pointer_arguments[-1:]
+            else:
+                self._pointer_arguments += self._string
+        return value
 
 
 class MCS51SDCCStrxfrm(Strxfrm, MCS51SDCCModel):

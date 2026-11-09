@@ -158,9 +158,9 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     #: argument on (``_<function>_PARM_2``, ``_PARM_3``...).
     parameter_addresses: typing.Sequence[int] = ()
 
-    # Flat addresses of the pdata pages this call's pointer arguments pointed
-    # into; see _encode_result.
-    _pdata_pages: typing.FrozenSet[int] = frozenset()
+    # This call's pointer arguments: each one's flat address, and whether it
+    # was a pdata pointer; see _encode_result.
+    _pointer_arguments: typing.Tuple[typing.Tuple[int, bool], ...] = ()
 
     # Integer masks, by SDCC's type sizes.
     _int_sign_mask = 0x8000
@@ -250,28 +250,32 @@ class MCS51SDCCCallingContext(CStdCallingContext):
     ) -> typing.Union[int, float]:
         data = self._read_bytes(index, _SIZES[kind], emulator)
         value = _decode(kind, data, emulator)
-        if kind == ArgumentType.POINTER and _is_pdata(data):
+        if kind == ArgumentType.POINTER and value:
             assert isinstance(value, int)
-            self._pdata_pages = self._pdata_pages | {value & ~0xFF}
+            self._pointer_arguments += ((value, _is_pdata(data)),)
         return value
 
     def _start_call(self) -> None:
         # A new call: forget the last one's pointer arguments.
-        self._pdata_pages = frozenset()
+        self._pointer_arguments = ()
 
     def _encode_result(self, value: typing.Union[int, float]) -> bytes:
         # pdata is a page of XDATA, reached through MOVX @Ri, so a pdata
         # pointer and an XDATA pointer can name the same byte, and SDCC
         # compares all three bytes of two pointers.  A flat address does not
-        # say which it was; a result in a pdata page a pointer argument
-        # pointed into, as one into the argument's object is, is pdata too.
-        if (
-            self.return_type == ArgumentType.POINTER
-            and isinstance(value, int)
-            and value & ~0xFF in self._pdata_pages
-        ):
-            pointer = (SDCC_GPTR_PDATA << 16) | (value - MCS51_XDATA_BASE)
-            return pointer.to_bytes(3, "little")
+        # say which it was.  A pointer a function returns points into one of
+        # its arguments' objects - strcpy's dest, strstr's haystack, bsearch's
+        # array - so it is pdata if the nearest argument at or below it was,
+        # in the same page, as a pdata object is.
+        if self.return_type == ArgumentType.POINTER and isinstance(value, int):
+            below = [
+                (address, pdata)
+                for address, pdata in self._pointer_arguments
+                if address <= value and address & ~0xFF == value & ~0xFF
+            ]
+            if below and max(below, key=lambda argument: argument[0])[1]:
+                pointer = (SDCC_GPTR_PDATA << 16) | (value - MCS51_XDATA_BASE)
+                return pointer.to_bytes(3, "little")
         return _encode(self.return_type, value)
 
     def set_argument(
@@ -452,6 +456,11 @@ class MCS51SDCCVariadicContext(VariadicContext):
     SDCC promotes char arguments to int, and float stays float, since double
     is float.
     """
+
+    # SDCC's printf writes %p without padding, whatever the width; and it has
+    # no %n, so it prints the letter, upper-cased as it reads conversions.
+    pads_pointers = False
+    writes_counts = False
 
     def __init__(self, parent: MCS51SDCCCallingContext) -> None:
         super().__init__(parent)
