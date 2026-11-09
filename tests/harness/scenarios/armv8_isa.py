@@ -102,7 +102,10 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
     ),
     "v8_fp": (
         ("armv8a", "armv8abe", "armv8r", "armv8rbe"),
-        ((5, 6), (2, 3)),
+        # Every rounding is a tie, so rounding ties to even shows: vcvta in
+        # bits 7:0 and vrinta in bits 15:8 (arg 2 gives 0x0202, -3 0xfefe).
+        # 5 selects vmaxnm's 7.0; the others select the tie itself.
+        ((5, 0x0607), (2, 0x0303), (0xFFFFFFFD, 0xFDFD)),
         {
             **{
                 f"{arch}.angr": _ANGR_NO_MAXNUM
