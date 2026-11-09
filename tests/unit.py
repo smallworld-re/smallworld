@@ -10824,6 +10824,77 @@ class GhidraSymbolicUseropTests(unittest.TestCase):
         )
 
 
+class GhidraAArch64Crc32Tests(unittest.TestCase):
+    """AArch64's crc32 and crc32c run on Ghidra.
+
+    They lift to crc32b, crc32h, crc32w and crc32x userops, with the
+    polynomial as an argument, which Ghidra's emulator doesn't implement.
+    """
+
+    # crc32{b,h,w,x} w0, w1, {w2,w2,w2,x2}; crc32c sets bit 12.
+    ENCODINGS = {"b": 0x1AC24020, "h": 0x1AC24420, "w": 0x1AC24820, "x": 0x9AC24C20}
+    SIZES = {"b": 1, "h": 2, "w": 4, "x": 8}
+    FORMS = ("crc32b", "crc32h", "crc32w", "crc32x")
+    FORMS += ("crc32cb", "crc32ch", "crc32cw", "crc32cx")
+
+    def emulator(self, cls, byteorder=platforms.Byteorder.LITTLE):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(platforms.Architecture.AARCH64, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        return emu
+
+    def crc(self, emu, form, acc, value):
+        word = self.ENCODINGS[form[-1]] | (0x1000 if form.startswith("crc32c") else 0)
+        # Ghidra caches what it decodes, so each form gets its own address.
+        address = 0x1000 + 4 * self.FORMS.index(form)
+        # Instructions are little-endian on big-endian AArch64 too.
+        emu.write_memory_content(address, word.to_bytes(4, "little"))
+        emu.write_register("x1", acc)
+        emu.write_register("x2", value)
+        emu.write_register("pc", address)
+        emu.step_instruction()
+        return emu.read_register("x0") & 0xFFFFFFFF
+
+    def test_crc32_matches_zlib(self):
+        emu = self.emulator(emulators.ghidra.GhidraEmulator)
+        value = 0x0123456789ABCDEF
+        for form, size in self.SIZES.items():
+            with self.subTest(form=f"crc32{form}"):
+                data = (value & ((1 << (size * 8)) - 1)).to_bytes(size, "little")
+                # zlib inverts before and after; the instruction doesn't.
+                expected = zlib.crc32(data, 0x5A5A5A5A ^ 0xFFFFFFFF) ^ 0xFFFFFFFF
+                self.assertEqual(
+                    self.crc(emu, f"crc32{form}", 0x5A5A5A5A, value), expected
+                )
+
+    def test_crc32c_check_value(self):
+        # CRC-32C of "123456789" is 0xE3069283, starting from and inverting
+        # with all ones.
+        emu = self.emulator(emulators.ghidra.GhidraEmulator)
+        for chunks in (("x", "b"), ("w", "h", "h", "b")):
+            with self.subTest(forms=chunks):
+                acc, data = 0xFFFFFFFF, b"123456789"
+                for form in chunks:
+                    size = self.SIZES[form]
+                    chunk, data = data[:size], data[size:]
+                    acc = self.crc(
+                        emu, f"crc32c{form}", acc, int.from_bytes(chunk, "little")
+                    )
+                self.assertEqual(acc ^ 0xFFFFFFFF, 0xE3069283)
+
+    def test_big_endian_and_symbolic_emulators(self):
+        expected = zlib.crc32(b"1", 0) ^ 0xFFFFFFFF
+        for cls, byteorder in (
+            (emulators.ghidra.GhidraEmulator, platforms.Byteorder.BIG),
+            (emulators.ghidra.GhidraSymbolicEmulator, platforms.Byteorder.LITTLE),
+        ):
+            with self.subTest(emulator=cls.__name__, byteorder=byteorder.name):
+                emu = self.emulator(cls, byteorder)
+                self.assertEqual(
+                    self.crc(emu, "crc32b", 0xFFFFFFFF, ord("1")), expected
+                )
+
+
 class Z3BridgeImpliesTests(unittest.TestCase):
     """SymZ3 expressions with implications convert to claripy.
 
