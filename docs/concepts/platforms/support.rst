@@ -130,8 +130,9 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   way to set a context field, so SmallWorld gives the lifter angr caches for
   these languages a context that decodes microMIPS. A ``jalx``, or a ``jr`` to
   an even address, still decodes as microMIPS: following a switch would need
-  angr's engine to act on sleigh's ``ISAModeSwitch``. ``isa_mode`` and the FPU
-  registers are not available on angr.
+  angr's engine to act on sleigh's ``ISAModeSwitch``. An odd pc is stored even,
+  as on the other backends, but ``isa_mode`` and the FPU registers are not
+  available on angr.
 - **Unicorn** runs microMIPS only, on the M14Kc CPU model, which runs
   microMIPS while the low bit of the pc is set. SmallWorld sets that bit
   whenever it starts a run or writes the pc. Unicorn does follow a jump into

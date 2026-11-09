@@ -464,6 +464,14 @@ class AngrEmulator(
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
+        if name in ("pc", self.platdef.pc_register):
+            if isinstance(content, int):
+                content = self.machdef.pc_value(content)
+            elif isinstance(content, claripy.ast.bv.BV) and not content.symbolic:
+                content = claripy.BVV(
+                    self.machdef.pc_value(content.concrete_value), content.size()
+                )
+
         if not self._initialized and content is not None:
             if name == "pc":
                 name = self.platdef.pc_register

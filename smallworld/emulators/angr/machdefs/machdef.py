@@ -62,6 +62,15 @@ class AngrMachineDef:
             )
         return self.angr_arch.registers[angr_name]
 
+    def pc_value(self, pc: int) -> int:
+        """The value the emulator stores when the pc is written.
+
+        The pc as written is not always the address to run from: a microMIPS
+        pc's low bit selects the encoding, not a byte. The default stores the
+        value unchanged.
+        """
+        return pc
+
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture
 

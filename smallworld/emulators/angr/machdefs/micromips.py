@@ -147,6 +147,11 @@ class MicroMIPSMachineDef(GhidraMachineDef):
         # The engine decodes only microMIPS, so there is no ISA mode to model.
         self._registers["isa_mode"] = None
 
+    def pc_value(self, pc: int) -> int:
+        # An odd pc selects microMIPS, the only encoding the engine decodes,
+        # so the bit says nothing; the address is the even part.
+        return pc & ~1
+
 
 class MicroMIPSELMachineDef(MicroMIPSMachineDef):
     byteorder = Byteorder.LITTLE

@@ -10660,6 +10660,49 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         with self.assertRaises(exceptions.UnsupportedRegisterError):
             emu.write_register("isa_mode", 0)
 
+    def test_unicorn_odd_pc_reads_back_even(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def _angr(self, platform=None):
+        emu = emulators.AngrEmulator(platform or self.PLATFORM)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))  # addiu v0,zero,5
+        emu.write_register("v0", 0)
+        return emu
+
+    def test_angr_odd_pc_reads_back_even(self):
+        # Written before initialization, which applies it, and after.
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        emu.write_register("pc", 0x1003)
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_angr_concrete_bv_pc_reads_back_even(self):
+        emu = self._angr()
+        emu.initialize()
+        emu.write_register("pc", claripy.BVV(0x1001, 32))
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def test_angr_runs_from_odd_pc(self):
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.add_exit_point(0x1004)
+        emu.run()
+        self.assertEqual(emu.read_register("v0"), 5)
+
+    def test_angr_mips32_pc_unchanged(self):
+        mips32 = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        emu = self._angr(mips32)
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1001)
+
 
 class MicroMIPSAngrJalxTests(unittest.TestCase):
     """Decoding a jalx leaves sleigh's context saying standard MIPS32 starts
