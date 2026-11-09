@@ -124,7 +124,10 @@ class ElfModelLibrary(Memory):
         raise NotImplementedError()
 
     def _thumb_only(self) -> bool:
-        return bool(self.platdef.capstone_mode & capstone.CS_MODE_THUMB)
+        # Platforms Capstone lacks have a mode of -1, which has every bit set.
+        return self.platdef.capstone_arch == capstone.CS_ARCH_ARM and bool(
+            self.platdef.capstone_mode & capstone.CS_MODE_THUMB
+        )
 
     def link(self, elf: ElfExecutable) -> None:
         for rela in itertools.chain(elf._dynamic_relas, elf._static_relas):
