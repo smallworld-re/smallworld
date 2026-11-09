@@ -187,11 +187,14 @@ class GhidraMachineDef:
     ) -> None:
         """Recompute machine state the SLEIGH language leaves out.
 
-        Called after every instruction, and before one when anything was
-        written since, so state the hardware derives continuously from other
-        state - such as the 8051's parity flag, a function of the accumulator
-        - is current whenever an instruction or the user reads it.  Most
-        machines have none.
+        Called after every instruction, and before one whenever anything
+        was written since - by the harness, by taking an interrupt, or by
+        an instruction hook - so state the hardware derives continuously
+        from other state - such as the 8051's parity flag, a function of
+        the accumulator - is current whenever an instruction reads it, and
+        whenever the user reads it after a step.  What the harness writes
+        between steps updates derived state at the next step.  Most machines
+        have none.
 
         Arguments:
             emulator: The emulator.

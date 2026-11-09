@@ -349,9 +349,15 @@ an interrupt by setting its flag, from a hook or a model, as hardware would;
 ``mcs51_raise_interrupt`` does that.  Without pins, the external interrupts'
 flags are cleared when taken even in level-triggered mode.  On angr, a block
 ends after any instruction that writes one of those SFRs - TCON, SCON, IE, IP
-or T2CON on the 8052 - so
-checking for interrupts between blocks is as good as checking between every
-two instructions; the bits involved must be concrete.
+or T2CON on the 8052 - and around any instruction a hook or memory-mapped
+model may run at, which can write them too: before and after an instruction
+with an instruction hook, and after one that may touch memory a hook
+watches; so checking for interrupts between blocks is as good as checking
+between every two instructions, and hooks see, and set, R0-R7, parity and
+paging as on Ghidra.  The state that decides how the 8051 runs - those
+SFRs, PSW's register bank select bits, and ``xpage_sfr`` - must each have a
+single value on angr, which raises ``SymbolicValueError`` for one that could
+take more.
 The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
 SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
 low byte first, as ``lcall`` pushes a return address.

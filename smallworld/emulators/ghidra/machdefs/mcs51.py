@@ -306,8 +306,9 @@ class MCS51MachineDef(GhidraMachineDef):
         mapped; otherwise R0-R7 are plain registers.
 
         Ghidra's language never computes the parity flag either, so it is
-        recomputed after ACC or PSW is written; and ``xpage``, from which
-        MOVX @Ri takes its page, is kept in step with the SFR that holds it.
+        recomputed after ACC or PSW is written; ``xpage``, from which MOVX
+        @Ri takes its page, is kept in step with the SFR that holds it; and
+        on a device that pages its SFRs, ``sfr_page`` with SFRPAGE.
 
         Only what ``writes`` shows changed is acted on; with no record, as on
         the first call, everything is.
@@ -344,6 +345,16 @@ class MCS51MachineDef(GhidraMachineDef):
 
         self._sync_xpage(emulator, writes)
 
+        if self._sfr_paging_mapped:
+            assert self._sfr_paging is not None
+            sfrpage = MCS51_SFR_BASE + self._sfr_paging.sfrpage
+            if (
+                writes is None
+                or writes.wrote_memory(sfrpage, sfrpage + 1)
+                or writes.wrote_register(self._register_offset("sfr_page"))
+            ):
+                self._sync_sfr_page(emulator)
+
         if wrote_acc or wrote_psw:
             psw = emulator.read_register("psw")
             new_psw = mcs51_psw_with_parity(psw, emulator.read_register("acc"))
@@ -355,10 +366,12 @@ class MCS51MachineDef(GhidraMachineDef):
 
         MOVX @Ri takes its page from xpage, so as not to read an SFR the
         harness may not have mapped; it is that SFR's value, or 0 where it is
-        not mapped.  Only a write to xpage_sfr or to the SFR, or a change to
-        the memory map, can change it.
+        not mapped.  Only a write to xpage_sfr, to the SFR or to xpage
+        itself, or a change to the memory map, can change it.
         """
-        stale = self._xpage_synced_for is not self._mapped_for
+        stale = self._xpage_synced_for is not self._mapped_for or (
+            writes is not None and writes.wrote_register(self._register_offset("xpage"))
+        )
         if (
             writes is None
             or self._xpage_sfr is None

@@ -11150,6 +11150,212 @@ class MCS51MovxPagingTests(unittest.TestCase):
                 self.assertEqual(self.run_movx(emulator_class, None), 0x42)
 
 
+class MCS51DerivedStateTests(unittest.TestCase):
+    """Both backends keep R0-R7, parity, xpage and sfr_page current around
+    hooks, interrupts and harness writes, and agree on them."""
+
+    EMULATORS = (emulators.ghidra.GhidraEmulator, emulators.AngrEmulator)
+
+    def build(
+        self,
+        emulator_class,
+        code: bytes,
+        sfrs: typing.Optional[typing.Dict[int, int]] = None,
+        device: typing.Optional[str] = None,
+        **registers: int,
+    ):
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51_IDATA_BASE,
+            MCS51_SFR_BASE,
+            MCS51_XDATA_BASE,
+        )
+
+        platform = platforms.Platform(
+            platforms.Architecture.MCS51, platforms.Byteorder.BIG
+        )
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        for register in ("pc", "acc", "b", "psw", "dptr"):
+            getattr(cpu, register).set(0)
+        for n in range(8):
+            getattr(cpu, f"r{n}").set(0)
+        cpu.sp.set(0x07)
+        for register, value in registers.items():
+            getattr(cpu, register).set(value)
+        machine.add(cpu)
+        if device is not None:
+            machine.add(state.cpus.MCS51Device(device))
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0))
+        machine.add(state.memory.RawMemory.from_bytes(bytes(0x100), MCS51_IDATA_BASE))
+        machine.add(state.memory.RawMemory.from_bytes(bytes(0x1000), MCS51_XDATA_BASE))
+        if sfrs is not None:
+            content = bytearray(0x1000)
+            for sfr, value in sfrs.items():
+                content[sfr] = value
+            machine.add(
+                state.memory.RawMemory.from_bytes(bytes(content), MCS51_SFR_BASE)
+            )
+        emulator = emulator_class(platform)
+        machine.apply(emulator)
+        return emulator
+
+    def test_instruction_hooks_see_and_set_the_bank(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_IDATA_BASE
+
+        # mov 0x08,#0x55; mov psw,#0x08; nop; mov a,r0; nop
+        code = b"\x75\x08\x55\x75\xd0\x08\x00\xe8\x00"
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(emulator_class, code)
+                seen = []
+                # Bank 1 is selected by the time the nop runs...
+                emulator.hook_instruction(
+                    6, lambda emu: seen.append(emu.read_register("r0"))
+                )
+                # ...and what a hook writes to it, the instruction reads.
+                emulator.hook_instruction(
+                    7, lambda emu: emu.write_memory(MCS51_IDATA_BASE + 8, b"\x77")
+                )
+                emulator.add_exit_point(8)
+                try:
+                    emulator.run()
+                except exceptions.EmulationExitpoint:
+                    pass
+                self.assertEqual(seen, [0x55])
+                self.assertEqual(emulator.read_register("acc"), 0x77)
+
+    def test_an_instruction_hook_sets_parity(self):
+        # nop; mov c,psw.0 (the parity flag)
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(emulator_class, b"\x00\xa2\xd0\x00")
+                emulator.hook_instruction(1, lambda emu: emu.write_register("acc", 1))
+                emulator.step()
+                emulator.step()
+                self.assertEqual(emulator.read_register("psw"), 0x81)
+
+    def test_an_interrupts_push_into_the_bank(self):
+        # With bank 1 selected and SP at 0x07, timer 0's interrupt pushes the
+        # return address over R0 and R1.  The vector reads R0, then returns.
+        code = bytearray(0x50)
+        code[0x0B:0x0D] = b"\xe8\x32"  # mov a,r0; reti
+        code[0x42:0x44] = b"\x00\x00"
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class,
+                    bytes(code),
+                    sfrs={0xA8: 0x82, 0x88: 0x20},  # IE: EA, ET0; TCON: TF0
+                    pc=0x42,
+                    psw=0x08,
+                )
+                emulator.add_exit_point(0x44)
+                # A return to a clobbered address of 0 would loop for ever.
+                emulator.add_exit_point(0x00)
+                try:
+                    emulator.run()
+                except exceptions.EmulationExitpoint:
+                    pass
+                self.assertEqual(emulator.read_register("acc"), 0x42)
+                self.assertEqual(emulator.read_register("pc"), 0x44)
+
+    def test_a_hook_raises_an_interrupt_at_the_next_instruction(self):
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51_SFR_BASE,
+            MCS51Interrupt,
+            mcs51_raise_interrupt,
+        )
+
+        # mov sbuf,a; inc r7; inc r7; inc r7; nop...  The serial interrupt's
+        # handler copies R7 into R5, notes it ran in R4, and returns.
+        code = bytearray(0x30)
+        code[0x00:0x05] = b"\xf5\x99\x0f\x0f\x0f"
+        code[0x23:0x2A] = b"\x8f\x05\x7c\x01\xc2\x98\x32"
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class, bytes(code), sfrs={0xA8: 0x90}  # IE: EA, ES
+                )
+                emulator.hook_memory_write(
+                    MCS51_SFR_BASE + 0x99,
+                    MCS51_SFR_BASE + 0x9A,
+                    lambda emu, address, size, data: mcs51_raise_interrupt(
+                        emu, MCS51Interrupt.SERIAL
+                    ),
+                )
+                emulator.add_exit_point(0x08)
+                try:
+                    emulator.run()
+                except exceptions.EmulationExitpoint:
+                    pass
+                self.assertEqual(emulator.read_register("r4"), 1)
+                self.assertEqual(emulator.read_register("r5"), 0)
+
+    def test_angr_ends_blocks_only_where_hooks_run(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_SFR_BASE
+
+        # nop; nop; nop; nop; mov sbuf,a; nop; nop; nop.  A hook on SBUF
+        # ends a block after the instruction that writes it, and an
+        # instruction hook ends one before its instruction; elsewhere,
+        # blocks run whole.
+        code = b"\x00\x00\x00\x00\xf5\x99\x00\x00\x00"
+        emulator = self.build(emulators.AngrEmulator, code, sfrs={})
+        emulator.hook_memory_write(
+            MCS51_SFR_BASE + 0x99,
+            MCS51_SFR_BASE + 0x9A,
+            lambda emu, address, size, data: None,
+        )
+        emulator.step_block()
+        self.assertEqual(emulator.read_register("pc"), 6)
+
+        emulator = self.build(emulators.AngrEmulator, code, sfrs={})
+        emulator.hook_instruction(2, lambda emu: None)
+        emulator.step_block()
+        self.assertEqual(emulator.read_register("pc"), 2)
+        emulator.step_block()
+        self.assertEqual(emulator.read_register("pc"), 3)
+
+    def test_xpage_follows_its_sfr_after_a_write(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
+
+        # nop; mov r0,#0x10; movx a,@r0
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class, b"\x00\x78\x10\xe2\x00", sfrs={0xA0: 0}
+                )
+                emulator.write_memory(MCS51_XDATA_BASE + 0x010, b"\x11")
+                emulator.write_memory(MCS51_XDATA_BASE + 0x510, b"\x77")
+                emulator.step()
+                emulator.write_register("xpage", 5)
+                emulator.step()
+                emulator.step()
+                self.assertEqual(emulator.read_register("acc"), 0x11)
+
+    def test_sfr_page_is_current_after_a_step(self):
+        # mov sfrpage,#0x0f
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class, b"\x75\x84\x0f\x00", sfrs={}, device="C8051F040"
+                )
+                emulator.step()
+                self.assertEqual(emulator.read_register("sfr_page"), 0x0F)
+
+    def test_angr_refuses_symbolic_interrupt_state(self):
+        import claripy
+
+        # mov tcon,a; sjmp $+2; nop
+        emulator = self.build(
+            emulators.AngrEmulator, b"\xf5\x88\x80\x00\x00\x00", sfrs={0xA8: 0x82}
+        )
+        emulator.write_register_content("acc", claripy.BVS("acc", 8))
+        with self.assertRaises(exceptions.SymbolicValueError):
+            for _ in range(4):
+                emulator.step()
+
+
+
 class MCS51SharedHelperTests(unittest.TestCase):
     """The 8051 helpers both emulators' machine definitions share."""
 

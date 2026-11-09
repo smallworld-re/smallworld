@@ -109,7 +109,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   port and pins are left to harness models. `GhidraMachineDef` gains
   `before_instruction`, which can redirect execution between instructions.
   The `mcs51_diff` scenario gains an `interrupts` program, and starts each
-  program's PSW with parity that matches its accumulator.
+  program's PSW with parity that matches its accumulator. On angr, a block
+  also ends around any instruction a hook or memory-mapped model may run at,
+  so that hooks see the register bank, parity and paging current, and an
+  interrupt they raise is taken at the next instruction, as on Ghidra;
+  state that decides how the 8051 runs, such as an interrupt SFR, raises
+  `SymbolicValueError` if it is symbolic.
 - `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
   an ELF does; on the 8051, each symbol lands in its address space in

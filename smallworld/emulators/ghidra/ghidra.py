@@ -216,6 +216,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self._recording_writes = True
         self._writes = GhidraWrites()
 
+    def _update_pending_derived_state(self) -> None:
+        # Bring derived state up to date if anything was written since it
+        # last was.
+        if self._tracks_writes and (self._writes is None or self._writes):
+            self._update_derived_state()
+
     def read_memory_content(self, address: int, size: int) -> bytes:
         # Get the thread's memory state
         shared = self._emu.getSharedState()
@@ -543,10 +549,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Bring derived state up to date with anything written since the
         # last instruction, by the harness say; then the machine may
-        # redirect execution between instructions.
-        if self._tracks_writes and (self._writes is None or self._writes):
-            self._update_derived_state()
+        # redirect execution between instructions, taking an interrupt,
+        # which writes state of its own.
+        self._update_pending_derived_state()
         self.machdef.before_instruction(self)
+        self._update_pending_derived_state()
 
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
@@ -565,6 +572,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self._instructions_hook(self)
         if pc in self._instruction_hooks:
             self._instruction_hooks[pc](self)
+        # The instruction must see what the hooks wrote.
+        self._update_pending_derived_state()
 
         # Check for function hooks
         if pc in self._function_hooks:
