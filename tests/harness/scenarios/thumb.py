@@ -24,6 +24,11 @@ _VARIANT_ARCH_NAMES = {
     "armv7rbe": ("ARM_V7R",),
 }
 
+# angr runs the same test from thumb.<variant>.angr.py.
+_VARIANT_ARCH_NAMES.update(
+    {f"{variant}.angr": names for variant, names in _VARIANT_ARCH_NAMES.items()}
+)
+
 _VARIANTS = tuple((variant, None) for variant in _VARIANT_ARCH_NAMES)
 
 _TRACE_PATTERNS = (
@@ -40,17 +45,19 @@ def _thumb_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
     from .. import manifest
 
     arch_names = _VARIANT_ARCH_NAMES[variant]
+    # The trace lines are the ones Unicorn logs as it steps.
+    trace_patterns = () if variant.endswith(".angr") else _TRACE_PATTERNS
 
     def run(runner):
         stdout, stderr = manifest._run_script(runner, f"thumb/thumb.{variant}.py")
         for arch_name in arch_names:
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x6")
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x4")
-            for pattern in _TRACE_PATTERNS[:3]:
+            for pattern in trace_patterns[:3]:
                 runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x6")
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x4")
-            for pattern in _TRACE_PATTERNS[3:]:
+            for pattern in trace_patterns[3:]:
                 runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x6")
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x4")
