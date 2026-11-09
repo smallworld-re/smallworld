@@ -17,6 +17,10 @@ from smallworld.platforms.defs.mcs51 import (
 # A test succeeds by reading its sentinel: SDCC's 16-bit size_t truncates
 # 0xdead0 to 0xead0, which as a generic pointer is in XDATA.  Returning from
 # main, or calling exit, is a failure.
+#
+# SDCC links its library into the image, so a function left without a model
+# would still run, as SDCC's own code.  The function the test is named for
+# must have a model, and it must run.
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", help="the .ihx image, with its .map beside it")
@@ -74,6 +78,21 @@ machine.add(
 # SDCC's string.h makes memcpy a macro for __memcpy.
 aliases = {"___memcpy": "memcpy"}
 
+# The function under test: c99/<function>/<function>.<variant>.mcs51.ihx.
+under_test = image.name.split(".")[0]
+modelled: set[str] = set()
+called: set[str] = set()
+
+
+def count_calls(name: str, model: smallworld.state.models.Model) -> None:
+    run = model.model
+
+    def model_and_count(emulator: smallworld.emulators.Emulator) -> None:
+        called.add(name)
+        run(emulator)
+
+    model.model = model_and_count  # type: ignore[method-assign]
+
 
 def parameter_addresses(function: str) -> list[int]:
     # Where SDCC's default convention puts the function's arguments after the
@@ -105,7 +124,12 @@ for symbol in code.get_symbol_names():
         model.static_buffer_address = static_address
         static_address += model.static_space_required
         static_size -= model.static_space_required
+    modelled.add(name)
+    count_calls(name, model)
     machine.add(model)
+
+if under_test not in modelled:
+    raise Exception(f"{under_test} has no model for {abi}")
 
 
 class SuccessExitException(Exception):
@@ -139,3 +163,6 @@ try:
     raise Exception("Did not exit as expected")
 except SuccessExitException:
     pass
+
+if under_test not in called:
+    raise Exception(f"the model of {under_test} never ran")

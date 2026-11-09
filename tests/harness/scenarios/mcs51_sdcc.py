@@ -59,7 +59,7 @@ import io
 import logging
 import struct
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from .common import TestsPath, make_emulator, split_variant
 from .spec import ScenarioInfo, from_variants, just_run
@@ -364,6 +364,17 @@ def _run_abi(smallworld, abi_name: str, engine: str) -> int:
     return _report(checks, errors)
 
 
+def _count_calls(model, name: str, called: Set[str]) -> None:
+    # Records in called each time the model runs.
+    run = model.model
+
+    def model_and_count(emulator) -> None:
+        called.add(name)
+        run(emulator)
+
+    model.model = model_and_count
+
+
 def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
     from smallworld.platforms.defs.mcs51 import MCS51_XDATA_BASE
 
@@ -371,6 +382,9 @@ def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
     platform, machine, code = _setup(
         smallworld, _DIR / f"libc.{build}.mcs51", device, emulate_device
     )
+    # SDCC links its library into the image, so a model that never ran would
+    # leave SDCC's own code to pass the checks.
+    called: Set[str] = set()
     abi = (
         smallworld.platforms.ABI.SDCCSTACKAUTO
         if build == "sdccstackauto"
@@ -389,6 +403,7 @@ def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
             model.parameter_addresses = _parameter_addresses(code, symbol)
             if hasattr(model, "heap"):
                 model.heap = heap
+            _count_calls(model, name, called)
             machine.add(model)
 
     emulator = make_emulator(smallworld, platform, engine)
@@ -432,6 +447,11 @@ def _run_libc(smallworld, build: str, engine: str, models: bool) -> int:
         "r_bsearch_miss": (integer("_r_bsearch_miss"), 0),
         "output": (output, "done\n51\n"),
     }
+    if models:
+        checks["models not run"] = (
+            sorted(set(_LIBC_FUNCTIONS.values()) - called),
+            [],
+        )
     return _report(checks, [])
 
 

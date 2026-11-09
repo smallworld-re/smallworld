@@ -14,8 +14,9 @@
 # start of the page at <address>, rather than at 0.
 #
 # --c99 builds one of the shared C99 library-model tests: c99/mcs51_sdcc.h
-# is included ahead of the source, to stand in for what SDCC's library lacks,
-# and SDCC's long long library is linked, which it leaves out by default.
+# is included ahead of the source, c99/mcs51_sdcc.c is compiled on its own and
+# linked, to stand in for what SDCC's library lacks, and so is SDCC's long
+# long library, which it leaves out by default.
 #
 # The image starts with SDCC's reset vector and startup code, which
 # initializes memory and calls main.  The linker's map is written next to it,
@@ -24,6 +25,7 @@
 # of SDCC's default calling convention.
 
 flags=""
+c99=""
 while true; do
     case "$1" in
     --stack-auto) flags="$flags --stack-auto" ;;
@@ -31,7 +33,7 @@ while true; do
     --large) flags="$flags --model-large" ;;
     --device) flags="$flags -Wp-include,$2"; shift ;;
     --pdata) flags="$flags -Wl-bPSEG=$2"; shift ;;
-    --c99) flags="$flags -Wp-include,$(cd "$(dirname "$0")" && pwd)/c99/mcs51_sdcc.h -l liblonglong.lib" ;;
+    --c99) c99="$(cd "$(dirname "$0")" && pwd)/c99" ;;
     *) break ;;
     esac
     shift
@@ -48,8 +50,19 @@ tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
 
 cp "$src" "$tmp/prog.c"
-echo "sdcc -mmcs51 $flags $tmp/prog.c -o $tmp/prog.ihx"
+objects=""
+if [ -n "$c99" ]; then
+    # The stubs go in their own module, built in the same memory model and
+    # calling convention as the test.  SDCC links the main module first.
+    cp "$c99/mcs51_sdcc.c" "$tmp/stubs.c"
+    echo "sdcc -mmcs51 $flags -I$c99 -c $tmp/stubs.c -o $tmp/stubs.rel"
+    # shellcheck disable=SC2086
+    sdcc -mmcs51 $flags "-I$c99" -c "$tmp/stubs.c" -o "$tmp/stubs.rel" || exit $?
+    flags="$flags -Wp-include,$c99/mcs51_sdcc.h -l liblonglong.lib"
+    objects="$tmp/stubs.rel"
+fi
+echo "sdcc -mmcs51 $flags $tmp/prog.c $objects -o $tmp/prog.ihx"
 # shellcheck disable=SC2086
-sdcc -mmcs51 $flags "$tmp/prog.c" -o "$tmp/prog.ihx" || exit $?
+sdcc -mmcs51 $flags "$tmp/prog.c" $objects -o "$tmp/prog.ihx" || exit $?
 cp "$tmp/prog.ihx" "$out"
 cp "$tmp/prog.map" "${out%.ihx}.map"

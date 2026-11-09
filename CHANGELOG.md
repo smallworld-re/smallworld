@@ -120,8 +120,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returns a pointer into a pdata page one of its pointer arguments pointed
   into returns a pdata pointer, as SDCC would, rather than an XDATA one to
   the same byte, which SDCC compares as different. They build from the same sources as
-  on other architectures, with a header that stands in for what SDCC's
-  library lacks, and `tests/mcs51_runner.py` runs them. The 8051's
+  on other architectures, with stubs, built as a
+  module of their own, for what SDCC's library lacks, and
+  `tests/mcs51_runner.py` runs them, failing a test whose function's model
+  never runs, since SDCC's own library would run instead. The 8051's
   `strerror` model gains the errno resolver it needed, and `rand` stays
   within SDCC's `RAND_MAX`, which `Rand.rand_max` now sets per C library.
   How `%p` shows a pointer is up to the calling convention, through
