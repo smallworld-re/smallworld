@@ -8042,6 +8042,48 @@ class TlsUninitializedBlockTests(unittest.TestCase):
             self.assertEqual(args, sorted(self.OFFSETS.values()), name)
 
 
+class LibraryThumbAddressTests(unittest.TestCase):
+    """Only Thumb-only ARM gets odd model addresses from link().
+
+    The check tested the Thumb bit of the Capstone mode alone, and platforms
+    Capstone lacks (LoongArch, Xtensa, MSP430) have a mode of -1, so every
+    LoongArch library call went to an odd address the model never hooks.
+    """
+
+    @staticmethod
+    def linked(arch):
+        from smallworld.state.models.c99.libc import C99Libc
+
+        libc = C99Libc(
+            0x10000,
+            platforms.Platform(arch, platforms.Byteorder.LITTLE),
+            platforms.ABI.SYSTEMV,
+        )
+        symbol = types.SimpleNamespace(name="puts", defined=False)
+        bound = {}
+        elf = types.SimpleNamespace(
+            _dynamic_relas=[types.SimpleNamespace(symbol=symbol)],
+            _static_relas=[],
+            tls_image=None,
+            tlsdesc_descriptors=[],
+            update_symbol_value=lambda sym, value: bound.__setitem__(sym.name, value),
+        )
+        libc.link(elf)
+        return bound["puts"], libc.models["puts"]._address
+
+    def test_loongarch_model_addresses_stay_even(self):
+        bound, address = self.linked(platforms.Architecture.LOONGARCH64)
+        self.assertEqual(bound, address)
+
+    def test_a_profile_model_addresses_stay_even(self):
+        bound, address = self.linked(platforms.Architecture.ARM_V7A)
+        self.assertEqual(bound, address)
+
+    def test_m_profile_model_addresses_are_thumb(self):
+        bound, address = self.linked(platforms.Architecture.ARM_V7M)
+        self.assertEqual(bound, address | 1)
+
+
 class TlsImageSeedingTests(unittest.TestCase):
     """The model library is what puts a module's PT_TLS image into storage.
 
