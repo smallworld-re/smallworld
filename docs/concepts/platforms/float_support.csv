@@ -25,4 +25,5 @@ superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         
 superh-sh4 single,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4 double,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
 tricore,                        Untested,   Untested,   Untested,   No,         Untested
+v850e2m single,                 No,         **Yes**,    No Support, No Support, No Support
 xtensa,                         No,         Untested,   No Support, No,         No Support

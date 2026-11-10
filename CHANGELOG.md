@@ -89,8 +89,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Ghidra backends, using Ghidra's V850 language. The ELF loader recognizes
   `EM_V850`, and loads `EM_V800` (RH850) images as V850 with a warning: RH850's
   additional instructions are not modelled, and a few of them run as different
-  V850 instructions. Test binaries are built with GNU binutils for `v850-elf`,
-  built from source in `ci/flake.nix` because nixpkgs has no V850 platform.
+  V850 instructions. Some V850 instructions stop emulation or compute wrong
+  results; the platform support docs list them. Test binaries are built with
+  GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
+  nixpkgs has no V850 platform.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

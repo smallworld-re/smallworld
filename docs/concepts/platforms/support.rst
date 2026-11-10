@@ -328,11 +328,52 @@ That language covers the three cores in one, including V850E2M's FPU, with no
 way to select a core: it accepts V850E2 and V850E2M instructions in V850E1 code.
 
 It does not model RH850 (V850E3v5), and SmallWorld has no RH850 platform. Most
-RH850-only instructions fail to decode, but a few reuse encodings that V850
-decodes as writes to ``r0``, and run as those without any error: ``loop`` as
-``mulhi``, ``synci`` as ``mov``, and ``ld.dw`` and ``st.dw`` as ``ld.bu``. The
-ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use, as
-V850, with a warning saying so. ``EM_V850`` images load without one.
+RH850-only instructions fail to decode, but some reuse encodings that V850
+decodes as other instructions, and run as those without any error:
+
+- ``loop`` runs as ``mulhi``, and ``synci`` as ``mov``, both writing ``r0``.
+- ``ld.dw`` and ``st.dw`` are six bytes long. Their first four run as an
+  ``ld.bu`` into ``r0``, with the second halfword as its displacement, and the
+  last halfword then runs as an instruction of its own: a ``nop`` when it is
+  zero, otherwise whatever it decodes as, which may swallow the following
+  instruction's first halfword and leave decoding out of step.
+- The 17-bit-displacement forms of ``br`` and the conditional branches run as
+  ``ld.hu`` into ``r0``, so the branch is never taken.
+- ``dbhvtrap`` runs as ``divh r0, r28``, and ``dbcp`` as ``divh r0, r29``,
+  which zeroes ``r29`` on Ghidra and raises an error on angr.
+
+The ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use,
+as V850, with a warning saying so. ``EM_V850`` images load without one.
+
+Some V850 instructions do not run, or run wrongly:
+
+- ``di``, ``ei``, ``halt``, ``synce``, ``syncm``, ``syncp`` and the saturating
+  arithmetic instructions (``satadd``, ``satsub``, ``satsubi``, ``satsubr``)
+  lift to p-code user operations SmallWorld does not implement, so they stop
+  emulation with an error on both emulators. On Ghidra the error comes after
+  the instruction's earlier p-code has run: ``satadd`` has already written the
+  unsaturated sum and the flags, and ``di`` has set ``PSW.ID``.
+- The language computes ``bsw``, ``bsh`` and ``hsw`` wrong, without any error:
+  it shifts each byte or halfword before widening it, so the shifted bits are
+  lost. For ``0x11223344``, Ghidra gives ``0x11``, ``0x33`` and ``0x1122``
+  instead of ``0x44332211``, ``0x22114433`` and ``0x33441122``, and angr gives a
+  different wrong result (``0x44``, ``0x44`` and ``0x3344``) because of the
+  sub-register bug below.
+- The language computes the two-operand ``divh reg1, reg2`` as an unsigned
+  division by all 32 bits of ``reg1``, not a signed division by its low
+  halfword, on both emulators: -7 divided by -3 gives 0, with Z set, instead of
+  2. The three-operand ``divh`` is correct.
+- On angr, ``sch0l``, ``sch0r``, ``sch1l`` and ``sch1r`` raise an
+  ``AssertionError``, and ``reti`` returning from an exception (``PSW.EP`` set)
+  leaves ``pc`` and ``PSW`` unchanged when run, and stops with "Path diverged"
+  when stepped. Their p-code branches within the instruction, which angr's
+  p-code engine does not handle. Ghidra runs them correctly.
+- angr's p-code engine computes signed division and remainder as unsigned, so
+  ``div``, the three-operand ``divh`` and ``divq`` give wrong results on angr
+  when an operand is negative: ``div`` of -7 by 3 gives ``0x55555553``,
+  remainder 0, instead of -2, remainder -1. It also reads a register operand
+  that starts partway into a register from the register's start. Both affect
+  angr's other p-code ISAs too; Ghidra gets both right.
 
 V850E2M's FPU runs on Ghidra; the ``floats`` scenario checks single-precision
 ``addf.s``. angr's p-code engine implements no floating-point operations, so the

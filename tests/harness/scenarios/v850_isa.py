@@ -14,9 +14,10 @@ NATIVE_PARITY = False
 # they should; each is assembled by GNU as with -mv850e3v5 and followed by a
 # nop. `mov r6, r7` is the control.
 #
-# Not every RH850 instruction faults: `loop`, `synci`, `ld.dw` and `st.dw`
-# reuse encodings that V850 decodes as writes to r0, and run as those. See
-# the V850 platform definition.
+# Not every RH850 instruction faults: `loop`, `synci`, `ld.dw`, `st.dw`, the
+# 17-bit-displacement branches, `dbhvtrap` and `dbcp` reuse encodings that
+# V850 decodes as other instructions, and run as those. See the V850 notes in
+# docs/concepts/platforms/support.rst.
 _PROGRAMS = {
     "rotl": bytes.fromhex("e337c438" "0000"),  # rotl 3, r6, r7
     "pushsp": bytes.fromhex("f44760c9" "0000"),  # pushsp r20-r25

@@ -63,9 +63,14 @@ class V850(PlatformDef):
     Ghidra's V850 language covers these three cores, including V850E2M's
     FPU, in one language: it accepts every V850E2M instruction whichever core
     the code was written for. It does not model RH850 (V850E3v5). Most of
-    RH850's additional instructions do not decode, but a few reuse encodings
-    that V850 decodes as writes to r0 and run as those instead: `loop` as
-    `mulhi`, `synci` as `mov`, and `ld.dw` and `st.dw` as `ld.bu`.
+    RH850's additional instructions do not decode, but some reuse encodings
+    that V850 decodes as other instructions, and run as those instead: `loop`
+    as `mulhi`, `synci` as `mov`, `ld.dw` and `st.dw` as `ld.bu` followed by
+    their last halfword as an instruction of its own, the 17-bit-displacement
+    branches as `ld.hu`, and `dbhvtrap` and `dbcp` as `divh`.
+
+    Some V850 instructions stop emulation or compute wrong results; the V850
+    notes in docs/concepts/platforms/support.rst list them.
     """
 
     architecture = Architecture.V850

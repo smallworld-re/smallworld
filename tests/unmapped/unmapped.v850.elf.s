@@ -1,7 +1,8 @@
     # V850 stand-in for unmapped.elf.c: there is no V850 C compiler in this
     # tree. The harness enters each of read_unmapped, write_unmapped and
-    # fetch_unmapped in turn and expects the matching unmapped-access failure
-    # at 0x8000, the address the C version uses.
+    # fetch_unmapped in turn and expects the backend to report the matching
+    # unmapped-access failure; it checks the kind of failure, not its
+    # address. 0x8000 is the address the C version uses.
     #
     # movea sign-extends its 16-bit immediate, so 0x8000 needs movhi too;
     # hi() rounds up to make up for lo()'s sign extension.

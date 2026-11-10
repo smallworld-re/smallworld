@@ -200,9 +200,11 @@ def _v800_architecture(elf, requested):
     # RH850 ABI, which is GNU as's default. SmallWorld's V850 model has no
     # RH850 (V850E3v5) instructions, so warn whether or not the image is
     # flagged as V850E3v5 code. Most RH850-only instructions fail to decode,
-    # but RH850 reused some encodings that V850 decodes as writes to r0:
-    # `loop` runs as `mulhi`, `synci` as `mov`, and `ld.dw`/`st.dw` as
-    # `ld.bu`, so those run wrongly without failing.
+    # but RH850 reused some encodings that V850 decodes as other
+    # instructions, so those run wrongly without failing: `loop` runs as
+    # `mulhi`, `synci` as `mov`, `ld.dw`/`st.dw` as `ld.bu` plus a stray
+    # halfword, the 17-bit-displacement branches as `ld.hu`, and
+    # `dbhvtrap`/`dbcp` as `divh`. See support.rst.
     message = (
         "running it as V850E2M. RH850-only instructions fail to decode, "
         "or run as different V850 instructions"
