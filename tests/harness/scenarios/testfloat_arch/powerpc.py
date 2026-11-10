@@ -128,10 +128,10 @@ KERNELS: Dict[str, Kernel] = {
     ),
 }
 
-# PANDA is listed without a local measurement; CI is where it gets scored.  If
-# its POWER CPU comes up with MSR[FP] clear, as PANDA's x86 and ARM CPUs leave
-# their FPUs off, every loop faults on its first `lfs`/`lfd` and wants a skip
-# like `armhf.panda`'s.
+# QEMU's system-mode reset leaves MSR[FP] clear, so every loop would fault on
+# its first `lfs`/`lfd`; PandaEmulator's PowerPC machine definition sets it.
+# ppc.panda is measured locally; ppc64.panda only in CI, since the local PANDA
+# predates the configurable machine for ppc64.
 _ENGINES = ("unicorn", "angr", "pcode", "panda")
 
 SPECS: Dict[str, TestFloatSpec] = {
@@ -170,7 +170,20 @@ ANGR_NO_PPC_SINGLE = (
 )
 
 
+# PANDA's `ppc32` CPU is a PowerPC 604, which, like the real part, lacks the
+# optional square-root instructions: QEMU gates fsqrt and fsqrts on
+# PPC_FLOAT_FSQRT, which its 604 model doesn't set, so both decode as invalid
+# (reported as Panda exception 96).  The ppc64 POWER8 has them.  Measured on
+# the local PANDA, where the other eight functions pass.
+PANDA_604_NO_FSQRT = (
+    "PANDA's ppc32 CPU is a PowerPC 604, which lacks the optional fsqrt and "
+    "fsqrts instructions"
+)
+
+
 def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
+    if arch == "ppc" and engine == "panda" and func.endswith("_sqrt"):
+        return PANDA_604_NO_FSQRT
     if engine == "angr":
         if func.startswith("f32_"):
             return ANGR_NO_PPC_SINGLE

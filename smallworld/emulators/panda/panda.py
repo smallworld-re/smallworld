@@ -153,6 +153,7 @@ class PandaEmulator(
             def setup(cpu):
                 logger.debug("cb_after_machine_init(cpu={})".format(cpu))
                 logger.debug("Panda: setting up state")
+                self.machdef.configure_cpu(self.panda, cpu)
                 self.setup_state(cpu)
                 self.signal_and_wait()
 

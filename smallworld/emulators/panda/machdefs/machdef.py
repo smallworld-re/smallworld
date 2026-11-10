@@ -40,6 +40,19 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
+        """Set up the CPU once PANDA's machine is initialized
+
+        This is for CPU state the machine state doesn't model,
+        but that user-space code expects, such as enabled FPUs.
+        The default does nothing.
+
+        Arguments:
+            panda_obj: The Panda object
+            panda_cpu: Its CPU
+        """
+        pass
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Translate a PANDA CPU exception index into a smallworld exception.
 

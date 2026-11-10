@@ -4650,6 +4650,47 @@ class UnicornPowerPCFacilityTests(unittest.TestCase):
                 self.assertTrue(msr & ppc_machdefs.MSR_FP)
 
 
+class PandaPowerPCFacilityTests(unittest.TestCase):
+    """QEMU's system-mode reset leaves the PowerPC FPU off; SmallWorld turns
+    it on, as for Unicorn.  PANDA isn't needed: pandare2's arch is faked."""
+
+    class _Panda:
+        """pandare2's Panda, as far as configure_cpu uses it."""
+
+        def __init__(self, msr):
+            self.env = types.SimpleNamespace(msr=msr)
+            self.arch = types.SimpleNamespace(cpu_env=lambda cpu: self.env)
+            self.libpanda = types.SimpleNamespace(ppc_store_msr=self._store)
+
+        def _store(self, env, value):
+            assert env is self.env
+            env.msr = value
+
+    def test_fp_facility_is_enabled(self):
+        for arch in (
+            platforms.Architecture.POWERPC32,
+            platforms.Architecture.POWERPC64,
+        ):
+            with self.subTest(arch=arch):
+                machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+                panda = self._Panda(1 << 60)
+                machdef.configure_cpu(panda, None)
+                # HV (bit 60) kept; FP, VSX and VEC (bits 13, 23, 25) set.
+                self.assertEqual(
+                    panda.env.msr, (1 << 60) | (1 << 13) | (1 << 23) | (1 << 25)
+                )
+
+    def test_other_architectures_are_left_alone(self):
+        machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(
+            platforms.Platform(
+                platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+            )
+        )
+        machdef.configure_cpu(object(), None)
+
+
 class MipsReturnDoubleTests(unittest.TestCase):
     """MIPS o32 _read_return_double read f0 as the high word and f1 as low."""
 

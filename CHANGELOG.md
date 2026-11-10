@@ -79,7 +79,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passes all ten TestFloat functions; Ghidra skips single-precision multiply
   and divide for its known subnormal flush; angr runs double precision only,
   since it implements none of the VEX ops PowerPC single precision lowers to.
-  PANDA is listed for TestFloat but has not yet been measured.
+  `PandaEmulator` turns on the PowerPC floating-point and vector facilities,
+  which QEMU's system-mode reset leaves off (`PandaMachineDef.configure_cpu`);
+  32-bit PowerPC then passes all but square root, which PANDA's PowerPC 604
+  lacks. PowerPC64 under PANDA has not yet been measured.
 - `PandaEmulator` runs PowerPC64, as a POWER8. SmallWorld's PANDA build is
   patched to build QEMU's configurable machine for the ppc64 target, and a
   machine check, which is how the CPU reports an unmapped instruction fetch,

@@ -9,6 +9,11 @@ from .machdef import PandaMachineDef
 # the CPU, so on these CPUs it signals an instruction fetch.
 _PPC_EXCP_MCHECK = 1
 
+# MSR bits for the floating-point, vector (Altivec) and VSX facilities
+MSR_FP = 1 << 13
+MSR_VEC = 1 << 25
+MSR_VSX = 1 << 23
+
 
 class PowerPCMachineDef(PandaMachineDef):
     byteorder = Byteorder.BIG
@@ -106,6 +111,19 @@ class PowerPCMachineDef(PandaMachineDef):
     _registers = {i: j for i, j in _registers_mapping.items()}
     _registers = _registers | {i: i for i in _registers_identity}
     _registers = _registers | {i: None for i in _registers_unsupported}
+
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
+        # QEMU's system-mode reset leaves the floating-point and vector
+        # facilities off (only user-mode QEMU turns them on), so their first
+        # instruction raises a facility-unavailable interrupt.  Linux user
+        # space always sees them on.  ppc_store_msr drops the bit of any
+        # facility the CPU lacks.
+        #
+        # NOTE: pandare2's set_reg(cpu, "msr", ...) calls
+        # Panda.ppc_store_msr, which doesn't exist; the function is in
+        # libpanda.
+        env = panda_obj.arch.cpu_env(panda_cpu)
+        panda_obj.libpanda.ppc_store_msr(env, env.msr | MSR_FP | MSR_VEC | MSR_VSX)
 
     def _panda_get_spr_regs(self, panda_obj, panda_cpu):
         # HACKHACK: export something in pypanda to do this instead of duplicating.

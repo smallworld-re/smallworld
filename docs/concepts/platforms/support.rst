@@ -445,10 +445,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
   the exception because its FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
-- **PowerPC under Panda** is listed but has not been measured locally, so it
-  has no row in the table above; CI runs it. If Panda's POWER CPU comes up with
-  ``MSR[FP]`` clear, every loop faults on its first load and it needs the same
-  kind of skip as armhf.
+- **PowerPC under Panda:** QEMU's system-mode reset leaves ``MSR[FP]`` clear,
+  so ``PandaEmulator`` sets ``MSR[FP]``, ``MSR[VEC]`` and ``MSR[VSX]`` when it
+  starts, as ``UnicornEmulator`` does.  powerpc32 passes everything but square
+  root: Panda's ``ppc32`` CPU is a PowerPC 604, which lacks the optional
+  ``fsqrt``/``fsqrts`` instructions.  powerpc64 (a POWER8) has not been
+  measured locally, so it has no row in the table above; CI runs it.  Panda's
+  floating-point registers still aren't exposed through SmallWorld, hence
+  **No** in the floating-point table.
 
 Panda passes all ten functions on all three SuperH platforms, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in
