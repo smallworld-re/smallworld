@@ -2000,6 +2000,20 @@ class AngrThumbTests(unittest.TestCase):
         emu.step()
         self.assertEqual(emu.read_register("r1"), 2)
 
+    def test_r15_is_the_pc(self):
+        # r15 names the same register, so it gets the same Thumb handling.
+        for arch, pc in (
+            (platforms.Architecture.ARM_V7M, 0x1000),
+            (platforms.Architecture.ARM_V7A, 0x1001),
+        ):
+            with self.subTest(arch=arch.name):
+                emu = self.emulator(arch, self.THUMB, 0x1000)
+                emu.write_register("r15", pc)
+                emu.add_exit_point(0x1006)
+                emu.run()
+                self.assertEqual(emu.read_register("r2"), 3)
+                self.assertEqual(emu.read_register("r15"), 0x1006)
+
     def test_bl_into_hooked_thumb_function(self):
         # blx 0x1100 (into Thumb); mov r0, #5
         code = bytes.fromhex("3e0000fa" "0500a0e3")
@@ -4241,6 +4255,34 @@ class StyxArmHookRegisterTests(unittest.TestCase):
                         exceptions.UnsupportedRegisterError, "hooks can't reach"
                     ):
                         self.run_hooked(platforms.Architecture.ARM_V7EM, cb)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxThumbOnlyPcTests(unittest.TestCase):
+    """Every name for pc keeps the Thumb bit on Thumb-only platforms.
+
+    Only "pc" itself had bit 0 set on the way in, so an even address written
+    as r15 or PC left the core in ARM state, which M-profile doesn't have.
+    """
+
+    def test_pc_names(self):
+        for name in ("pc", "r15", "PC"):
+            with self.subTest(name=name):
+                emu = emulators.StyxEmulator(
+                    platforms.Platform(
+                        platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+                    )
+                )
+                # movs r0, #1; movs r1, #2; movs r2, #3
+                emu.write_code(0x1000, bytes.fromhex("012002210322"))
+                emu.write_register_content(name, 0x1000)
+                emu.add_exit_point(0x1006)
+                try:
+                    emu.run()
+                except exceptions.EmulationExitpoint:
+                    pass
+                self.assertEqual(emu.read_register_content("r2"), 3)
+                self.assertEqual(emu.read_register_content(name), 0x1006)
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
