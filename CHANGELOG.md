@@ -87,10 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   traps, syscalls, the BCD instructions and the FPU aren't supported; see the
   platform support notes.
 - `Architecture.V850`, Renesas V850E1, V850E2 and V850E2M, on the angr and
-  Ghidra backends, using Ghidra's V850 language. The ELF loader recognizes
-  `EM_V850`, and loads `EM_V800` (RH850) images as V850 with a warning: RH850's
-  additional instructions are not modelled, and a few of them run as different
-  V850 instructions. Some V850 instructions stop emulation or compute wrong
+  Ghidra backends, using Ghidra's V850 language. The ELF loader loads GCC-ABI
+  (`EM_V850`) images, applying the common relocation types in relocatable
+  objects, and refuses RH850-ABI (`EM_V800`) ones. RH850's additional
+  instructions are not modelled, and a few of them run as different V850
+  instructions. Some V850 instructions stop emulation or compute wrong
   results; the platform support docs list them. Test binaries are built with
   GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
   nixpkgs has no V850 platform.

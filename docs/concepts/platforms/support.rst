@@ -343,9 +343,17 @@ decodes as other instructions, and run as those without any error:
 - ``dbhvtrap`` runs as ``divh r0, r28``, and ``dbcp`` as ``divh r0, r29``,
   which zeroes ``r29`` on Ghidra and raises an error on angr.
 
-The ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use,
-as V850, with a warning saying so. ``EM_V850`` images, built for the GCC ABI,
-record their core, and load without one unless it is V850E3v5.
+The ELF loader refuses ``EM_V800`` images, built for Renesas's RH850 ABI, which
+is GNU as's default for V850 code as well as RH850. Its relocations are numbered differently from the
+GCC ABI's, and it does not record which core the code is for. Build V850 code
+for the GCC ABI (``-mgcc-abi``) instead. ``EM_V850`` images, built for the GCC
+ABI, record their core, and load without a warning unless it is V850E3v5.
+
+Relocatable objects load with their absolute (``ABS32``), ``hi()``/``lo()``
+(``HI16_S``, ``HI16``, ``LO16``, ``LO16_S1``) and branch (``9_PCREL``,
+``22_PCREL``) relocations applied. Other relocation types, including the
+small-data ones relative to ``gp``, ``ep`` or ``r0``, stop the load with an
+error.
 
 Some V850 instructions do not run, or run wrongly:
 

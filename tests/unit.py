@@ -134,6 +134,7 @@ from smallworld.state.memory.elf.rela.ppc import (
     PowerPCElfRelocator,
 )
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
+from smallworld.state.memory.elf.rela.v850 import V850ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
@@ -9917,38 +9918,114 @@ class AngrV850UserOpTests(unittest.TestCase):
         self.assertEqual(cpu.r9.get(), 0)
 
 
+class V850ElfRelocatorTests(unittest.TestCase):
+    """V850 GCC-ABI relocations patch the same bytes GNU ld does.
+
+    The instructions and expected results come from a GNU as object linked
+    with binutils 2.46's ld: code at 0x10000, ``value`` at 0x20000, ``far`` at
+    0x48000 (a low halfword with bit 15 set, so ``hi()`` rounds up), ``near``
+    at 0x1001a and ``helper`` at 0x1001c.
+    """
+
+    class _Elf:
+        def __init__(self, address: int, code: bytes):
+            self.address = address
+            self.code = code
+
+        def read_int(self, address, size, byteorder):
+            start = address - self.address
+            return int.from_bytes(self.code[start : start + size], byteorder.value)
+
+    def _value(self, type_, offset, insn, symbol, addend=0, is_rela=True):
+        rela = ElfRela(
+            is_rela=is_rela,
+            offset=offset,
+            type=type_,
+            symbol=_make_symbol(value=symbol, baseaddr=0),
+            addend=addend,
+        )
+        return V850ElfRelocator()._compute_value(
+            rela, self._Elf(offset, bytes.fromhex(insn))
+        )
+
+    def test_hi16_s_rounds_up(self):
+        # movhi hi(far), r0, r6
+        self.assertEqual(self._value(3, 0x10002, "0000", 0x47FF0, 0x10).hex(), "0500")
+
+    def test_lo16(self):
+        # movea lo(far), r6, r6
+        self.assertEqual(self._value(5, 0x10006, "0000", 0x47FF0, 0x10).hex(), "0080")
+
+    def test_hi16(self):
+        # movhi hi0(value), r0, r8
+        self.assertEqual(self._value(4, 0x1000A, "0000", 0x20000).hex(), "0200")
+
+    def test_lo16_s1_keeps_bit_0(self):
+        # ld.w lo(value)[r6], r7: bit 0 of the displacement field is opcode.
+        self.assertEqual(self._value(37, 0x1000E, "0100", 0x20000).hex(), "0100")
+
+    def test_22_pcrel(self):
+        # jarl helper, lp
+        self.assertEqual(self._value(2, 0x10010, "80ff0000", 0x1001C).hex(), "80ff0c00")
+
+    def test_9_pcrel(self):
+        # bne near
+        self.assertEqual(self._value(1, 0x10014, "8a05", 0x1001A).hex(), "ba05")
+
+    def test_abs32(self):
+        # ptr: .word value
+        self.assertEqual(self._value(6, 0x20004, "00000000", 0x20000).hex(), "00000200")
+
+    def test_pcrel_out_of_range(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "out of range"):
+            self._value(1, 0x10014, "8a05", 0x10114)
+
+    def test_lo16_s1_odd(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "odd"):
+            self._value(37, 0x1000E, "0100", 0x20001)
+
+    def test_rel_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "REL relocation"):
+            self._value(6, 0x20004, "00000000", 0x20000, is_rela=False)
+
+    def test_unsupported_type(self):
+        # R_V850_SDA_16_16_OFFSET needs __gp, which the loader does not provide.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "unsupported"):
+            self._value(9, 0x10002, "0000", 0x20000)
+
+    def test_invalid_type(self):
+        # R_V810_WLO, an EM_V800 relocation, is past the GCC ABI's table.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "Invalid"):
+            self._value(0x34, 0x10002, "0000", 0x20000)
+
+
 class ElfV800Tests(unittest.TestCase):
-    """An EM_V800 (RH850 ABI) image, or an EM_V850 one flagged as V850E3v5,
-    loads as V850, with a warning that RH850-only instructions are not
-    modelled."""
+    """The loader refuses EM_V800 (RH850 ABI) images. An EM_V850 one flagged
+    as V850E3v5 loads as V850, with a warning that RH850-only instructions
+    are not modelled."""
 
     PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
 
-    def _load(self, flags: int, machine: int = 36):  # EM_V800
+    def _image(self, flags: int, machine: int) -> io.BytesIO:
         image = bytearray(self.PATH.read_bytes())
         struct.pack_into("<H", image, 18, machine)  # e_machine
         struct.pack_into("<I", image, 36, flags)  # e_flags
-        with self.assertLogs(level="WARNING") as logs:
-            code = Executable.from_elf(io.BytesIO(bytes(image)))
-        return code, "\n".join(logs.output)
+        return io.BytesIO(bytes(image))
 
     @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
-    def test_v800_loads_as_v850(self):
-        code, logs = self._load(0)
-        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
-        self.assertIn("EM_V800 image; running it as V850E2M", logs)
-
-    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
-    def test_v800_flagged_rh850(self):
-        code, logs = self._load(0x00100000)  # EF_V800_850E3
-        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
-        self.assertIn("flagged as V850E3v5 (RH850)", logs)
+    def test_v800_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "EM_V800"):
+            Executable.from_elf(self._image(0, machine=36))  # EM_V800
 
     @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
     def test_v850_flagged_rh850(self):
-        code, logs = self._load(0x60000000, machine=87)  # EM_V850, V850E3v5
+        image = self._image(0x60000000, machine=87)  # EM_V850, V850E3v5
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(image)
         self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
-        self.assertIn("EM_V850 image flagged as V850E3v5 (RH850)", logs)
+        self.assertIn(
+            "EM_V850 image flagged as V850E3v5 (RH850)", "\n".join(logs.output)
+        )
 
     @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
     def test_v850_loads_as_v850(self):

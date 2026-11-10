@@ -37,9 +37,8 @@ EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
 
-# V850-specific flag values: under EM_V800, code built for RH850's V850E3v5;
-# under EM_V850, the field naming the core, and its value for V850E3v5.
-EF_V800_850E3 = 0x00100000
+# V850-specific flag values: the field naming the core, and its value for
+# V850E3v5.
 EF_V850_ARCH = 0xF0000000
 E_V850E3V5_ARCH = 0x60000000
 
@@ -218,16 +217,13 @@ def _v850_architecture(elf, requested):
 
 
 def _v800_architecture(elf, requested):
-    # RH850 images use this machine type, as do V850 images built for the
-    # RH850 ABI, which is GNU as's default, so warn whether or not the image
-    # is flagged as V850E3v5 code; see _v850_architecture.
-    if elf.header.processor_flag & EF_V800_850E3:
-        log.warning(
-            f"EM_V800 image flagged as V850E3v5 (RH850); {_V850_RH850_WARNING}"
-        )
-    else:
-        log.warning(f"EM_V800 image; {_V850_RH850_WARNING}")
-    return Architecture.V850
+    # V850 and RH850 images built for the RH850 ABI, GNU as's default. Its
+    # relocations are numbered differently from the GCC ABI's, and it does not
+    # record which core the code is for.
+    raise ConfigurationError(
+        "EM_V800 (RH850 ABI) images are not supported; "
+        "build V850 code for the GCC ABI (EM_V850) instead"
+    )
 
 
 # The architecture detector for each e_machine value.
