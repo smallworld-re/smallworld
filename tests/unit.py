@@ -9852,6 +9852,71 @@ class LoongArch32ElfRelocatorTests(unittest.TestCase):
             self._value(2)
 
 
+class AngrV850UserOpTests(unittest.TestCase):
+    """angr runs the V850 instructions whose p-code calls user operations:
+    di, ei and the sync instructions do nothing more, halt stops emulation,
+    and the saturating instructions clamp an overflowing result."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.V850, platforms.Byteorder.LITTLE
+    )
+    MOV_R7_R9 = "0748"  # mov r7, r9
+
+    def _run(self, code: str, **regs: int):
+        code_bytes = bytes.fromhex(code)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        cpu.pc.set(0x1000)
+        for name in ("r6", "r7", "r8", "r9", "psw"):
+            getattr(cpu, name).set(regs.get(name, 0))
+        emulator = emulators.AngrEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1000 + len(code_bytes))
+        return machine.emulate(emulator).get_cpu()
+
+    def test_satadd_clamps_positive_overflow(self):
+        # satadd r6, r7; mov r7, r9: the next instruction sees the clamp.
+        cpu = self._run("c638" + self.MOV_R7_R9, r6=1, r7=0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r9.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.psw.get() & 0x14, 0x14)  # SAT and OV
+
+    def test_satadd_clamps_negative_overflow(self):
+        cpu = self._run("c638", r6=0xFFFFFFFF, r7=0x80000000)
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_satadd_without_overflow(self):
+        cpu = self._run("c638", r6=3, r7=5)
+        self.assertEqual(cpu.r7.get(), 8)
+        self.assertEqual(cpu.psw.get() & 0x14, 0)
+
+    def test_satadd_three_operands(self):
+        cpu = self._run("e63fba43", r6=1, r7=0x7FFFFFFF)  # satadd r6, r7, r8
+        self.assertEqual(cpu.r8.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satadd_twice_in_one_block(self):
+        cpu = self._run("c638c638", r6=1, r7=0x7FFFFFFE)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satsub_clamps(self):
+        cpu = self._run("a638", r6=1, r7=0x80000000)  # satsub r6, r7
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_di_and_ei(self):
+        self.assertEqual(self._run("e0076001").psw.get(), 0x20)  # di sets ID
+        self.assertEqual(self._run("e0876001", psw=0x20).psw.get(), 0)  # ei
+
+    def test_synce(self):
+        self.assertEqual(self._run("1d00").pc.get(), 0x1002)
+
+    def test_halt_stops(self):
+        cpu = self._run("e0072001" + self.MOV_R7_R9, r7=5)
+        self.assertEqual(cpu.pc.get(), 0x1004)
+        self.assertEqual(cpu.r9.get(), 0)
+
+
 class ElfV800Tests(unittest.TestCase):
     """An EM_V800 (RH850 ABI) image, or an EM_V850 one flagged as V850E3v5,
     loads as V850, with a warning that RH850-only instructions are not

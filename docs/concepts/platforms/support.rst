@@ -351,10 +351,13 @@ Some V850 instructions do not run, or run wrongly:
 
 - ``di``, ``ei``, ``halt``, ``synce``, ``syncm``, ``syncp`` and the saturating
   arithmetic instructions (``satadd``, ``satsub``, ``satsubi``, ``satsubr``)
-  lift to p-code user operations SmallWorld does not implement, so they stop
-  emulation with an error on both emulators. On Ghidra the error comes after
-  the instruction's earlier p-code has run: ``satadd`` has already written the
-  unsaturated sum and the flags, and ``di`` has set ``PSW.ID``.
+  lift to p-code user operations. angr's machine definition implements them:
+  ``di`` and ``ei`` only set and clear ``PSW.ID``, the sync instructions do
+  nothing, ``halt`` stops emulation after it, and the saturating instructions
+  clamp an overflowing result. On Ghidra they stop emulation with
+  an error, after the instruction's earlier p-code has run: ``satadd`` has
+  already written the unsaturated sum and the flags, and ``di`` has set
+  ``PSW.ID``.
 - ``rmtrap`` runs as ``divh r0, ep``, without any error on Ghidra, where it
   zeroes ``ep``; angr raises an error.
 - The language computes ``bsw``, ``bsh`` and ``hsw`` wrong, without any error:
