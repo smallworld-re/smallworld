@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An exception while `PandaEmulator` sets up its CPU (PANDA's machine-init
+  callback) is raised from the constructor rather than leaving it waiting
+  forever.
 - `UnicornEmulator` runs PowerPC64. SmallWorld's Unicorn build is patched so
   an explicit PPC64 CPU model selects that model instead of a PPC32 one, and so
   PPC64 CPUs start in hypervisor mode instead of faulting on their first

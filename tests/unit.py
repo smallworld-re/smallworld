@@ -1601,6 +1601,46 @@ class AngrMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class PandaSetupFailureTests(unittest.TestCase):
+    """An exception while PANDA sets up its CPU reaches PandaEmulator's
+    constructor instead of leaving it waiting forever."""
+
+    SCRIPT = """
+import os
+from smallworld import emulators, platforms
+from smallworld.emulators.panda.machdefs import PandaMachineDef
+
+def configure_cpu(self, panda_obj, panda_cpu):
+    raise RuntimeError("configure_cpu failed")
+
+PandaMachineDef.configure_cpu = configure_cpu
+try:
+    emulators.PandaEmulator(
+        platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
+    )
+except RuntimeError as e:
+    print(e, flush=True)
+    os._exit(0)
+os._exit(1)
+"""
+
+    def test_setup_exception_is_raised(self):
+        # A separate process, since one process can't run two PANDAs.
+        cwd = os.path.abspath(os.path.dirname(__file__))
+        try:
+            result = subprocess.run(
+                wrap_python_command(["python3", "-c", self.SCRIPT]),
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail("PandaEmulator hung after a setup exception")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(b"configure_cpu failed", result.stdout)
+
+
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
