@@ -326,6 +326,7 @@ QEMU (and so Panda) and Styx have no V850 model.
 
 That language covers the three cores in one, including V850E2M's FPU, with no
 way to select a core: it accepts V850E2 and V850E2M instructions in V850E1 code.
+GNU binutils calls V850E2M's instruction set V850E2V3 (``-mv850e2v3``).
 
 It does not model RH850 (V850E3v5), and SmallWorld has no RH850 platform. Most
 RH850-only instructions fail to decode, but some reuse encodings that V850
@@ -343,7 +344,8 @@ decodes as other instructions, and run as those without any error:
   which zeroes ``r29`` on Ghidra and raises an error on angr.
 
 The ELF loader runs ``EM_V800`` images, the machine type RH850 toolchains use,
-as V850, with a warning saying so. ``EM_V850`` images load without one.
+as V850, with a warning saying so. ``EM_V850`` images, built for the GCC ABI,
+record their core, and load without one unless it is V850E3v5.
 
 Some V850 instructions do not run, or run wrongly:
 
@@ -353,6 +355,8 @@ Some V850 instructions do not run, or run wrongly:
   emulation with an error on both emulators. On Ghidra the error comes after
   the instruction's earlier p-code has run: ``satadd`` has already written the
   unsaturated sum and the flags, and ``di`` has set ``PSW.ID``.
+- ``rmtrap`` runs as ``divh r0, ep``, without any error on Ghidra, where it
+  zeroes ``ep``; angr raises an error.
 - The language computes ``bsw``, ``bsh`` and ``hsw`` wrong, without any error:
   it shifts each byte or halfword before widening it, so the shifted bits are
   lost. For ``0x11223344``, Ghidra gives ``0x11``, ``0x33`` and ``0x1122``
@@ -377,7 +381,18 @@ Some V850 instructions do not run, or run wrongly:
 
 V850E2M's FPU runs on Ghidra; the ``floats`` scenario checks single-precision
 ``addf.s``. angr's p-code engine implements no floating-point operations, so the
-FPU instructions do not run on angr.
+FPU instructions do not run on angr. On Ghidra, the language gets some
+conversions wrong, without any error:
+
+- The ``cvtf`` conversions from floating point to integer truncate instead of
+  rounding as ``FPSR`` selects: ``cvtf.sw`` of 2.7 gives 2, not 3, under the
+  default round-to-nearest. ``trncf``, ``ceilf`` and ``floorf`` are correct.
+- The conversions from unsigned integers to floating point treat their operand
+  as signed: ``cvtf.uws`` of ``0xc0000000`` gives -1073741824.0, not
+  3221225472.0.
+
+The ``roundf`` instructions, which GNU as accepts only with ``-mextension``, do
+not decode.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.

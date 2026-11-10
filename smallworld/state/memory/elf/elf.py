@@ -37,8 +37,16 @@ EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
 
-# V850-specific flag values: under EM_V800, code built for RH850's V850E3v5.
+# V850-specific flag values: under EM_V800, code built for RH850's V850E3v5;
+# under EM_V850, the field naming the core, and its value for V850E3v5.
 EF_V800_850E3 = 0x00100000
+EF_V850_ARCH = 0xF0000000
+E_V850E3V5_ARCH = 0x60000000
+
+_V850_RH850_WARNING = (
+    "running it as V850E2M. RH850-only instructions fail to decode, "
+    "or run as different V850 instructions"
+)
 
 # SuperH-specific flag values.
 #
@@ -195,24 +203,30 @@ def _superh_architecture(elf, requested):
         raise ConfigurationError(f"Unsupported SuperH ISA in e_flags: {hex(mach)}")
 
 
+def _v850_architecture(elf, requested):
+    # SmallWorld's V850 model has no RH850 (V850E3v5) instructions. Most
+    # RH850-only instructions fail to decode, but RH850 reused some encodings
+    # that V850 decodes as other instructions, so those run wrongly without
+    # failing: `loop` runs as `mulhi`, `synci` as `mov`, `ld.dw`/`st.dw` as
+    # `ld.bu` plus a stray halfword, the 17-bit-displacement branches as
+    # `ld.hu`, and `dbhvtrap`/`dbcp` as `divh`. See support.rst. GCC-ABI
+    # images record their core, so warn only for RH850 code; V850E2V3 is the
+    # V850E2M modelled.
+    if elf.header.processor_flag & EF_V850_ARCH == E_V850E3V5_ARCH:
+        log.warning(f"EM_V850 image flagged as V850E3v5 (RH850); {_V850_RH850_WARNING}")
+    return Architecture.V850
+
+
 def _v800_architecture(elf, requested):
     # RH850 images use this machine type, as do V850 images built for the
-    # RH850 ABI, which is GNU as's default. SmallWorld's V850 model has no
-    # RH850 (V850E3v5) instructions, so warn whether or not the image is
-    # flagged as V850E3v5 code. Most RH850-only instructions fail to decode,
-    # but RH850 reused some encodings that V850 decodes as other
-    # instructions, so those run wrongly without failing: `loop` runs as
-    # `mulhi`, `synci` as `mov`, `ld.dw`/`st.dw` as `ld.bu` plus a stray
-    # halfword, the 17-bit-displacement branches as `ld.hu`, and
-    # `dbhvtrap`/`dbcp` as `divh`. See support.rst.
-    message = (
-        "running it as V850E2M. RH850-only instructions fail to decode, "
-        "or run as different V850 instructions"
-    )
+    # RH850 ABI, which is GNU as's default, so warn whether or not the image
+    # is flagged as V850E3v5 code; see _v850_architecture.
     if elf.header.processor_flag & EF_V800_850E3:
-        log.warning(f"EM_V800 image flagged as V850E3v5 (RH850); {message}")
+        log.warning(
+            f"EM_V800 image flagged as V850E3v5 (RH850); {_V850_RH850_WARNING}"
+        )
     else:
-        log.warning(f"EM_V800 image; {message}")
+        log.warning(f"EM_V800 image; {_V850_RH850_WARNING}")
     return Architecture.V850
 
 
@@ -235,7 +249,7 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_SH: _superh_architecture,
     EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
     EM_V800: _v800_architecture,
-    EM_V850: _fixed_architecture(Architecture.V850),
+    EM_V850: _v850_architecture,
     EM_X86_64: _fixed_architecture(Architecture.X86_64),
     EM_XTENSA: _fixed_architecture(Architecture.XTENSA),
 }

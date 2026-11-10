@@ -9824,14 +9824,15 @@ class LoongArch32ElfRelocatorTests(unittest.TestCase):
 
 
 class ElfV800Tests(unittest.TestCase):
-    """An EM_V800 (RH850 ABI) image loads as V850, with a warning that
-    RH850-only instructions are not modelled."""
+    """An EM_V800 (RH850 ABI) image, or an EM_V850 one flagged as V850E3v5,
+    loads as V850, with a warning that RH850-only instructions are not
+    modelled."""
 
     PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
 
-    def _load(self, flags: int):
+    def _load(self, flags: int, machine: int = 36):  # EM_V800
         image = bytearray(self.PATH.read_bytes())
-        struct.pack_into("<H", image, 18, 36)  # e_machine = EM_V800
+        struct.pack_into("<H", image, 18, machine)  # e_machine
         struct.pack_into("<I", image, 36, flags)  # e_flags
         with self.assertLogs(level="WARNING") as logs:
             code = Executable.from_elf(io.BytesIO(bytes(image)))
@@ -9848,6 +9849,12 @@ class ElfV800Tests(unittest.TestCase):
         code, logs = self._load(0x00100000)  # EF_V800_850E3
         self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
         self.assertIn("flagged as V850E3v5 (RH850)", logs)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_rh850(self):
+        code, logs = self._load(0x60000000, machine=87)  # EM_V850, V850E3v5
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+        self.assertIn("EM_V850 image flagged as V850E3v5 (RH850)", logs)
 
     @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
     def test_v850_loads_as_v850(self):
