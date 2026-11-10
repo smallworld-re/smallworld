@@ -11373,6 +11373,56 @@ class ArmV8FpUseropTests(unittest.TestCase):
         emu = self._cdp2(0xFEBA0A60, s1=self.DENORMAL, fpscr=1 << 24)
         self.assertEqual(emu.registers["s0"], 0)
 
+    def test_vrint_default_nan(self):
+        # FPSCR.DN replaces a NaN with the default NaN; without it the NaN is
+        # only quieted. Expected values from Unicorn.
+        nan32, nan64 = 0x7F800123, 0x7FF0000000000123
+        for insn, function, source, dest, nan, quiet, default in (
+            # vrinta.f32 s0, s1 and vrintz.f32 s0, s1
+            (
+                0xFEB80A60,
+                "coprocessor_function2",
+                "s1",
+                "s0",
+                nan32,
+                0x7FC00123,
+                0x7FC00000,
+            ),
+            (
+                0xEEB60AE0,
+                "coprocessor_function",
+                "s1",
+                "s0",
+                nan32,
+                0x7FC00123,
+                0x7FC00000,
+            ),
+            # vrinta.f64 d0, d1 and vrintz.f64 d0, d1
+            (
+                0xFEB80B41,
+                "coprocessor_function2",
+                "d1",
+                "d0",
+                nan64,
+                0x7FF8000000000123,
+                0x7FF8000000000000,
+            ),
+            (
+                0xEEB60BC1,
+                "coprocessor_function",
+                "d1",
+                "d0",
+                nan64,
+                0x7FF8000000000123,
+                0x7FF8000000000000,
+            ),
+        ):
+            for dn, expected in ((0, quiet), (1, default)):
+                with self.subTest(insn=hex(insn), dn=dn):
+                    emu = _FakeArmFpEmulator(insn, fpscr=dn << 25, **{source: nan})
+                    getattr(self.userops, function)(emu, "cdp", [])
+                    self.assertEqual(emu.registers[dest], expected)
+
     def test_vcvt_rounds_and_saturates(self):
         emu = _FakeArmFpEmulator(0xFEBC2AC0)  # vcvta.s32.f32 s4, s0
         for value, rounding, expected in (
