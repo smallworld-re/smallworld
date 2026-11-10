@@ -160,6 +160,12 @@ def _scalar_flush_to_zero(emu: typing.Any) -> bool:
     return bool((emu.read_register_content("fpscr") >> 24) & 1)
 
 
+def _scalar_default_nan(emu: typing.Any) -> bool:
+    """FPSCR.DN, which the scalar instructions follow. Advanced SIMD always
+    uses the default NaN."""
+    return bool((emu.read_register_content("fpscr") >> 25) & 1)
+
+
 def _round(value: float, rounding: int) -> int:
     """Round a finite value to an integer, as an FPRounding value says."""
     exact = fractions.Fraction(value)
@@ -177,13 +183,17 @@ def _round(value: float, rounding: int) -> int:
     raise ValueError(f"unsupported FP rounding {rounding}")
 
 
-def _round_int(bits: int, esize: int, rounding: int, flush_to_zero: bool) -> int:
+def _round_int(
+    bits: int, esize: int, rounding: int, flush_to_zero: bool, default_nan: bool
+) -> int:
     """FPRoundInt: round to an integral value in the same format. Keeps the
-    sign of a zero result, and quiets a signalling NaN."""
+    sign of a zero result, and quiets a signalling NaN, or gives the default
+    NaN for any NaN in default NaN mode."""
     bits = _flush(bits, esize, flush_to_zero)
     value = _fp_value(bits, esize)
     if math.isnan(value):
-        return bits | _FP_ELEMENTS[esize][1]
+        _, quiet, dnan = _FP_ELEMENTS[esize]
+        return dnan if default_nan else bits | quiet
     if math.isinf(value) or value == 0:
         return bits
     return _fp_bits(math.copysign(_round(value, rounding), value), esize)
@@ -307,6 +317,7 @@ def coprocessor_function2(
                 esize,
                 rounding,
                 _scalar_flush_to_zero(emu),
+                _scalar_default_nan(emu),
             ),
         )
     else:
@@ -345,6 +356,7 @@ def coprocessor_function(
             esize,
             rounding,
             _scalar_flush_to_zero(emu),
+            _scalar_default_nan(emu),
         ),
     )
     return None
@@ -414,7 +426,7 @@ def _fp_min_max_num(maximum: bool):
             esize = {0b01: 16, 0b10: 32, 0b11: 64}[_field(insn, 9, 8)]
             width = esize
             # Default NaN and flush-to-zero modes are FPSCR.DN and FZ.
-            default_nan = bool((emu.read_register_content("fpscr") >> 25) & 1)
+            default_nan = _scalar_default_nan(emu)
             flush_to_zero = _scalar_flush_to_zero(emu)
         else:
             # Advanced SIMD: a D or Q register of f32 or f16 lanes, which
