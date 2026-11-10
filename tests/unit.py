@@ -4149,13 +4149,25 @@ class StyxHookExecutionTests(unittest.TestCase):
             self._run(hook)
 
     def test_emulation_stop_from_a_hook_ends_the_run(self):
-        def hook(emu):
-            def cb(e):
-                raise exceptions.EmulationStop()
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # nop; mov r3, #1; nop
+        emu.write_code(0x1000, bytes.fromhex("00f020e3" "0130a0e3" "00f020e3"))
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("r3", 0)
+        emu.add_exit_point(0x1008)
 
-            emu.hook_instruction(0x1004, cb)
+        def cb(e):
+            raise exceptions.EmulationStop()
 
-        self._run(hook)
+        emu.hook_instruction(0x1004, cb)
+        emu.run()
+        # Stopped before the hooked mov, as Unicorn does; ignoring the stop
+        # would run on to the exit point.
+        self.assertEqual(emu.read_register_content("pc"), 0x1004)
+        self.assertEqual(emu.read_register_content("r3"), 0)
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
