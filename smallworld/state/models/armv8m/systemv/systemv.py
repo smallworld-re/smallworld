@@ -119,7 +119,7 @@ class ArmV8MSysVModel(ArmV8MSysVCallingContext, CStdModel):
     """Base class for C models using the ARM32 GNU EABI
 
     This is a specific ARM System V ABI.
-    It generally applies to ARMv5t or ARMv6.
+    It applies to ARMv8-M, soft-float.
     """
 
     pass

@@ -119,7 +119,7 @@ class ArmV6MSysVModel(ArmV6MSysVCallingContext, CStdModel):
     """Base class for C models using the ARM32 GNU EABI
 
     This is a specific ARM System V ABI.
-    It generally applies to ARMv5t or ARMv6.
+    It applies to ARMv6-M, soft-float.
     """
 
     pass
