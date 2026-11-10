@@ -415,7 +415,7 @@ class AngrEmulator(
                 "Reading registers not supported once execution begins."
             )
 
-        is_pc = name == "pc" or name == self.platdef.pc_register
+        is_pc = self.machdef.thumb_bit_in_pc and self._is_pc(name)
         if name == "pc":
             name = self.platdef.pc_register
 
@@ -424,7 +424,7 @@ class AngrEmulator(
 
         off, size = self.machdef.angr_reg(name)
         value = self.state.registers.load(off, size)
-        if is_pc and self.machdef.thumb_bit_in_pc:
+        if is_pc:
             # angr addresses Thumb code with the Thumb bit set; report the
             # address the core executes at, as the other emulators do.
             value = self._with_thumb_bit(value, False)
@@ -487,11 +487,7 @@ class AngrEmulator(
             self._write_cpsr(content)
             return
 
-        if (
-            (name == "pc" or name == self.platdef.pc_register)
-            and self.machdef.thumb_bit_in_pc
-            and content is not None
-        ):
+        if self.machdef.thumb_bit_in_pc and content is not None and self._is_pc(name):
             content = self._thumb_pc(content)
 
         if not self._initialized and content is not None:
@@ -538,6 +534,19 @@ class AngrEmulator(
 
     # Bit 5 of cpsr is the Thumb bit.
     _CPSR_T = 1 << 5
+
+    def _is_pc(self, name: str) -> bool:
+        """Whether a register name, or an alias such as r15, names pc."""
+        if name == "pc" or name == self.platdef.pc_register:
+            return True
+        try:
+            return (
+                self.machdef.angr_reg(name)[0]
+                == self.machdef.angr_reg(self.platdef.pc_register)[0]
+            )
+        except (KeyError, exceptions.UnsupportedRegisterError):
+            # Left for the register lookup itself to report
+            return False
 
     @staticmethod
     def _with_thumb_bit(value: claripy.ast.bv.BV, thumb: bool) -> claripy.ast.bv.BV:

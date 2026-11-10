@@ -314,7 +314,8 @@ class StyxEmulator(
 
     def _do_write_register(self, name: str, value: int) -> None:
         reg = self.machdef.styx_register(name)
-        if self._thumb_only and name == self.machdef.pc_register:
+        # r15 and PC name pc too; Styx matches register names in any case.
+        if self._thumb_only and name.lower() in (self.machdef.pc_register, "r15"):
             value |= 1
         if self._hook_cpu is not None:
             self._hook_cpu.write_register(self.machdef.hook_register(name), int(value))
