@@ -52,6 +52,9 @@ class RiscV64SysVCallingContext(CStdCallingContext):
 
     _soft_float = False
     _variadic_soft_float = True
+    # A floating-point argument with no FP register left goes in an integer
+    # register while any is free.
+    _fp_falls_back_to_int_regs = True
     _floats_are_doubles = False
     _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
 

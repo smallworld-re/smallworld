@@ -4546,12 +4546,42 @@ class EightByteRegisterPairTests(unittest.TestCase):
         # a1 is skipped; the pair starts at a2.
         self.assertEqual(varargs._arg_offset[1], 2)
 
-    def test_riscv32_pair_with_one_register_left_goes_on_the_stack(self):
-        # Seven uints leave only a7; the ull must not run off the register list,
-        # and nothing after it may use a7.
+    def test_riscv32_variadic_pair_on_the_stack_is_padded(self):
+        # v(1, 2, ..., 8, 9, 0x1122334455667788LL, 10), as
+        # riscv64-linux-gnu-gcc -march=rv32gc -mabi=ilp32d passes it: 9 at
+        # sp+0, the long long at sp+8 (sp+4 is padding), and 10 at sp+16.
+        ctx = RiscV32SysVCallingContext()
+        ctx.set_argument_types([self.UINT])
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        for i in range(8):
+            emu.regs[f"a{i}"] = i + 1
+        emu.write_memory(0x1000, (9).to_bytes(4, "little"))
+        emu.write_memory(0x1004, b"\xff" * 4)
+        emu.write_memory(0x1008, (0x1122334455667788).to_bytes(8, "little"))
+        emu.write_memory(0x1010, (10).to_bytes(4, "little"))
+        varargs = VariadicContext(ctx)
+        values = [varargs.get_next_argument(self.UINT, emu) for _ in range(8)]
+        values.append(varargs.get_next_argument(self.ULL, emu))
+        values.append(varargs.get_next_argument(self.UINT, emu))
+        self.assertEqual(values, [2, 3, 4, 5, 6, 7, 8, 9, 0x1122334455667788, 10])
+
+    def test_riscv32_pair_with_one_register_left_is_split(self):
+        # Seven uints leave only a7: the ull's low word goes in a7 and its
+        # high word at sp+0, and the next argument at sp+4, as
+        # riscv64-linux-gnu-gcc -march=rv32gc -mabi=ilp32d passes
+        # s(1, ..., 7, 0x1122334455667788LL, 99).
         types = [self.UINT] * 7 + [self.ULL, self.UINT]
-        offsets = self._offsets(RiscV32SysVCallingContext(), types)
-        self.assertEqual(offsets[7:], ["stack", "stack"])
+        ctx = RiscV32SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        ctx.set_argument(7, emu, 0x1122334455667788)
+        ctx.set_argument(8, emu, 99)
+        self.assertEqual(emu.regs["a7"], 0x55667788)
+        self.assertEqual(emu.read_memory(0x1000, 8), bytes.fromhex("4433221163000000"))
+        self.assertEqual(ctx.get_argument(7, self.ULL, emu), 0x1122334455667788)
+        self.assertEqual(ctx.get_argument(8, self.UINT, emu), 99)
 
     def test_armhf_pairs_are_still_aligned(self):
         self.assertEqual(
@@ -4651,12 +4681,12 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu /
         # aarch64-linux-gnu / x86_64-linux-gnu toolchains). Eight float args fill
         # the FP registers; the 9th and 10th spill and must be 8 bytes apart,
-        # not 4.
+        # not 4.  (RiscV passes them in a0 and a1 instead; see
+        # RiscVFPArgFallbackTests.)
         for cls in (
             LoongArch64SysVCallingContext,
             MIPS64SysVCallingContext,
             MIPS64ELSysVCallingContext,
-            RiscV64SysVCallingContext,
             AArch64SysVCallingContext,
             AMD64SysVCallingContext,
         ):
@@ -4667,6 +4697,62 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
             self.assertEqual(
                 ctx._arg_offset[9] - ctx._arg_offset[8], 8, msg=cls.__name__
             )
+
+
+class RiscVFPArgFallbackTests(unittest.TestCase):
+    """A RiscV floating-point argument with no FP register left goes in
+    integer registers while any are free, as riscv64-linux-gnu-gcc passes
+    them under -mabi=lp64d and -mabi=ilp32d."""
+
+    F = ArgumentType.FLOAT
+    D = ArgumentType.DOUBLE
+    INT = ArgumentType.INT
+
+    def roundtrip(self, ctx, types, values):
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        for i, value in values.items():
+            ctx.set_argument(i, emu, value)
+        for i, value in values.items():
+            self.assertEqual(ctx.get_argument(i, types[i], emu), value)
+        return emu
+
+    def test_floats_past_fa7_go_in_a0_and_a1(self):
+        for cls in (RiscV32SysVCallingContext, RiscV64SysVCallingContext):
+            with self.subTest(cls=cls.__name__):
+                emu = self.roundtrip(cls(), [self.F] * 10, {8: 9.5, 9: 10.5})
+                self.assertEqual(emu.regs["a0"], 0x41180000)
+                self.assertEqual(emu.regs["a1"], 0x41280000)
+                self.assertEqual(emu.mem, {})
+
+    def test_a_double_past_fa7_takes_integer_registers(self):
+        # d9i(1.0, ..., 8.0, 9.5, 42): rv32 passes 9.5 in a0:a1 and 42 in a2;
+        # rv64 passes 9.5 in a0 and 42 in a1.
+        types = [self.D] * 9 + [self.INT]
+        emu = self.roundtrip(RiscV32SysVCallingContext(), types, {8: 9.5, 9: 42})
+        self.assertEqual((emu.regs["a0"], emu.regs["a1"]), (0, 0x40230000))
+        self.assertEqual(emu.regs["a2"], 42)
+        emu = self.roundtrip(RiscV64SysVCallingContext(), types, {8: 9.5, 9: 42})
+        self.assertEqual(emu.regs["a0"], 0x4023000000000000)
+        self.assertEqual(emu.regs["a1"], 42)
+
+    def test_rv32_double_with_only_a7_left_is_split(self):
+        # d7i(1, ..., 7, 1.0, ..., 8.0, 9.25): the ninth double's low word
+        # goes in a7, its high word at sp+0.
+        types = [self.INT] * 7 + [self.D] * 9
+        emu = self.roundtrip(RiscV32SysVCallingContext(), types, {15: 9.25})
+        self.assertEqual(emu.regs["a7"], 0)
+        self.assertEqual(emu.read_memory(0x1000, 4), bytes.fromhex("00802240"))
+
+    def test_other_hard_float_abis_still_spill_to_the_stack(self):
+        for cls in (AArch64SysVCallingContext, AMD64SysVCallingContext):
+            with self.subTest(cls=cls.__name__):
+                ctx = cls()
+                ctx.set_argument_types([self.D] * 9 + [self.INT])
+                self.assertTrue(ctx._on_stack[8])
+                self.assertFalse(ctx._on_stack[9])
+                self.assertEqual(ctx._arg_offset[9], 0)
 
 
 class _RegMemEmulator:

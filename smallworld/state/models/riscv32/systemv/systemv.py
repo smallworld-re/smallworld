@@ -59,9 +59,14 @@ class RiscV32SysVCallingContext(CStdCallingContext):
     _align_stack = True
     _eight_byte_reg_size = 2
     # A fixed 8-byte argument takes the next two argument registers,
-    # but a variadic one starts on an even-numbered register.
+    # but a variadic one starts on an even-numbered register.  With only a7
+    # left, a fixed one is split between a7 and the stack.
     _align_eight_byte_regs = False
     _variadic_align_eight_byte_regs = True
+    _split_eight_byte_args = True
+    # A floating-point argument with no FP register left goes in integer
+    # registers while any are free.
+    _fp_falls_back_to_int_regs = True
     _double_reg_size = 1
     _four_byte_stack_size = 4
     _eight_byte_stack_size = 8

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   silently succeeding on Triton's flat, lazy memory.
 - `TritonEmulator` no longer raises a spurious memory-read hook for the
   destination of an ARM32 store.
+- RISC-V (lp64d) C models read and write a floating-point argument that
+  finds no FP argument register in the next integer register, as the psABI
+  passes it, rather than on the stack.
 - `TritonEmulator` treats `hlt` (and the AArch64/RISC-V wait-for-event
   instructions) as a clean stop rather than an invalid instruction.
 - `TritonEmulator.run()` returns when execution reaches an exit point or leaves
@@ -52,7 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition, CPU, stack, errno, ELF loading and relocation, ilp32d System V
   library models, plus machine definitions for the Unicorn, angr (via pcode),
   Ghidra and Triton emulators. The integration harness and test binaries cover
-  `riscv32` everywhere they cover `riscv64`.
+  `riscv32` everywhere they cover `riscv64`. ilp32d C models pass a fixed
+  8-byte argument in the next two argument registers, split between `a7` and
+  the stack when only `a7` is left, and a floating-point argument with no FP
+  register left in integer registers, as the psABI does.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by
