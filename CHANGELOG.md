@@ -23,11 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `e_flags`.
 - PowerPC64 relocatable objects (`.o`) load: the TOC-relative, PC-relative
   and `bl` relocations a compiler emits are applied, and the linker-defined
-  `.TOC.` symbol is set to the TOC base. `ElfExecutable.toc_base` records it.
+  `.TOC.` symbol is set to the TOC base.
   As GNU ld does, the TOC base is 0x8000 past `.got`, `.toc`, or failing
   those the first writable section, and an ELFv2 `bl` enters its callee at
   the local entry point, past the prologue that sets `r2` from `r12`.
-  `ElfSymbol.other` keeps the whole `st_other` byte.
+  `ElfSymbol.other` keeps the whole `st_other` byte. Relocators get two
+  generic hooks for what a linker would create, `ElfRelocator.prepare_object`
+  and `ElfRelocator.linker_symbol_value`, so this lives in the PowerPC64
+  relocator rather than in `ElfExecutable`.
 - ELF symbol visibility is read from the low two bits of `st_other`, so
   PowerPC64 ELFv2 local-entry bits no longer produce an invalid visibility.
 - A `float` argument passed by a model on PowerPC is rounded to single precision

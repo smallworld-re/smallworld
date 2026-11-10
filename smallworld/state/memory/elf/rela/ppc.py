@@ -1,3 +1,5 @@
+import typing
+
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
@@ -44,7 +46,7 @@ class PowerPCElfRelocator(ElfRelocator):
 
 # PowerPC64 adds, besides A, B and S above:
 #   P: address of the relocation field being updated
-#   TOC: the TOC base, ElfExecutable.toc_base
+#   TOC: the TOC base; see PowerPC64ElfRelocator.prepare_object
 # and these halves of a 16-bit field's value x:
 #   lo(x) = x & 0xFFFF
 #   hi(x) = (x >> 16) & 0xFFFF
@@ -107,6 +109,36 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
     byteorder = platforms.Byteorder.BIG
     addrsz = 8
 
+    # The TOC pointer (r2) of an object file, set by prepare_object;
+    # None for a linked image, whose TOC the code sets up itself.
+    toc_base: typing.Optional[int] = None
+
+    def prepare_object(self, elf, names, offsets, writable) -> None:
+        # PowerPC64 code reaches its data through r2, the TOC pointer, and an
+        # object file's TOC-relative relocations are computed against it.  A
+        # linker puts it 0x8000 past the start of .got, or of .toc when there
+        # is no .got, so that a signed 16-bit offset spans 64 KiB of table;
+        # the `.TOC.` symbol names the same address.  An object with neither
+        # (clang's, or GCC's at -O1, can reach .data with @toc@ha/@toc@l pairs
+        # alone) still needs one; GNU ld then uses the start of the first
+        # writable section.
+        start = None
+        for name in (".got", ".toc"):
+            start = next((offsets[i] for i in offsets if names[i] == name), None)
+            if start is not None:
+                break
+        if start is None and writable:
+            start = min(offsets[i] for i in writable)
+        if start is None and offsets:
+            start = min(offsets.values())
+        if start is not None:
+            self.toc_base = elf.address + start + 0x8000
+
+    def linker_symbol_value(self, name: str) -> typing.Optional[int]:
+        if name == ".TOC.":
+            return self.toc_base
+        return None
+
     def _compute_value(self, rela: ElfRela, elf):
         if rela.is_rela:
             addend = rela.addend
@@ -146,13 +178,13 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
             relative_to, half = _PPC64_HALF_RELOCATIONS[rela.type]
             if relative_to == "P":
                 base = rela.offset
-            elif elf.toc_base is None:
+            elif self.toc_base is None:
                 raise ConfigurationError(
                     f"Relocation {rela.type} for {rela.symbol.name} needs a TOC "
                     "base, which this image does not have"
                 )
             else:
-                base = elf.toc_base
+                base = self.toc_base
             val = symval + addend - base
             if half == "lo":
                 field = val & 0xFFFF

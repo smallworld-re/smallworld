@@ -7511,10 +7511,9 @@ class PowerPC64ObjectRelocationTests(unittest.TestCase):
     P = 0x400000
 
     class _Elf:
-        def __init__(self, existing: bytes, toc_base=0x418000, processor_flags=2):
+        def __init__(self, existing: bytes, processor_flags=2):
             self.address = 0x400000
             self.processor_flags = processor_flags
-            self.toc_base = toc_base
             self._existing = existing
 
         def read_int(self, address, size, byteorder):
@@ -7538,9 +7537,9 @@ class PowerPC64ObjectRelocationTests(unittest.TestCase):
             symbol=symbol,
             addend=0,
         )
-        return PowerPC64ElfRelocator()._compute_value(
-            rela, self._Elf(existing, toc_base, processor_flags)
-        )
+        relocator = PowerPC64ElfRelocator()
+        relocator.toc_base = toc_base
+        return relocator._compute_value(rela, self._Elf(existing, processor_flags))
 
     def test_rel16_halves(self):
         # S - P = 0x18000: lo is 0x8000, which `addi` sign-extends to
@@ -10498,31 +10497,51 @@ class ElfShdrsTextOffsetTests(unittest.TestCase):
         self.assertEqual(data[addr - self.BASE : addr - self.BASE + 16], text[:16])
 
 
-class PowerPC64TocStartTests(unittest.TestCase):
-    """Where an object's TOC starts: .got, .toc, then (as GNU ld does) the
-    first writable section, so objects with neither still load."""
+class PowerPC64TocBaseTests(unittest.TestCase):
+    """The relocator places an object's TOC 0x8000 past .got, .toc, then (as
+    GNU ld does) the first writable section, so objects with neither still
+    load; `.TOC.` is defined to it."""
 
+    ADDRESS = 0x400000
     NAMES = {1: ".text", 3: ".data", 4: ".bss", 5: ".toc", 6: ".got"}
     OFFSETS = {1: 0x0, 3: 0x2000, 4: 0x2008, 5: 0x2010, 6: 0x2020}
 
-    def _start(self, indexes, writable):
-        return ElfExecutable._ppc64_toc_start(
+    def _relocator(self, indexes, writable):
+        relocator = PowerPC64ElfRelocator()
+        relocator.prepare_object(
+            types.SimpleNamespace(address=self.ADDRESS),
             {i: self.NAMES[i] for i in indexes},
             {i: self.OFFSETS[i] for i in indexes},
             set(writable),
         )
+        return relocator
+
+    def _base(self, indexes, writable):
+        return self._relocator(indexes, writable).toc_base
 
     def test_got_then_toc(self):
-        self.assertEqual(self._start([1, 3, 4, 5, 6], [3, 4, 5, 6]), 0x2020)
-        self.assertEqual(self._start([1, 3, 4, 5], [3, 4, 5]), 0x2010)
+        self.assertEqual(self._base([1, 3, 4, 5, 6], [3, 4, 5, 6]), 0x40A020)
+        self.assertEqual(self._base([1, 3, 4, 5], [3, 4, 5]), 0x40A010)
 
     def test_first_writable_section_without_got_or_toc(self):
         # GNU ld's choice for GCC -O1 output with only .text and .data.
-        self.assertEqual(self._start([1, 4, 3], [4, 3]), 0x2000)
+        self.assertEqual(self._base([1, 4, 3], [4, 3]), 0x40A000)
 
     def test_first_section_without_writable_ones(self):
-        self.assertEqual(self._start([1], []), 0x0)
-        self.assertIsNone(self._start([], []))
+        self.assertEqual(self._base([1], []), 0x408000)
+        self.assertIsNone(self._base([], []))
+
+    def test_dot_toc_is_the_toc_base(self):
+        relocator = self._relocator([1, 3, 5], [3, 5])
+        self.assertEqual(relocator.linker_symbol_value(".TOC."), 0x40A010)
+        self.assertIsNone(relocator.linker_symbol_value("main"))
+
+    def test_other_relocators_define_no_linker_symbols(self):
+        relocator = AMD64ElfRelocator()
+        relocator.prepare_object(
+            types.SimpleNamespace(address=self.ADDRESS), {}, {}, set()
+        )
+        self.assertIsNone(relocator.linker_symbol_value(".TOC."))
 
 
 class PowerPC64LocalEntryLoadTests(unittest.TestCase):

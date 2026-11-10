@@ -197,9 +197,6 @@ class ElfExecutable(Executable):
         # The header's e_flags.  Its meaning is architecture-specific;
         # e.g. on PowerPC64 it records which ELF ABI version the file uses.
         self.processor_flags: int = 0
-        # PowerPC64's TOC pointer (r2) for an object file loaded from its
-        # section headers; see _load_from_shdrs.  None everywhere else.
-        self.toc_base: typing.Optional[int] = None
         # TLS state; see _tls_defaults.
         self.__dict__.update(self._tls_defaults())
 
@@ -754,25 +751,15 @@ class ElfExecutable(Executable):
             self._tls_image = bytes(tls)
             self._tls_size = len(tls)
 
-        if (
-            self.platform is not None
-            and self.platform.architecture == Architecture.POWERPC64
-        ):
-            # PowerPC64 code reaches its data through r2, the TOC pointer, and
-            # an object file's TOC-relative relocations are computed against
-            # it.  A linker puts it 0x8000 past the start of .got, or of .toc
-            # when there is no .got, so that a signed 16-bit offset spans
-            # 64 KiB of table; the `.TOC.` symbol names the same address.
-            # An object with neither (clang's, or GCC's at -O1, can reach
-            # .data with @toc@ha/@toc@l pairs alone) still needs one; GNU ld
-            # then uses the start of the first writable section.
-            toc_start = self._ppc64_toc_start(
+        if self._relocator is not None:
+            # Some architectures' relocations depend on tables a linker
+            # would have created (e.g. PowerPC64's TOC).
+            self._relocator.prepare_object(
+                self,
                 {i: elf.sections[i].name for i in self._section_offsets},
                 self._section_offsets,
                 {i for i in section_data_offsets if i not in tls_section_offsets},
             )
-            if toc_start is not None:
-                self.toc_base = self.address + toc_start + 0x8000
 
         for sym in elf.symbols:
             if sym.type.value == STT_TLS:
@@ -782,33 +769,6 @@ class ElfExecutable(Executable):
                     sym.value += tls_section_offsets[sym.shndx]
             elif sym.shndx in self._section_offsets:
                 sym.value += self._section_offsets[sym.shndx]
-
-    @staticmethod
-    def _ppc64_toc_start(
-        names: typing.Dict[int, str],
-        offsets: typing.Dict[int, int],
-        writable: typing.Set[int],
-    ) -> typing.Optional[int]:
-        """Pick the image offset a PowerPC64 object's TOC starts at.
-
-        Arguments:
-            names: Each loaded section's name, by section index
-            offsets: Each loaded section's image offset, by section index
-            writable: Indexes of the writable, non-TLS sections
-
-        Returns:
-            The start of .got, else .toc, else the first writable section,
-            else the first section; None if nothing was loaded.
-        """
-        for name in (".got", ".toc"):
-            for index in offsets:
-                if names[index] == name:
-                    return offsets[index]
-        if writable:
-            return min(offsets[i] for i in writable)
-        if offsets:
-            return min(offsets.values())
-        return None
 
     def _extract_dtags(self, elf):
         for dt in elf.dynamic_entries:
@@ -1098,12 +1058,14 @@ class ElfExecutable(Executable):
             if sym.shndx in self._section_offsets:
                 self.update_symbol_value(sym, sym.value, rebase=False)
 
-        if self.toc_base is not None:
-            # `.TOC.` is a linker-defined symbol, so an object file leaves it
-            # undefined; define it as the linker would.
+        if self._relocator is not None:
+            # An object file leaves the symbols a linker defines (e.g.
+            # PowerPC64's `.TOC.`) undefined; define them as it would.
             for sym in self._static_symbols:
-                if sym.name == ".TOC." and sym.shndx == 0:
-                    self.update_symbol_value(sym, self.toc_base)
+                if sym.shndx == 0:
+                    value = self._relocator.linker_symbol_value(sym.name)
+                    if value is not None:
+                        self.update_symbol_value(sym, value)
 
         if len(self._dynamic_symbols) > 0:
             # Any rela tied to the NULL symbol needs to be relocated
@@ -1458,7 +1420,6 @@ class ElfExecutable(Executable):
             state.setdefault(name, value)
         # Likewise for pickles written before processor_flags existed.
         state.setdefault("processor_flags", 0)
-        state.setdefault("toc_base", None)
         self.__dict__.update(state)
 
 
