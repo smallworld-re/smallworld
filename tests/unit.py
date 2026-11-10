@@ -9887,8 +9887,19 @@ class ElfV800Tests(unittest.TestCase):
 
     @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
     def test_v850_loads_as_v850(self):
-        with self.PATH.open("rb") as f:
-            code = Executable.from_elf(f)
+        # The test binaries are built for V850E1 (core field 0x20000000).
+        with self.assertNoLogs(level="WARNING"):
+            with self.PATH.open("rb") as f:
+                code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_v850e2v3(self):
+        # V850E2V3 is binutils' name for the V850E2M that SmallWorld models.
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<I", image, 36, 0x40000000)  # e_flags
+        with self.assertNoLogs(level="WARNING"):
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
         self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
 
 
