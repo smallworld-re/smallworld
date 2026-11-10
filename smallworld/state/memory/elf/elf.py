@@ -484,7 +484,10 @@ class ElfExecutable(Executable):
             )
 
         # Determine arch/mode.  This bit's harder.
-        machine = elf.header.machine_type.value
+        #
+        # LIEF gives a plain int, not an ARCH, for a machine type it doesn't
+        # know; `int` accepts both, and the lookup refuses the unknown ones.
+        machine = int(elf.header.machine_type)
         detect = ARCHITECTURE_DETECTORS.get(machine)
         if detect is None:
             raise ConfigurationError(f"Unknown value of e_machine: {hex(machine)}")
@@ -970,7 +973,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     jmpreloff,
                     baseaddr,
@@ -1011,7 +1014,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1052,7 +1055,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1079,7 +1082,7 @@ class ElfExecutable(Executable):
                         is_rela,
                         elf.header.identity_class.value,
                         elf.header.identity_data.value,
-                        elf.header.machine_type.value,
+                        int(elf.header.machine_type),
                         image,
                         section.offset,
                         baseaddr,

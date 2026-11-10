@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backends do, rather than letting Ghidra's `DecodePcodeExecutionException`
   escape, or its `InstructionDecodeException` for an undecodable delay-slot
   instruction.
+- The ELF loader reports a machine type LIEF does not know as an unknown
+  `e_machine` value, rather than failing with an `AttributeError`, and loads
+  such an image when given a platform with `ignore_platform`.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook

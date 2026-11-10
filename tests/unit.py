@@ -10045,6 +10045,38 @@ class ElfV800Tests(unittest.TestCase):
         self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
 
 
+class ElfUnknownMachineTests(unittest.TestCase):
+    """A machine type LIEF doesn't know is reported, not an AttributeError.
+
+    LIEF gives such a type as a plain int rather than an ARCH. 0x9080 is
+    EM_CYGNUS_V850, the number early Cygnus toolchains used for V850.
+    """
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _image(self) -> io.BytesIO:
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, 0x9080)  # e_machine
+        return io.BytesIO(bytes(image))
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_refused(self):
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "Unknown value of e_machine: 0x9080"
+        ):
+            Executable.from_elf(self._image())
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_loads_with_ignore_platform(self):
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        code = Executable.from_elf(
+            self._image(), platform=platform, ignore_platform=True
+        )
+        self.assertEqual(code.platform, platform)
+
+
 class ElfShdrsTextOffsetTests(unittest.TestCase):
     """Section-header loading must record executable section offsets
     within the text buffer (not the data buffer's length at the time)."""
