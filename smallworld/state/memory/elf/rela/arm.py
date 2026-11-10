@@ -194,6 +194,14 @@ class ArmElfRelocator(ElfRelocator):
     # emit.
     has_blx = True
 
+    # Before Thumb-2 (ARMv6T2), Thumb BL keeps no J1/J2 offset bits, so it
+    # reaches only +-4 MB rather than +-16 MB.
+    thumb_bl_range = 1 << 24
+
+    # Does the architecture have the 32-bit Thumb branches B.W and B<c>.W?
+    # They came with Thumb-2; ARMv6-M has its 32-bit BL but not these.
+    has_wide_thumb_branches = True
+
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
 
@@ -402,6 +410,14 @@ class ArmElfRelocator(ElfRelocator):
             f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
             f"{detail}, which is not available to ArmElfRelocator._compute_value()"
         )
+
+    def _check_wide_thumb_branch(self, rela: ElfRela) -> None:
+        if not self.has_wide_thumb_branches:
+            raise ConfigurationError(
+                f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} "
+                f"patches a B.W or B<c>.W, but {self.arch} has no 32-bit Thumb "
+                "branches"
+            )
 
     def _ror32(self, value: int, amount: int) -> int:
         amount %= 32
@@ -1056,12 +1072,19 @@ class ArmElfRelocator(ElfRelocator):
                     rela, "Thumb-to-Arm interworking call/veneer generation"
                 )
             value = sym_t + self._get_thumb_bl_addend(rela, elf) - rela.offset
-            self._check_range(value & ~1, -(1 << 24), 1 << 24, rela, "THM_CALL")
+            self._check_range(
+                value & ~1,
+                -self.thumb_bl_range,
+                self.thumb_bl_range,
+                rela,
+                "THM_CALL",
+            )
             patched = self._patch_thumb_bl(
                 self._read_thumb32(rela, elf), value & 0x01FFFFFE
             )
             return self._pack_thumb32(patched)
         elif rela.type == R_ARM_THM_JUMP24:
+            self._check_wide_thumb_branch(rela)
             if not (sym_t & 1):
                 self._missing_context(
                     rela, "Thumb-to-Arm interworking jump/veneer generation"
@@ -1097,6 +1120,7 @@ class ArmElfRelocator(ElfRelocator):
                 )
             )
         elif rela.type == R_ARM_THM_JUMP19:
+            self._check_wide_thumb_branch(rela)
             if not (sym_t & 1):
                 self._missing_context(
                     rela, "Thumb-to-Arm conditional jump veneer generation"
@@ -1325,15 +1349,21 @@ class ArmElfRelocator(ElfRelocator):
 class Armv4ElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V4
     has_blx = False
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
 
 
 class Armv4TElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V4T
     has_blx = False
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
 
 
 class Armv5TElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V5T
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
 
 
 # Big-endian ARMv4 and ARMv5 are BE32, so instructions are packed big-endian
@@ -1354,10 +1384,13 @@ class Armv5TBEElfRelocator(Armv5TElfRelocator):
 
 class Armv6KElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V6K
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
 
 
 class Armv6MElfRelocator(ArmElfRelocator):
     arch = platforms.Architecture.ARM_V6M
+    has_wide_thumb_branches = False
 
 
 class Armv7MElfRelocator(ArmElfRelocator):
