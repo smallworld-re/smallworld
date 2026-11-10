@@ -122,7 +122,7 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
     ),
     "v8m_stacklimit": (
         ("armv8m",),
-        ((0x100, 2 * 0x100), (0x1FF, 2 * 0x1F8)),
+        ((0x100, 0x01800100), (0x1FF, 0x027801F8)),
         {
             "armv8m.triton": _TRITON_NO_DECODE,
         },
