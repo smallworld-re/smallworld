@@ -26,10 +26,17 @@ class PlatformDef(metaclass=abc.ABCMeta):
 
     #: Context field values to decode this platform's code with, where its
     #: SLEIGH language holds several encodings and the default is not this
-    #: platform's (microMIPS: ISA_MODE). Read by the p-code use/def analysis,
-    #: which, like ghidra_register_aliases below, cannot reach the machine
-    #: defs. Empty where the language's defaults are right.
+    #: platform's (microMIPS: ISA_MODE). The single source for both the Ghidra
+    #: emulator's machine defs and the p-code use/def analysis, which, like
+    #: ghidra_register_aliases below, cannot reach the machine defs. Empty
+    #: where the language's defaults are right.
     ghidra_context: typing.Dict[str, int] = {}
+
+    #: Mnemonics whose decoding records, in the SLEIGH context, how later code
+    #: decodes. MIPS's jalx says its target, and everything above it, is in
+    #: the other encoding. The p-code use/def analysis drops a cached context
+    #: after decoding one. Empty where no instruction does this.
+    ghidra_context_writing_mnemonics: typing.FrozenSet[str] = frozenset()
 
     #: Ghidra/SLEIGH register name -> the name THIS platform uses for the
     #: same physical register, for the cases where the two namespaces

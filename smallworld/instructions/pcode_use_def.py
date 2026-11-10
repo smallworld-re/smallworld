@@ -56,6 +56,7 @@ import pypcode
 
 from smallworld.instructions import Operand, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+from smallworld.platforms import PlatformDef
 
 logger = logging.getLogger(__name__)
 
@@ -73,17 +74,26 @@ logger = logging.getLogger(__name__)
 # starting field values; the key is the bare language id when there are
 # none. And translation is not quite stateless: decoding some instructions
 # writes the context later code decodes with (see
-# _CONTEXT_WRITING_MNEMONICS), so a context that decoded one is dropped.
+# _context_writing_mnemonics), so a context that decoded one is dropped.
 _contexts: dict = {}
 
 #: Context field values as (name, value) pairs, sorted by name.
 ContextValues = typing.Tuple[typing.Tuple[str, int], ...]
 
-#: Instructions whose decoding records, in the context, how later code
-#: decodes. MIPS's jalx says its target, and everything above it, is in the
-#: other encoding, so after one a context would decode standard MIPS32 at
-#: those addresses as MIPS16 or microMIPS, or microMIPS as MIPS32.
-_CONTEXT_WRITING_MNEMONICS = frozenset({"jalx"})
+
+@functools.lru_cache(maxsize=None)
+def _context_writing_mnemonics(language_id: str) -> typing.FrozenSet[str]:
+    """The mnemonics whose decoding records, in `language_id`'s context, how
+    later code decodes: the ghidra_context_writing_mnemonics of every platform
+    definition with that language."""
+    mnemonics: typing.Set[str] = set()
+    stack = list(PlatformDef.__subclasses__())
+    while stack:
+        cls = stack.pop()
+        stack.extend(cls.__subclasses__())
+        if cls.ghidra_language_id == language_id:
+            mnemonics |= cls.ghidra_context_writing_mnemonics
+    return frozenset(mnemonics)
 
 
 def _context_key(language_id: str, context: ContextValues):
@@ -1210,7 +1220,7 @@ def _analyze_locked(byte_data, arch, base_address, context: ContextValues = ()):
     uses, defs, indirect_targets, address_only = _instruction_use_def(
         ctx, ops, text, base
     )
-    if mnemonic.lower() in _CONTEXT_WRITING_MNEMONICS:
+    if mnemonic.lower() in _context_writing_mnemonics(arch):
         # This decode changed how ctx decodes later code. Pypcode's
         # Context.reset() would undo that, but it frees what translations
         # already taken point into; a new Context is safe, and what this

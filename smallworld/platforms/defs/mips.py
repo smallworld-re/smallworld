@@ -39,6 +39,11 @@ class MIPSO32PlatformDef(PlatformDef):
     capstone_arch = capstone.CS_ARCH_MIPS
     capstone_mode = capstone.CS_MODE_MIPS32
 
+    # jalx says its target, and everything above it, is in the other
+    # encoding, so after one a context would decode standard MIPS32 there as
+    # MIPS16 or microMIPS, or microMIPS as MIPS32.
+    ghidra_context_writing_mnemonics = frozenset({"jalx"})
+
     conditional_branch_mnemonics = {
         # Conditional branch
         "beq",

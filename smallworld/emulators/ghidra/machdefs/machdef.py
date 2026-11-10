@@ -69,13 +69,21 @@ class GhidraMachineDef:
     # userop with no output.
     userops: typing.Mapping[str, Userop] = {}
 
-    # Starting values for context fields, as {name: value}, where they differ
-    # from the language's defaults.
-    #
-    # Some sleigh languages hold several encodings and pick one with a context
-    # field that branches can change. The emulator sets these once, when it
-    # creates its thread; after that the program's own jumps change them.
-    context: typing.Dict[str, int] = {}
+    @property
+    def context(self) -> typing.Dict[str, int]:
+        """Starting values for context fields, as {name: value}, where they
+        differ from the language's defaults.
+
+        Some sleigh languages hold several encodings and pick one with a
+        context field that branches can change. The emulator sets these once,
+        when it creates its thread; after that the program's own jumps change
+        them. Sourced from the platform definition, which the p-code use/def
+        analysis also reads.
+        """
+        platdef = PlatformDef.for_platform(
+            platforms.Platform(self.arch, self.byteorder)
+        )
+        return platdef.ghidra_context
 
     # A context field that a pc written with its low bit set selects.
     #
