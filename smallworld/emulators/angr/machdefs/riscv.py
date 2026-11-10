@@ -268,7 +268,8 @@ class RISCV64MachineDef(AngrMachineDef):
 # which angr's pcode engine can't execute.  Measured against
 # `RISCV:LE:32:default`, the only ones reachable from user-mode RV32GC
 # are `ecall`, `ebreak`, `fence`, `fence.i` and `wfi`; the A, M, F, D
-# and Zicsr extensions all lower to plain pcode.
+# and Zicsr extensions all lower to plain pcode (though angr's pcode engine
+# implements none of the floating-point ops F and D lower to).
 #
 # `successors()` rewrites the first three into something angr understands,
 # and drops the two fences, which have no user-visible effect in angr.
