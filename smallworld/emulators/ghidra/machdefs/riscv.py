@@ -9,6 +9,10 @@ class RISCVMachineDef(GhidraMachineDef):
     only their widths differ.
     """
 
+    # Memory ordering, which a single emulated hart can't observe.  (pause is
+    # a fence, and Ghidra's language doesn't decode fence.tso.)
+    nop_userops = {"fence", "fence.i"}
+
     byteorder = Byteorder.LITTLE
 
     _registers = {

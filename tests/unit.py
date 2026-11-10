@@ -4704,7 +4704,38 @@ class RiscVInstructionTests(unittest.TestCase):
     compressed decoding, branch aliases, traps and fences, on each backend
     that runs both widths."""
 
+    ADDI = struct.pack("<I", 0x00150513)  # addi a0,a0,1
+    FENCES = {
+        "fence": struct.pack("<I", 0x0FF0000F),
+        "fence.i": struct.pack("<I", 0x0000100F),
+        "pause": struct.pack("<I", 0x0100000F),
+    }
+    EBREAKS = {
+        "ebreak": struct.pack("<I", 0x00100073),
+        "c.ebreak": struct.pack("<H", 0x9002),
+    }
     ARCHS = (platforms.Architecture.RISCV32, platforms.Architecture.RISCV64)
+
+    def run_code(self, emulator_class, arch, insn, setup=None):
+        # addi; insn; addi, to the exit point after it.
+        platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        code = self.ADDI + insn + self.ADDI
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        cpu.pc.set(0x1000)
+        cpu.a0.set(0)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        emulator = emulator_class(platform)
+        emulator.add_exit_point(0x1000 + len(code))
+        machine.apply(emulator)
+        if setup is not None:
+            setup(emulator)
+        try:
+            emulator.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emulator
 
     def test_compressed_code_disassembles(self):
         # c.li t0,0; lb a0,0(a0); c.addi t0,1
@@ -4736,6 +4767,55 @@ class RiscVInstructionTests(unittest.TestCase):
                 self.assertEqual(len(mnemonics), 4)
                 for mnemonic in mnemonics:
                     self.assertIn(mnemonic, platdef.conditional_branch_mnemonics)
+
+    def test_fences_are_no_ops(self):
+        for emulator_class in (
+            emulators.GhidraEmulator,
+            emulators.TritonEmulator,
+            emulators.AngrEmulator,
+        ):
+            for arch in self.ARCHS:
+                if emulator_class is emulators.AngrEmulator and arch != self.ARCHS[0]:
+                    continue  # angr runs riscv64 through VEX, not p-code
+                for name, insn in self.FENCES.items():
+                    with self.subTest(
+                        emulator=emulator_class.__name__, arch=arch.name, insn=name
+                    ):
+                        emulator = self.run_code(emulator_class, arch, insn)
+                        self.assertEqual(emulator.read_register("a0"), 2)
+
+    def test_triton_ebreak_raises_an_interrupt(self):
+        for arch in self.ARCHS:
+            for name, insn in self.EBREAKS.items():
+                with self.subTest(arch=arch.name, insn=name):
+                    interrupts: typing.List[int] = []
+                    emulator = self.run_code(
+                        emulators.TritonEmulator,
+                        arch,
+                        insn,
+                        lambda emu: emu.hook_interrupts(
+                            lambda emu, n: interrupts.append(n)
+                        ),
+                    )
+                    self.assertEqual(interrupts, [0])
+                    self.assertEqual(emulator.read_register("a0"), 2)
+
+    def test_triton_rv32_refuses_a_double_in_an_fp_register(self):
+        # Triton keeps 32 bits of RV32's 64-bit FP registers.
+        emulator = emulators.TritonEmulator(
+            platforms.Platform(self.ARCHS[0], platforms.Byteorder.LITTLE)
+        )
+        emulator.write_register("fa0", 0x3FC00000)
+        emulator.write_register("ft11", 0xFFFFFFFF3FC00000)  # a NaN-boxed single
+        self.assertEqual(emulator.read_register("fa0"), 0x3FC00000)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulator.write_register("fa0", 0x400921FB54442D18)
+
+    def test_angr_rv32_ebreak_is_a_trap(self):
+        for name, insn in self.EBREAKS.items():
+            with self.subTest(insn=name):
+                with self.assertRaisesRegex(exceptions.EmulationError, "SigTRAP"):
+                    self.run_code(emulators.AngrEmulator, self.ARCHS[0], insn)
 
 
 class RiscVFPArgFallbackTests(unittest.TestCase):

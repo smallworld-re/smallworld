@@ -1,3 +1,4 @@
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
@@ -153,8 +154,12 @@ class TritonRISCVMachineDef(TritonMachineDef):
     pc_register = "pc"
     sp_register = "sp"
     lr_register = "ra"
-    interrupt_mnemonics = {"ecall", "ebreak"}
+    # The assembler compresses ebreak to c.ebreak wherever it can.
+    interrupt_mnemonics = {"ecall", "ebreak", "c.ebreak"}
     halt_mnemonics = {"wfi"}
+    # Memory ordering, which a single emulated hart can't observe, and
+    # pause, a fence hint.
+    nop_mnemonics = {"fence", "fence.i", "fence.tso", "pause"}
     syscall_mnemonics = {"ecall"}
     syscall_number_register = "a7"
     _registers = _RISCV_REGISTERS
@@ -166,6 +171,21 @@ class TritonRISCV32MachineDef(TritonRISCVMachineDef):
     arch = Architecture.RISCV32
     triton_arch_name = "RV32"
     address_size = 4
+
+    def check_register_write(self, name: str, value: int) -> None:
+        # Triton keeps 32 bits of each RV32 floating-point register, though
+        # the "D" extension makes them 64: a single (NaN-boxed or not) fits,
+        # a double doesn't.
+        target = self.triton_register(name)
+        if (
+            target.startswith("f")
+            and target[1:].isdigit()
+            and value >> 32 not in (0, 0xFFFFFFFF)
+        ):
+            raise exceptions.ConfigurationError(
+                f"Triton holds only 32 bits of RV32 register {name}, "
+                f"so it can't hold {hex(value)}"
+            )
 
 
 class TritonRISCV64MachineDef(TritonRISCVMachineDef):

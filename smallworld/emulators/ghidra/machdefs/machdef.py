@@ -49,6 +49,12 @@ class GhidraMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
+    # SLEIGH user-defined operations (CALLOTHER) that have no effect
+    # SmallWorld models, such as memory fences.  Ghidra's emulator implements
+    # none of a language's user operations, so the emulator skips these
+    # rather than fail.
+    nop_userops: typing.Set[str] = set()
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):
