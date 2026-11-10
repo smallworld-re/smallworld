@@ -34,6 +34,8 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+EF_ARM_EABIMASK = 0xFF000000
+EF_ARM_BE8 = 0x00800000
 
 _AARCH64_ARCHITECTURES = frozenset(
     {
@@ -62,6 +64,15 @@ _ARM32_ARCHITECTURES = frozenset(
 # ARM32 platforms whose C models pass floats soft- or hard-float.
 # The float ABI is a build choice, so an ELF's can differ from its platform's;
 # loading warns when it does, since float arguments to models won't match.
+# Big-endian ARMv4 and ARMv5 are BE32, with big-endian code; big-endian ARMv6
+# and later are BE8, with little-endian code.
+_ARM32_BE32_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
+        Architecture.ARM_V5T,
+    }
+)
 _ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
     {
         Architecture.ARM_V4,
@@ -379,6 +390,12 @@ class ElfExecutable(Executable):
             # the float ABI, which is a build choice, not the architecture.
             soft_float = EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags
             hard_float = EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags
+            # A big-endian EABI image records whether its code is BE8. Core
+            # dumps carry no flags at all, so they say nothing either way.
+            raw_flags = elf.header.processor_flag & 0xFFFFFFFF
+            be8: typing.Optional[bool] = None
+            if byteorder == Byteorder.BIG and raw_flags & EF_ARM_EABIMASK:
+                be8 = bool(raw_flags & EF_ARM_BE8)
             if (
                 self.platform is not None
                 and self.platform.architecture in _ARM32_ARCHITECTURES
@@ -387,6 +404,16 @@ class ElfExecutable(Executable):
                 # float ABI. The file might also be a core dump, which
                 # carries no ABI flags.
                 architecture = self.platform.architecture
+                # Unlike the float ABI, the code byte order is fixed by the
+                # image: on the wrong one, every instruction decodes wrongly.
+                if be8 is not None and be8 == (
+                    architecture in _ARM32_BE32_ARCHITECTURES
+                ):
+                    image, wanted = ("BE8", "BE32") if be8 else ("BE32", "BE8")
+                    raise ConfigurationError(
+                        f"ELF code is {image} (EF_ARM_BE8 {'set' if be8 else 'clear'}), "
+                        f"but big-endian {architecture} is {wanted}"
+                    )
                 if (soft_float and architecture in _ARM32_HARD_FLOAT_ARCHITECTURES) or (
                     hard_float and architecture in _ARM32_SOFT_FLOAT_ARCHITECTURES
                 ):
@@ -398,11 +425,24 @@ class ElfExecutable(Executable):
                         f"C models use {model_abi}-float; float arguments and "
                         "return values of C models won't match"
                     )
+            elif soft_float and be8:
+                # Big-endian ARMv6 or later; ARMv6K is the oldest BE8 platform.
+                log.warning("Ambiguous ARM ABI version; assuming v6k (BE8)")
+                architecture = Architecture.ARM_V6K
             elif soft_float:
                 # This is either ARMv5T or some kind of ARMv6.
                 # We're currently assuming v5T,
                 # unless the user specifically asks for another platform.
                 log.warning("Ambiguous ARM ABI version; assuming v5t")
+                architecture = Architecture.ARM_V5T
+            elif hard_float and be8 is False:
+                # BE32 code is ARMv5 or older, and no BE32 platform has
+                # hard-float C models.
+                log.warning(
+                    "Hard-float BE32 image; assuming v5t, whose C models use "
+                    "soft-float, so float arguments and return values of C "
+                    "models won't match"
+                )
                 architecture = Architecture.ARM_V5T
             elif hard_float:
                 # This is ARMv7a, as built by gcc, unless the user asks for
