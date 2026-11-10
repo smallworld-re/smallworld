@@ -114,9 +114,9 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         engines=("unicorn", "angr", "pcode", "panda"),
-        # ARMv5T has no movw, so main's constants sit in a literal pool
-        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
-        mid_exit_offset=24,
+        # main returns with `pop {fp, pc}`, followed by a two-word literal
+        # pool, so the pop is 12 bytes from the end.
+        mid_exit_offset=12,
         link_register="lr",
     ),
     "armv5tbe": ExitpointSpec(
@@ -124,9 +124,9 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         engines=("unicorn", "angr", "pcode", "panda"),
-        # ARMv5T has no movw, so main's constants sit in a literal pool
-        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
-        mid_exit_offset=24,
+        # main returns with `pop {fp, pc}`, followed by a two-word literal
+        # pool, so the pop is 12 bytes from the end.
+        mid_exit_offset=12,
         link_register="lr",
     ),
     "armv4t": ExitpointSpec(
@@ -135,8 +135,9 @@ _SPECS = {
         result_register="r0",
         engines=("unicorn", "angr", "pcode", "panda"),
         # As on ARMv5T, but ARMv4T can't pop into pc and switch state, so
-        # main returns with `pop {fp, lr}; bx lr`: one more instruction.
-        mid_exit_offset=28,
+        # main returns with `pop {fp, lr}; bx lr`: the pop is 16 bytes from
+        # the end.
+        mid_exit_offset=16,
         link_register="lr",
     ),
     "armv4tbe": ExitpointSpec(
@@ -145,8 +146,9 @@ _SPECS = {
         result_register="r0",
         engines=("unicorn", "angr", "pcode", "panda"),
         # As on ARMv5T, but ARMv4T can't pop into pc and switch state, so
-        # main returns with `pop {fp, lr}; bx lr`: one more instruction.
-        mid_exit_offset=28,
+        # main returns with `pop {fp, lr}; bx lr`: the pop is 16 bytes from
+        # the end.
+        mid_exit_offset=16,
         link_register="lr",
     ),
     "armv7m": ExitpointSpec(
