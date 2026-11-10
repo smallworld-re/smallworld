@@ -127,7 +127,10 @@ from smallworld.state.memory.elf.rela.arm import (
     Armv4ElfRelocator,
     Armv4TBEElfRelocator,
     Armv4TElfRelocator,
+    Armv5TBEElfRelocator,
     Armv5TElfRelocator,
+    Armv6KElfRelocator,
+    Armv6MElfRelocator,
     Armv7AElfRelocator,
 )
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
@@ -9436,6 +9439,86 @@ class ArmCallToThumbRelocatorTests(unittest.TestCase):
 
     def test_v4t_arm_call_stays_bl(self):
         self.assertEqual(self.relocate(Armv4TElfRelocator(), 0x2000) >> 24, 0xEB)
+
+
+class ThumbBranchRangeRelocatorTests(unittest.TestCase):
+    """Thumb branches fit the encodings the architecture has.
+
+    Before Thumb-2, BL reaches only +-4 MB, and B.W and B<c>.W don't exist.
+    The relocator allowed +-16 MB and patched both wide branches anyway, so a
+    far call silently became two BL prefixes and never branched.
+    """
+
+    _R_ARM_THM_CALL = 10
+    _R_ARM_THM_JUMP24 = 30
+    _R_ARM_THM_JUMP19 = 51
+    BL = 0xF000F800  # bl, offset 0
+    B_W = 0xF0009000  # b.w, offset 0
+    BEQ_W = 0xF0008000  # beq.w, offset 0
+    NO_THUMB2 = (
+        Armv4TElfRelocator,
+        Armv5TElfRelocator,
+        Armv5TBEElfRelocator,
+        Armv6KElfRelocator,
+    )
+
+    class _Object(_FakeArmObject):
+        def __init__(self, word):
+            super().__init__()
+            self.word = word
+
+        def read_int(self, offset, size, byteorder):
+            return self.word >> 16 if offset == 0x1000 else self.word & 0xFFFF
+
+    def relocate(self, relocator, type, word, distance):
+        symbol = _make_symbol(value=0x1000 + distance + 1, baseaddr=0)
+        rela = ElfRela(is_rela=True, offset=0x1000, type=type, symbol=symbol, addend=0)
+        symbol.relas.append(rela)
+        out = relocator._compute_value(rela, self._Object(word))
+        order = relocator.byteorder.name.lower()
+        return int.from_bytes(out[:2], order), int.from_bytes(out[2:], order)
+
+    def test_bl_reaches_4mb_without_thumb2(self):
+        for cls in self.NO_THUMB2:
+            with self.subTest(relocator=cls.__name__):
+                for distance in (0x3FFFFE, -0x400000):
+                    _, hw2 = self.relocate(
+                        cls(), self._R_ARM_THM_CALL, self.BL, distance
+                    )
+                    # The pre-Thumb-2 BL suffix
+                    self.assertEqual(hw2 >> 11, 0b11111)
+                for distance in (0x400000, -0x400002):
+                    with self.assertRaisesRegex(
+                        exceptions.ConfigurationError, "overflowed THM_CALL"
+                    ):
+                        self.relocate(cls(), self._R_ARM_THM_CALL, self.BL, distance)
+
+    def test_bl_reaches_16mb_with_thumb2(self):
+        for cls in (Armv6MElfRelocator, Armv7AElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                hw1, hw2 = self.relocate(cls(), self._R_ARM_THM_CALL, self.BL, 0x500000)
+                self.assertEqual((hw1, hw2), (0xF100, 0xF000))
+
+    def test_no_wide_branches_without_thumb2(self):
+        for cls in self.NO_THUMB2 + (Armv6MElfRelocator,):
+            for type, word in (
+                (self._R_ARM_THM_JUMP24, self.B_W),
+                (self._R_ARM_THM_JUMP19, self.BEQ_W),
+            ):
+                with self.subTest(relocator=cls.__name__, type=type):
+                    with self.assertRaisesRegex(
+                        exceptions.ConfigurationError, "no 32-bit Thumb branches"
+                    ):
+                        self.relocate(cls(), type, word, 0x100)
+
+    def test_wide_branches_with_thumb2(self):
+        for type, word in (
+            (self._R_ARM_THM_JUMP24, self.B_W),
+            (self._R_ARM_THM_JUMP19, self.BEQ_W),
+        ):
+            with self.subTest(type=type):
+                _, hw2 = self.relocate(Armv7AElfRelocator(), type, word, 0x100)
+                self.assertEqual(hw2 & 0x7FF, 0x80)
 
 
 class _FakeAArch64Object(_FakeArmObject):
