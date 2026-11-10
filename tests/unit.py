@@ -4338,9 +4338,18 @@ class PPC64InstructionTests(unittest.TestCase):
         self.assertEqual(memory[0].size, 8)
 
     def test_from_angr_name_selects_ppc64(self):
-        from smallworld.instructions.ppc import PPC64Instruction
+        import archinfo
 
-        self.assertEqual(PPC64Instruction.angr_arch, "PPC64")
+        # from_angr reads only these fields of angr's instruction and block.
+        code = bytes.fromhex("60000000e8610008")  # nop; ld r3, 8(r1)
+        block = types.SimpleNamespace(addr=0x1000, bytes=code)
+        angr_insn = types.SimpleNamespace(address=0x1004, size=4)
+        arch = archinfo.ArchPPC64(archinfo.Endness.BE).name
+        insn = Instruction.from_angr(angr_insn, block, arch)
+        self.assertEqual(type(insn).__name__, "PPC64Instruction")
+        self.assertIn("ld r3, 8(r1)", insn.disasm)
+        memory = [r for r in insn.reads if isinstance(r, BSIDMemoryReferenceOperand)]
+        self.assertEqual(memory[0].size, 8)
 
 
 class X86ImmediateOperandTests(unittest.TestCase):

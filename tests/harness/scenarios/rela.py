@@ -12,7 +12,6 @@ from .common import (
     make_emulator,
     make_platform,
     make_puts_model,
-    resolve_ppc64_function_descriptor,
     set_register,
     split_variant,
 )
@@ -28,7 +27,6 @@ class RelaSpec:
     engines: tuple[str, ...]
     string_source: StringSource
     load_address: int | None = None
-    function_descriptor_entrypoint: bool = False
     print_entrypoint: bool = False
 
 
@@ -290,10 +288,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
     machine.add(code)
 
-    if spec.function_descriptor_entrypoint:
-        entrypoint = resolve_ppc64_function_descriptor(code, "main")
-    else:
-        entrypoint = code.get_symbol_value("main")
+    entrypoint = code.get_symbol_value("main")
     if spec.print_entrypoint:
         print(f"Entrypoint {hex(entrypoint)}")
     set_register(cpu, spec.pc_register, entrypoint)
