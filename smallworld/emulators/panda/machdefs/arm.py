@@ -689,17 +689,15 @@ class ARMv6KMachineDef(
     cpu = "arm1176"
 
 
-# TODO: I have no idea which board to use.
-# I'm hoping that v6m code is compatible with a v7m-ish machine.
+# A placeholder: PANDA's only Cortex-M0 board, the BBC micro:bit, has flash
+# where code is usually loaded, so SmallWorld doesn't run ARMv6-M on PANDA
+# (see docs/concepts/platforms/support.rst) and the tests skip it.
 class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
 
 
-# TODO: Something's very weird with Panda's Arm 7 models.
-# cortex-a9 should be an A-series, but it looks more like an M-series.
-# cortex-m4 looks like an M-series, but aborts; I suspect we're missing configuration.
 class ARMv7AMachineDef(
     ARMMachineMixinVFP,
     ARMMachineMixinVirtualization,
@@ -715,7 +713,6 @@ class ARMv7AMachineDef(
     cpu = "cortex-a9"
 
 
-# TODO: This is not the right CPU, but might be close enough
 # PANDA runs M-profile only on its boards for M-profile CPUs; its
 # configurable machine rejects them. Each board brings its own memory map:
 # board RAM would let accesses to addresses SmallWorld didn't map succeed
