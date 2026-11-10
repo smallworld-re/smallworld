@@ -72,6 +72,9 @@ _ACTUATE_VARIANTS = (
     ("amd64.panda", _PANDA_NG),
     ("amd64.pcode", None),
     ("amd64.triton", None),
+    # The ARM32 actuate scripts have never run against the current binaries:
+    # their nop, puts and exit-point offsets are stale (and M-profile patches
+    # an A32 nop over a Thumb trap). Fix them when cores can be generated.
     ("armv6k", _NIX_SYSROOT.format("armv6k")),
     ("armv6kbe", _NIX_SYSROOT.format("armv6kbe")),
     ("armv5t", _NIX_SYSROOT.format("armv5t")),
