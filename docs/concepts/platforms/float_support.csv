@@ -7,7 +7,7 @@ amd64 sse,                      **Yes**,    **Yes**,    No,         No,         
 amd64 avx2,                     **Yes**,    **Yes**,    No,         No,         **Yes**
 amd64 avx512,                   No Support, Untested,   No,         No,         Untested
 arm-v7 double scalar,           **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v7e-m single scalar,        **Yes**,    **Yes**,    No,         Untested,   **Yes**
+arm-v7e-m single scalar,        **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v7 double vector,           Untested,   Untested,   Untested,   Untested,   Untested
 arm-v7 quad vector,             No Support, Untested,   Untested,   Untested,   Untested
 i386 x87,                       No,         No,         No,         No,         No
