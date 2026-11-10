@@ -7511,25 +7511,35 @@ class PowerPC64ObjectRelocationTests(unittest.TestCase):
     P = 0x400000
 
     class _Elf:
-        def __init__(self, existing: bytes, toc_base=0x418000):
+        def __init__(self, existing: bytes, toc_base=0x418000, processor_flags=2):
             self.address = 0x400000
-            self.processor_flags = 2
+            self.processor_flags = processor_flags
             self.toc_base = toc_base
             self._existing = existing
 
         def read_int(self, address, size, byteorder):
             return int.from_bytes(self._existing[:size], "big")
 
-    def _value(self, type_, symval, existing=b"\0\0\0\0", toc_base=0x418000):
+    def _value(
+        self,
+        type_,
+        symval,
+        existing=b"\0\0\0\0",
+        toc_base=0x418000,
+        other=0,
+        processor_flags=2,
+    ):
+        symbol = _make_symbol(value=symval, baseaddr=0)
+        symbol.other = other
         rela = ElfRela(
             is_rela=True,
             offset=self.P,
             type=type_,
-            symbol=_make_symbol(value=symval, baseaddr=0),
+            symbol=symbol,
             addend=0,
         )
         return PowerPC64ElfRelocator()._compute_value(
-            rela, self._Elf(existing, toc_base)
+            rela, self._Elf(existing, toc_base, processor_flags)
         )
 
     def test_rel16_halves(self):
@@ -7569,6 +7579,28 @@ class PowerPC64ObjectRelocationTests(unittest.TestCase):
     def test_rel24_out_of_range_is_refused(self):
         with self.assertRaises(exceptions.ConfigurationError):
             self._value(10, self.P + (1 << 25), existing=b"\x48\x00\x00\x01")
+
+    def test_rel24_enters_an_elfv2_callee_at_its_local_entry(self):
+        # st_other 0x60 encodes a local entry 8 bytes in, past the two
+        # instructions that set r2 from r12; GNU ld branches there too.
+        bl = b"\x48\x00\x00\x01"
+        for other, offset in ((0x00, 0), (0x20, 0), (0x40, 4), (0x60, 8), (0x80, 16)):
+            with self.subTest(other=other):
+                self.assertEqual(
+                    self._value(10, 0x10000, existing=bl, other=other),
+                    (0x48000001 | ((0x10000 + offset - self.P) & 0x03FFFFFC)).to_bytes(
+                        4, "big"
+                    ),
+                )
+
+    def test_rel24_ignores_st_other_under_elfv1(self):
+        # ELFv1 has no local entry points.
+        self.assertEqual(
+            self._value(
+                10, 0x10000, existing=b"\x48\x00\x00\x01", other=0x60, processor_flags=1
+            ),
+            ((0x48000001 | ((0x10000 - self.P) & 0x03FFFFFC))).to_bytes(4, "big"),
+        )
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
@@ -10464,6 +10496,55 @@ class ElfShdrsTextOffsetTests(unittest.TestCase):
         addr = code.get_symbol_value("main")
         data = code.to_bytes()
         self.assertEqual(data[addr - self.BASE : addr - self.BASE + 16], text[:16])
+
+
+class PowerPC64TocStartTests(unittest.TestCase):
+    """Where an object's TOC starts: .got, .toc, then (as GNU ld does) the
+    first writable section, so objects with neither still load."""
+
+    NAMES = {1: ".text", 3: ".data", 4: ".bss", 5: ".toc", 6: ".got"}
+    OFFSETS = {1: 0x0, 3: 0x2000, 4: 0x2008, 5: 0x2010, 6: 0x2020}
+
+    def _start(self, indexes, writable):
+        return ElfExecutable._ppc64_toc_start(
+            {i: self.NAMES[i] for i in indexes},
+            {i: self.OFFSETS[i] for i in indexes},
+            set(writable),
+        )
+
+    def test_got_then_toc(self):
+        self.assertEqual(self._start([1, 3, 4, 5, 6], [3, 4, 5, 6]), 0x2020)
+        self.assertEqual(self._start([1, 3, 4, 5], [3, 4, 5]), 0x2010)
+
+    def test_first_writable_section_without_got_or_toc(self):
+        # GNU ld's choice for GCC -O1 output with only .text and .data.
+        self.assertEqual(self._start([1, 4, 3], [4, 3]), 0x2000)
+
+    def test_first_section_without_writable_ones(self):
+        self.assertEqual(self._start([1], []), 0x0)
+        self.assertIsNone(self._start([], []))
+
+
+class PowerPC64LocalEntryLoadTests(unittest.TestCase):
+    """The loader keeps st_other whole, so a REL24 to an ELFv2 function can
+    enter it at its local entry."""
+
+    def test_the_loader_keeps_a_local_entry_offset(self):
+        # static_rela.ppc64.o's main has `[<localentry>: 8]`.
+        path = BINARIES_TESTS_DIR / "static_rela" / "static_rela.ppc64.o"
+        if not path.exists():
+            self.skipTest(_BINARIES_SKIP_REASON)
+        with path.open("rb") as f:
+            code = Executable.from_elf(
+                f,
+                platform=platforms.Platform(
+                    platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+                ),
+                address=0x400000,
+            )
+        (main,) = code._get_symbols("main", dynamic=False)
+        self.assertEqual(main.other & 0xE0, 0x60)
+        self.assertEqual(main.visibility, 0)
 
 
 @unittest.skipUnless(_TEST_BINARIES_BUILT, _BINARIES_SKIP_REASON)

@@ -71,6 +71,20 @@ R_PPC64_REL16_HA = 252  # Write ha(S + A - P).
 EF_PPC64_ABI = 0x3
 EF_PPC64_ABI_ELFV2 = 2
 
+# st_other bits holding an ELFv2 function's local entry point, as an
+# encoded offset from its global entry point; see _local_entry_offset.
+STO_PPC64_LOCAL_MASK = 0xE0
+STO_PPC64_LOCAL_BIT = 5
+
+
+def _local_entry_offset(other: int) -> int:
+    """The bytes from an ELFv2 function's global entry to its local entry.
+
+    The encoding is binutils' PPC64_LOCAL_ENTRY_OFFSET: 0 and 1 mean the
+    entries coincide, and 2 through 6 mean 4, 8, 16, 32 and 64 bytes.
+    """
+    return ((1 << ((other & STO_PPC64_LOCAL_MASK) >> STO_PPC64_LOCAL_BIT)) >> 2) << 2
+
 
 # Relocations that fill a 16-bit field, by what they are relative to
 # and which part of the value they take ("all" checks it fits).
@@ -113,6 +127,12 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
             # A relocatable object's calls to other functions are `bl`s that
             # a linker would route through a stub when the target is out of
             # range; there is no stub here, so the target must be in range.
+            #
+            # Under ELFv2 a direct call enters at the callee's local entry,
+            # past the prologue that computes r2 from r12, since the caller
+            # neither sets r12 nor changes r2.
+            if (elf.processor_flags & EF_PPC64_ABI) == EF_PPC64_ABI_ELFV2:
+                symval += _local_entry_offset(rela.symbol.other)
             val = symval + addend - rela.offset
             if val & 0x3 or not -(1 << 25) <= val < (1 << 25):
                 raise ConfigurationError(

@@ -763,14 +763,16 @@ class ElfExecutable(Executable):
             # it.  A linker puts it 0x8000 past the start of .got, or of .toc
             # when there is no .got, so that a signed 16-bit offset spans
             # 64 KiB of table; the `.TOC.` symbol names the same address.
-            for name in (".got", ".toc"):
-                index = next(
-                    (i for i in self._section_offsets if elf.sections[i].name == name),
-                    None,
-                )
-                if index is not None:
-                    self.toc_base = self.address + self._section_offsets[index] + 0x8000
-                    break
+            # An object with neither (clang's, or GCC's at -O1, can reach
+            # .data with @toc@ha/@toc@l pairs alone) still needs one; GNU ld
+            # then uses the start of the first writable section.
+            toc_start = self._ppc64_toc_start(
+                {i: elf.sections[i].name for i in self._section_offsets},
+                self._section_offsets,
+                {i for i in section_data_offsets if i not in tls_section_offsets},
+            )
+            if toc_start is not None:
+                self.toc_base = self.address + toc_start + 0x8000
 
         for sym in elf.symbols:
             if sym.type.value == STT_TLS:
@@ -780,6 +782,33 @@ class ElfExecutable(Executable):
                     sym.value += tls_section_offsets[sym.shndx]
             elif sym.shndx in self._section_offsets:
                 sym.value += self._section_offsets[sym.shndx]
+
+    @staticmethod
+    def _ppc64_toc_start(
+        names: typing.Dict[int, str],
+        offsets: typing.Dict[int, int],
+        writable: typing.Set[int],
+    ) -> typing.Optional[int]:
+        """Pick the image offset a PowerPC64 object's TOC starts at.
+
+        Arguments:
+            names: Each loaded section's name, by section index
+            offsets: Each loaded section's image offset, by section index
+            writable: Indexes of the writable, non-TLS sections
+
+        Returns:
+            The start of .got, else .toc, else the first writable section,
+            else the first section; None if nothing was loaded.
+        """
+        for name in (".got", ".toc"):
+            for index in offsets:
+                if names[index] == name:
+                    return offsets[index]
+        if writable:
+            return min(offsets[i] for i in writable)
+        if offsets:
+            return min(offsets.values())
+        return None
 
     def _extract_dtags(self, elf):
         for dt in elf.dynamic_entries:
@@ -822,6 +851,7 @@ class ElfExecutable(Executable):
                 # mean something else; on PowerPC64 ELFv2 it's the offset of
                 # the function's local entry point.
                 visibility=s.other & 0x3,
+                other=s.other,
                 shndx=s.shndx,
                 value=s.value,
                 size=s.size,
