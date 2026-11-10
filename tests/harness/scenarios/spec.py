@@ -35,8 +35,8 @@ class ScenarioInfo:
 
 
 #: Skip reasons applied to every arch-table or explicitly listed variant
-#: unless a scenario gives its own. Panda runs the M-profile platforms on a Cortex-A9, so it can't run
-#: their Thumb-only code yet, and Styx has no ARMv7-R or ARMv8 target.
+#: unless a scenario gives its own. PANDA runs no ARMv6-M or BE32 ARM (see
+#: below), and Styx has no ARMv7-R or ARMv8 target.
 _DEFAULT_SKIP_REASONS = {
     # PANDA's only Cortex-M0 board, microbit, keeps flash where the tests
     # load their code, and flash drops the writes that would load it.
