@@ -50,6 +50,10 @@ and the other starts PPC64 CPUs in hypervisor mode, without which the first
 instruction fetch faults.  The default CPU is a POWER10, running in real mode;
 the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
 With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
+In real mode the CPU ignores the top four bits of an effective address, so
+memory at or above 2\ :sup:`60` is unreachable, and an access there lands on
+whatever is mapped at the same address with those bits cleared: a load from
+``0xF000000010000000`` reads ``0x10000000``.  Map PPC64 memory below 2\ :sup:`60`.
 
 **powerpc64 Panda:** SmallWorld's PANDA build is patched
 (``nix/patches/panda-qemu-ppc64-configurable.patch``) to include the
