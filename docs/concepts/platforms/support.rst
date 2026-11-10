@@ -506,11 +506,19 @@ and square root.
     :stub-columns: 1
 
 Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
+Each big-endian ARM variant (``armv7abe``, ``armv7rbe``, ``armv8abe``,
+``armv8rbe``, BE8 throughout) matches its little-endian row, and big-endian
+AArch64 (``aarch64be`` and ``aarch64v85abe``) matches ``aarch64``, except that
+Styx is skipped on all of them because no big-endian ARM machine is configured
+for it. Styx has no ARMv7-R or ARMv8 target, hence the ``skipped`` rows, and
+Styx is absent from the AArch64 rows because the scenario does not run
+AArch64 on it.
 
-Every skip is an upstream defect, reduced to a minimal case first:
+Every skip other than ARMv7E-M's double precision and the missing Styx targets
+is an upstream defect, reduced to a minimal case first:
 
-- **angr** is skipped wholesale - it implements no floating point on any
-  Pcode-backed architecture, as described above.
+- **angr** is skipped wholesale on SuperH - it implements no floating point on
+  any Pcode-backed architecture, as described above.
 - **SH-2A double precision** is skipped on the sleigh-derived backends because
   ``superh.sinc`` ignores ``FPSCR.PR``. TestFloat measures this precisely:
   ``0.0 + A57F319EDE38F755`` returns ``0x3FF0000000000000`` for a preceding
@@ -527,14 +535,17 @@ Every skip is an upstream defect, reduced to a minimal case first:
   unaffected. It reproduces on **three** unrelated instruction sets, which is
   what settles the attribution: SuperH ``fmul``, armv7a ``vmul.f32`` and amd64
   ``mulss`` all return signed zero for the same operands, so ``amd64`` and
-  ``armv7a`` carry the same two per-function skips as SuperH.
-- **armv7a square root** is skipped under ``angr``. ARM's ``vsqrt.f32`` and
-  ``vsqrt.f64`` lower to VEX's *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and
-  angr implements neither, so the run raises
-  ``UnsupportedIROpError``. This is specific to the scalar opcodes rather than
-  to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
+  every ARM and AArch64 variant carry the same two per-function skips as
+  SuperH.
+- **ARM and AArch64 square root** is skipped under ``angr``. ARM's
+  ``vsqrt.f32``/``vsqrt.f64`` and AArch64's scalar ``fsqrt`` lower to VEX's
+  *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and angr implements neither, so the
+  run raises ``UnsupportedIROpError``. This is specific to the scalar opcodes
+  rather than to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
-  ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
+  ``amd64.angr`` passes all five functions.
+- **ARMv7E-M double precision** is skipped on every backend, because its
+  FPv4-SP unit is single precision only and has no ``f64`` arithmetic to test.
 - **Panda is skipped on x86 here**, because its bare ``-M configurable``
   machine brings the CPU up with the floating-point unit switched off and
   nothing in the harness able to switch it on: on x86-64 the CPU starts in real
