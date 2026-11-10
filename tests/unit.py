@@ -7451,6 +7451,68 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
 
 
+class RISCVElfRelocatorTests(unittest.TestCase):
+    """RiscV's dynamic relocations, at both widths: TLS module and offset
+    relocations are resolved as AMD64's are, and COPY and TPREL, which need
+    context the relocator lacks, are refused by name."""
+
+    CASES = (
+        # relocator, width, DTPMOD, DTPREL, TPREL
+        (RISCV32ElfRelocator, 4, 6, 8, 10),
+        (RISCV64ElfRelocator, 8, 7, 9, 11),
+    )
+
+    def _value(self, relocator, type_, value=0x20, addend=4):
+        rela = ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=value, baseaddr=0x400000),
+            addend=addend,
+        )
+        return relocator._compute_value(rela, _FakeElf())
+
+    def test_tls_module_and_offset(self):
+        for cls, width, dtpmod, dtprel, _ in self.CASES:
+            with self.subTest(cls=cls.__name__):
+                self.assertEqual(
+                    self._value(cls(), dtpmod), (1).to_bytes(width, "little")
+                )
+                # Block-relative: the load base is not added.
+                self.assertEqual(
+                    self._value(cls(), dtprel), (0x24).to_bytes(width, "little")
+                )
+
+    def test_absolute_and_relative(self):
+        # R_RISCV_32/64 write S + B + A; R_RISCV_RELATIVE writes the image's
+        # load address + A.
+        for cls, width, _, _, _ in self.CASES:
+            with self.subTest(cls=cls.__name__):
+                absolute = 1 if width == 4 else 2
+                self.assertEqual(
+                    self._value(cls(), absolute), (0x400024).to_bytes(width, "little")
+                )
+                elf = _FakeElf(address=0x800000)
+                rela = ElfRela(
+                    is_rela=True,
+                    offset=0x2000,
+                    type=3,
+                    symbol=_make_symbol(value=0, baseaddr=0),
+                    addend=0x10,
+                )
+                self.assertEqual(
+                    cls()._compute_value(rela, elf),
+                    (0x800010).to_bytes(width, "little"),
+                )
+
+    def test_copy_and_tprel_are_refused_by_name(self):
+        for cls, _, _, _, tprel in self.CASES:
+            for type_, detail in ((4, "copied symbol"), (tprel, "thread-pointer")):
+                with self.subTest(cls=cls.__name__, type=type_):
+                    with self.assertRaisesRegex(exceptions.ConfigurationError, detail):
+                        self._value(cls(), type_)
+
+
 class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     """RELA addends are signed, so S + B + A can be negative or overflow.
 

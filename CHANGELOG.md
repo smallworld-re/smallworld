@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RISC-V (lp64d) C models read and write a floating-point argument that
   finds no FP argument register in the next integer register, as the psABI
   passes it, rather than on the stack.
+- The RISC-V ELF relocator resolves TLS module and offset relocations
+  (`R_RISCV_TLS_DTPMOD64`, `R_RISCV_TLS_DTPREL64`) and names what is missing
+  for `R_RISCV_COPY` and `R_RISCV_TLS_TPREL64`, rather than calling them
+  unknown.
 - `TritonEmulator` treats `hlt` (and the AArch64/RISC-V wait-for-event
   instructions) as a clean stop rather than an invalid instruction.
 - `TritonEmulator.run()` returns when execution reaches an exit point or leaves

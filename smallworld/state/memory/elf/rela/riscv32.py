@@ -1,44 +1,19 @@
 from ..... import platforms
-from .....exceptions import ConfigurationError
-from ..structs import ElfRela
-from .rela import ElfRelocator
+from .riscv64 import RISCV64ElfRelocator
 
-# ABI shorthand used in the comments below:
-#   A: addend
-#   B: base address where the image was loaded
-#   S: resolved symbol value
 R_RISCV_32 = 1  # Write S + A as a 32-bit absolute value.
-R_RISCV_RELATIVE = 3  # Write B + A; ignores the symbol value.
-R_RISCV_JUMP_SLOT = 5  # Populate a PLT/GOT resolver slot with S + A.
+R_RISCV_TLS_DTPMOD32 = 6  # Write the TLS module ID containing the symbol.
+R_RISCV_TLS_DTPREL32 = 8  # Write the symbol's offset within its TLS block, + A.
+R_RISCV_TLS_TPREL32 = 10  # Write the symbol's offset from the thread pointer.
 
 
-class RISCV32ElfRelocator(ElfRelocator):
+class RISCV32ElfRelocator(RISCV64ElfRelocator):
+    """RV64's relocations, at 32 bits."""
+
     arch = platforms.Architecture.RISCV32
-    byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela, elf):
-        if rela.type == R_RISCV_32 or rela.type == R_RISCV_JUMP_SLOT:
-            if rela.is_rela:
-                addend = rela.addend
-            else:
-                addend = elf.read_int(rela.offset, 4, self.byteorder)
-
-            # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + addend
-            # Mask to the output width: RELA addends are signed and address
-            # sums can wrap, so to_bytes would OverflowError on a raw value.
-            return (val & 0xFFFFFFFF).to_bytes(4, "little")
-        elif rela.type == R_RISCV_RELATIVE:
-            if rela.is_rela:
-                addend = rela.addend
-            else:
-                addend = elf.read_int(rela.offset, 4, self.byteorder)
-
-            val = elf.address + addend
-            # Mask to the output width: RELA addends are signed and address
-            # sums can wrap, so to_bytes would OverflowError on a raw value.
-            return (val & 0xFFFFFFFF).to_bytes(4, "little")
-        else:
-            raise ConfigurationError(
-                f"Unknown relocation type for {rela.symbol.name}: {rela.type}"
-            )
+    _width = 4
+    _absolute = R_RISCV_32
+    _dtpmod = R_RISCV_TLS_DTPMOD32
+    _dtprel = R_RISCV_TLS_DTPREL32
+    _tprel = R_RISCV_TLS_TPREL32
