@@ -1,8 +1,8 @@
 ,                   angr,       ghidra,     panda,      styx,       unicorn
 aarch64,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 aarch64-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
-aarch64-v8.5a,      No,         **Yes**,    **Yes**,    No,         **Yes**
-aarch64-v8.5a-be,   No,         **Yes**,    **Yes**,    No,         **Yes**
+aarch64-v8.5a,      **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+aarch64-v8.5a-be,   **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 amd64,              **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 arm-v4,             **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v4t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
