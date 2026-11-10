@@ -400,8 +400,10 @@ A few notes:
 
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
 - Panda exposes the ARM and AArch64 FP and SIMD registers, and ``cpacr`` and
-  ``cpacr_el1``, which gate access to them. On ARM it starts with the FPU
-  disabled, as Unicorn does, so set ``cpacr`` and ``fpexc`` as an OS would.
+  ``cpacr_el1``, which gate access to them. On A- and R-profile ARM it starts
+  with the FPU disabled, as Unicorn does, so set ``cpacr`` and ``fpexc`` as an
+  OS would. arm-v7em has neither register (its CPACR is memory-mapped), and
+  the machine enables its FPU itself.
   On most other architectures it would need to be modified to expose the
   FPU registers.
 - Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
