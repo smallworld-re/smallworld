@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RISC-V (lp64d) C models read and write a floating-point argument that
   finds no FP argument register in the next integer register, as the psABI
   passes it, rather than on the stack.
+- RISC-V compressed instructions disassemble: the platform's capstone mode
+  includes the "C" extension, which `TraceExecution`, crash triage and
+  Unicorn's fault reports need; and capstone's names for branches against
+  zero (`beqz`, `c.bnez`...) count as conditional branches.
 - The RISC-V ELF relocator resolves TLS module and offset relocations
   (`R_RISCV_TLS_DTPMOD64`, `R_RISCV_TLS_DTPREL64`) and names what is missing
   for `R_RISCV_COPY` and `R_RISCV_TLS_TPREL64`, rather than calling them

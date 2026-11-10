@@ -97,6 +97,16 @@ class RiscV(PlatformDef):
         "bgtu",
         "bge",
         "bgeu",
+        # The names capstone gives comparisons against zero
+        "beqz",
+        "bnez",
+        "blez",
+        "bgez",
+        "bltz",
+        "bgtz",
+        # Compressed ("C" extension) branches
+        "c.beqz",
+        "c.bnez",
     }
 
     # RiscV core has no dedicated compare instructions
@@ -118,7 +128,8 @@ class RiscV32(RiscV):
 
     address_size = 4
 
-    capstone_mode = capstone.CS_MODE_RISCV32
+    # RV32GC includes the "C" extension's compressed instructions.
+    capstone_mode = capstone.CS_MODE_RISCV32 | capstone.CS_MODE_RISCVC
 
     registers = riscv_registers(4)
 
@@ -129,6 +140,7 @@ class RiscV64(RiscV):
 
     address_size = 8
 
-    capstone_mode = capstone.CS_MODE_RISCV64
+    # Toolchains build RV64GC, with the "C" extension's compressed instructions.
+    capstone_mode = capstone.CS_MODE_RISCV64 | capstone.CS_MODE_RISCVC
 
     registers = riscv_registers(8)

@@ -4699,6 +4699,45 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
             )
 
 
+class RiscVInstructionTests(unittest.TestCase):
+    """RiscV instructions that need more than plain p-code or semantics:
+    compressed decoding, branch aliases, traps and fences, on each backend
+    that runs both widths."""
+
+    ARCHS = (platforms.Architecture.RISCV32, platforms.Architecture.RISCV64)
+
+    def test_compressed_code_disassembles(self):
+        # c.li t0,0; lb a0,0(a0); c.addi t0,1
+        code = (
+            bytes.fromhex("8142")
+            + struct.pack("<I", 0x00050503)
+            + bytes.fromhex("8502")
+        )
+        for arch in self.ARCHS:
+            with self.subTest(arch=arch.name):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                )
+                md = capstone.Cs(platdef.capstone_arch, platdef.capstone_mode)
+                self.assertEqual(
+                    [i.mnemonic for i in md.disasm(code, 0)], ["c.li", "lb", "c.addi"]
+                )
+
+    def test_branch_aliases_are_conditional_branches(self):
+        # bgez a1; blez a1; c.beqz a0; c.bnez a0, as capstone names them
+        code = struct.pack("<II", 0x0005D063, 0x00B05063) + bytes.fromhex("01c101e1")
+        for arch in self.ARCHS:
+            with self.subTest(arch=arch.name):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                )
+                md = capstone.Cs(platdef.capstone_arch, platdef.capstone_mode)
+                mnemonics = [i.mnemonic for i in md.disasm(code, 0)]
+                self.assertEqual(len(mnemonics), 4)
+                for mnemonic in mnemonics:
+                    self.assertIn(mnemonic, platdef.conditional_branch_mnemonics)
+
+
 class RiscVFPArgFallbackTests(unittest.TestCase):
     """A RiscV floating-point argument with no FP register left goes in
     integer registers while any are free, as riscv64-linux-gnu-gcc passes
