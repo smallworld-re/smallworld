@@ -41,6 +41,7 @@ arm-v7em on its Cortex-M4 (with its FPv4-SP FPU),
 arm-v7r on its Cortex-R5F, arm-v7a on its Cortex-A15, and arm-v8m on its
 Cortex-M33. Unicorn has no 32-bit ARMv8-A or ARMv8-R core, so arm-v8a and
 arm-v8r run on its "max" model, which accepts a superset of their instructions.
+SmallWorld hasn't tested these cores' privileged operations.
 
 **ARMv8-M Baseline:** arm-v8m is ARMv8-M Mainline. SmallWorld doesn't support
 ARMv8-M Baseline (Cortex-M23) explicitly, as no engine models it: Unicorn has
@@ -152,7 +153,6 @@ big-endian M-profile.
 
 **arm-v8 PANDA:** arm-v8r runs on PANDA's Cortex-R52. PANDA's 32-bit ARM build
 has no ARMv8-A core, so arm-v8a runs on its "max" model.
-Support for privileged operations is unknown.
 
 **M-profile PANDA:** PANDA runs Cortex-M CPUs only on the boards built
 around them, not on the configurable machine it uses for the other ARM
