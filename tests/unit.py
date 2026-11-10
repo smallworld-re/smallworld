@@ -8131,6 +8131,35 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
         )
 
 
+class GhidraUndecodableInstructionTests(unittest.TestCase):
+    """Both Ghidra emulators report an instruction their language cannot
+    decode as EmulationExecInvalidFailure, rather than letting Ghidra's
+    DecodePcodeExecutionException escape. RH850's rotl is not in Ghidra's
+    V850 language."""
+
+    CODE = 0x1000
+    ROTL = bytes.fromhex("e337c438")  # rotl 3, r6, r7
+
+    def _check(self, emulator_class):
+        _ensure_pyghidra_started()
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        emu = emulator_class(platform)
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, self.ROTL)
+        emu.write_register("pc", self.CODE)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            emu.step_instruction()
+        self.assertEqual(ctx.exception.pc, self.CODE)
+
+    def test_concrete(self):
+        self._check(emulators.ghidra.GhidraEmulator)
+
+    def test_symbolic(self):
+        self._check(emulators.ghidra.GhidraSymbolicEmulator)
+
+
 class GhidraSymbolicStoreTrackingTests(unittest.TestCase):
     """STOREs of user-symbolic values must be tracked for later reads.
 

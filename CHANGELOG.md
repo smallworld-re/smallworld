@@ -16,10 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the high half instead. This also fixes SuperH `mov.w Rm,@Rn` and
   `mov.b Rm,@Rn`, which stored `Rm`'s high bytes, so a halfword store of
   `0x1234` wrote zero.
-- `GhidraEmulator` reports an instruction its language cannot decode as
-  `EmulationExecInvalidFailure`, as the other backends do, rather than letting
-  Ghidra's `DecodePcodeExecutionException` escape, or its
-  `InstructionDecodeException` for an undecodable delay-slot instruction.
+- `GhidraEmulator` and `GhidraSymbolicEmulator` report an instruction their
+  language cannot decode as `EmulationExecInvalidFailure`, as the other
+  backends do, rather than letting Ghidra's `DecodePcodeExecutionException`
+  escape, or its `InstructionDecodeException` for an undecodable delay-slot
+  instruction.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
