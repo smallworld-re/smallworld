@@ -381,6 +381,11 @@ Some V850 instructions do not run, or run wrongly:
   remainder 0, instead of -2, remainder -1. It also reads a register operand
   that starts partway into a register from the register's start. Both affect
   angr's other p-code ISAs too; Ghidra gets both right.
+- ``trap`` stops ``GhidraSymbolicEmulator`` with a Z3 sort-mismatch error, after
+  ``EIPC``, ``EIPSW`` and ``EIIC`` have been written, and before ``pc``
+  changes. Ghidra's symbolic extension, SymZ3, returns the whole of a p-code
+  temporary when ``trap`` reads only its low halfword. ``GhidraEmulator`` and
+  angr run ``trap`` correctly.
 
 V850E2M's FPU runs on Ghidra; the ``floats`` scenario checks single-precision
 ``addf.s``. angr's p-code engine implements no floating-point operations, so the
