@@ -4568,6 +4568,54 @@ class PowerPC64SysVCallingContextTests(unittest.TestCase):
         ctx._return_4_byte(emu, 0xFFFFFFFF)
         self.assertEqual(emu.regs["r3"], 0xFFFFFFFF)
 
+    SP = 0x7000
+
+    def _set(self, types, values):
+        ctx = PowerPC64SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        for i, v in enumerate(values):
+            ctx.set_argument(i, emu, v)
+        return ctx, emu
+
+    def test_int_arguments_are_extended_by_signedness(self):
+        # As GCC and clang callers do: a 64-bit `li 4,-1` for an int in a
+        # register, and an `std` of the whole doubleword (-9 at sp+96) for
+        # one on the stack.  A callee like `long f(int x)` returns r3 as is.
+        A = self.A
+        ctx, emu = self._set(
+            [A.INT, A.UINT] + [A.INT] * 6 + [A.INT, A.UINT],
+            [-1, 0xFFFFFFFF, 2, 3, 4, 5, 6, 7, -9, 0xFFFFFFF7],
+        )
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFFFFFFFFFF)
+        self.assertEqual(emu.regs["r4"], 0xFFFFFFFF)
+        self.assertEqual(emu.read_memory(self.SP + 96, 8), b"\xff" * 7 + b"\xf7")
+        self.assertEqual(
+            emu.read_memory(self.SP + 104, 8), bytes(4) + b"\xff" * 3 + b"\xf7"
+        )
+        self.assertEqual(ctx.get_argument(0, A.INT, emu), -1)
+        self.assertEqual(ctx.get_argument(8, A.INT, emu), -9)
+
+    def test_stack_floats_are_singles_in_the_second_word(self):
+        # GCC and clang callers both `stfs` the 14th and 15th arguments to
+        # sp+140 and sp+148, and callees `lfs` them from there; the int
+        # after them is a doubleword at sp+152.
+        A = self.A
+        types = [A.DOUBLE] * 13 + [A.FLOAT, A.FLOAT, A.INT]
+        ctx, emu = self._set(types, [float(i) for i in range(13)] + [1.5, 2.5, -7])
+        self.assertEqual(
+            emu.read_memory(self.SP + 136, 8), bytes(4) + struct.pack(">f", 1.5)
+        )
+        self.assertEqual(
+            emu.read_memory(self.SP + 144, 8), bytes(4) + struct.pack(">f", 2.5)
+        )
+        self.assertEqual(
+            emu.read_memory(self.SP + 152, 8), (-7).to_bytes(8, "big", signed=True)
+        )
+        self.assertEqual(ctx.get_argument(13, A.FLOAT, emu), 1.5)
+        self.assertEqual(ctx.get_argument(14, A.FLOAT, emu), 2.5)
+
     def test_float_argument_is_rounded_to_single_precision(self):
         # PowerPC's stfs truncates a value that isn't single-precision,
         # so the double written to f1 must already be rounded.

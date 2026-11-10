@@ -85,9 +85,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   machine check, which is how the CPU reports an unmapped instruction fetch,
   raises `EmulationFetchUnmappedFailure`.
 - PowerPC64 ELFv2 System V library models (`smallworld.state.models.powerpc64`),
-  with the ELFv2 rule that a floating-point argument uses up its
-  general-purpose register slot. The c99/posix, `sysv`, `funcptr`,
-  `checked_heap`, `rela` and `link_elf` integration cases now cover ppc64.
+  with the ELFv2 rules that a floating-point argument uses up its
+  general-purpose register slot, that an `int` argument fills its doubleword
+  extended by signedness, and that a `float` past `f13` is a single in the
+  second word of its stack slot, as GCC and clang place them. The c99/posix,
+  `sysv`, `funcptr`, `checked_heap`, `rela` and `link_elf` integration cases
+  now cover ppc64.
 - `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
   to a guest function; on PowerPC64 it also sets `r12` for the TOC.
 - `interrupt`, `fuzz` (including AFL) and `static_rela` integration cases for

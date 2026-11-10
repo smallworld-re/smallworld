@@ -22,9 +22,11 @@ class PowerPC64SysVCallingContext(CStdCallingContext):
     but each one still uses up the general-purpose register (or stack slot)
     its slot maps to.
 
-    NOTE: A single-precision argument that doesn't fit in f1-f13 is stored
-    in its stack slot as a single-precision value; this model reads and
-    writes it as a double.  That takes more than 13 floating-point arguments.
+    A single-precision argument that doesn't fit in f1-f13 is stored in
+    its stack slot as a single-precision value, in the slot's second word
+    (GCC's and clang's callers `stfs` the 14th argument to sp+140, and
+    their callees `lfs` it from there).  An int is extended to its whole
+    doubleword by signedness, in a register or on the stack.
 
     NOTE: Only ELFv2 is modeled.  ELFv1 differs mainly in its use of
     function descriptors, which models don't see; the argument registers
@@ -94,6 +96,61 @@ class PowerPC64SysVCallingContext(CStdCallingContext):
             else:
                 self._stack_offset += self._double_stack_size
         return fp_offset
+
+    def set_argument(
+        self,
+        index: int,
+        emulator: emulators.Emulator,
+        value: typing.Union[int, float],
+    ):
+        if (
+            self.argument_types[index] == ArgumentType.FLOAT
+            and self._on_stack[index]
+            and isinstance(value, float)
+        ):
+            emulator.write_memory(
+                self._single_stack_address(index, emulator), struct.pack(">f", value)
+            )
+            return
+        super().set_argument(index, emulator, value)
+        if self.argument_types[index] == ArgumentType.INT and isinstance(value, int):
+            # The caller extends an int to its whole doubleword slot by
+            # signedness, and compiled callees rely on it (a `long f(int x)`
+            # returns r3 unchanged).  The base class writes only the low
+            # word; unsigned ints come out right that way, signed ones don't.
+            val = value & self._int_inv_mask
+            if val & self._int_sign_mask:
+                val |= self._int_signext_mask
+            if self._on_stack[index]:
+                addr = (
+                    emulator.read_register(self.platdef.sp_register)
+                    + self._arg_offset[index]
+                )
+                emulator.write_memory(addr, val.to_bytes(8, "big"))
+            else:
+                emulator.write_register(
+                    self._four_byte_arg_regs[self._arg_offset[index]], val
+                )
+
+    def get_argument(
+        self,
+        index: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+    ) -> typing.Union[int, float]:
+        if kind == ArgumentType.FLOAT and self._on_stack[index]:
+            data = emulator.read_memory(self._single_stack_address(index, emulator), 4)
+            (value,) = struct.unpack(">f", data)
+            return value
+        return super().get_argument(index, kind, emulator)
+
+    def _single_stack_address(self, index: int, emulator: emulators.Emulator) -> int:
+        """Where a single-precision argument sits in its stack slot."""
+        return (
+            emulator.read_register(self.platdef.sp_register)
+            + self._arg_offset[index]
+            + 4
+        )
 
     def enter_function(self, emulator: emulators.Emulator, address: int) -> None:
         # A function's global entry point derives the TOC pointer, r2,
