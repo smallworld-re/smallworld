@@ -7990,6 +7990,80 @@ class ElfArmFloatAbiPlatformTests(unittest.TestCase):
             )
 
 
+class ElfArmBe8Tests(unittest.TestCase):
+    """A big-endian ARM ELF's EF_ARM_BE8 flag picks BE8 or BE32.
+
+    BE8 code is little-endian and BE32 code big-endian, but loading ignored
+    the flag: a BE8 ARMv6 image became BE32 ARMv5T, and a requested platform
+    of the other kind was accepted, so every instruction decoded wrongly.
+    """
+
+    BE = platforms.Byteorder.BIG
+    BE32 = "elf.armv5tbe.elf"
+    BE8_SOFT = "elf.armv6kbe.elf"
+    BE8_HARD = "elf.armv7abe.elf"
+
+    def load(self, name, arch=None, byteorder=BE):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "elf", name)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built")
+        platform = None if arch is None else platforms.Platform(arch, byteorder)
+        with open(path, "rb") as f:
+            return ElfExecutable(f, platform=platform)
+
+    def test_unrequested_platform_follows_the_flag(self):
+        for name, arch in (
+            (self.BE32, platforms.Architecture.ARM_V5T),
+            (self.BE8_SOFT, platforms.Architecture.ARM_V6K),
+            (self.BE8_HARD, platforms.Architecture.ARM_V7A),
+        ):
+            with self.subTest(name=name):
+                elf = self.load(name)
+                self.assertEqual(
+                    elf.platform, platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+
+    def test_be32_image_on_be8_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V8R,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertRaisesRegex(
+                    exceptions.ConfigurationError, "ELF code is BE32"
+                ):
+                    self.load(self.BE32, arch)
+
+    def test_be8_image_on_be32_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V4,
+            platforms.Architecture.ARM_V4T,
+            platforms.Architecture.ARM_V5T,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertRaisesRegex(
+                    exceptions.ConfigurationError, "ELF code is BE8"
+                ):
+                    self.load(self.BE8_SOFT, arch)
+
+    def test_matching_requests_load(self):
+        for name, arch in (
+            (self.BE32, platforms.Architecture.ARM_V4T),
+            (self.BE8_SOFT, platforms.Architecture.ARM_V7A),
+            (self.BE8_HARD, platforms.Architecture.ARM_V8A),
+        ):
+            with self.subTest(name=name, arch=arch.name):
+                elf = self.load(name, arch)
+                self.assertEqual(elf.platform.architecture, arch)
+
+    def test_little_endian_images_are_unaffected(self):
+        elf = self.load(
+            "elf.armv5t.elf", platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.assertEqual(elf.platform.architecture, platforms.Architecture.ARM_V7A)
+
+
 class ElfPickleCompatibilityTests(unittest.TestCase):
     """An ElfExecutable pickled before the TLS fields existed (#447) must
     unpickle with the defaults of an image that has no thread-locals."""
