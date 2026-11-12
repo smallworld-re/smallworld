@@ -18,7 +18,7 @@ import pyvex
 from angr.engines import UberEngine
 
 from .be8 import AArch64BEEngine, BE8Engine
-from .v8m import instruction_bytes
+from .v8m import instruction_bytes, lift_source
 
 # (mask, value) of the ties-away instructions, as 32-bit words: A32 and
 # AArch64 words are little-endian, and a T32 word is its first halfword
@@ -401,19 +401,9 @@ class V8FPMixin:
     Mix into angr's VEX engine, or one derived from it.
     """
 
-    def lift_vex(
-        self,
-        addr=None,
-        state=None,
-        clemory=None,
-        insn_bytes=None,
-        offset=None,
-        *args,
-        **kwargs,
-    ):
-        irsb = super().lift_vex(  # type: ignore[misc]
-            addr, state, clemory, insn_bytes, offset, *args, **kwargs
-        )
+    def lift_vex(self, *args, **kwargs):
+        irsb = super().lift_vex(*args, **kwargs)  # type: ignore[misc]
+        addr, state, clemory, insn_bytes, offset = lift_source(args, kwargs)
         block = irsb.addr if addr is None else addr
         return rewrite(
             irsb,

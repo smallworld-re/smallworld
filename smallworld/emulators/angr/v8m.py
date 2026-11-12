@@ -6,6 +6,8 @@ archinfo's Cortex-M also has no psplim. Give ARMv8-M a psplim, and fill in
 the moves for msplim and psplim after lifting.
 """
 
+import functools
+import inspect
 import typing
 
 import archinfo
@@ -98,6 +100,37 @@ def _ignored_imarks(irsb: pyvex.IRSB) -> typing.List[int]:
     ]
 
 
+# The arguments of angr's lift_vex that say where a block's bytes come from
+_SOURCE_PARAMETERS = ("addr", "state", "clemory", "insn_bytes", "offset")
+
+
+@functools.lru_cache(maxsize=None)
+def _lift_signature(lift_vex: typing.Callable) -> inspect.Signature:
+    return inspect.signature(lift_vex)
+
+
+def lift_source(
+    args: typing.Sequence[typing.Any],
+    kwargs: typing.Mapping[str, typing.Any],
+    lift_vex: typing.Callable = UberEngine.lift_vex,
+) -> typing.Tuple[typing.Any, ...]:
+    """The (addr, state, clemory, insn_bytes, offset) of a lift_vex call
+
+    `args` and `kwargs` are what the engine's lift_vex was called with, less
+    self. They are bound to angr's own parameters by name, so a change in
+    their order can't shift them; a renamed parameter raises.
+    """
+    try:
+        bound = _lift_signature(lift_vex).bind(None, *args, **kwargs)
+    except TypeError as e:
+        raise TypeError(f"angr's lift_vex parameters have changed: {e}") from e
+    bound.apply_defaults()
+    missing = [name for name in _SOURCE_PARAMETERS if name not in bound.arguments]
+    if missing:
+        raise TypeError(f"angr's lift_vex has no parameter {', '.join(missing)}")
+    return tuple(bound.arguments[name] for name in _SOURCE_PARAMETERS)
+
+
 def instruction_bytes(
     at: int,
     addr: int,
@@ -128,19 +161,9 @@ def instruction_bytes(
 class ARMv8MEngine(UberEngine):
     """angr's VEX engine, moving ARMv8-M's stack-limit registers"""
 
-    def lift_vex(
-        self,
-        addr=None,
-        state=None,
-        clemory=None,
-        insn_bytes=None,
-        offset=None,
-        *args,
-        **kwargs,
-    ):
-        irsb = super().lift_vex(
-            addr, state, clemory, insn_bytes, offset, *args, **kwargs
-        )
+    def lift_vex(self, *args, **kwargs):
+        irsb = super().lift_vex(*args, **kwargs)
+        addr, state, clemory, insn_bytes, offset = lift_source(args, kwargs)
         if irsb.statements is None:
             return irsb
         found = []
@@ -165,4 +188,4 @@ class ARMv8MEngine(UberEngine):
         return irsb
 
 
-__all__ = ["ARMv8MEngine", "v8m_arch"]
+__all__ = ["ARMv8MEngine", "instruction_bytes", "lift_source", "v8m_arch"]
