@@ -2225,6 +2225,65 @@ class AngrV8FPTests(unittest.TestCase):
         )
 
 
+class AngrLiftSourceTests(unittest.TestCase):
+    """SmallWorld's angr engines find a lift's bytes by parameter name.
+
+    They override angr's lift_vex, which isn't a public API, so a change in
+    its parameters must not silently shift where the bytes come from.
+    """
+
+    def test_positional_and_keyword_arguments_bind_alike(self):
+        from smallworld.emulators.angr.v8m import lift_source
+
+        source = (0x1000, None, None, b"\x00\x00\xa0\xe1", 0)
+        self.assertEqual(lift_source(source, {}), source)
+        self.assertEqual(
+            lift_source(
+                (),
+                {"offset": 0, "insn_bytes": source[3], "addr": 0x1000, "size": 4},
+            ),
+            source,
+        )
+
+    def test_a_renamed_parameter_raises(self):
+        from smallworld.emulators.angr.v8m import lift_source
+
+        def lift_vex(self, address=None, state=None, clemory=None, insn_bytes=None):
+            pass
+
+        with self.assertRaisesRegex(TypeError, "no parameter addr, offset"):
+            lift_source((), {}, lift_vex)
+        with self.assertRaisesRegex(TypeError, "lift_vex parameters have changed"):
+            lift_source((), {"addr": 0x1000}, lift_vex)
+
+    def test_the_engine_rewrites_a_lift_called_by_keyword(self):
+        import angr
+        import archinfo
+        import pyvex
+
+        from smallworld.emulators.angr.v8fp import V8FPEngine
+
+        def rounding_modes(irsb):
+            return {
+                stmt.data.args[0].con.value
+                for stmt in irsb.statements
+                if isinstance(stmt, pyvex.stmt.WrTmp)
+                and isinstance(stmt.data, pyvex.expr.Binop)
+                and stmt.data.op == "Iop_RoundF32toInt"
+            }
+
+        vrinta = bytes.fromhex("400af8fe")  # vrinta.f32 s0, s0
+        project = angr.load_shellcode(vrinta, archinfo.ArchARMEL(), load_address=0)
+        engine = V8FPEngine(project)
+        for kwargs in (
+            {"addr": 0x1000, "insn_bytes": vrinta, "arch": project.arch},
+            {"arch": project.arch, "insn_bytes": vrinta, "addr": 0x1000, "offset": 0},
+        ):
+            with self.subTest(kwargs=list(kwargs)):
+                # Ties to even (0) becomes truncation (3) plus a correction.
+                self.assertEqual(rounding_modes(engine.lift_vex(**kwargs)), {3})
+
+
 class AngrThumbTests(unittest.TestCase):
     """angr addresses Thumb code with bit 0 set; harnesses use the address."""
 
