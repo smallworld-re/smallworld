@@ -5,6 +5,7 @@ import archinfo
 import claripy
 import pypcode
 
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.sparc import (
     SPARC_FRAME_POINTER_REGISTER,
@@ -186,6 +187,31 @@ def _drop_ops_after_calls(irsb) -> None:
         irsb._ops = kept
 
 
+def _is_mulscc(word: int) -> bool:
+    """Is this instruction word `mulscc` (op 2, op3 0x24)?"""
+    return word >> 30 == 2 and (word >> 19) & 0x3F == 0x24
+
+
+def _first_mulscc(state: angr.SimState, irsb) -> typing.Optional[int]:
+    """The address of the first instruction in a lifted block that runs
+    `mulscc`, if any: the `mulscc` itself, or the branch whose delay slot it
+    is (sleigh lifts a branch and its slot as one instruction).
+
+    Ghidra's sleigh skips the add of rs2 in `mulscc` with a p-code-relative
+    branch when Y's low bit is clear.  angr's p-code engine cannot take a
+    p-code-relative branch (it fails an internal assertion), so SmallWorld
+    refuses the instruction on angr instead of running it only sometimes.
+    """
+    for op in irsb._ops:
+        if op.opcode != pypcode.OpCode.IMARK:
+            continue
+        for varnode in op.inputs:
+            word = state.memory.load(varnode.offset, 4, endness="Iend_BE")
+            if not word.symbolic and _is_mulscc(state.solver.eval(word)):
+                return op.inputs[0].offset
+    return None
+
+
 class SPARC32MachineDef(GhidraMachineDef):
     """angr machine definition for 32-bit SPARC, using Ghidra's p-code.
 
@@ -207,7 +233,11 @@ class SPARC32MachineDef(GhidraMachineDef):
         "sp": "sp",
         "fp": "fp",
         "pc": "pc",
-        "npc": "npc",
+        # Ghidra's sleigh folds each delay slot into its branch's p-code and
+        # never reads or writes nPC, so the register would only hold stale
+        # values.  Like ARM's FP status registers, None makes `angr_reg`
+        # raise UnsupportedRegisterError.
+        "npc": None,  # type: ignore[dict-item]
         "y": "y",
     }
 
@@ -226,6 +256,19 @@ class SPARC32MachineDef(GhidraMachineDef):
             kwargs["irsb"] = state.block(
                 extra_stop_points=exit_points, **lift_kwargs
             ).vex
+            mulscc = _first_mulscc(state, kwargs["irsb"])
+            if mulscc is not None and mulscc != state.addr:
+                # Run up to the mulscc, and refuse it when it is reached.
+                kwargs["irsb"] = state.block(
+                    extra_stop_points=exit_points | {mulscc}, **lift_kwargs
+                ).vex
+        if _first_mulscc(state, kwargs["irsb"]) == state.addr:
+            raise exceptions.EmulationExecInvalidFailure(
+                "mulscc is not supported on angr: Ghidra's p-code for it takes "
+                "a p-code-relative branch, which angr's p-code engine cannot",
+                state.addr,
+                None,
+            )
         _drop_ops_after_calls(kwargs["irsb"])
         _fix_window_copies(kwargs["irsb"])
 
@@ -237,9 +280,9 @@ class SimCCSPARC32(angr.calling_conventions.SimCC):
 
     ARG_REGS = [f"o{i}" for i in range(0, 6)]
     FP_ARG_REGS: typing.List[str] = []
-    # Stack arguments start past the 16-word window save area and the hidden
-    # struct-return word.
-    STACKARG_SP_BUFF = 68
+    # Stack arguments start past the 16-word window save area, the hidden
+    # struct-return word and the six home words for %o0-%o5.
+    STACKARG_SP_BUFF = 92
     STACK_ALIGNMENT = 8
     RETURN_VAL = angr.calling_conventions.SimRegArg("o0", 4)
     RETURN_ADDR = angr.calling_conventions.SimRegArg(SPARC_RETURN_ADDRESS_REGISTER, 4)

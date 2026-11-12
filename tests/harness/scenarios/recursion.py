@@ -120,6 +120,27 @@ _SPECS = enroll_triton(_SPECS)
 
 SCENARIO_PREFIXES = (("recursion", "recursion"),)
 
+_CASES = (
+    (-1, 91),
+    (0, 91),
+    (100, 91),
+    (101, 91),
+    (102, 92),
+)
+
+
+def _expectations(variant, kwargs):
+    cases = _CASES
+    if variant == "sparc32":
+        # mc91 nests about a dozen register windows deep for the small
+        # inputs. Unicorn has 8 windows and never raises the window overflow
+        # trap that would spill the oldest one to the stack; running out of
+        # windows there does not finish (mc91(0) ran over 300 s). Inputs of
+        # 100 and up nest at most 2 windows, so Unicorn runs only those.
+        cases = tuple((number, expected) for number, expected in cases if number >= 100)
+    return tuple(((str(number),), f"{expected:#x}") for number, expected in cases)
+
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="recursion",
     scenario="recursion",
@@ -133,25 +154,9 @@ SCENARIO_INFO = ScenarioInfo(
             # short emulations don't trigger it, but recursion runs long enough
             # that the controller thread panics and the main loop hangs.
             "ppc.styx-mpc860": "styx MPC866M event controller unimplemented (hangs)",
-            # mc91 nests about a dozen register windows deep for the small
-            # inputs. Unicorn has 8 windows and never raises the window
-            # overflow trap that would spill the oldest one to the stack, so
-            # the deepest calls overwrite their callers' %l/%i registers.
-            "sparc32": "Unicorn has 8 SPARC register windows and no overflow trap",
         },
     ),
-    run_factory=assert_outputs(
-        tuple(
-            ((str(number),), f"{expected:#x}")
-            for number, expected in (
-                (-1, 91),
-                (0, 91),
-                (100, 91),
-                (101, 91),
-                (102, 92),
-            )
-        ),
-    ),
+    run_factory=assert_outputs(_expectations),
 )
 
 

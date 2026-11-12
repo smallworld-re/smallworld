@@ -63,6 +63,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
 
         Arguments:
             engine: the `unicorn.Uc` instance
+
+        Raises:
+            ConfigurationError: if this Unicorn build cannot run the machine.
         """
         pass
 

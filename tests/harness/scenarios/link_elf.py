@@ -157,6 +157,17 @@ _SPECS = {
         argument_registers=("a0", "a1"),
         add_zero_exitpoint=True,
     ),
+    "sparc32": LinkElfSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="o0",
+        engines=("unicorn", "angr", "pcode"),
+        code_address=0x400000,
+        lib_address=0x800000,
+        argument_registers=("o0", "o1"),
+    ),
     "tricore": LinkElfSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pointer_size=4,
@@ -284,6 +295,13 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
         machine.add_exit_point(exitpoint)
+    elif arch == "sparc32":
+        # SPARC returns to %o7 + 8, past the call and its delay slot.
+        set_register(cpu, "o7", exitpoint - 8)
+        machine.add_exit_point(exitpoint)
+        # The caller's 92-byte frame (window save area, struct-return word,
+        # argument home slots), which main may write through %fp.
+        stack.push_bytes(bytes(96), None)
 
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
     if spec.argument_registers is not None:

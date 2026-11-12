@@ -53,14 +53,24 @@ so some things like the syscall convention are something of a guess.
 user-mode code. Ghidra has no V8 language, so the angr and Ghidra backends use
 Ghidra's 32-bit V9 language, which decodes the V8 privileged instructions
 (``rd``/``wr`` of ``%psr``, ``%wim`` and ``%tbr``) as unrelated V9 instructions.
+It also decodes V9-only user instructions, some with the wrong semantics for
+32-bit registers (``ldx`` becomes a 4-byte load), which Unicorn's V8 core and
+real V8 hardware reject. Code must therefore be V8 to run the same on every
+backend. ELF images for V8+ (``EM_SPARC32PLUS``) and V9 (``EM_SPARCV9``) are
+refused.
 
 SPARC's register windows are where the backends differ most, so the platform
 models only the 32 integer registers visible through the current window
 (``%g``, ``%o``, ``%l`` and ``%i``, with ``sp`` and ``fp`` aliasing ``%o6`` and
-``%i6``), plus ``pc``, ``npc`` and ``y``. The windows belonging to callers are
-not part of the CPU state, so they are not transferred between emulators; a
-state captured partway through a call chain loses its callers' ``%l`` and ``%i``
-registers.
+``%i6``), plus ``pc`` and ``y``. ``%psr`` (with the condition codes), ``%wim``,
+``%tbr``, ``%fsr`` and the floating-point registers are not modeled on any
+backend. ``npc`` is part of the CPU state but no backend supports it: Unicorn
+2.1.4 cannot access it, and Ghidra's sleigh folds each delay slot into its
+branch's p-code and never reads or writes nPC, so reading or writing ``npc``
+raises ``UnsupportedRegisterError`` everywhere. The windows belonging to
+callers are not part of the CPU state, so they are not transferred between
+emulators; a state captured partway through a call chain loses its callers'
+``%l`` and ``%i`` registers.
 
 Window spill and fill are out of scope. On real hardware, running out of
 windows raises a window overflow or underflow trap, and an operating system's
@@ -74,9 +84,9 @@ emulator, as described below.
 
 - **Unicorn** (LEON3) rotates its windows like the hardware does, over 8
   windows, but never raises a window overflow or underflow trap. A call chain
-  nested 8 or more ``save``\ s deep silently overwrites the outermost window.
-  Unicorn 2.1.4 cannot access ``npc`` or ``y``, and reading ``%psr`` crashes it,
-  so neither the processor state register nor the condition codes are exposed.
+  nested 8 or more ``save``\ s deep overwrites the outermost window, and may
+  not finish at all. Unicorn 2.1.4 cannot access ``npc`` or ``y``, and reading
+  ``%psr`` crashes it.
   Upstream Unicorn 2.1.4 also sends every ``jmpl``-based transfer (``ret``,
   ``retl``, ``jmp``, a ``call`` through a register) to address 1 whenever a code
   hook is installed, which SmallWorld always does, and a CPU stopped at an exit
@@ -86,26 +96,58 @@ emulator, as described below.
   Unicorn therefore requires SmallWorld's nix environment.** A pip install
   gets upstream Unicorn from PyPI, without the patches; there, creating a
   SPARC32 ``UnicornEmulator`` raises ``ConfigurationError``, and the angr and
-  Ghidra backends still work. The ``recursion`` scenario nests deeper than 8
-  windows, so it is skipped on Unicorn.
+  Ghidra backends still work. The ``recursion`` scenario's deep inputs nest
+  more than 8 windows, so Unicorn runs only its shallow ones.
 - **angr** and **Ghidra** use Ghidra's model, which copies the current window to
   and from a backing bank on ``save`` and ``restore``, with no window limit and
   no traps. Ghidra 12.1.2's copy stores ``%l3`` in ``%l2``'s slot and restores
   ``%l7`` from ``%l6``'s; both backends correct those ops before running them.
-  Both also keep Ghidra's ``DECOMPILE_MODE`` register at 0, which the window copy
-  requires, and angr drops the ``call``/``restore`` tail-call check Ghidra emits
-  after a ``call``, which it would otherwise treat as a second successor.
+  The window copy also requires Ghidra's ``DECOMPILE_MODE`` register to be 0:
+  angr stores 0 there before each block, and Ghidra's emulator starts it at 0,
+  which SmallWorld never changes. angr drops the ``call``/``restore`` tail-call
+  check Ghidra emits after a ``call``, which it would otherwise treat as a
+  second successor.
 - **GhidraSymbolicEmulator** cannot run ``save`` or ``restore``: its Z3-backed
-  state rejects the computed register addresses of the window bank.
+  state rejects the computed register addresses of the window bank, and it
+  raises ``EmulationExecInvalidFailure`` at the instruction.
+
+Ghidra 12.1.2's sleigh has two more defects that angr and Ghidra share, and
+that Unicorn does not:
+
+- ``mulscc`` skips its add with a p-code-relative branch when ``Y``'s low bit
+  is clear, which angr's p-code engine cannot take. angr therefore refuses
+  ``mulscc`` with ``EmulationExecInvalidFailure``, after running the
+  instructions before it. Ghidra runs it correctly. gcc's V8 code uses
+  ``umul``/``smul`` instead.
+- ``udiv`` and ``sdiv`` return the low 32 bits of a quotient that does not fit
+  in 32 bits, where V8 saturates it (to ``0xffffffff`` unsigned, or
+  ``0x7fffffff``/``0x80000000`` signed). gcc clears ``Y`` before a 32-bit
+  division, so ordinary C code never overflows.
 
 A function model returns to ``%o7 + 8``, past the call and its delay slot. The
-System V C library models take their arguments from the caller's ``%o0``-``%o5``
-and the stack from ``%sp + 92``, and return in ``%o0`` (and ``%o1``); models
-that return ``float`` or ``double`` raise ``NotImplementedError``, because SPARC
-returns those in ``%f0`` and the platform does not model the floating-point
-registers. Every
-branch and jump has one delay slot; stepping one also runs the instruction after
-it, including when an annulled branch skips its delay slot.
+generic ``Model`` does not know that rule, so a SPARC32 model must derive from
+``smallworld.state.models.sparc32.SPARC32Model``, as the System V C library
+models do. Those take their arguments from the caller's ``%o0``-``%o5`` and the
+stack from ``%sp + 92``, and return in ``%o0`` (and ``%o1``); models that return
+``float`` or ``double`` raise ``NotImplementedError``, because SPARC returns
+those in ``%f0`` and the platform does not model the floating-point registers.
+The ABI also has every caller reserve 92 bytes at ``%sp`` (the window save
+area, the hidden struct-return word, and home slots for ``%o0``-``%o5``), which
+a callee may write through ``%fp``. ``SPARC32Stack`` does not reserve them, so
+a harness that starts a function should push 96 bytes (92, kept
+doubleword-aligned) before setting ``%sp``.
+
+Every branch and jump has one delay slot. Running is the same on every backend,
+but single-stepping is not:
+
+- Stepping a branch also runs its delay slot, on every backend.
+- When the branch annuls its slot (an untaken conditional ``b<cc>,a``, or
+  ``ba,a``), Unicorn's step also runs the instruction after the annulled slot;
+  angr and Ghidra stop before it.
+- Do not put an exit point in a delay slot. angr then fails to lift the branch
+  ("Undecodable instruction") and runs none of its block, Ghidra runs past the
+  exit point, and Unicorn stops in the slot after the branch has run, in a
+  state that cannot be resumed, because ``npc`` is not modeled.
 
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 

@@ -131,8 +131,8 @@
 
       # SPARC is a first-class binutils target too, but nixpkgs has no
       # `pkgsCross` entry for 32-bit SPARC, so instantiate the cross package set
-      # from the triple. As with SuperH, every SPARC test is assembly, so the
-      # unwrapped binutils is all we need. (zig can assemble SPARC, but its lld
+      # from the triple. The assembly tests need only the unwrapped binutils;
+      # the C tests use mkSparcGcc below. (zig can assemble SPARC, but its lld
       # cannot link it.) The tools come out prefixed `sparc-unknown-linux-gnu-*`.
       mkSparcBinutils =
         system:
@@ -239,12 +239,14 @@
           sparcBinutils = mkSparcBinutils system;
           sparcGcc = mkSparcGcc system;
           sparcGlibc = (mkSparcPkgs system).glibc;
+          sparcLinuxHeaders = (mkSparcPkgs system).linuxHeaders;
 
           tests = pkgs.callPackage ../tests {
             inherit
               sparcBinutils
               sparcGcc
               sparcGlibc
+              sparcLinuxHeaders
               superHBinutils
               tricoreGcc
               xtensaGcc
@@ -338,6 +340,12 @@
             AMD64_SYSROOT = x86LinuxPkgs.glibc.outPath;
             AARCH64_SYSROOT = pkgs.pkgsCross.aarch64-multiplatform.glibc.outPath;
             PPC_SYSROOT = pkgs.pkgsCross.ppc32.glibc.outPath;
+            # Matches tests/default.nix.
+            SPARC32_LIBC_CFLAGS =
+              let
+                sparcPkgs = mkSparcPkgs system;
+              in
+              "-isystem ${sparcPkgs.glibc.dev}/include -isystem ${sparcPkgs.linuxHeaders}/include";
           };
 
           shellHook = ''

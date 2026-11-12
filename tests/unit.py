@@ -170,9 +170,7 @@ from smallworld.state.models.loongarch64.systemv.systemv import (
 )
 from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
-from smallworld.state.models.mips64el.systemv.systemv import (
-    MIPS64ELSysVCallingContext,
-)
+from smallworld.state.models.mips64el.systemv.systemv import MIPS64ELSysVCallingContext
 from smallworld.state.models.mips.systemv.systemv import MIPSSysVCallingContext
 from smallworld.state.models.mipsel.systemv.systemv import MIPSELSysVCallingContext
 from smallworld.state.models.model import Model
@@ -181,14 +179,10 @@ from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
-from smallworld.state.models.powerpc.systemv.systemv import (
-    PowerPCSysVCallingContext,
-)
+from smallworld.state.models.powerpc.systemv.systemv import PowerPCSysVCallingContext
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
-from smallworld.state.models.sparc32.systemv.systemv import (
-    SPARC32SysVCallingContext,
-)
+from smallworld.state.models.sparc32.systemv.systemv import SPARC32SysVCallingContext
 from smallworld.state.models.tls import (
     RELOCATED_TLS_MODULE,
     TlsArenaBorrower,
@@ -2136,7 +2130,7 @@ def _sparc32_add(rd, rs1, rs2):
     return (2 << 30) | (rd << 25) | (rs1 << 14) | rs2
 
 
-class _SPARC32SetO0(state.models.Model):
+class _SPARC32SetO0(state.models.sparc32.SPARC32Model):
     """Sets %o0 and returns; runs in the caller's register window."""
 
     name = "sparc32_unit_test_set_o0"
@@ -2333,6 +2327,276 @@ class SPARC32Tests(unittest.TestCase):
             self._run(emu, step=False)
         self.assertEqual(emu.read_register("l2"), 0x33)
         self.assertEqual(emu.read_register("l7"), 0x66)
+
+
+def _sparc32_op3(rd, op3, rs1, imm=None, rs2=0):
+    """Encode a format-3 (op 2) instruction with an immediate or %rs2."""
+    word = (2 << 30) | (rd << 25) | (op3 << 19) | (rs1 << 14)
+    if imm is None:
+        return word | rs2
+    return word | (1 << 13) | (imm & 0x1FFF)
+
+
+_SPARC32_NOP = 0x01000000
+_SPARC32_CMP_G0_0 = _sparc32_op3(0, 0x14, 0, 0)  # subcc %g0, 0, %g0: sets Z
+
+
+def _sparc32_mov(imm, rd):
+    return _sparc32_op3(rd, 0x02, 0, imm)  # or %g0, imm, %rd
+
+
+def _sparc32_wr_y(rs1):
+    return _sparc32_op3(0, 0x30, rs1, 0)  # wr %rs1, 0, %y
+
+
+class SPARC32BackendDifferenceTests(unittest.TestCase):
+    """Pins where the SPARC32 backends knowingly differ (see support.rst)."""
+
+    ENTRY = 0x1000
+
+    def _load(self, emu, code, exit_point):
+        emu.map_memory(self.ENTRY, 0x1000)
+        image = bytearray(max(code) + 4 - self.ENTRY)
+        for address, word in code.items():
+            offset = address - self.ENTRY
+            image[offset : offset + 4] = struct.pack(">I", word)
+        emu.write_code(self.ENTRY, bytes(image))
+        for name in ("o0", "o1", "o2", "g1"):
+            emu.write_register(name, 0)
+        emu.write_register("pc", self.ENTRY)
+        emu.add_exit_point(exit_point)
+
+    def _emulators(self):
+        def ghidra():
+            _ensure_pyghidra_started()
+            return emulators.GhidraEmulator(SPARC32_PLATFORM)
+
+        return {
+            "unicorn": lambda: emulators.UnicornEmulator(SPARC32_PLATFORM),
+            "angr": lambda: emulators.AngrEmulator(SPARC32_PLATFORM),
+            "ghidra": ghidra,
+        }
+
+    def _run(self, emu):
+        try:
+            emu.run()
+        except exceptions.EmulationStop:
+            pass
+
+    def _step_from(self, emu, address):
+        """Step until pc is `address`, then step once more; the new pc."""
+        # angr cannot read registers before its first step.
+        if address != self.ENTRY:
+            for _ in range(8):
+                emu.step_instruction()
+                if emu.read_register("pc") == address:
+                    break
+            self.assertEqual(emu.read_register("pc"), address)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return emu.read_register("pc")
+
+    # cmp sets Z, so `bne,a` is not taken and annuls its slot at 0x100c.
+    UNTAKEN_BNE_A = {
+        0x1000: _SPARC32_CMP_G0_0,
+        0x1004: _SPARC32_NOP,
+        0x1008: 0x32800004,  # bne,a 0x1018
+        0x100C: _sparc32_mov(2, 8),  # annulled
+        0x1010: _sparc32_mov(1, 8),
+        0x1014: _SPARC32_NOP,
+        0x1018: _SPARC32_NOP,  # exit point
+    }
+    BA_A = {
+        0x1000: 0x30800003,  # ba,a 0x100c
+        0x1004: _sparc32_mov(2, 8),  # annulled
+        0x1008: _sparc32_mov(3, 8),  # skipped
+        0x100C: _sparc32_mov(1, 8),
+        0x1010: _SPARC32_NOP,
+        0x1014: _SPARC32_NOP,
+        0x1018: _SPARC32_NOP,  # exit point
+    }
+
+    def test_annulled_branch_run(self):
+        for name, make in self._emulators().items():
+            for label, code in (("bne,a", self.UNTAKEN_BNE_A), ("ba,a", self.BA_A)):
+                with self.subTest(emulator=name, branch=label):
+                    emu = make()
+                    self._load(emu, code, 0x1018)
+                    self._run(emu)
+                    self.assertEqual(emu.read_register("o0"), 1)
+
+    def test_annulled_branch_step(self):
+        # Stepping an annulled branch on Unicorn also runs the instruction
+        # after the annulled slot; angr and Ghidra stop before it.
+        expected = {
+            "unicorn": {"bne,a": (0x1014, 1), "ba,a": (0x1010, 1)},
+            "angr": {"bne,a": (0x1010, 0), "ba,a": (0x100C, 0)},
+            "ghidra": {"bne,a": (0x1010, 0), "ba,a": (0x100C, 0)},
+        }
+        for name, make in self._emulators().items():
+            for label, code, branch in (
+                ("bne,a", self.UNTAKEN_BNE_A, 0x1008),
+                ("ba,a", self.BA_A, 0x1000),
+            ):
+                with self.subTest(emulator=name, branch=label):
+                    emu = make()
+                    self._load(emu, code, 0x1018)
+                    pc = self._step_from(emu, branch)
+                    self.assertEqual(
+                        (pc, emu.read_register("o0")), expected[name][label]
+                    )
+
+    MULSCC = {
+        0x1000: _SPARC32_CMP_G0_0,
+        0x1004: _sparc32_wr_y(0),  # Y = 0: the low bit is clear
+        0x1008: _SPARC32_NOP,
+        0x100C: _SPARC32_NOP,
+        0x1010: _SPARC32_NOP,
+        0x1014: _sparc32_mov(5, 8),
+        0x1018: _sparc32_mov(3, 9),
+        0x101C: _sparc32_op3(10, 0x24, 8, rs2=9),  # mulscc %o0, %o1, %o2
+        0x1020: _SPARC32_NOP,
+        0x1024: _SPARC32_NOP,  # exit point
+    }
+
+    def test_mulscc(self):
+        for name, make in self._emulators().items():
+            for step in (False, True):
+                with self.subTest(emulator=name, step=step):
+                    emu = make()
+                    self._load(emu, self.MULSCC, 0x1024)
+                    if name == "angr":
+                        # Refused at the mulscc, after the code before it.
+                        with self.assertRaises(
+                            exceptions.EmulationExecInvalidFailure
+                        ) as ctx:
+                            if step:
+                                for _ in range(10):
+                                    emu.step_instruction()
+                            else:
+                                emu.run()
+                        self.assertEqual(ctx.exception.pc, 0x101C)
+                        self.assertIn("mulscc", ctx.exception.args[0])
+                        self.assertEqual(emu.read_register("o1"), 3)
+                    else:
+                        if step:
+                            self._step_from(emu, 0x101C)
+                        else:
+                            self._run(emu)
+                        self.assertEqual(emu.read_register("o2"), 2)
+
+    def test_divide_overflow(self):
+        # Y:0 = 0x20_00000000, divided by 16, does not fit in 32 bits.  V8
+        # saturates (Unicorn); Ghidra's sleigh truncates (angr and Ghidra).
+        code = {
+            0x1000: _sparc32_mov(0x20, 1),
+            0x1004: _sparc32_wr_y(1),
+            0x1008: _SPARC32_NOP,
+            0x100C: _SPARC32_NOP,
+            0x1010: _SPARC32_NOP,
+            0x1014: _sparc32_op3(8, 0x0E, 0, 16),  # udiv %g0, 16, %o0
+            0x1018: _sparc32_op3(9, 0x0F, 0, 16),  # sdiv %g0, 16, %o1
+            0x101C: _SPARC32_NOP,
+            0x1020: _SPARC32_NOP,  # exit point
+        }
+        expected = {
+            "unicorn": (0xFFFFFFFF, 0x7FFFFFFF),
+            "angr": (0, 0),
+            "ghidra": (0, 0),
+        }
+        for name, make in self._emulators().items():
+            with self.subTest(emulator=name):
+                emu = make()
+                self._load(emu, code, 0x1020)
+                self._run(emu)
+                self.assertEqual(
+                    (emu.read_register("o0"), emu.read_register("o1")),
+                    expected[name],
+                )
+
+    def test_npc_unsupported(self):
+        for name, make in self._emulators().items():
+            with self.subTest(emulator=name):
+                emu = make()
+                code = {self.ENTRY: _SPARC32_NOP, self.ENTRY + 4: _SPARC32_NOP}
+                self._load(emu, code, self.ENTRY + 8)
+                emu.step_instruction()  # angr reads registers only after a step
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.read_register("npc")
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.write_register("npc", 0x2000)
+
+    def test_symbolic_save_refused(self):
+        _ensure_pyghidra_started()
+        emu = emulators.ghidra.GhidraSymbolicEmulator(SPARC32_PLATFORM)
+        code = SPARC32Tests.CODE
+        self._load(emu, code, SPARC32Tests.EXIT)
+        emu.write_register("sp", 0x8000)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            for _ in range(5):
+                emu.step_instruction()
+        self.assertEqual(ctx.exception.pc, 0x1010)  # save
+
+
+class SPARC32ModelTests(unittest.TestCase):
+    def test_errno(self):
+        from smallworld.state.models.errno import ErrnoResolver
+
+        resolver = ErrnoResolver.for_platform(SPARC32_PLATFORM, platforms.ABI.SYSTEMV)
+        # Generic up to ERANGE, SunOS numbering above.
+        self.assertEqual(resolver.get_label(34), "ERANGE")
+        self.assertEqual(resolver.get_label(11), "EAGAIN")
+        self.assertEqual(resolver.get_label(36), "EINPROGRESS")
+        self.assertEqual(resolver.get_label(63), "ENAMETOOLONG")
+        self.assertEqual(resolver.get_label(90), "ENOSYS")
+        self.assertEqual(resolver.get_description(90), "Function not implemented")
+
+    def test_open_flags(self):
+        from smallworld.state.models.sparc32.systemv.posix.fcntl import SPARC32SysVOpen
+
+        model = SPARC32SysVOpen(0x1000)
+        # (readable, writable, create, truncate, append)
+        self.assertEqual(model._decode_flags(0x202), (True, True, True, False, False))
+        self.assertEqual(model._decode_flags(0x401), (False, True, False, True, False))
+        self.assertEqual(model._decode_flags(0x009), (False, True, False, False, True))
+
+    def test_sigprocmask_how(self):
+        from smallworld.state.models.sparc32.systemv.posix.signal import (
+            SPARC32SysVSigprocmask,
+        )
+
+        emu = emulators.UnicornEmulator(SPARC32_PLATFORM)
+        emu.map_memory(0x4000, 0x1000)
+        newset = 0x4000
+        emu.write_memory(newset, b"\x01" + b"\0" * 127)
+        model = SPARC32SysVSigprocmask(0x1000)
+        model.allow_imprecise = True
+        for how, mask in ((1, b"\x01"), (2, b"\x00"), (4, b"\x01")):
+            with self.subTest(how=how):
+                emu.write_register("o0", how)
+                emu.write_register("o1", newset)
+                emu.write_register("o2", 0)
+                emu.write_register("o7", 0x2000)
+                model.model(emu)
+                self.assertEqual(emu.read_register("o0"), 0)
+                self.assertEqual(model.sigmask[:1], mask)
+        emu.write_register("o0", 3)
+        emu.write_register("o1", newset)
+        model.model(emu)
+        self.assertEqual(emu.read_register("o0"), 0xFFFFFFFF)
+
+    def test_v9_elf_refused(self):
+        path = pathlib.Path(__file__).parent / "rela" / "rela.sparc32.elf"
+        image = bytearray(path.read_bytes())
+        for machine in (18, 43):
+            with self.subTest(e_machine=machine):
+                image[18:20] = machine.to_bytes(2, "big")
+                with self.assertRaisesRegex(exceptions.ConfigurationError, "V8\\+/V9"):
+                    state.memory.code.Executable.from_elf(
+                        io.BytesIO(bytes(image)), platform=SPARC32_PLATFORM
+                    )
 
 
 class CoverageHarnessTests(unittest.TestCase):
@@ -11064,9 +11328,7 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         return SimpleNamespace(fda_bindings=bindings or {})
 
     def _describe(self, fda, label, val):
-        from smallworld.analyses.field_detection.field_analysis import (
-            _describe_field,
-        )
+        from smallworld.analyses.field_detection.field_analysis import _describe_field
 
         return _describe_field(fda, label, val)
 

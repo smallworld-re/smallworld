@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GhidraEmulator` and `GhidraSymbolicEmulator` no longer treat a p-code
   `STORE` into the register space as a memory write, which reported it as an
   unmapped write or ran memory hooks on it.
+- `GhidraSymbolicEmulator` raises `EmulationExecInvalidFailure` for an
+  instruction that computes a register-space address (SPARC's `save` and
+  `restore`, for one), which its Z3 state cannot run, instead of letting a Java
+  `AssertionError` escape.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -61,10 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment; elsewhere, creating a SPARC32 `UnicornEmulator` raises
   `ConfigurationError`. The angr and Ghidra backends need no patches; they
   correct Ghidra's register-window copy, which loses `%l2` and `%l7` across a
-  call.
+  call. `GhidraSymbolicEmulator` cannot run `save` or `restore`, and angr
+  refuses `mulscc`; `npc` is not modeled on any backend. A SPARC32 function
+  model derives from `state.models.sparc32.SPARC32Model`, which knows the
+  `%o7 + 8` return; the generic `Model` does not.
   The test suite builds SPARC binaries with GNU binutils (zig can assemble
-  SPARC but not link it) and runs the branch, call, delay, dma, elf, null_pc,
-  recursion, square, stack, static_buf and strlen scenarios on it.
+  SPARC but not link it) and runs the branch, call, delay, dma, elf, link_elf,
+  null_pc, recursion, rela, square, stack, static_buf and strlen scenarios on
+  it.
   `GhidraMachineDef` gains `fixes_pcode`/`pcode_fixes()` for correcting an
   instruction's p-code before it runs.
 - SPARC32 System V C library models and calling convention
@@ -74,9 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alignment, splitting it between the last register and the stack when one
   register is left. SPARC32 binds `R_SPARC_JMP_SLOT` the way glibc does, by
   rewriting the PLT entry, and ignores `R_SPARC_NONE`. Floating-point returns
-  are not supported on SPARC32 yet, since `%f0` is not modeled. The C
-  library-model tests run on SPARC32, built with a LEON3-targeted gcc and
-  glibc from nixpkgs (without libitm, whose SPARC code needs V9).
+  are not supported on SPARC32 yet, since `%f0` is not modeled. The errno,
+  `open()` flag and `sigprocmask()` models use SPARC's own (SunOS-derived)
+  values. The C library-model tests run on SPARC32, built with a
+  LEON3-targeted gcc against SPARC glibc's headers (without libitm, whose
+  SPARC code needs V9).
 - `UnicornMachineDef.configure_engine()`, a hook for adjusting a new engine's
   processor state. SPARC32 uses it to enable the FPU (`%psr.EF`), which
   Unicorn's CPU reset leaves disabled.

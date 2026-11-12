@@ -174,6 +174,9 @@ MIPSEL_CFLAGS := -mfloat-abi=hard
 MIPS64_CFLAGS := -T mips_linkerscript.ld
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard
+# SPARC glibc and kernel headers, ahead of any other target's on the include
+# path; tests/default.nix sets SPARC32_LIBC_CFLAGS.
+SPARC32_CFLAGS := $(SPARC32_LIBC_CFLAGS)
 
 # ELF Executable C flags
 AARCH64_ELF_CFLAGS := -pie

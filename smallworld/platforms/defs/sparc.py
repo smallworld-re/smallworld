@@ -57,7 +57,12 @@ class SPARC32(PlatformDef):
     Aimed at LEON-class processors.  Ghidra has no V8 language, so the
     p-code backends use its 32-bit V9 language, which decodes the V8
     privileged instructions (`rd %psr`, `wr %wim`, ...) as different V9
-    instructions; only user-mode code runs the same on every backend.
+    instructions, and also accepts V9-only user instructions (some with the
+    wrong semantics; `ldx` loads 4 bytes) that Unicorn's V8 core and real V8
+    hardware reject.  So code must be V8 user-mode code to run the same on
+    every backend, and V8+/V9 ELF images are refused.  Even then, angr
+    refuses `mulscc`, and the p-code backends truncate an overflowing
+    `udiv`/`sdiv` where V8 saturates; see the SPARC32 notes in the docs.
     """
 
     architecture = Architecture.SPARC32

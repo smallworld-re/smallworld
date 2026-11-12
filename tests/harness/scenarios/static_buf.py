@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Sequence
 
 from .common import (
     PlatformSpec,
@@ -10,6 +10,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    model_base,
     set_register,
     split_variant,
 )
@@ -335,7 +336,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     platform_value = platform
     abi_value = smallworld.platforms.ABI.NONE
 
-    class FoobarModel(smallworld.state.models.Model):
+    base: Any = model_base(smallworld, platform_value)
+
+    class FoobarModel(base):
         name = "foobar"
         platform = platform_value
         abi = abi_value

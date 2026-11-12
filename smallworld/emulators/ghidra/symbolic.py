@@ -20,6 +20,9 @@ from ghidra.pcode.emu.symz3.state import (
 from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
+from java.lang import (
+    AssertionError as JAssertionError,  # type: ignore[import-not-found]
+)
 from java.lang import String as JString  # type: ignore[import-not-found]
 from org.apache.commons.lang3.tuple import (
     Pair as JPair,  # type: ignore[import-not-found]
@@ -627,7 +630,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if pc in self._function_hooks:
             self._function_hooks[pc](self)
         else:
-            self._step_pcode_ops()
+            try:
+                self._step_pcode_ops()
+            except JAssertionError as exc:
+                # SymZ3's register state takes only fixed register offsets, so
+                # p-code that computes a register-space address (SPARC's
+                # register-window bank, for one) fails an internal assertion.
+                if "symbolic register" not in str(exc):
+                    raise
+                raise exceptions.EmulationExecInvalidFailure(
+                    "GhidraSymbolicEmulator cannot run an instruction that "
+                    "computes a register-space address",
+                    pc,
+                    None,
+                ) from exc
 
         # Cache invalidation: anything we ran may have changed preconditions.
         self._cached_preconditions = None
@@ -756,7 +772,8 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             if opcode == op.STORE:
                 space_var, addr_var, data_var = op.getInputs()
                 # Only the primary address space is memory; a STORE can also
-                # target the register space (SPARC's register-window bank).
+                # target the register space, where sleigh keeps indexed
+                # register files.
                 if space_var.getAddress().getOffset() == default_space_id:
                     self._process_write_breakpoint(addr_var, data_var)
             elif opcode == op.LOAD:

@@ -7,6 +7,7 @@
   sparcBinutils,
   sparcGcc,
   sparcGlibc,
+  sparcLinuxHeaders,
   superHBinutils,
   tricoreGcc,
   xtensaGcc,
@@ -39,6 +40,10 @@ stdenv.mkDerivation {
     AMD64_SYSROOT = x86_64_glibc_path;
     AARCH64_SYSROOT = pkgsCross.aarch64-multiplatform.glibc.outPath;
     PPC_SYSROOT = pkgsCross.ppc32.glibc.outPath;
+    # The SPARC gcc wrapper carries no libc headers of its own, and the
+    # generic include path below would hand it another target's (m68k's)
+    # glibc headers, so the Makefile puts SPARC's first.
+    SPARC32_LIBC_CFLAGS = "-isystem ${sparcGlibc.dev}/include -isystem ${sparcLinuxHeaders}/include";
   };
   shellHook = ''
     export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache

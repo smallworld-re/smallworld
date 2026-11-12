@@ -20,10 +20,12 @@ EM_SPARC = 2  # SPARC 32-bit (V7/V8)
 EM_386 = 3  # Intel 80386
 EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
+EM_SPARC32PLUS = 18  # SPARC V8+ (32-bit, V9 instructions)
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
 EM_ARM = 40  # ARM 32-bit
 EM_SH = 42  # Renesas/Hitachi SuperH; all generations
+EM_SPARCV9 = 43  # SPARC V9 (64-bit)
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
 EM_XTENSA = 94  # Xtensa
@@ -414,9 +416,13 @@ class ElfExecutable(Executable):
                 )
                 architecture = self.platform.architecture
         elif elf.header.machine_type.value == EM_SPARC:
-            # EM_SPARC is V7/V8 only; V8+ (EM_SPARC32PLUS) and V9 (EM_SPARCV9)
-            # images use V9 instructions and are not supported.
             architecture = Architecture.SPARC32
+        elif elf.header.machine_type.value in (EM_SPARC32PLUS, EM_SPARCV9):
+            # V8+ and V9 images use V9 instructions, which SPARC32 does not
+            # model.
+            raise ConfigurationError(
+                "SPARC V8+/V9 images are not supported; only EM_SPARC (V7/V8)"
+            )
         elif elf.header.machine_type.value == EM_TRICORE:
             architecture = Architecture.TRICORE
         elif elf.header.machine_type.value == EM_LOONGARCH:

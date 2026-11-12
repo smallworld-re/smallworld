@@ -33,7 +33,10 @@ class SPARC32MachineDef(GhidraMachineDef):
         "sp": "sp",
         "fp": "fp",
         "pc": "PC",
-        "npc": "nPC",
+        # Ghidra's sleigh folds each delay slot into its branch's p-code and
+        # never reads or writes nPC, so the register would only hold stale
+        # values.
+        "npc": None,
         "y": "Y",
     }
 

@@ -486,8 +486,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
                 code = frame.getCode()
 
-                # Check whether the machine corrects this op.
-                # The first op has already run by now; no fix targets it.
+                # Check whether the machine corrects this op.  The first
+                # stepPcodeOp() of an instruction only decodes it, so every op,
+                # op 0 included, is checked before it runs.
                 if self.machdef.fixes_pcode:
                     if fixes is None:
                         fixes = self.machdef.pcode_fixes(code)
@@ -504,8 +505,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     space_id = space_var.getAddress().getOffset()
 
                     # Only the primary address space is memory.
-                    # A STORE can also target the register space:
-                    # SPARC's save writes its register-window bank that way.
+                    # A STORE can also target the register space, where
+                    # sleigh keeps indexed register files.
                     if space_id == self._default_space.getSpaceID():
                         self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:

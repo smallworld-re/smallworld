@@ -175,6 +175,16 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    "sparc32": RelaSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="o0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "tricore": RelaSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pointer_size=4,
@@ -237,6 +247,10 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
     elif arch == "armhf" and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+    elif arch == "sparc32":
+        # The caller's 92-byte frame (window save area, struct-return word,
+        # argument home slots), which main may write through %fp.
+        stack.push_bytes(bytes(96), None)
 
     return stack
 
@@ -262,6 +276,9 @@ def _configure_exit(
         set_register(cpu, "lr", exitpoint)
     elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
+    elif arch == "sparc32":
+        # SPARC returns to %o7 + 8, past the call and its delay slot.
+        set_register(cpu, "o7", exitpoint - 8)
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:

@@ -1,6 +1,8 @@
 from ..... import emulators, platforms
+from .....platforms.defs.sparc import SPARC_RETURN_ADDRESS_OFFSET
 from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 from ...posix.filedesc import POSIXFileDescriptorManager
+from ..model import SPARC32Model
 
 
 class FileDescriptorManager(POSIXFileDescriptorManager):
@@ -90,6 +92,17 @@ class SPARC32SysVCallingContext(CStdCallingContext):
         lo = emulator.read_register("o1") & self._int_inv_mask
         return (hi << 32) | lo
 
+    def set_return_address(
+        self, emulator: emulators.Emulator, address: int, push=False
+    ) -> None:
+        """Return to `address` through %o7, which a return reads plus 8.
+
+        This matches `SPARC32Model.get_return_address`.
+        """
+        emulator.write_register(
+            "o7", (address - SPARC_RETURN_ADDRESS_OFFSET) & 0xFFFFFFFF
+        )
+
     # SPARC returns floating-point values in %f0 (and %f1), and the SPARC32
     # platform does not model the floating-point registers.
     _NO_FP_RETURN = (
@@ -114,7 +127,7 @@ class SPARC32SysVCallingContext(CStdCallingContext):
         raise NotImplementedError(self._NO_FP_RETURN)
 
 
-class SPARC32SysVModel(SPARC32SysVCallingContext, CStdModel):
+class SPARC32SysVModel(SPARC32SysVCallingContext, SPARC32Model, CStdModel):
     """Base class for C models using the 32-bit SPARC System V ABI"""
 
     pass

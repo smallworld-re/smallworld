@@ -10,7 +10,6 @@ from smallworld.exceptions.exceptions import ConfigurationError
 
 from ... import emulators, exceptions
 from ...platforms import Byteorder, PlatformDef
-from ...platforms.defs.sparc import SPARC_RETURN_ADDRESS_OFFSET
 from .model import Model
 
 log = logging.getLogger(__name__)
@@ -135,6 +134,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
+
+        if self._eight_byte_args_split:
+            # The split path takes register pairs and four-byte stack words.
+            assert self._eight_byte_reg_size == 2
+            assert self._four_byte_stack_size == 4
 
         self._int_reg_offset = 0
         self._fp_reg_offset = 0
@@ -1137,12 +1141,6 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             emulator.write_register("a0", address)
-        elif self.platform.architecture == platforms.Architecture.SPARC32:
-            # sparc: returns go to 'o7' + 8, matching the 'o7' branch of
-            # state.models.model.Model.get_return_address.
-            emulator.write_register(
-                "o7", (address - SPARC_RETURN_ADDRESS_OFFSET) & 0xFFFFFFFF
-            )
         else:
             raise exceptions.ConfigurationError(
                 f"Don't know how to return for {self.platform.architecture}"

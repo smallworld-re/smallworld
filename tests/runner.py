@@ -68,6 +68,9 @@ machine.add_exit_point(fake_return_address)
 if arch == smallworld.platforms.Architecture.SPARC32:
     # SPARC returns through %o7, to %o7 + 8, past the call and its delay slot.
     cpu.o7.set(fake_return_address - 8)
+    # The caller's 92-byte frame above %sp (window save area, struct-return
+    # word, argument home slots), which a callee may write through %fp.
+    stack.push_bytes(bytes(96), "SPARC caller frame")
 
 # Configure the stack pointer
 sp = stack.get_pointer()

@@ -506,11 +506,23 @@ def resolve_string_pointer(emulator, source: StringSource) -> int:
     )
 
 
+def model_base(smallworld, platform):
+    """The model base class for `platform`.
+
+    SPARC32 models return through %o7 + 8, which only `SPARC32Model` knows.
+    """
+    if platform.architecture == smallworld.platforms.Architecture.SPARC32:
+        return smallworld.state.models.sparc32.SPARC32Model
+    return smallworld.state.models.Model
+
+
 def make_puts_model(smallworld, *, platform, address: int, source: StringSource):
     platform_value = platform
     abi_value = smallworld.platforms.ABI.NONE
 
-    class PutsModel(smallworld.state.models.Model):
+    base: Any = model_base(smallworld, platform_value)
+
+    class PutsModel(base):
         name = "puts"
         platform = platform_value
         abi = abi_value
@@ -526,7 +538,9 @@ def make_gets_model(smallworld, *, platform, address: int, destination: StringSo
     platform_value = platform
     abi_value = smallworld.platforms.ABI.NONE
 
-    class GetsModel(smallworld.state.models.Model):
+    base: Any = model_base(smallworld, platform_value)
+
+    class GetsModel(base):
         name = "gets"
         platform = platform_value
         abi = abi_value
@@ -549,7 +563,9 @@ def make_noop_model(smallworld, *, name: str, platform, address: int):
     platform_value = platform
     abi_value = smallworld.platforms.ABI.NONE
 
-    class NoopModel(smallworld.state.models.Model):
+    base: Any = model_base(smallworld, platform_value)
+
+    class NoopModel(base):
         name = name_value
         platform = platform_value
         abi = abi_value

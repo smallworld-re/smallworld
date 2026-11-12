@@ -59,6 +59,12 @@ class GhidraMachineDef:
     def pcode_fixes(self, code: typing.Sequence[PcodeOp]) -> typing.Dict[int, PcodeOp]:
         """Replacements for ops in one instruction's p-code.
 
+        Any op can be replaced, the first included.  A replacement runs as
+        it is, without the emulator's usual inspection of the op it stands
+        in for: it gets no memory hooks, no unmapped-memory check, and no
+        symbolic fork.  So a replacement must not branch and must not
+        access the default (memory) space.
+
         Arguments:
             code: The p-code ops of the instruction about to run
 
