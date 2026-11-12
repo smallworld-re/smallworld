@@ -5,21 +5,25 @@ each ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
 "Not implemented!". :class:`FloatPcodeEngine` runs blocks with the behaviors
 here instead.
 
-The semantics follow Ghidra's p-code reference where it is explicit, and
-Ghidra's own p-code emulator where it is not:
+The semantics follow IEEE 754. P-code operations have no rounding mode, so
+results are rounded to nearest, ties to even. Where IEEE 754 leaves a result
+open, or has no matching operation:
 
-- Results are rounded to nearest, ties to even. P-code operations have no
-  rounding mode.
-- A NaN result is always the canonical quiet NaN, as Ghidra's emulator
-  produces.
-- Comparisons follow IEEE 754, as the reference specifies: any comparison
-  with a NaN is false, and -0 equals +0. Ghidra's emulator instead orders
-  floats as Java's ``Double.compareTo`` does.
-- ``FLOAT_TRUNC`` truncates toward zero and keeps the low bits of the
-  integer. NaN converts to 0, and infinities to the most positive and most
-  negative integers as wide as the input, as in Ghidra.
+- A NaN result is the canonical quiet NaN. ``FLOAT_NEG`` and ``FLOAT_ABS``
+  change only the sign bit, of a NaN too.
+- A comparison with a NaN is unordered: ``FLOAT_EQUAL``, ``FLOAT_LESS`` and
+  ``FLOAT_LESSEQUAL`` are false, and ``FLOAT_NOTEQUAL`` is true. -0 equals
+  +0. (The p-code reference says ``FLOAT_NOTEQUAL`` is false on a NaN; IEEE
+  754 and Ghidra's emulator say true.)
+- ``FLOAT_TRUNC`` truncates toward zero, and saturates to the output's
+  signed range. NaN converts to 0.
 - ``FLOAT_ROUND`` rounds halfway cases up, ``floor(x + 1/2)``, computed
-  exactly. ``FLOAT_CEIL`` and ``FLOAT_FLOOR`` keep the sign of a zero result.
+  exactly; this is what Ghidra computes, though IEEE 754 has no such
+  operation. ``FLOAT_CEIL`` and ``FLOAT_FLOOR`` keep the sign of a zero
+  result.
+
+``docs/concepts/platforms/support.rst`` lists where Ghidra's emulator departs
+from IEEE 754, and so from these behaviors.
 
 Concrete operands are computed with Python floats, so that every rounding is
 correct and independent of claripy, which ignores the rounding mode when it
@@ -29,7 +33,8 @@ carries more than twice their precision plus two bits.
 
 Symbolic operands are computed with claripy's floating-point operations, which
 Z3 solves. Claripy only has single and double precision, so a symbolic
-half-precision operand is refused. No floating-point format other than half,
+half-precision operand is refused, except by ``FLOAT_NEG`` and ``FLOAT_ABS``,
+which only change its sign bit. No floating-point format other than half,
 single and double precision is supported; in particular, not the 80-bit
 formats of x87 and the 68881.
 """
@@ -59,12 +64,9 @@ _RTP = claripy.fp.RM.RM_TowardsPositiveInf
 _RTN = claripy.fp.RM.RM_TowardsNegativeInf
 
 
-def _saturated(size_in: int, size_out: int, positive: bool) -> int:
-    """What Ghidra truncates an infinity to: the most positive or most
-    negative integer as wide as the float, then truncated to the output."""
-    bits = size_in * 8
-    value = (1 << (bits - 1)) - 1 if positive else -(1 << (bits - 1))
-    return value & ((1 << (size_out * 8)) - 1)
+def _int_range(size: int) -> typing.Tuple[int, int]:
+    bits = size * 8
+    return -(1 << (bits - 1)), (1 << (bits - 1)) - 1
 
 
 def _check_format(size: int) -> None:
@@ -112,6 +114,11 @@ def _from_int(value: int, size: int) -> int:
     return _from_float(math.copysign(math.ldexp(kept, shift), value), size)
 
 
+def _sign_bit(size: int) -> int:
+    _check_format(size)
+    return 1 << (size * 8 - 1)
+
+
 def _signed(value: int, size: int) -> int:
     bits = size * 8
     value &= (1 << bits) - 1
@@ -134,11 +141,14 @@ def _sqrt(x: float) -> float:
 
 def _trunc(size_out: int, size_in: int, bits: int) -> int:
     x = _to_float(bits, size_in)
+    low, high = _int_range(size_out)
     if math.isnan(x):
-        return 0
-    if math.isinf(x):
-        return _saturated(size_in, size_out, x > 0)
-    return int(x) & ((1 << (size_out * 8)) - 1)
+        value = 0
+    elif math.isinf(x):
+        value = high if x > 0 else low
+    else:
+        value = min(max(int(x), low), high)
+    return value & ((1 << (size_out * 8)) - 1)
 
 
 def _to_integral(x: float, integral: typing.Callable[[float], int]) -> float:
@@ -184,30 +194,76 @@ def _boolean(condition: claripy.ast.Bool, size: int) -> claripy.ast.BV:
 def _symbolic_trunc(size_out: int, size_in: int, value: claripy.ast.BV):
     x = _fp(value, size_in)
     bits = size_out * 8
-    # A float at least 2**(bits + 53) in magnitude is a multiple of
-    # 2**(bits + 1), so its low bits are zero. Below that, a conversion
-    # (bits + 55) wide is exact, and keeps its low bits.
-    limit = claripy.fpToFP(_RNE, claripy.FPV(2.0 ** (bits + 53), _SORTS[8]), x.sort)
-    wide = claripy.fpToSBV(_RTZ, x, bits + 55)
+    low, high = _int_range(size_out)
+    # -2**(bits - 1), exact in every format.
+    bound = claripy.fpToFP(_RNE, claripy.FPV(float(low), _SORTS[8]), x.sort)
     return claripy.If(
         claripy.fpIsNaN(x),
         claripy.BVV(0, bits),
         claripy.If(
-            claripy.fpIsInf(x),
+            claripy.fpGEQ(x, claripy.fpNeg(bound)),
+            claripy.BVV(high, bits),
             claripy.If(
-                claripy.fpGT(
-                    x, claripy.fpToFP(_RNE, claripy.FPV(0.0, _SORTS[8]), x.sort)
-                ),
-                claripy.BVV(_saturated(size_in, size_out, True), bits),
-                claripy.BVV(_saturated(size_in, size_out, False), bits),
-            ),
-            claripy.If(
-                claripy.fpGEQ(claripy.fpAbs(x), limit),
-                claripy.BVV(0, bits),
-                claripy.Extract(bits - 1, 0, wide),
+                claripy.fpLT(x, bound),
+                claripy.BVV(low & ((1 << bits) - 1), bits),
+                claripy.fpToSBV(_RTZ, x, bits),
             ),
         ),
     )
+
+
+def _symbolic_divide(rm, x: claripy.ast.FP, y: claripy.ast.FP) -> claripy.ast.FP:
+    # claripy folds a constant division by zero wrongly: 0/0 and NaN/0 to an
+    # infinity, and inf/-0 to +inf. Give those results directly.
+    zero = claripy.FPV(0.0, x.sort)
+    top = x.sort.length - 1
+    negative = claripy.Extract(top, top, claripy.fpToIEEEBV(x)) != claripy.Extract(
+        top, top, claripy.fpToIEEEBV(y)
+    )
+    by_zero = claripy.If(
+        claripy.Or(claripy.fpEQ(x, zero), claripy.fpIsNaN(x)),
+        claripy.FPV(math.nan, x.sort),
+        claripy.If(
+            negative, claripy.FPV(-math.inf, x.sort), claripy.FPV(math.inf, x.sort)
+        ),
+    )
+    return claripy.If(claripy.fpEQ(y, zero), by_zero, claripy.fpDiv(rm, x, y))
+
+
+def _symbolic_int2float(
+    size_out: int, size_in: int, value: claripy.ast.BV
+) -> claripy.ast.BV:
+    sort = _fp_sort(size_out)
+    bits = size_in * 8
+    direct = claripy.fpToFP(_RNE, value, sort)
+    if size_out == 8 or bits <= 53:
+        return _bits(direct, size_out)
+    # claripy folds a constant conversion through a double, which can round
+    # twice, as _from_int describes. Round to odd as _from_int does, so that
+    # the integer converted has at most 30 significant bits and is exact in
+    # a double.
+    negative = claripy.SLT(value, 0)
+    magnitude = claripy.If(negative, -value, value)
+    result = direct
+    for length in range(54, bits + 1):
+        shift = length - 30
+        kept = claripy.LShR(magnitude, shift)
+        sticky = claripy.If(
+            claripy.Extract(shift - 1, 0, magnitude) == 0,
+            claripy.BVV(0, bits),
+            claripy.BVV(1, bits),
+        )
+        scaled = claripy.fpMul(
+            _RNE,
+            claripy.fpToFP(_RNE, kept | sticky, sort),
+            claripy.FPV(2.0**shift, sort),
+        )
+        result = claripy.If(
+            claripy.Extract(length - 1, length - 1, magnitude) == 1,
+            claripy.If(negative, claripy.fpNeg(scaled), scaled),
+            result,
+        )
+    return _bits(result, size_out)
 
 
 def _symbolic_integral(size: int, value: claripy.ast.BV, kind: str):
@@ -332,7 +388,7 @@ def _float_behaviors() -> typing.Dict[OpCode, OpBehavior]:
         OpCode.FLOAT_MULT: _arithmetic(
             OpCode.FLOAT_MULT, lambda x, y: x * y, claripy.fpMul
         ),
-        OpCode.FLOAT_DIV: _arithmetic(OpCode.FLOAT_DIV, _divide, claripy.fpDiv),
+        OpCode.FLOAT_DIV: _arithmetic(OpCode.FLOAT_DIV, _divide, _symbolic_divide),
         OpCode.FLOAT_EQUAL: _comparison(
             OpCode.FLOAT_EQUAL, lambda x, y: x == y, claripy.fpEQ
         ),
@@ -354,13 +410,13 @@ def _float_behaviors() -> typing.Dict[OpCode, OpBehavior]:
         ),
         OpCode.FLOAT_NEG: _FloatUnary(
             OpCode.FLOAT_NEG,
-            lambda so, si, a: _from_float(-_to_float(a, si), so),
-            lambda so, si, a: _bits(claripy.fpNeg(_fp(a, si)), so),
+            lambda so, si, a: a ^ _sign_bit(si),
+            lambda so, si, a: a ^ _sign_bit(si),
         ),
         OpCode.FLOAT_ABS: _FloatUnary(
             OpCode.FLOAT_ABS,
-            lambda so, si, a: _from_float(abs(_to_float(a, si)), so),
-            lambda so, si, a: _bits(claripy.fpAbs(_fp(a, si)), so),
+            lambda so, si, a: a & (_sign_bit(si) - 1),
+            lambda so, si, a: a & (_sign_bit(si) - 1),
         ),
         OpCode.FLOAT_SQRT: _FloatUnary(
             OpCode.FLOAT_SQRT,
@@ -370,7 +426,7 @@ def _float_behaviors() -> typing.Dict[OpCode, OpBehavior]:
         OpCode.FLOAT_INT2FLOAT: _FloatUnary(
             OpCode.FLOAT_INT2FLOAT,
             lambda so, si, a: _from_int(_signed(a, si), so),
-            lambda so, si, a: _bits(claripy.fpToFP(_RNE, a, _fp_sort(so)), so),
+            _symbolic_int2float,
         ),
         OpCode.FLOAT_FLOAT2FLOAT: _FloatUnary(
             OpCode.FLOAT_FLOAT2FLOAT,

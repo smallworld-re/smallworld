@@ -49,8 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - angr runs floating-point p-code. angr's p-code engine leaves every float
-  operation unimplemented, so SmallWorld supplies its own, checked against
-  Ghidra's: concrete operands in half, single and double precision, symbolic
+  operation unimplemented, so SmallWorld supplies its own. They follow IEEE
+  754, and the docs list where Ghidra's emulator departs from it: concrete
+  operands in half, single and double precision, symbolic
   ones in single and double precision through Z3. SH-2A floating point now runs
   on angr and passes TestFloat's single-precision functions. SH-4's does not
   yet, because its float instructions branch within the instruction, which

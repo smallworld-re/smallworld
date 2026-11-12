@@ -275,16 +275,41 @@ A few notes:
   ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
   ``AngrError("Not implemented!")``. SmallWorld supplies its own, in
   ``smallworld/emulators/angr/machdefs/pcode_float.py``, and runs every
-  Pcode-backed architecture with them. They follow Ghidra's p-code reference:
-  results round to nearest, ties to even, and comparisons follow IEEE 754, so
-  any comparison with a NaN is false and ``-0`` equals ``+0``. Where the
-  reference is silent they follow Ghidra's emulator: a NaN result is the
-  canonical quiet NaN, ``FLOAT_TRUNC`` keeps the integer's low bits, and
-  ``FLOAT_ROUND`` rounds halfway cases up. They are checked against Ghidra's own
-  float operations, and differ from them deliberately in three places: Ghidra's
-  emulator compares as Java's ``Double.compareTo`` does, computes
-  ``FLOAT_ROUND`` as ``floor(x + 0.5)`` in floating point, and rounds some
-  half-precision results incorrectly.
+  Pcode-backed architecture with them. They follow IEEE 754, rounding to
+  nearest, ties to even. A comparison with a NaN is unordered, so
+  ``FLOAT_NOTEQUAL`` is true and the others false, and ``-0`` equals ``+0``;
+  Ghidra's p-code reference says ``FLOAT_NOTEQUAL`` is false on a NaN. Where
+  IEEE 754 leaves a result open, a NaN result is the canonical quiet NaN, and
+  ``FLOAT_TRUNC`` saturates to the output's signed range, with NaN giving 0.
+  ``FLOAT_ROUND``, which has no IEEE 754 counterpart, rounds halfway cases up,
+  as Ghidra does.
+
+  They are checked against the arithmetic Ghidra's p-code emulator runs. That
+  departs from IEEE 754, and so from angr, in these places:
+
+  - **Subnormal underflow.** Half- and single-precision ``FLOAT_MULT``,
+    ``FLOAT_DIV`` and narrowing ``FLOAT_FLOAT2FLOAT`` give zero for a result
+    between half the least subnormal and the least subnormal, which rounds to
+    the least subnormal: ``0x00000001`` times ``0x3F000001`` gives
+    ``0x00000000``, and ``2**-150 * (1 + 2**-20)`` narrowed to single
+    precision gives ``0x00000000``. Double precision is unaffected.
+  - **Double rounding.** ``FLOAT_INT2FLOAT`` converts through a double, so an
+    integer wider than 53 bits can round twice on its way to single or half
+    precision: ``2**60 + 2**36 + 1`` gives ``0x5D800000``, not ``0x5D800001``.
+  - **FLOAT_ROUND** computes ``floor(x + 0.5)`` in floating point, so
+    ``0.49999999999999994`` rounds to 1.
+  - **NaNs.** ``FLOAT_NEG`` and ``FLOAT_ABS`` of a NaN give a default NaN,
+    losing its payload; IEEE 754 changes only the sign bit. Ghidra's NaN
+    results are also the host's, so on x86-64 one produced by an invalid
+    operation has its sign set (``0xFFC00000``). IEEE 754 allows that, but
+    the bits differ from angr's.
+  - **Out-of-range FLOAT_TRUNC.** IEEE 754 leaves the result open. Ghidra
+    saturates to a 64-bit integer and keeps its low bits, so ``+inf`` to 4
+    bytes gives ``0xFFFFFFFF`` and ``-inf`` gives 0, where angr gives
+    ``0x7FFFFFFF`` and ``0x80000000``.
+
+  Ghidra evaluates operands wider than 8 bytes through a separate BigInteger
+  implementation, with other differences; angr supports no such format.
 
   Concrete operands support half, single and double precision. Symbolic ones
   are solved by Z3, and support single and double precision only, because
