@@ -37,6 +37,16 @@ half-precision operand is refused, except by ``FLOAT_NEG`` and ``FLOAT_ABS``,
 which only change its sign bit. No floating-point format other than half,
 single and double precision is supported; in particular, not the 80-bit
 formats of x87 and the 68881.
+
+Claripy also folds some constants wrongly: a division by zero, which can give
+an infinity for a NaN and the wrong sign of infinity, and a 64-bit integer
+converted to single precision, which rounds twice. angr evaluates expressions
+with that folding too, so these behaviors compute those cases explicitly.
+
+Every symbolic result canonicalizes a NaN, which mentions the result twice,
+so a chain of symbolic floating-point operations prints exponentially large;
+print one with ``shallow_repr(max_depth=...)``. The expression shares the
+repeated nodes, so solving it is unaffected.
 """
 
 import fractions
@@ -470,8 +480,8 @@ FLOAT_BEHAVIORS = FloatBehaviorFactory()
 class FloatPcodeEngine(angr.engines.UberEnginePcode):
     """angr's p-code engine, with floating-point operations.
 
-    angr's lifter gives every block its own behaviors, so this engine gives
-    each block SmallWorld's before running it.
+    angr's lifter attaches its own behaviors to every block it lifts, so this
+    engine replaces them before running the block.
     """
 
     def handle_pcode_block(self, irsb) -> None:

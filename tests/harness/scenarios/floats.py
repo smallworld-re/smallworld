@@ -12,7 +12,8 @@ _TRITON_NO_FLOAT = "Triton implements no floating-point instruction semantics"
 
 _SH4_ANGR_PR = (
     "SH-4's sleigh takes precision from FPSCR_PR, which SmallWorld cannot set "
-    "and angr leaves unconstrained, so fadd forks"
+    "and angr leaves unconstrained, so fadd forks; with it set, angr's p-code "
+    "engine still cannot take fadd's branch on it"
 )
 
 _VARIANTS = (
@@ -41,7 +42,9 @@ _VARIANTS = (
     # SH-4's sleigh reads precision from FPSCR_PR, a register of its own that
     # only `lds Rm,FPSCR` refreshes, and SmallWorld cannot set it.  Ghidra
     # starts it at 0, single precision; angr leaves it unconstrained, so `fadd`
-    # forks into its single- and double-precision paths.
+    # forks into its single- and double-precision paths.  Were it set, angr
+    # would still fail: its p-code engine cannot branch within an instruction
+    # (see testfloat_arch/superh.py).
     ("sh4.pcode", None),
     ("sh4.angr", _SH4_ANGR_PR),
     ("sh4el.pcode", None),

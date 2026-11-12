@@ -5,9 +5,9 @@
     !
     ! Deliberately integer-only and deliberately SH-2A-heavy.  Floating point is
     ! excluded because the backends are known to disagree there for reasons that
-    ! have nothing to do with this blob - angr's pcode engine implements no FP at
-    ! all, and Ghidra's SH-2A sleigh ignores FPSCR.PR - and a comparison that is
-    ! expected to fail teaches nothing.  The FPU is covered by the sh2a_fpu*
+    ! have nothing to do with this blob - Ghidra's SH-2A sleigh ignores FPSCR.PR,
+    ! so double precision is wrong on every sleigh-derived backend - and a
+    ! comparison that is expected to fail teaches nothing.  The FPU is covered by the sh2a_fpu*
     ! scenarios instead.
     !
     ! What agreement here proves: four independent decoders - Ghidra's sleigh, the

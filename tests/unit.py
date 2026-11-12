@@ -11227,9 +11227,80 @@ class AngrPcodeFloatTests(unittest.TestCase):
         self.assertEqual(self._solve("FLOAT_TRUNC", 4, 8, self._f(-1e20)), [0x80000000])
         self.assertEqual(self._solve("FLOAT_TRUNC", 4, 8, self._f(math.nan)), [0])
 
+    def test_symbolic_matches_concrete(self):
+        # Pinning the operands to a range, not with ==, makes Z3 solve them
+        # rather than claripy fold them.
+        import angr
+
+        unary = ["FLOAT_NEG", "FLOAT_ABS", "FLOAT_SQRT", "FLOAT_CEIL"]
+        unary += ["FLOAT_FLOOR", "FLOAT_ROUND", "FLOAT_NAN"]
+        binary = ["FLOAT_ADD", "FLOAT_SUB", "FLOAT_MULT", "FLOAT_DIV"]
+        binary += ["FLOAT_EQUAL", "FLOAT_NOTEQUAL", "FLOAT_LESS", "FLOAT_LESSEQUAL"]
+        cases = []
+        for size in (4, 8):
+            values = [self._f(v, size) for v in (-2.5, -0.0, math.nan)]
+            # Z3 takes seconds over these in double precision; one value each.
+            slow = {"FLOAT_SQRT", "FLOAT_ROUND"} if size == 8 else set()
+            cases += [
+                (name, 1 if name == "FLOAT_NAN" else size, size, (v,))
+                for name in unary
+                for v in (values[:1] if name in slow else values)
+            ]
+            pairs = list(zip(values, values[1:] + values[:1]))
+            cases += [
+                (name, 1 if "EQUAL" in name or "LESS" in name else size, size, p)
+                for name in binary
+                for p in pairs
+            ]
+            cases += [("FLOAT_TRUNC", 4, size, (v,)) for v in values]
+            cases += [("FLOAT_FLOAT2FLOAT", 12 - size, size, (v,)) for v in values]
+        # test_symbolic_int2float_rounds_once covers single precision, which
+        # Z3 takes seconds over.
+        cases += [
+            ("FLOAT_INT2FLOAT", 8, 8, (v,))
+            for v in (2**64 - 5, (1 << 60) + (1 << 36) + 1)
+        ]
+
+        for name, size_out, size_in, values in cases:
+            behavior = self._behavior(name)
+            state = angr.SimState(arch="AMD64")
+            operands = []
+            for value in values:
+                x = state.solver.BVS("x", size_in * 8)
+                state.solver.add(x.UGE(value), x.ULE(value))
+                operands.append(x)
+            if len(values) == 1:
+                symbolic = behavior.evaluate_unary(size_out, size_in, *operands)
+                concrete = self._unary(name, size_out, size_in, *values)
+            else:
+                symbolic = behavior.evaluate_binary(size_out, size_in, *operands)
+                concrete = self._binary(name, size_out, size_in, *values)
+            self.assertEqual(
+                state.solver.eval_upto(symbolic, 2),
+                [concrete],
+                (name, size_out, size_in, [hex(v) for v in values]),
+            )
+
+    def test_symbolic_half_precision_refused(self):
+        x = claripy.BVS("x", 16)
+        with self.assertRaises(exceptions.EmulationError):
+            self._behavior("FLOAT_ADD").evaluate_binary(2, 2, x, x)
+
     def test_unsupported_format(self):
         with self.assertRaises(exceptions.EmulationError):
             self._binary("FLOAT_ADD", 10, 10, 1, 1)
+
+    def test_every_pcode_machine_runs_floats(self):
+        # Each p-code machine's engine must keep the float behaviors.
+        from smallworld.emulators.angr.machdefs import machdef
+        from smallworld.emulators.angr.machdefs.pcode_float import FloatPcodeEngine
+
+        pending = [machdef.GhidraMachineDef]
+        while pending:
+            cls = pending.pop()
+            pending += cls.__subclasses__()
+            with self.subTest(machdef=cls.__name__):
+                self.assertTrue(issubclass(cls.angr_engine, FloatPcodeEngine))
 
 
 class AngrPcodeFloatGhidraDifferentialTests(unittest.TestCase):
@@ -11239,10 +11310,7 @@ class AngrPcodeFloatGhidraDifferentialTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        try:
-            _ensure_pyghidra_started()
-        except Exception as e:  # pragma: no cover - Ghidra is nix-only
-            raise unittest.SkipTest(f"Ghidra unavailable: {e}")
+        _ensure_pyghidra_started()
 
     def test_against_ghidra(self):
         import fractions

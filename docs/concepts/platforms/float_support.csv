@@ -13,6 +13,7 @@ arm-v7 quad vector,             No Support, Untested,   No,         Untested,   
 i386 x87,                       No,         No,         No,         No,         No
 i386 mmx,                       No,         No,         No,         No,         No
 i386 sse,                       **Yes**,    **Yes**,    No,         No,         **Yes**
+loongarch64 scalar,             Untested,   Untested,   No Support, No,         No Support
 mips32,                         No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
 powerpc32,                      No,         Untested,   No,         Untested,   No Support
@@ -22,4 +23,5 @@ superh-sh2a-fpu single,         **Yes**,    **Yes**,    **Yes**,    **Yes**,    
 superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         No Support
 superh-sh4 single,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4 double,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
+tricore,                        Untested,   Untested,   Untested,   No,         Untested
 xtensa,                         No,         Untested,   No Support, No,         No Support

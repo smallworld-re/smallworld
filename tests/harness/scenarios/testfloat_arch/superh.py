@@ -172,6 +172,9 @@ def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
 # instruction: it resumes the instruction partway through and fails its own
 # "FIXME: Test statement_offset behavior" assertion. SH-4's arithmetic is an
 # if/else on FPSCR_PR, so every function fails that way. SH-2A's has no branch.
+# This harness sets FPSCR with lds, so FPSCR_PR is concrete; the floats
+# scenario writes fpscr directly, and fails earlier, with FPSCR_PR
+# unconstrained.
 _ANGR_NO_PCODE_BRANCH = (
     "angr's p-code engine cannot branch within an instruction, and SH-4's "
     "floating-point instructions branch on FPSCR_PR"

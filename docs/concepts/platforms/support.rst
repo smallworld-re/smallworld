@@ -275,7 +275,10 @@ A few notes:
   ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
   ``AngrError("Not implemented!")``. SmallWorld supplies its own, in
   ``smallworld/emulators/angr/machdefs/pcode_float.py``, and runs every
-  Pcode-backed architecture with them. They follow IEEE 754, rounding to
+  Pcode-backed architecture with them, though only SH-2A single precision is
+  measured; TriCore and LoongArch64 are untested. Xtensa stays at No: Ghidra's
+  sleigh includes its optional FPU, but SmallWorld's angr machdef for it
+  exposes no floating-point registers. The behaviors follow IEEE 754, rounding to
   nearest, ties to even. A comparison with a NaN is unordered, so
   ``FLOAT_NOTEQUAL`` is true and the others false, and ``-0`` equals ``+0``;
   Ghidra's p-code reference says ``FLOAT_NOTEQUAL`` is false on a NaN. Where
@@ -320,6 +323,9 @@ A few notes:
   instruction, which rules out instructions whose semantics contain an
   if/else. SH-4's floating-point instructions are such an if/else on
   ``FPSCR_PR``, so SH-4 floating point still does not run on angr; SH-2A's does.
+  A harness that writes ``fpscr`` directly meets a second problem first:
+  ``FPSCR_PR`` is then not stale, as under Ghidra (see below), but
+  unconstrained, so each floating-point instruction forks into both paths.
 - **SuperH double precision** is a separate row from single because the two are
   selected at runtime by ``FPSCR.PR`` rather than by the opcode, and the backends
   differ in two distinct ways.
@@ -417,7 +423,9 @@ Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
 Every skip is an upstream defect, reduced to a minimal case first:
 
 - **angr** is skipped on SH-4, whose floating-point instructions branch within
-  the instruction, which angr's p-code engine cannot do (see above). On SH-2A,
+  the instruction, which angr's p-code engine cannot do (see above). The
+  ``floats`` scenario, which writes ``fpscr`` directly, fails earlier, because
+  angr leaves ``FPSCR_PR`` unconstrained. On SH-2A,
   angr passes all five single-precision functions, including the multiply and
   divide cases where Ghidra flushes subnormal results to zero.
 - **SH-2A double precision** is skipped on the sleigh-derived backends because

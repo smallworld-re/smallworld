@@ -260,7 +260,7 @@ def _spec(engines: Tuple[str, ...], fpscr: int, inputs, expected) -> FpuCaseSpec
     )
 
 
-# angr variants are declared and skipped rather than omitted, so the manifest
+# Skipped variants are declared and skipped rather than omitted, so the manifest
 # records *why* a backend is absent instead of silently narrowing coverage.
 # Panda is a live engine here: the QEMU SH-2A instruction port is built (see
 # nix/patches/panda-qemu-sh2a.patch), and it is the only backend that computes
@@ -289,7 +289,9 @@ _SKIPS: Dict[str, Dict[str, str]] = {
     "sh2a_fpu": {},
     # This scenario is the executable specification of the sleigh defect above:
     # its expectations are the architecturally correct double-precision results.
-    # angr and pcode are skipped because they cannot produce them; PANDA is NOT
+    # angr and pcode are skipped because they cannot produce them (angr also
+    # leaves the T-bit results symbolic over SR, which this scenario does not
+    # seed); PANDA is NOT
     # skipped and is the single load-bearing engine here - it runs real QEMU,
     # whose translate.c does branch on FPSCR.PR.  So the whole double-precision
     # signal rests on `sh2a_fpu_double:sh2a.panda`; do not narrow it further
