@@ -10918,6 +10918,20 @@ class GhidraThumbTests(unittest.TestCase):
                 self.assertEqual(lrs, [0x1005])
                 self.assertEqual(emu.read_register("r0"), 5)
 
+    def test_cpsr_t_bit_is_thumb_state(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                emu.write_register("pc", 0x1001)
+                self.assertEqual(emu.read_register("cpsr") & 0x20, 0x20)
+                cpsr = emu.read_register("cpsr")
+                emu.write_register("cpsr", cpsr & ~0x20)
+                self.assertFalse(emu.get_thumb())
+                emu.write_register("cpsr", cpsr)
+                self.assertTrue(emu.get_thumb())
+                emu.step()
+                self.assertEqual(emu.read_register("r0"), 1)
+
     def test_v4_has_no_thumb(self):
         _ensure_pyghidra_started()
         for cls in self.EMULATORS:
@@ -10931,6 +10945,9 @@ class GhidraThumbTests(unittest.TestCase):
                 emu.set_thumb(False)
                 with self.assertRaises(exceptions.ConfigurationError):
                     emu.set_thumb(True)
+                # cpsr's T bit has nothing to select.
+                emu.write_register("cpsr", 0x30)
+                self.assertFalse(emu.get_thumb())
 
     def test_get_thumb_needs_arm32(self):
         for arch in (platforms.Architecture.AARCH64, platforms.Architecture.X86_64):
