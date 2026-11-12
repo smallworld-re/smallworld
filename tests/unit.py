@@ -11410,6 +11410,29 @@ class MCS51DerivedStateTests(unittest.TestCase):
                 emulator.step()
                 self.assertEqual(emulator.read_memory(sfrstack, 1), b"\x10")
 
+    def test_unmapped_sfr_paging_is_warned_of_once(self):
+        # SFR pages 0-0x0F mapped: the EFM8BB2's hidden page stack levels,
+        # SFRPGCN and SFRSTACK, on page 0x10, are not.
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class,
+                    b"\x00\x00\x00\x00",
+                    sfrs={},
+                    device="EFM8BB21F16G",
+                )
+                with self.assertLogs("smallworld.emulators", "WARNING") as logs:
+                    emulator.step()
+                    emulator.step()
+                warnings = [
+                    record.getMessage()
+                    for record in logs.records
+                    if "SFR paging is not modeled" in record.getMessage()
+                ]
+                self.assertEqual(len(warnings), 1)
+                self.assertIn("0x1001", warnings[0])
+                self.assertIn("0x10d7", warnings[0])
+
     def test_angr_refuses_symbolic_interrupt_state(self):
         import claripy
 

@@ -204,8 +204,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SFRs on some pages but not all, whose `paged_masks()` depend on the page,
   and `stack_view`, for a stack read through an SFR; its `sfrnext` and
   `sfrlast` become `stack`, the levels below SFRPAGE. `mcs51_sfr_stack_view()`
-  says what that SFR reads. An `mcs51_sdcc` program built for the EFM8BB2
-  tests it.
+  says what that SFR reads. The emulators warn, once, when a device's
+  paging is not modeled because SFRs it depends on are not mapped. An
+  `mcs51_sdcc` program built for the EFM8BB2 tests it.
 - The EFM8BB2's interrupts, as `EFM8BB2Interrupt`, from its reference
   manual, with four priority levels. An `MCS51InterruptSource` takes the SFR
   of its priority's high bit, `priority_high_sfr`, and request flags in

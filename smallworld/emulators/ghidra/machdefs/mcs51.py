@@ -1,3 +1,4 @@
+import logging
 import typing
 
 from .... import utils
@@ -28,8 +29,11 @@ from ....platforms.defs.mcs51 import (
     mcs51_service_interrupts,
     mcs51_sfr_stack_view,
     mcs51_take_interrupt,
+    mcs51_unmapped_paging_message,
 )
 from .machdef import GhidraMachineDef, GhidraUserOp
+
+logger = logging.getLogger(__name__)
 
 
 def handle_nop(emulator, op):
@@ -91,6 +95,10 @@ class MCS51MachineDef(GhidraMachineDef):
         # it depends on are mapped.
         self._sfr_paging: typing.Optional[MCS51SFRPaging] = None
         self._sfr_paging_mapped = False
+        # The SFRs paging depends on that are not mapped, and whether that has
+        # been warned of.
+        self._sfr_paging_unmapped: typing.Tuple[int, ...] = ()
+        self._sfr_paging_warned = False
         # How the device writes its own flash, if SmallWorld knows, and
         # whether the SFRs that control it are mapped.
         self._flash: typing.Optional[MCS51FlashProgramming] = None
@@ -125,9 +133,16 @@ class MCS51MachineDef(GhidraMachineDef):
             mapped.contains_value(MCS51_SFR_BASE + sfr) for sfr in self._interrupt_sfrs
         )
         paging = self._sfr_paging
-        self._sfr_paging_mapped = paging is not None and all(
-            mapped.contains_value(MCS51_SFR_BASE + sfr) for sfr in paging.sfrs()
+        self._sfr_paging_unmapped = (
+            ()
+            if paging is None
+            else tuple(
+                sfr
+                for sfr in paging.sfrs()
+                if not mapped.contains_value(MCS51_SFR_BASE + sfr)
+            )
         )
+        self._sfr_paging_mapped = paging is not None and not self._sfr_paging_unmapped
         flash = self._flash
         self._flash_mapped = flash is not None and all(
             mapped.contains_value(MCS51_SFR_BASE + sfr)
@@ -235,12 +250,16 @@ class MCS51MachineDef(GhidraMachineDef):
         On a device that pages its SFRs, ``sfr_page`` is first brought in
         step with SFRPAGE, whatever wrote it, and taking an interrupt
         and RETI push and pop the SFR page stack; see
-        :class:`MCS51SFRPaging`.  Paging is only modeled when SFRPAGE, the
-        page stack and the SFR that enables it are mapped.
+        :class:`MCS51SFRPaging`.  Paging is only modeled when the SFRs it
+        depends on are mapped (see :meth:`MCS51SFRPaging.sfrs`); a warning
+        is logged, once, when they are not.
         """
         self._check_mapping(emulator)
         if self._sfr_paging_mapped:
             self._sync_sfr_page(emulator)
+        elif self._sfr_paging_unmapped and not self._sfr_paging_warned:
+            self._sfr_paging_warned = True
+            logger.warning(mcs51_unmapped_paging_message(self._sfr_paging_unmapped))
         if not self._interrupt_sfrs_mapped:
             return
 

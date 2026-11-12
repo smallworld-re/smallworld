@@ -333,7 +333,8 @@ rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
 ``C8051F360.h``, has SFRPAGE at 0xA7, pages 0 and 0x0F, and SFR0CN, on page
 0x0F, in place of SFRPGCN.  Map the pages a program uses, and SFRPAGE,
 SFRNEXT, SFRLAST and the SFR that enables the stack, with its bit 0 - SFRPGCN
-or SFR0CN, on page 0x0F; paging is only modeled when they are mapped.
+or SFR0CN, on page 0x0F; paging is only modeled when they are mapped, and the
+emulators warn, once, when they are not.
 
 The EFM8BB2's, ``MCS51_EFM8BB2_SFR_PAGING``, is taken from its reference
 manual, which lists each SFR's pages: 0x00, 0x10 and 0x20.  SFRPAGE is at
@@ -355,12 +356,19 @@ SFRs: level n at SFR address ``0x1000 + n``, that is, at
 ``MCS51_SFR_BASE + 0x1001`` to ``MCS51_SFR_BASE + 0x1004``.  Taking an
 interrupt pushes SFRPAGE into level 1, and each level into the next, the
 bottom one lost; RETI pops them back, leaving the bottom level as it was.
-The emulators keep SFRSTACK in step with the level selected, after SFRPAGE,
-SFRPGCN or the stack changes; a write to SFRSTACK, which the hardware
-ignores, is not undone.  A harness can read or set the levels there, as
-memory, to inspect or set up the stack.  Map pages 0-0x20, or at least
-SFRPAGE, 0x1001-0x1004, SFRPGCN and SFRSTACK; paging is only modeled when
-they are mapped.
+The emulators write SFRSTACK, which firmware only reads, with the level
+selected: angr as each block starts, and Ghidra after an instruction or hook
+writes SFRPAGE or SFRPGCN, and after an interrupt pushes the stack or RETI
+pops it.  So a write to SFRSTACK, which the hardware ignores, lasts until
+then.  A harness can read or set the levels as memory, to inspect or set up
+the stack; on Ghidra, SFRSTACK shows a level a hook sets only from the next
+of those events, while angr shows it from the next block.
+
+Map pages 0-0x20, or at least SFRPAGE, 0x1001-0x1004, SFRPGCN and SFRSTACK.
+Paging is only modeled when they are mapped; when they are not, every SFR is
+reached on page 0, and the emulators log a warning, once, naming the SFRs
+that are missing.  The levels at 0x1001-0x1004 are below page 0x10's SFRs,
+so a harness that maps only 0x80-0xFF of each page leaves them out.
 
 A hook or model that writes SFRPAGE changes the page from the next
 instruction on Ghidra, and the next block on angr.  For the C8051 devices,

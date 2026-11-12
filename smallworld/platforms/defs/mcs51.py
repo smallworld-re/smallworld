@@ -596,6 +596,22 @@ def mcs51_pop_sfr_page(
     return True
 
 
+def mcs51_unmapped_paging_message(unmapped: typing.Sequence[int]) -> str:
+    """The warning the emulators log, once, when a device's SFR paging is
+    not modeled because SFRs it depends on (see :meth:`MCS51SFRPaging.sfrs`)
+    are not mapped: every SFR is then reached on page 0.
+
+    Arguments:
+        unmapped: The SFRs that are not mapped, with their pages above them.
+    """
+    sfrs = ", ".join(f"{sfr:#x}" for sfr in sorted(set(unmapped)))
+    return (
+        f"8051 SFR paging is not modeled, and every SFR is reached on page 0: "
+        f"SFRs {sfrs} are not mapped (addresses in the SFR space, with the "
+        "page above the SFR)"
+    )
+
+
 def mcs51_sfr_stack_view(
     paging: MCS51SFRPaging, read_sfr: typing.Callable[[int], int]
 ) -> typing.Optional[typing.Tuple[int, int]]:

@@ -1,4 +1,5 @@
 import enum
+import logging
 import typing
 
 import angr
@@ -35,8 +36,11 @@ from ....platforms.defs.mcs51 import (
     mcs51_service_interrupts,
     mcs51_sfr_stack_view,
     mcs51_take_interrupt,
+    mcs51_unmapped_paging_message,
 )
 from .machdef import GhidraMachineDef
+
+logger = logging.getLogger(__name__)
 
 # The 8051 keeps code, external RAM, internal RAM, SFRs and Ghidra's bit space
 # in separate address spaces, and angr's p-code engine only knows one, named
@@ -137,6 +141,10 @@ _ONE_INSTRUCTION = "mcs51_one_instruction"
 # flash, when SmallWorld knows.
 _INTERRUPT_SOURCES = "mcs51_interrupt_sources"
 _SFR_PAGING = "mcs51_sfr_paging"
+
+# Where a path records that it has warned that its device's SFR paging is
+# not modeled, for want of mapped SFRs.
+_PAGING_WARNED = "mcs51_sfr_paging_warned"
 _FLASH = "mcs51_flash"
 
 
@@ -610,17 +618,26 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     def _sfr_paging(self) -> typing.Optional[MCS51SFRPaging]:
         """The device's SFR paging, if it pages its SFRs and they are mapped.
 
-        Paging is only modeled when SFRPAGE, the page stack and the SFR that
-        enables it are mapped.
+        Paging is only modeled when the SFRs it depends on are mapped (see
+        :meth:`MCS51SFRPaging.sfrs`); a path warns, once, when they are not.
         """
         extensions = getattr(self.state.scratch, "extensions", {})
         paging = extensions.get(_SFR_PAGING)
         memory_map = getattr(self.state.scratch, "memory_map", None)
         if paging is None or memory_map is None:
             return None
-        if not all(
-            memory_map.contains_value(MCS51_SFR_BASE + sfr) for sfr in paging.sfrs()
-        ):
+        unmapped = tuple(
+            sfr
+            for sfr in paging.sfrs()
+            if not memory_map.contains_value(MCS51_SFR_BASE + sfr)
+        )
+        if unmapped:
+            globals_map = typing.cast(
+                typing.MutableMapping[str, typing.Any], self.state.globals
+            )
+            if not globals_map.get(_PAGING_WARNED, False):
+                globals_map[_PAGING_WARNED] = True
+                logger.warning(mcs51_unmapped_paging_message(unmapped))
             return None
         return paging
 
