@@ -120,8 +120,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operations it does not implement.
 - `Executable.from_ihex()` loads Intel HEX images. Given the ASxxxx linker
   map SDCC writes, the result looks up symbols with `get_symbol_value()`, as
-  an ELF does; on the 8051, each symbol lands in its address space in
-  SmallWorld's flat map, and the image must fit the 64 KiB of code space.
+  an ELF does, and `get_map_value()` returns a symbol's value as the map
+  records it. Where the image and symbols land is up to the platform's
+  `IHexLayout`: on the 8051 (`MCS51IHexLayout`), each symbol lands in its
+  address space in SmallWorld's flat map, and the image must fit the 64 KiB
+  of code space.
 - The C99 library-model tests run on the 8051, under both SDCC conventions,
   in SDCC's small and large memory models and, under the default convention,
   its medium one, for the functions with 8051 models.  An 8051 model that
@@ -162,7 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   device by part number, for Silicon Labs' CIP-51 families and the other
   devices SDCC's headers declare one for. An image loaded with
   `Executable.from_ihex()` reports the same SFR from an SDCC linker map's
-  `__XPAGE`, as `xpage_sfr`.
+  `__XPAGE`, through `get_map_value("__XPAGE")`.
 - `MCS51Device`, added to a machine, emulates an 8051 device: it sets
   `xpage_sfr` and makes the Ghidra and angr emulators take the device's
   interrupts rather than the 8052's. A device whose interrupts are not

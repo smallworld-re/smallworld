@@ -271,11 +271,11 @@ it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x, F12x and F13x
 looks the address up by part number, for these and the other 8051s whose
 paging SFR SDCC's headers declare (Chipcon and TI's CC and MSC12xx, Axsem's
 AX8052, Infineon's XC866); a program built with SDCC records it in its linker
-map, which an image loaded with ``Executable.from_ihex()`` reports as
-``xpage_sfr``::
+map as ``__XPAGE``, which an image loaded with ``Executable.from_ihex()``
+reports through ``get_map_value()``::
 
     cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
-    cpu.xpage_sfr.set(code.xpage_sfr)  # or, from the map
+    cpu.xpage_sfr.set(code.get_map_value("__XPAGE"))  # or, from the map
 
 MOVX @Ri takes the page from the ``xpage`` register, which the emulators keep
 in step with the SFR ``xpage_sfr`` names, or at 0 where that SFR is not

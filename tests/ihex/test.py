@@ -12,9 +12,14 @@ from smallworld.platforms.defs.mcs51 import (
     mcs51_xpage_sfr,
 )
 from smallworld.state.memory.code import Executable
-from smallworld.state.memory.ihex import read_asxxxx_map
+from smallworld.state.memory.ihex import (
+    IHexLayout,
+    MCS51IHexLayout,
+    read_asxxxx_map,
+)
 
 MCS51 = platforms.Platform(platforms.Architecture.MCS51, platforms.Byteorder.BIG)
+AMD64 = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
 
 
 def record(kind: int, address: int, data: bytes = b"") -> str:
@@ -154,6 +159,10 @@ class IHexLoaderTests(unittest.TestCase):
             self.load(record(0x00, 0xFFFF, b"\x01\x02") + END, platform=MCS51)
         self.load(record(0x00, 0xFFFF, b"\x01") + END, platform=MCS51)
         self.assertEqual(list(self.load(text).bounds), [(0x18000, 0x18001)])
+        # Other platforms have no such limit.
+        self.assertEqual(
+            list(self.load(text, platform=AMD64).bounds), [(0x18000, 0x18001)]
+        )
 
     def test_bad_checksum_is_refused(self):
         line = record(0x00, 0, b"\x01")
@@ -235,14 +244,35 @@ D:   00001300  _xinit                             prog
         with self.assertRaises(exceptions.ConfigurationError):
             self.load().get_symbol_value("_nothing")
 
-    def test_xpage_sfr_is_the_maps_xpage(self):
-        self.assertEqual(self.load(platform=MCS51).xpage_sfr, 0xAA)
+    def test_map_value_is_the_raw_value(self):
+        # get_symbol_value places _main in code space, moved with the image;
+        # get_map_value is the number the linker wrote.
+        image = self.load(platform=MCS51, address=0x100)
+        self.assertEqual(
+            image.get_symbol_value("_main"), 0x100 + MCS51_CODE_BASE + 0xAA
+        )
+        self.assertEqual(image.get_map_value("_main"), 0xAA)
+        self.assertEqual(image.get_map_value("__XPAGE"), 0xAA)
 
-    def test_xpage_sfr_needs_xpage_in_the_map(self):
-        self.assertIsNone(Executable.from_ihex(io.StringIO(END)).xpage_sfr)
+    def test_other_platforms_keep_symbol_values(self):
+        image = self.load(platform=AMD64, address=0x100)
+        self.assertEqual(image.get_symbol_value("_main"), 0x100 + 0xAA)
+        self.assertEqual(image.get_symbol_value("_buf"), 0x100 + 1)
+        self.assertEqual(image.get_symbol_value("_P1"), 0x90)  # absolute
+
+    def test_layout_is_chosen_by_platform(self):
+        self.assertIsInstance(IHexLayout.for_platform(MCS51), MCS51IHexLayout)
+        for platform in (AMD64, None):
+            layout = IHexLayout.for_platform(platform)
+            self.assertIs(type(layout), IHexLayout)
+
+    def test_map_value_needs_the_symbol(self):
+        self.assertIsNone(
+            Executable.from_ihex(io.StringIO(END)).get_map_value("__XPAGE")
+        )
         without = MAP.replace("__XPAGE", "_EMI0CN")
         image = Executable.from_ihex(io.StringIO(END), map_file=io.StringIO(without))
-        self.assertIsNone(image.xpage_sfr)
+        self.assertIsNone(image.get_map_value("__XPAGE"))
 
     def test_other_text_is_refused(self):
         with self.assertRaises(exceptions.ConfigurationError):

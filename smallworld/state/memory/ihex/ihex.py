@@ -2,16 +2,12 @@ import logging
 import typing
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Platform
-from ....platforms.defs.mcs51 import (
-    MCS51_CODE_BASE,
-    MCS51_IDATA_BASE,
-    MCS51_XDATA_BASE,
-)
+from ....platforms import Platform
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
 from .asxxxx import AsxxxxSymbol, read_asxxxx_map
+from .layout import IHexLayout
 
 logger = logging.getLogger(__name__)
 
@@ -62,22 +58,16 @@ class IHexExecutable(Executable):
     map to look them up with :meth:`get_symbol_value`.  Maps from the ASxxxx
     linker, which SDCC uses, are supported.
 
-    On the 8051, a map's symbols land in the flat address space SmallWorld
-    lays the 8051's memories out in: a symbol in a code area at its code
-    address, one in an XDATA area (pdata included) in XDATA, and the rest in
-    internal RAM.  That goes for an absolute XDATA area too, which holds
-    XDATA variables placed with ``__at``; symbols in other absolute areas -
-    constants, such as the linker's area starts and lengths, and SFRs and
-    variables placed with ``__at`` - keep their values, since the map does
-    not say which space they are in.  The image itself must fit the 8051's
-    64 KiB of code space.  On other platforms, symbols keep their values,
-    moved with the image.
+    Where the image and its symbols land is up to the platform's
+    :class:`~smallworld.state.memory.ihex.IHexLayout`.  By default symbols
+    keep their values, moved with the image; on the 8051, see
+    :class:`~smallworld.state.memory.ihex.MCS51IHexLayout`.
 
     Arguments:
         file: File-like object containing the Intel HEX records.
         map_file: Optional file-like object containing the linker's map.
         platform: The platform the image is for.  Intel HEX does not say, and
-            on the 8051 symbol addresses depend on it.
+            on some platforms, such as the 8051, symbol addresses depend on it.
         user_base: Where the image's address 0 goes; by default, 0.
     """
 
@@ -91,6 +81,7 @@ class IHexExecutable(Executable):
         base = 0 if user_base is None else user_base
         super().__init__(base, 0)
         self.platform = platform
+        self._layout = IHexLayout.for_platform(platform)
         self.bounds: RangeCollection = RangeCollection()
         self._symbols: typing.Dict[str, AsxxxxSymbol] = dict()
 
@@ -152,20 +143,9 @@ class IHexExecutable(Executable):
                     last += content
                     continue
             ordered.append((start, content))
-        if (
-            platform is not None
-            and platform.architecture == Architecture.MCS51
-            and ordered
-        ):
-            # Past the 8051's 64 KiB of code is XDATA in SmallWorld's flat
-            # map; banked code, for parts with more flash, has nowhere to go.
+        if ordered:
             start, content = ordered[-1]
-            if base + start + len(content) > MCS51_XDATA_BASE:
-                raise ConfigurationError(
-                    f"Intel HEX data up to {hex(base + start + len(content))} "
-                    f"is past the 8051's code space, which ends at "
-                    f"{hex(MCS51_XDATA_BASE)}"
-                )
+            self._layout.check_extent(base + start + len(content))
         for start, content in ordered:
             self[start] = BytesValue(bytes(content), None)
             self.bounds.add_range((base + start, base + start + len(content)))
@@ -175,20 +155,7 @@ class IHexExecutable(Executable):
             self._symbols = read_asxxxx_map(_read_text(map_file))
 
     def _symbol_address(self, symbol: AsxxxxSymbol) -> int:
-        if (
-            self.platform is not None
-            and self.platform.architecture == Architecture.MCS51
-        ):
-            if "XDATA" in symbol.attributes:
-                return MCS51_XDATA_BASE + symbol.value
-            if "ABS" in symbol.attributes:
-                return symbol.value
-            if "CODE" in symbol.attributes:
-                return self.address + MCS51_CODE_BASE + symbol.value
-            return MCS51_IDATA_BASE + symbol.value
-        if "ABS" in symbol.attributes:
-            return symbol.value
-        return self.address + symbol.value
+        return self._layout.symbol_address(self.address, symbol)
 
     def get_symbol_value(self, name: str) -> int:
         """Get a symbol's address, from the linker map.
@@ -211,22 +178,24 @@ class IHexExecutable(Executable):
             raise ConfigurationError(f"No symbol named {name}")
         return self._symbol_address(self._symbols[name])
 
-    @property
-    def xpage_sfr(self) -> typing.Optional[int]:
-        """The SFR that pages MOVX @Ri on the device the 8051 program is for.
+    def get_map_value(self, name: str) -> typing.Optional[int]:
+        """Get a symbol's value as the linker map records it.
 
-        SDCC records it in the linker map as ``__XPAGE``: P2's address,
-        unless the program includes a device header that declares
-        ``_XPAGE``.  To emulate the device, set the CPU's ``xpage_sfr``
-        register to it::
+        Unlike :meth:`get_symbol_value`, this does not place the symbol in
+        the platform's address space: it is the number the linker wrote.
+        That suits symbols that are not addresses, such as SDCC's
+        ``__XPAGE`` on the 8051, the SFR that pages MOVX @Ri::
 
-            cpu.xpage_sfr.set(code.xpage_sfr)
+            cpu.xpage_sfr.set(code.get_map_value("__XPAGE"))
 
-        ``None`` if no map was loaded, or the map has no ``__XPAGE``, as
-        maps of programs not built with SDCC's runtime do not; then see
-        :func:`~smallworld.platforms.defs.mcs51.mcs51_xpage_sfr`.
+        Arguments:
+            name: The symbol's name, as the linker sees it.
+
+        Returns:
+            The symbol's value, or None if no map was loaded or it has no
+            such symbol.
         """
-        symbol = self._symbols.get("__XPAGE")
+        symbol = self._symbols.get(name)
         return None if symbol is None else symbol.value
 
     def get_symbol_names(self) -> typing.List[str]:

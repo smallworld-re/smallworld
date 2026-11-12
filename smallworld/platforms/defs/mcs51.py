@@ -299,7 +299,8 @@ def mcs51_xpage_sfr(device: str) -> int:
         cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
 
     A program built with SDCC records the same address in its linker map, as
-    ``__XPAGE``; see :attr:`~smallworld.state.memory.ihex.IHexExecutable.xpage_sfr`.
+    ``__XPAGE``; see
+    :meth:`~smallworld.state.memory.ihex.IHexExecutable.get_map_value`.
 
     Arguments:
         device: The device's part number, such as ``C8051F330``, ``CC2530``

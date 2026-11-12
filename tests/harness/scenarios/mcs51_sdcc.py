@@ -208,8 +208,9 @@ def _setup(
     # themselves, so that they test the SFR the device's table names.
     sfrs = bytearray(0x100)
     if device is not None:
-        if code.xpage_sfr != mcs51_xpage_sfr(device):
-            raise ValueError(f"the map's __XPAGE is {code.xpage_sfr!r}")
+        xpage_sfr = code.get_map_value("__XPAGE")
+        if xpage_sfr != mcs51_xpage_sfr(device):
+            raise ValueError(f"the map's __XPAGE is {xpage_sfr!r}")
         if emulate_device:
             mcs51_device = smallworld.state.cpus.MCS51Device(device)
             machine.add(mcs51_device)
@@ -217,7 +218,7 @@ def _setup(
             if paging is not None:
                 sfrs = bytearray(0x1000)
         else:
-            cpu.xpage_sfr.set(code.xpage_sfr)
+            cpu.xpage_sfr.set(xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
     for base, content in (
         (MCS51_IDATA_BASE, bytes(0x100)),
