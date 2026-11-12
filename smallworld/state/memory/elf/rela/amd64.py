@@ -1,3 +1,5 @@
+import typing
+
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
@@ -70,6 +72,20 @@ class AMD64ElfRelocator(ElfRelocator):
     arch = platforms.Architecture.X86_64
     byteorder = platforms.Byteorder.LITTLE
 
+    def __init__(self) -> None:
+        # Addresses of the TLS-descriptor pairs this relocator has written.
+        # Their resolver word is null at load and filled in by
+        # bind_tls_descriptor_resolver once a model library is linked.
+        self._tls_descriptors: typing.List[int] = []
+        # The resolver they should carry, remembered so that a descriptor
+        # relocated (or re-relocated) after binding is not written back to
+        # null.
+        self._tls_resolver = 0
+        # Synthetic GOT slots for an object file's descriptors, which no
+        # linker built, by symbol index, so that several call sites share one
+        # descriptor.
+        self._tls_descriptor_slots: typing.Dict[int, int] = {}
+
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
 
@@ -107,6 +123,42 @@ class AMD64ElfRelocator(ElfRelocator):
 
     def is_tls_descriptor_reference(self, rela: ElfRela) -> bool:
         return rela.type == R_X86_64_GOTPC32_TLSDESC
+
+    @property
+    def tls_descriptors(self) -> typing.List[int]:
+        return list(self._tls_descriptors)
+
+    def bind_tls_descriptor_resolver(self, elf, address: int) -> None:
+        self._tls_resolver = address
+        for descriptor in self._tls_descriptors:
+            elf.write_bytes(descriptor, self._pack(address, 8))
+
+    def _note_tls_descriptor(self, address: int) -> int:
+        """Record a TLS descriptor and hand back the resolver it should carry.
+
+        Relocation is not one-shot: `update_symbol_value` re-relocates every
+        rela attached to a symbol, so this can be called repeatedly for the
+        same descriptor. Returning the bound resolver (null until a model
+        library is linked) keeps relocation idempotent -- a re-relocation
+        after binding rewrites the same resolver instead of nulling it.
+        """
+        if address not in self._tls_descriptors:
+            self._tls_descriptors.append(address)
+        return self._tls_resolver
+
+    def _tls_descriptor_slot(self, elf, symbol_index: int) -> int:
+        """Address of the TLS descriptor for a symbol, creating it if needed.
+
+        An object file has no GOT -- building one is the linker's job -- so
+        the missing slots go in space the image reserves past its loaded
+        sections, one per symbol.  Keyed and idempotent, since
+        `update_symbol_value` re-relocates every rela attached to a symbol.
+        """
+        if symbol_index not in self._tls_descriptor_slots:
+            self._tls_descriptor_slots[symbol_index] = elf.reserve_synthetic(
+                16, "synthetic TLS descriptor"
+            )
+        return self._tls_descriptor_slots[symbol_index]
 
     def _compute_value(self, rela: ElfRela, elf):
         symval = self._symbol_value(rela)
@@ -216,13 +268,13 @@ class AMD64ElfRelocator(ElfRelocator):
             # The unlinked form of R_X86_64_TLSDESC: an object file has only
             # `lea x@tlsdesc(%rip)`, naming a GOT slot no linker built, so
             # synthesize one.
-            slot = elf.tlsdesc_got_slot(rela.symbol.idx)
+            slot = self._tls_descriptor_slot(elf, rela.symbol.idx)
             # The addend belongs to the PC-relative computation (gcc emits -4
             # for the displacement), not to the argument, which is the
             # symbol's block offset alone.
             elf.write_bytes(
                 slot,
-                self._pack(elf.note_tlsdesc_descriptor(slot), 8)
+                self._pack(self._note_tls_descriptor(slot), 8)
                 + self._pack(rela.symbol.value, 8),
             )
             # G + GOT + A - P: where the slot sits relative to this `lea`.
@@ -232,11 +284,12 @@ class AMD64ElfRelocator(ElfRelocator):
             return b""
         elif rela.type == R_X86_64_TLSDESC:
             # A two-word descriptor { resolver, argument } that gnu2-dialect
-            # TLS code calls indirectly. The resolver comes from the ELF --
-            # null until a model library is linked, bound afterwards -- rather
+            # TLS code calls indirectly. The resolver is the one this
+            # relocator remembers -- null until a model library is linked,
+            # bound afterwards -- rather
             # than being hardcoded, so that re-relocating a symbol does not
             # unbind descriptors Library.link already bound.
-            resolver = elf.note_tlsdesc_descriptor(rela.offset)
+            resolver = self._note_tls_descriptor(rela.offset)
             # Not `symval`: a TLS symbol's st_value is a block offset, and
             # rebasing it would turn it into a load address.
             argument = rela.symbol.value + self._get_addend(rela, elf, 8)

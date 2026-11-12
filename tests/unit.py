@@ -6114,13 +6114,15 @@ class TlsDescFixtureTests(unittest.TestCase):
     def test_image_loads(self):
         # Refusing the relocation raised here, which cost every function in
         # the image rather than only the ones using a thread-local.
-        self.assertTrue(self.elf.tlsdesc_descriptors, "no TLS descriptors found")
+        self.assertTrue(self.elf.relocator.tls_descriptors, "no TLS descriptors found")
 
     def test_arguments_are_distinct_block_offsets(self):
         # The fixture has two thread-locals, so the two descriptors must carry
         # different offsets. Rebasing the symbol value by the load address
         # turned both into large addresses and lost the distinction.
-        args = sorted(self._descriptor(d)[1] for d in self.elf.tlsdesc_descriptors)
+        args = sorted(
+            self._descriptor(d)[1] for d in self.elf.relocator.tls_descriptors
+        )
         self.assertEqual(len(args), 2)
         self.assertNotEqual(args[0], args[1])
         for arg in args:
@@ -6132,15 +6134,15 @@ class TlsDescFixtureTests(unittest.TestCase):
         # Guard the loops below: with no descriptors they assert nothing, and
         # "no descriptors were recorded" is the condition this test exists to
         # detect.
-        self.assertEqual(len(self.elf.tlsdesc_descriptors), 2)
-        for d in self.elf.tlsdesc_descriptors:
+        self.assertEqual(len(self.elf.relocator.tls_descriptors), 2)
+        for d in self.elf.relocator.tls_descriptors:
             self.assertEqual(self._descriptor(d)[0], 0, "resolver bound too early")
 
         libc = POSIXLibc(0x900000, self.platform, platforms.ABI.SYSTEMV)
         libc.link(self.elf)
         model = libc.models.get("__tlsdesc_resolve")
         self.assertIsNotNone(model, "library provides no __tlsdesc_resolve model")
-        for d in self.elf.tlsdesc_descriptors:
+        for d in self.elf.relocator.tls_descriptors:
             self.assertEqual(self._descriptor(d)[0], model._address)
 
     def test_library_shares_tls_get_addrs_arena(self):
@@ -6172,14 +6174,16 @@ class TlsDescFixtureTests(unittest.TestCase):
         libc.link(self.elf)
         model = libc.models["__tlsdesc_resolve"]
 
-        before = self.elf.tlsdesc_descriptors
+        before = self.elf.relocator.tls_descriptors
         for name in ("first", "second"):
             self.elf.update_symbol_value(
                 name, self.elf.get_symbol_value(name, rebase=False), rebase=False
             )
 
-        self.assertEqual(self.elf.tlsdesc_descriptors, before, "descriptors duplicated")
-        for d in self.elf.tlsdesc_descriptors:
+        self.assertEqual(
+            self.elf.relocator.tls_descriptors, before, "descriptors duplicated"
+        )
+        for d in self.elf.relocator.tls_descriptors:
             self.assertEqual(
                 self._descriptor(d)[0],
                 model._address,
@@ -6210,56 +6214,37 @@ class ElfIgnorePlatformTests(unittest.TestCase):
         self.assertIsNone(elf.platform)
 
 
-class ElfPickleCompatibilityTests(unittest.TestCase):
-    """An ElfExecutable pickled before the TLS fields existed (#447) must
-    unpickle with the defaults of an image that has no thread-locals."""
+class ElfPickleTests(unittest.TestCase):
+    """An ElfExecutable round-trips through pickle with its TLS state: the
+    TLS image, and the TLS descriptors its relocator holds."""
 
-    ELF = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "c99",
-        "fabs",
-        "fabs.amd64.elf",
-    )
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
 
-    TLS_FIELDS = tuple(ElfExecutable._tls_defaults())
+    def _load(self, name):
+        path = os.path.join(self.HERE, name)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built (run `make amd64` in tests/)")
+        with open(path, "rb") as f:
+            return ElfExecutable(f, user_base=0x100000)
 
-    def test_tls_fields_are_declared(self):
-        # __init__ sets the fields through __dict__, so the class body must
-        # declare each one for mypy, and must not give it a class-level value
-        # that would hide a field missing from an old pickle.
-        annotations = ElfExecutable.__annotations__
-        for name in self.TLS_FIELDS:
-            self.assertIn(name, annotations)
-            self.assertNotIn(name, vars(ElfExecutable))
-
-    def test_old_pickle_gets_tls_defaults(self):
-        if not os.path.exists(self.ELF):
-            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
-        with open(self.ELF, "rb") as f:
-            elf = ElfExecutable(f, user_base=0x100000)
-        # Write a pickle the way a pre-#447 smallworld did: without the fields.
-        getstate = ElfExecutable.__getstate__
-
-        def old_getstate(this):
-            state = getstate(this)
-            for name in self.TLS_FIELDS:
-                del state[name]
-            return state
-
-        with mock.patch.object(ElfExecutable, "__getstate__", old_getstate):
-            data = pickle.dumps(elf)
-        old = pickle.loads(data)
-        # fabs declares no thread-locals, so a fresh load holds the defaults.
-        for name in self.TLS_FIELDS:
-            self.assertEqual(getattr(old, name), getattr(elf, name))
-        self.assertEqual(old.tls_image, b"")
-        # The paths that write TLS state work too.
-        old.bind_tlsdesc_resolver(0x1234)
-        self.assertEqual(old._tlsdesc_resolver, 0x1234)
-        # And a current pickle still round-trips unchanged.
-        new = pickle.loads(pickle.dumps(elf))
-        for name in self.TLS_FIELDS:
-            self.assertEqual(getattr(new, name), getattr(elf, name))
+    def test_tls_state_round_trips(self):
+        for name in ("tlsdesc.gnu2.amd64.so", "tlsdesc.gnu2.amd64.o"):
+            with self.subTest(name=name):
+                elf = self._load(name)
+                self.assertTrue(elf.tls_image)
+                self.assertTrue(elf.relocator.tls_descriptors)
+                copy = pickle.loads(pickle.dumps(elf))
+                self.assertEqual(copy.tls_image, elf.tls_image)
+                self.assertEqual(
+                    copy.relocator.tls_descriptors, elf.relocator.tls_descriptors
+                )
+                # The copy's relocator still binds its own descriptors.
+                copy.relocator.bind_tls_descriptor_resolver(copy, 0x1234)
+                for descriptor in copy.relocator.tls_descriptors:
+                    self.assertEqual(
+                        copy.read_int(descriptor, 8, platforms.Byteorder.LITTLE),
+                        0x1234,
+                    )
 
 
 class ElfCoreFileMissingPlatformTests(unittest.TestCase):
@@ -6329,15 +6314,17 @@ class TlsDescObjectFileTests(unittest.TestCase):
         # STT_TLS symbol in an object file -- turned 0 and 8 into 0x2000 and
         # 0x2008, pointing outside the block entirely.
         elf = self._load(self.OBJ)
-        args = sorted(self._descriptor(elf, d)[1] for d in elf.tlsdesc_descriptors)
+        args = sorted(
+            self._descriptor(elf, d)[1] for d in elf.relocator.tls_descriptors
+        )
         self.assertEqual(args, [0x0, 0x8])
 
     def test_matches_the_linked_object(self):
         # Same source, two forms: they must describe the same thread-locals.
         obj, so = self._load(self.OBJ), self._load(self.SO)
         self.assertEqual(
-            sorted(self._descriptor(obj, d)[1] for d in obj.tlsdesc_descriptors),
-            sorted(self._descriptor(so, d)[1] for d in so.tlsdesc_descriptors),
+            sorted(self._descriptor(obj, d)[1] for d in obj.relocator.tls_descriptors),
+            sorted(self._descriptor(so, d)[1] for d in so.relocator.tls_descriptors),
         )
         self.assertEqual(obj.tls_image, so.tls_image)
 
@@ -6346,16 +6333,16 @@ class TlsDescObjectFileTests(unittest.TestCase):
         # entry; allocating per relocation would give it two, and a write
         # through one would be invisible through the other.
         elf = self._load(self.OBJ)
-        self.assertEqual(len(elf.tlsdesc_descriptors), 2)
+        self.assertEqual(len(elf.relocator.tls_descriptors), 2)
         self.assertEqual(
-            len(set(elf.tlsdesc_descriptors)), len(elf.tlsdesc_descriptors)
+            len(set(elf.relocator.tls_descriptors)), len(elf.relocator.tls_descriptors)
         )
 
     def test_synthetic_slots_are_inside_the_image(self):
         # The slots are laid out past the loaded sections, so the image must
         # have grown to cover them or they will not be mapped.
         elf = self._load(self.OBJ)
-        for d in elf.tlsdesc_descriptors:
+        for d in elf.relocator.tls_descriptors:
             self.assertGreaterEqual(d, elf.address)
             self.assertLessEqual(d + 16, elf.address + elf.get_capacity())
 
@@ -6364,7 +6351,7 @@ class TlsDescObjectFileTests(unittest.TestCase):
         libc = POSIXLibc(0x900000, self.plat, platforms.ABI.SYSTEMV)
         libc.link(elf)
         model = libc.models["__tlsdesc_resolve"]
-        for d in elf.tlsdesc_descriptors:
+        for d in elf.relocator.tls_descriptors:
             self.assertEqual(self._descriptor(elf, d)[0], model._address)
 
 
@@ -6436,7 +6423,7 @@ class TlsUninitializedBlockTests(unittest.TestCase):
             elf = self._load(name)
             args = sorted(
                 int.from_bytes(elf.read_bytes(d, 16)[8:], "little")
-                for d in elf.tlsdesc_descriptors
+                for d in elf.relocator.tls_descriptors
             )
             self.assertEqual(args, sorted(self.OFFSETS.values()), name)
 
@@ -6534,7 +6521,7 @@ class TlsImageSeedingTests(unittest.TestCase):
         self.assertTrue(
             any("__tlsdesc_resolve" in line for line in caught.output), caught.output
         )
-        for d in elf.tlsdesc_descriptors:
+        for d in elf.relocator.tls_descriptors:
             self.assertEqual(int.from_bytes(elf.read_bytes(d, 8), "little"), 0)
 
 
@@ -6580,7 +6567,7 @@ class TlsUndefinedThreadLocalTests(unittest.TestCase):
     def test_descriptor_is_recorded_without_a_definer(self):
         elf = self._load()
         self.assertTrue(
-            elf.tlsdesc_descriptors,
+            elf.relocator.tls_descriptors,
             "descriptor for an undefined thread-local was never recorded",
         )
 
@@ -6589,7 +6576,7 @@ class TlsUndefinedThreadLocalTests(unittest.TestCase):
         libc = POSIXLibc(self.LIBC, self.plat, platforms.ABI.SYSTEMV)
         libc.link(elf)
         model = libc.models["__tlsdesc_resolve"]
-        for d in elf.tlsdesc_descriptors:
+        for d in elf.relocator.tls_descriptors:
             resolver, _ = self._descriptor(elf, d)
             self.assertEqual(resolver, model._address)
             self.assertNotEqual(resolver, 0, "descriptor still calls address zero")
@@ -6708,10 +6695,10 @@ class TlsCrossModuleTests(unittest.TestCase):
         with open(def_path, "rb") as f:
             dfn = ElfExecutable(f, platform=plat, user_base=def_base)
         ref.link_elf(dfn)
-        self.assertTrue(ref.tlsdesc_descriptors, "no descriptor to check")
+        self.assertTrue(ref.relocator.tls_descriptors, "no descriptor to check")
         return [
             int.from_bytes(ref.read_bytes(d, 16)[8:], "little")
-            for d in ref.tlsdesc_descriptors
+            for d in ref.relocator.tls_descriptors
         ]
 
     def test_offset_survives_a_definer_loaded_above(self):
@@ -7116,18 +7103,8 @@ def _make_symbol(value: int, baseaddr: int) -> ElfSymbol:
 
 
 class _FakeElf:
-    #: Stands in for the resolver ElfExecutable would have bound, if any.
-    tlsdesc_resolver = 0
-
     def __init__(self, address: int = 0):
         self.address = address
-        self.noted: list = []
-
-    def note_tlsdesc_descriptor(self, address: int) -> int:
-        # Mirrors ElfExecutable: dedup, and hand back the bound resolver.
-        if address not in self.noted:
-            self.noted.append(address)
-        return self.tlsdesc_resolver
 
 
 class AMD64StackInitTests(unittest.TestCase):
@@ -7236,7 +7213,11 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         # Resolver is left null; Library.link binds it once a model exists.
         self.assertEqual(resolver, 0)
         self.assertEqual(argument, 0x10)
-        self.assertEqual(elf.noted, [0x2000], "descriptor must be recorded for binding")
+        self.assertEqual(
+            relocator.tls_descriptors,
+            [0x2000],
+            "descriptor must be recorded for binding",
+        )
 
     def test_writes_the_bound_resolver_when_one_exists(self):
         # Relocation is not one-shot: update_symbol_value re-runs it for every
@@ -7244,7 +7225,7 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         # unbind descriptors that the model library had already bound.
         relocator = AMD64ElfRelocator()
         elf = _FakeElf()
-        elf.tlsdesc_resolver = 0x900144
+        relocator.bind_tls_descriptor_resolver(elf, 0x900144)
         val = relocator._compute_value(self._rela(0, 0x10), elf)
         self.assertEqual(int.from_bytes(val[:8], "little"), 0x900144)
 

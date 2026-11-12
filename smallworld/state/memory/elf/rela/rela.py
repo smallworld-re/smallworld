@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import typing
 
 from ..... import platforms, utils
 from .. import elf
@@ -57,6 +58,36 @@ class ElfRelocator:
         names a GOT slot that does not exist yet.
         """
         return False
+
+    @property
+    def tls_descriptors(self) -> typing.List[int]:
+        """Addresses of the TLS descriptors this relocator has written.
+
+        Each is a { resolver, argument } pair whose resolver word is null at
+        load, since no resolver has an address until a model library is
+        linked; see :meth:`bind_tls_descriptor_resolver`.  Architectures with
+        no descriptor ABI write none.
+        """
+        return []
+
+    def bind_tls_descriptor_resolver(
+        self, elf: elf.ElfExecutable, address: int
+    ) -> None:
+        """Point every TLS descriptor's resolver word at `address`.
+
+        Called once a model library is linked, which is the first moment a
+        resolver has an address at all: the descriptors are relocated at
+        load, long before that.  Without this the resolver word stays null
+        and code built with -mtls-dialect=gnu2 calls address zero.  The
+        relocator also remembers the resolver, so a descriptor relocated
+        again later is not written back to null.  The default does nothing,
+        having no descriptors.
+
+        Arguments:
+            elf: The image the descriptors are in
+            address: The resolver's address
+        """
+        pass
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

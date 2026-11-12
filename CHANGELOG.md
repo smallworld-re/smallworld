@@ -106,6 +106,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provided.
 - `Colorizer` replaces `InputColorizer`, extending analysis dramatically
 - `State.models` to have lots more libc models.
+- TLS descriptor state moves from `ElfExecutable` to the relocator, which
+  alone knows the architecture's descriptor ABI. `ElfRelocator` gains generic
+  `tls_descriptors` and `bind_tls_descriptor_resolver()` hooks, implemented by
+  `AMD64ElfRelocator`; `ElfExecutable.relocator` exposes an image's relocator,
+  and `ElfExecutable.reserve_synthetic()` reserves space past the loaded image
+  for what a linker would have built, such as an object file's descriptor
+  slots. `ElfExecutable.tlsdesc_descriptors`, `bind_tlsdesc_resolver()`,
+  `tlsdesc_got_slot()` and `note_tlsdesc_descriptor()` are gone. An
+  `ElfExecutable` pickled by an earlier version no longer unpickles.
 
 ## [0.0.1] - 2024-02-26
 
