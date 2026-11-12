@@ -60,6 +60,7 @@ _ARCHS = (
     "mips64el",
     "ppc",
     "ppc64",
+    "riscv32",
     "riscv64",
     "tricore",
     "xtensa",
@@ -93,6 +94,10 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "ppc64": {
         "stack_items": (_fake_return("ppc64"),),
         "stack_pointer_adjust": -0x80,
+    },
+    "riscv32": {
+        "stack_items": (_fake_return("riscv32"),),
+        "stack_pointer_adjust": 4,
     },
     "riscv64": {
         "stack_items": (_fake_return("riscv64"),),

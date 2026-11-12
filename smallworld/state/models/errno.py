@@ -583,6 +583,12 @@ class PowerPC64ErrnoResolver(PowerPCErrnoResolver):
     platform = Platform(Architecture.POWERPC64, Byteorder.BIG)
 
 
+class RiscV32ErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.RISCV32, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # riscv32 uses the generic errno list
+
+
 class RiscV64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.RISCV64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

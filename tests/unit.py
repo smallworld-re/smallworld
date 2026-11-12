@@ -135,6 +135,7 @@ from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
 )
+from smallworld.state.memory.elf.rela.riscv32 import RISCV32ElfRelocator
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
@@ -144,7 +145,7 @@ from smallworld.state.memory.stack.amd64 import AMD64Stack
 from smallworld.state.memory.stack.loongarch import LoongArch64Stack, LoongArchStack
 from smallworld.state.memory.stack.m68k import M68KStack
 from smallworld.state.memory.stack.msp430 import MSP430Stack
-from smallworld.state.memory.stack.riscv import RISCV64Stack
+from smallworld.state.memory.stack.riscv import RISCV32Stack, RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
@@ -194,6 +195,7 @@ from smallworld.state.models.powerpc.systemv.systemv import (
     PowerPCSysVCallingContext,
 )
 from smallworld.state.models.returnconstant import ReturnConstant
+from smallworld.state.models.riscv32.systemv.systemv import RiscV32SysVCallingContext
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 from smallworld.state.models.tls import (
     RELOCATED_TLS_MODULE,
@@ -1172,6 +1174,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
@@ -1350,6 +1358,12 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1561,6 +1575,12 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1784,6 +1804,13 @@ class PandaMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_panda_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
     def test_panda_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
@@ -1988,6 +2015,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_riscv32(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2939,6 +2972,14 @@ class TritonMachdefTests(unittest.TestCase):
         )
 
     @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_triton_riscv32(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+            )
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
     def test_triton_riscv64(self):
         self.run_test(
             platforms.Platform(
@@ -3087,6 +3128,20 @@ class TritonExecutionTests(unittest.TestCase):
                 bytes([0x90, 0x00, 0x00, 0xE0]),
                 "r0",
                 "r0",
+            ),
+            25,
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_riscv32(self):
+        # mul a0, a0, a0
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.RISCV32,
+                platforms.Byteorder.LITTLE,
+                bytes([0x33, 0x05, 0xA5, 0x02]),
+                "a0",
+                "a0",
             ),
             25,
         )
@@ -4515,6 +4570,11 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         self.assertEqual(RiscV64SysVCallingContext._float_arg_regs, expected)
         self.assertEqual(RiscV64SysVCallingContext._double_arg_regs, expected)
 
+    def test_riscv32_fp_arg_regs_are_fa0_to_fa7(self):
+        expected = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+        self.assertEqual(RiscV32SysVCallingContext._float_arg_regs, expected)
+        self.assertEqual(RiscV32SysVCallingContext._double_arg_regs, expected)
+
     def test_mips64_fp_arg_regs_are_f12_to_f19(self):
         # n64 passes FP arguments in $f12-$f19 (fa0-fa7). The list previously
         # started at f13 and stopped at f18 -- missing the first (f12) and last
@@ -4540,6 +4600,79 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
         )
         self.assertEqual(
             ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+        )
+
+
+class EightByteRegisterPairTests(unittest.TestCase):
+    """Where an 8-byte integer lands on ABIs that pass it in a register pair."""
+
+    ULL = ArgumentType.ULONGLONG
+    UINT = ArgumentType.UINT
+
+    @staticmethod
+    def _offsets(ctx, types):
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        return [
+            "stack" if on_stack else offset
+            for on_stack, offset in zip(ctx._on_stack, ctx._arg_offset)
+        ]
+
+    def test_riscv32_fixed_pairs_are_not_aligned(self):
+        # foo(ull, uint, ull, uint, ull) from tests/sysv: a0:a1, a2, a3:a4, a5, a6:a7
+        types = [self.ULL, self.UINT, self.ULL, self.UINT, self.ULL]
+        self.assertEqual(
+            self._offsets(RiscV32SysVCallingContext(), types), [0, 2, 3, 5, 6]
+        )
+
+    def test_riscv32_variadic_pairs_are_aligned(self):
+        ctx = RiscV32SysVCallingContext()
+        ctx.add_argument(0, self.UINT)
+        varargs = VariadicContext(ctx)
+        CStdCallingContext.add_argument(varargs, 1, self.ULL)
+        # a1 is skipped; the pair starts at a2.
+        self.assertEqual(varargs._arg_offset[1], 2)
+
+    def test_riscv32_variadic_pair_on_the_stack_is_padded(self):
+        # v(1, 2, ..., 8, 9, 0x1122334455667788LL, 10), as
+        # riscv64-linux-gnu-gcc -march=rv32gc -mabi=ilp32d passes it: 9 at
+        # sp+0, the long long at sp+8 (sp+4 is padding), and 10 at sp+16.
+        ctx = RiscV32SysVCallingContext()
+        ctx.set_argument_types([self.UINT])
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        for i in range(8):
+            emu.regs[f"a{i}"] = i + 1
+        emu.write_memory(0x1000, (9).to_bytes(4, "little"))
+        emu.write_memory(0x1004, b"\xff" * 4)
+        emu.write_memory(0x1008, (0x1122334455667788).to_bytes(8, "little"))
+        emu.write_memory(0x1010, (10).to_bytes(4, "little"))
+        varargs = VariadicContext(ctx)
+        values = [varargs.get_next_argument(self.UINT, emu) for _ in range(8)]
+        values.append(varargs.get_next_argument(self.ULL, emu))
+        values.append(varargs.get_next_argument(self.UINT, emu))
+        self.assertEqual(values, [2, 3, 4, 5, 6, 7, 8, 9, 0x1122334455667788, 10])
+
+    def test_riscv32_pair_with_one_register_left_is_split(self):
+        # Seven uints leave only a7: the ull's low word goes in a7 and its
+        # high word at sp+0, and the next argument at sp+4, as
+        # riscv64-linux-gnu-gcc -march=rv32gc -mabi=ilp32d passes
+        # s(1, ..., 7, 0x1122334455667788LL, 99).
+        types = [self.UINT] * 7 + [self.ULL, self.UINT]
+        ctx = RiscV32SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        ctx.set_argument(7, emu, 0x1122334455667788)
+        ctx.set_argument(8, emu, 99)
+        self.assertEqual(emu.regs["a7"], 0x55667788)
+        self.assertEqual(emu.read_memory(0x1000, 8), bytes.fromhex("4433221163000000"))
+        self.assertEqual(ctx.get_argument(7, self.ULL, emu), 0x1122334455667788)
+        self.assertEqual(ctx.get_argument(8, self.UINT, emu), 99)
+
+    def test_armhf_pairs_are_still_aligned(self):
+        self.assertEqual(
+            self._offsets(ArmHFSysVCallingContext(), [self.UINT, self.ULL]), [0, 2]
         )
 
 
@@ -4819,12 +4952,12 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu /
         # aarch64-linux-gnu / x86_64-linux-gnu toolchains). Eight float args fill
         # the FP registers; the 9th and 10th spill and must be 8 bytes apart,
-        # not 4.
+        # not 4.  (RiscV passes them in a0 and a1 instead; see
+        # RiscVFPArgFallbackTests.)
         for cls in (
             LoongArch64SysVCallingContext,
             MIPS64SysVCallingContext,
             MIPS64ELSysVCallingContext,
-            RiscV64SysVCallingContext,
             AArch64SysVCallingContext,
             AMD64SysVCallingContext,
         ):
@@ -4835,6 +4968,181 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
             self.assertEqual(
                 ctx._arg_offset[9] - ctx._arg_offset[8], 8, msg=cls.__name__
             )
+
+
+class RiscVInstructionTests(unittest.TestCase):
+    """RiscV instructions that need more than plain p-code or semantics:
+    compressed decoding, branch aliases, traps and fences, on each backend
+    that runs both widths."""
+
+    ADDI = struct.pack("<I", 0x00150513)  # addi a0,a0,1
+    FENCES = {
+        "fence": struct.pack("<I", 0x0FF0000F),
+        "fence.i": struct.pack("<I", 0x0000100F),
+        "pause": struct.pack("<I", 0x0100000F),
+    }
+    EBREAKS = {
+        "ebreak": struct.pack("<I", 0x00100073),
+        "c.ebreak": struct.pack("<H", 0x9002),
+    }
+    ARCHS = (platforms.Architecture.RISCV32, platforms.Architecture.RISCV64)
+
+    def run_code(self, emulator_class, arch, insn, setup=None):
+        # addi; insn; addi, to the exit point after it.
+        platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        code = self.ADDI + insn + self.ADDI
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        cpu.pc.set(0x1000)
+        cpu.a0.set(0)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        emulator = emulator_class(platform)
+        emulator.add_exit_point(0x1000 + len(code))
+        machine.apply(emulator)
+        if setup is not None:
+            setup(emulator)
+        try:
+            emulator.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emulator
+
+    def test_compressed_code_disassembles(self):
+        # c.li t0,0; lb a0,0(a0); c.addi t0,1
+        code = (
+            bytes.fromhex("8142")
+            + struct.pack("<I", 0x00050503)
+            + bytes.fromhex("8502")
+        )
+        for arch in self.ARCHS:
+            with self.subTest(arch=arch.name):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                )
+                md = capstone.Cs(platdef.capstone_arch, platdef.capstone_mode)
+                self.assertEqual(
+                    [i.mnemonic for i in md.disasm(code, 0)], ["c.li", "lb", "c.addi"]
+                )
+
+    def test_branch_aliases_are_conditional_branches(self):
+        # bgez a1; blez a1; c.beqz a0; c.bnez a0, as capstone names them
+        code = struct.pack("<II", 0x0005D063, 0x00B05063) + bytes.fromhex("01c101e1")
+        for arch in self.ARCHS:
+            with self.subTest(arch=arch.name):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                )
+                md = capstone.Cs(platdef.capstone_arch, platdef.capstone_mode)
+                mnemonics = [i.mnemonic for i in md.disasm(code, 0)]
+                self.assertEqual(len(mnemonics), 4)
+                for mnemonic in mnemonics:
+                    self.assertIn(mnemonic, platdef.conditional_branch_mnemonics)
+
+    def test_fences_are_no_ops(self):
+        for emulator_class in (
+            emulators.GhidraEmulator,
+            emulators.TritonEmulator,
+            emulators.AngrEmulator,
+        ):
+            for arch in self.ARCHS:
+                if emulator_class is emulators.AngrEmulator and arch != self.ARCHS[0]:
+                    continue  # angr runs riscv64 through VEX, not p-code
+                for name, insn in self.FENCES.items():
+                    with self.subTest(
+                        emulator=emulator_class.__name__, arch=arch.name, insn=name
+                    ):
+                        emulator = self.run_code(emulator_class, arch, insn)
+                        self.assertEqual(emulator.read_register("a0"), 2)
+
+    def test_triton_ebreak_raises_an_interrupt(self):
+        for arch in self.ARCHS:
+            for name, insn in self.EBREAKS.items():
+                with self.subTest(arch=arch.name, insn=name):
+                    interrupts: typing.List[int] = []
+                    emulator = self.run_code(
+                        emulators.TritonEmulator,
+                        arch,
+                        insn,
+                        lambda emu: emu.hook_interrupts(
+                            lambda emu, n: interrupts.append(n)
+                        ),
+                    )
+                    self.assertEqual(interrupts, [0])
+                    self.assertEqual(emulator.read_register("a0"), 2)
+
+    def test_triton_rv32_refuses_a_double_in_an_fp_register(self):
+        # Triton keeps 32 bits of RV32's 64-bit FP registers.
+        emulator = emulators.TritonEmulator(
+            platforms.Platform(self.ARCHS[0], platforms.Byteorder.LITTLE)
+        )
+        emulator.write_register("fa0", 0x3FC00000)
+        emulator.write_register("ft11", 0xFFFFFFFF3FC00000)  # a NaN-boxed single
+        self.assertEqual(emulator.read_register("fa0"), 0x3FC00000)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulator.write_register("fa0", 0x400921FB54442D18)
+
+    def test_angr_rv32_ebreak_is_a_trap(self):
+        for name, insn in self.EBREAKS.items():
+            with self.subTest(insn=name):
+                with self.assertRaisesRegex(exceptions.EmulationError, "SigTRAP"):
+                    self.run_code(emulators.AngrEmulator, self.ARCHS[0], insn)
+
+
+class RiscVFPArgFallbackTests(unittest.TestCase):
+    """A RiscV floating-point argument with no FP register left goes in
+    integer registers while any are free, as riscv64-linux-gnu-gcc passes
+    them under -mabi=lp64d and -mabi=ilp32d."""
+
+    F = ArgumentType.FLOAT
+    D = ArgumentType.DOUBLE
+    INT = ArgumentType.INT
+
+    def roundtrip(self, ctx, types, values):
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.regs["sp"] = 0x1000
+        for i, value in values.items():
+            ctx.set_argument(i, emu, value)
+        for i, value in values.items():
+            self.assertEqual(ctx.get_argument(i, types[i], emu), value)
+        return emu
+
+    def test_floats_past_fa7_go_in_a0_and_a1(self):
+        for cls in (RiscV32SysVCallingContext, RiscV64SysVCallingContext):
+            with self.subTest(cls=cls.__name__):
+                emu = self.roundtrip(cls(), [self.F] * 10, {8: 9.5, 9: 10.5})
+                self.assertEqual(emu.regs["a0"], 0x41180000)
+                self.assertEqual(emu.regs["a1"], 0x41280000)
+                self.assertEqual(emu.mem, {})
+
+    def test_a_double_past_fa7_takes_integer_registers(self):
+        # d9i(1.0, ..., 8.0, 9.5, 42): rv32 passes 9.5 in a0:a1 and 42 in a2;
+        # rv64 passes 9.5 in a0 and 42 in a1.
+        types = [self.D] * 9 + [self.INT]
+        emu = self.roundtrip(RiscV32SysVCallingContext(), types, {8: 9.5, 9: 42})
+        self.assertEqual((emu.regs["a0"], emu.regs["a1"]), (0, 0x40230000))
+        self.assertEqual(emu.regs["a2"], 42)
+        emu = self.roundtrip(RiscV64SysVCallingContext(), types, {8: 9.5, 9: 42})
+        self.assertEqual(emu.regs["a0"], 0x4023000000000000)
+        self.assertEqual(emu.regs["a1"], 42)
+
+    def test_rv32_double_with_only_a7_left_is_split(self):
+        # d7i(1, ..., 7, 1.0, ..., 8.0, 9.25): the ninth double's low word
+        # goes in a7, its high word at sp+0.
+        types = [self.INT] * 7 + [self.D] * 9
+        emu = self.roundtrip(RiscV32SysVCallingContext(), types, {15: 9.25})
+        self.assertEqual(emu.regs["a7"], 0)
+        self.assertEqual(emu.read_memory(0x1000, 4), bytes.fromhex("00802240"))
+
+    def test_other_hard_float_abis_still_spill_to_the_stack(self):
+        for cls in (AArch64SysVCallingContext, AMD64SysVCallingContext):
+            with self.subTest(cls=cls.__name__):
+                ctx = cls()
+                ctx.set_argument_types([self.D] * 9 + [self.INT])
+                self.assertTrue(ctx._on_stack[8])
+                self.assertFalse(ctx._on_stack[9])
+                self.assertEqual(ctx._arg_offset[9], 0)
 
 
 class _RegMemEmulator:
@@ -7510,6 +7818,7 @@ class StackRegionCorrectnessTests(unittest.TestCase):
         for cls, arch in (
             (M68KStack, "M68K"),
             (MSP430Stack, "MSP430"),
+            (RISCV32Stack, "RISCV32"),
             (RISCV64Stack, "RISCV64"),
             (LoongArchStack, "LoongArch"),
         ):
@@ -7564,6 +7873,68 @@ class AMD64TlsDescRelocatorTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(val[8:], "little"), 0xC)
 
 
+class RISCVElfRelocatorTests(unittest.TestCase):
+    """RiscV's dynamic relocations, at both widths: TLS module and offset
+    relocations are resolved as AMD64's are, and COPY and TPREL, which need
+    context the relocator lacks, are refused by name."""
+
+    CASES = (
+        # relocator, width, DTPMOD, DTPREL, TPREL
+        (RISCV32ElfRelocator, 4, 6, 8, 10),
+        (RISCV64ElfRelocator, 8, 7, 9, 11),
+    )
+
+    def _value(self, relocator, type_, value=0x20, addend=4):
+        rela = ElfRela(
+            is_rela=True,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=value, baseaddr=0x400000),
+            addend=addend,
+        )
+        return relocator._compute_value(rela, _FakeElf())
+
+    def test_tls_module_and_offset(self):
+        for cls, width, dtpmod, dtprel, _ in self.CASES:
+            with self.subTest(cls=cls.__name__):
+                self.assertEqual(
+                    self._value(cls(), dtpmod), (1).to_bytes(width, "little")
+                )
+                # Block-relative: the load base is not added.
+                self.assertEqual(
+                    self._value(cls(), dtprel), (0x24).to_bytes(width, "little")
+                )
+
+    def test_absolute_and_relative(self):
+        # R_RISCV_32/64 write S + B + A; R_RISCV_RELATIVE writes the image's
+        # load address + A.
+        for cls, width, _, _, _ in self.CASES:
+            with self.subTest(cls=cls.__name__):
+                absolute = 1 if width == 4 else 2
+                self.assertEqual(
+                    self._value(cls(), absolute), (0x400024).to_bytes(width, "little")
+                )
+                elf = _FakeElf(address=0x800000)
+                rela = ElfRela(
+                    is_rela=True,
+                    offset=0x2000,
+                    type=3,
+                    symbol=_make_symbol(value=0, baseaddr=0),
+                    addend=0x10,
+                )
+                self.assertEqual(
+                    cls()._compute_value(rela, elf),
+                    (0x800010).to_bytes(width, "little"),
+                )
+
+    def test_copy_and_tprel_are_refused_by_name(self):
+        for cls, _, _, _, tprel in self.CASES:
+            for type_, detail in ((4, "copied symbol"), (tprel, "thread-pointer")):
+                with self.subTest(cls=cls.__name__, type=type_):
+                    with self.assertRaisesRegex(exceptions.ConfigurationError, detail):
+                        self._value(cls(), type_)
+
+
 class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     """RELA addends are signed, so S + B + A can be negative or overflow.
 
@@ -7615,6 +7986,10 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     def test_loongarch64_r_larch_64(self):
         # R_LARCH_64 == 2
         self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
+
+    def test_riscv32_r_riscv_32(self):
+        # R_RISCV_32 == 1
+        self.assertEqual(self._value(RISCV32ElfRelocator(), 1), self.LE32)
 
     def test_riscv64_r_riscv_64(self):
         # R_RISCV_64 == 2

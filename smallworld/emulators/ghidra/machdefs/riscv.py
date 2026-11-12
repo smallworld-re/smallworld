@@ -2,8 +2,17 @@ from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
 
 
-class RISCV64MachineDef(GhidraMachineDef):
-    arch = Architecture.RISCV64
+class RISCVMachineDef(GhidraMachineDef):
+    """Ghidra machine definition common to all RiscV variants
+
+    Sleigh names the registers identically for RV32 and RV64;
+    only their widths differ.
+    """
+
+    # Memory ordering, which a single emulated hart can't observe.  (pause is
+    # a fence, and Ghidra's language doesn't decode fence.tso.)
+    nop_userops = {"fence", "fence.i"}
+
     byteorder = Byteorder.LITTLE
 
     _registers = {
@@ -205,3 +214,11 @@ class RISCV64MachineDef(GhidraMachineDef):
         "f31": "ft11",
         "ft11": "ft11",
     }
+
+
+class RISCV32MachineDef(RISCVMachineDef):
+    arch = Architecture.RISCV32
+
+
+class RISCV64MachineDef(RISCVMachineDef):
+    arch = Architecture.RISCV64

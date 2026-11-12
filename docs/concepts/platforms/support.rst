@@ -76,6 +76,23 @@ for some of the extensions, so I haven't tested anywhere near all of them.
 Also, the standards for this ISA are still being developed,
 so some things like the syscall convention are something of a guess.
 
+**riscv32:** SmallWorld models RV32GC, following Ghidra's ``RISCV:LE:32:default``.
+The floating-point registers are 64 bits wide, as the "D" extension requires.
+archinfo has no RV32 model, so angr runs RV32 through its pcode engine instead of VEX.
+That path handles ``ecall`` as a syscall, ``ebreak`` as a breakpoint trap,
+and the ``fence`` instructions as no-ops.  It can't run 32-bit code loaded at
+or above 0x80000000, the usual RAM base of RV32 boards (SuperH has the same
+limit), so load RV32 code below it to run it on angr.  Nor can it do floating
+point; see the floating-point notes below.  Triton keeps only 32 bits of each
+floating-point register, so it can't run double-precision RV32 code, and
+refuses to write a value that doesn't fit; Ghidra doesn't decode
+``fence.tso``.
+C models follow ilp32d: a fixed 8-byte argument takes the next two argument
+registers, or ``a7`` and the stack when only ``a7`` is left, and a
+floating-point argument with no FP argument register left goes in integer
+registers, as on riscv64.  ELF images with ``R_RISCV_COPY`` or
+``R_RISCV_TLS_TPREL32`` relocations are refused, as on riscv64.
+
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
 *sh2a-fpu* is SH-2A-FPU. It is **big-endian only**, because the only SH-2A
@@ -304,8 +321,8 @@ A few notes:
   has its body present only as commented-out C++ that was never ported to
   Python, so the base class raises ``AngrError("Not implemented!")``. This is why
   the ``angr`` column reads **No** for SuperH, and it applies equally to every
-  other Pcode-backed ISA here: TriCore, Xtensa, MSP430 and LoongArch. The angr
-  entries that do work are all VEX architectures.
+  other Pcode-backed ISA here: TriCore, Xtensa, MSP430, LoongArch and riscv32.
+  The angr entries that do work are all VEX architectures.
 - **SuperH double precision** is a separate row from single because the two are
   selected at runtime by ``FPSCR.PR`` rather than by the opcode, and the backends
   differ in two distinct ways.

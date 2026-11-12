@@ -111,6 +111,12 @@ _SPECS = {
         load_address=0x400000,
         stack_padding_bytes=32,
     ),
+    "riscv32": UnmappedSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+        load_address=0x400000,
+    ),
     "riscv64": UnmappedSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",

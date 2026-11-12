@@ -33,6 +33,7 @@ MSP430_ID := msp430-linux-gnu
 MSP430X_ID := msp430-linux-gnu
 PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
 PPC64_ID := powerpc64-linux-gnu.2.40
+RISCV32_ID := riscv32-linux-gnu.2.40
 RISCV64_ID := riscv64-linux-gnu.2.40
 # One SuperH binutils covers SH-4 big/little and SH-2A; the generation and
 # endianness come from per-platform ASFLAGS below.
@@ -57,6 +58,7 @@ MSP430_ASM_AS := zig build-exe -target $(MSP430_ID)
 MSP430X_ASM_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
+RISCV32_ASM_AS := zig build-exe -target $(RISCV32_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ASM_AS := ./$(SH_ID)-asm
 SH4EL_ASM_AS := ./$(SH_ID)-asm
@@ -81,6 +83,7 @@ MSP430_ELF_AS := zig build-exe -target $(MSP430_ID)
 MSP430X_ELF_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
+RISCV32_ELF_AS := zig build-exe -target $(RISCV32_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
 SH4_ELF_AS := ./$(SH_ID)-elfasm
 SH4EL_ELF_AS := ./$(SH_ID)-elfasm
@@ -106,6 +109,7 @@ MSP430_OBJCOPY := zig objcopy
 MSP430X_OBJCOPY := zig objcopy
 PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
+RISCV32_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
 SH4_OBJCOPY := $(SH_ID)-objcopy
 SH4EL_OBJCOPY := $(SH_ID)-objcopy
@@ -132,6 +136,7 @@ MSP430_CC := zig cc -target $(MSP430_ID)
 MSP430X_CC := zig cc -target $(MSP430X_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
+RISCV32_CC := zig cc -target $(RISCV32_ID)
 RISCV64_CC := zig cc -target $(RISCV64_ID)
 TRICORE_CC := $(TRICORE_ID)-gcc
 XTENSA_CC := $(XTENSA_ID)-gcc
@@ -173,6 +178,7 @@ AMD64_ELF_CFLAGS := -pie
 ARMHF_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
+RISCV32_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
 XTENSA_ELF_CFLAGS := -pie
 
@@ -202,6 +208,7 @@ MSP430_EXT := msp430
 MSP430X_EXT := msp430x
 PPC_EXT := ppc
 PPC64_EXT := ppc64
+RISCV32_EXT := riscv32
 RISCV64_EXT := riscv64
 SH4_EXT := sh4
 SH4EL_EXT := sh4el
@@ -227,6 +234,7 @@ MSP430_SRC_EXT := $(MSP430_EXT)
 MSP430X_SRC_EXT := $(MSP430X_EXT)
 PPC_SRC_EXT := $(PPC_EXT)
 PPC64_SRC_EXT := $(PPC64_EXT)
+RISCV32_SRC_EXT := $(RISCV32_EXT)
 RISCV64_SRC_EXT := $(RISCV64_EXT)
 SH4_SRC_EXT := $(SH4_EXT)
 # NOTE: sh4el uses sh4 source
@@ -378,13 +386,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV32 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV32 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV32 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

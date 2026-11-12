@@ -62,6 +62,9 @@ class Architecture(enum.Enum):
     LOONGARCH64 = "loongarch64"
     """64-bit LoongArch"""
 
+    RISCV32 = "riscv-32"
+    """32-bit RiscV"""
+
     RISCV64 = "riscv-64"
     """64-bit RiscV"""
 

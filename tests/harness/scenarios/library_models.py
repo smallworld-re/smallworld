@@ -22,6 +22,7 @@ _ARCH_MATRIX = (
     ("mips64el", "MIPS64", "LITTLE"),
     ("ppc", "POWERPC32", "BIG"),
     ("ppc64", "POWERPC64", "BIG"),
+    ("riscv32", "RISCV32", "LITTLE"),
     ("riscv64", "RISCV64", "LITTLE"),
 )
 

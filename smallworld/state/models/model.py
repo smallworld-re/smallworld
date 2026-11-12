@@ -286,12 +286,13 @@ class Model(Hook):
             self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV32
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
             or self.platform.architecture == platforms.Architecture.TRICORE
         ):
-            # mips32, mips64, riscv64, superh and tricore: branch to register
+            # mips32, mips64, riscv32, riscv64, superh and tricore: branch to register
             # 'ra'.  On SuperH that is an alias of the architectural PR register,
             # where bsr/jsr deposit the return address and rts branches back to.
             return emulator.read_register("ra")

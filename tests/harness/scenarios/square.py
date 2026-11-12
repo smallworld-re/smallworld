@@ -25,6 +25,7 @@ _ARCHS = (
     "msp430x",
     "ppc",
     "ppc64",
+    "riscv32",
     "riscv64",
     "sh2a",
     "sh4",

@@ -532,6 +532,16 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         skip = True
 
                     # This is not a memory access.  No need to break
+                elif (
+                    opcode == op.CALLOTHER
+                    and self.machdef.nop_userops
+                    and self.machdef.language.getUserDefinedOpName(
+                        int(op.getInput(0).getOffset())
+                    )
+                    in self.machdef.nop_userops
+                ):
+                    # A user operation with no effect SmallWorld models
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

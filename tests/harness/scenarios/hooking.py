@@ -173,6 +173,16 @@ _SPECS = {
         string_source=StringSource(register="r3"),
         stack_padding_bytes={"unicorn": 16, "panda": 16, "pcode": 16},
     ),
+    "riscv32": HookingSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+        puts_address=0x1002,
+    ),
     "riscv64": HookingSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pointer_size=8,

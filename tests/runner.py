@@ -185,6 +185,7 @@ if arch in (
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS64,
     smallworld.platforms.Architecture.POWERPC32,
+    smallworld.platforms.Architecture.RISCV32,
     smallworld.platforms.Architecture.RISCV64,
 ):
     emulator = smallworld.emulators.GhidraEmulator(platform)

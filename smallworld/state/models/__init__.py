@@ -14,6 +14,7 @@ from . import (
     posix,
     powerpc,
     powerpc64,
+    riscv32,
     riscv64,
 )
 from .defaultmmio import (
@@ -49,5 +50,6 @@ __all__ = __model__ + [
     "posix",
     "powerpc",
     "powerpc64",
+    "riscv32",
     "riscv64",
 ]

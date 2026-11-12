@@ -22,6 +22,7 @@ _ARCHS = (
     "mips64el",
     "ppc",
     "ppc64",
+    "riscv32",
     "riscv64",
     "sh2a",
     "sh4",
@@ -58,6 +59,7 @@ _STACKS = {
     "mips64el": _stack("mips64el"),
     "ppc": _stack("ppc"),
     "ppc64": _stack("ppc64"),
+    "riscv32": _stack("riscv32"),
     "riscv64": _stack("riscv64"),
     # SuperH leaves the return address in pr rather than on the stack, so like
     # tricore it needs no synthetic return slot; the sh binaries still touch the

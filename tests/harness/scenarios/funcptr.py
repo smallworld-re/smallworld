@@ -18,6 +18,7 @@ _VARIANTS = (
     ("ppc.pcode", None),
     ("ppc64", None),
     ("ppc64.pcode", None),
+    ("riscv32.pcode", None),
     ("riscv64.pcode", None),
 )
 

@@ -157,6 +157,18 @@ _SPECS = {
         argument_registers=("r3", "r4"),
         add_zero_exitpoint=True,
     ),
+    "riscv32": LinkElfSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        code_address=0x400000,
+        lib_address=0x800000,
+        argument_registers=("a0", "a1"),
+        add_zero_exitpoint=True,
+    ),
     "riscv64": LinkElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pointer_size=8,
@@ -296,7 +308,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         stack.push_bytes(b"\0" * 32, "Frame header")
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
-    elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
+    elif arch in {"la64", "mips", "mipsel", "riscv32", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
         machine.add_exit_point(exitpoint)
 

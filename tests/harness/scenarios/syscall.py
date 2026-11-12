@@ -18,6 +18,7 @@ _ARCHS = (
     "mips64el",
     "ppc",
     "ppc64",
+    "riscv32",
     "riscv64",
     # SuperH's `trapa #imm` reaches hook_syscall(s) only because
     # `machdefs/superh.py` and `machdefs/superh4.py` rewrite it into an

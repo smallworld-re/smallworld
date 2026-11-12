@@ -19,6 +19,7 @@ powerpc32 single,               No Support, **Yes**,    No,         No,         
 powerpc32 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
 powerpc64 single,               No Support, **Yes**,    No,         No,         **Yes**
 powerpc64 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
+riscv32,                        No,         Untested,   No Support, No,         No Support
 riscv64,                        Untested,   Untested,   No Support, No,         No Support
 superh-sh2a-fpu single,         No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         No Support

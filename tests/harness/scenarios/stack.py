@@ -249,6 +249,23 @@ _SPECS = {
         stack_arguments=((0x5555, 8),),
         stack_pointer_adjust=-116,
     ),
+    "riscv32": StackCaseSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        register_arguments=(
+            ("a0", 0x11111111),
+            ("a1", 0x01010101),
+            ("a2", 0x22222222),
+            ("a3", 0x01010101),
+            ("a4", 0x33333333),
+            ("a5", 0x01010101),
+            ("a6", 0x44444444),
+            ("a7", 0x01010101),
+        ),
+        stack_arguments=((0x55555555, 4),),
+    ),
     "riscv64": StackCaseSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",
@@ -352,6 +369,7 @@ _STACK_RES = {
     "mipsel": "0xaaaa",
     "ppc": "0xffff",
     "ppc64": "0xffff",
+    "riscv32": "0xffffffff",
     "riscv64": "0xffffffff",
     # 0xcccccccc + 0x11111111 + 0x22222222
     "sh2a": "0xffffffff",

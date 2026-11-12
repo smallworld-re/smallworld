@@ -162,6 +162,18 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    # Not 0x80000000 like riscv64: angr's pcode backend can't run 32-bit code
+    # loaded at or above 0x80000000 (SuperH fails the same way).
+    "riscv32": RelaSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "riscv64": RelaSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pointer_size=8,
@@ -232,6 +244,8 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         # LR save, and the TOC save slot that calls through the PLT use.
         stack.push_bytes(b"\0" * 24, "Frame header")
         stack.push_integer(0x7FFFFFF8, 8, "fake back chain")
+    elif arch == "riscv32":
+        stack.push_integer(0x7FFFFFF8, 4, "fake return address")
     elif arch in {"mips64", "mips64el", "la64", "riscv64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
     elif arch == "armhf" and engine == "panda":
@@ -259,7 +273,16 @@ def _configure_exit(
         stack.push_integer(exitpoint, 4, None)
     elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
-    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
+    elif arch in {
+        "la64",
+        "mips",
+        "mips64",
+        "mips64el",
+        "mipsel",
+        "riscv32",
+        "riscv64",
+        "tricore",
+    }:
         set_register(cpu, "ra", exitpoint)
 
 

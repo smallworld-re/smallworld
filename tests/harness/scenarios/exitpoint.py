@@ -161,6 +161,15 @@ _SPECS = {
         zero_register_overrides={"angr": ("r12",)},
         mid_exit_offset_overrides={"angr": 20},
     ),
+    "riscv32": ExitpointSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="ra",
+    ),
     "riscv64": ExitpointSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",
