@@ -54,8 +54,9 @@ so some things like the syscall convention are something of a guess.
 *sh1* and *sh2* are SH-1 and SH-2, big-endian. Each runs on Ghidra's own
 language for it (``SuperH:BE:32:SH-1`` and ``SH-2``), built from the same
 specification as SH-2A, so an instruction from a later version is refused as on
-the real CPU rather than run: SH-1 has no ``mul.l``, ``dt``, ``braf``, ``bsrf``,
-``bt/s`` or ``bf/s``, and SH-2 has none of SH-2A's instructions. Neither has an
+the real CPU rather than run: SH-1 has none of the nine instructions SH-2
+added (``mul.l``, ``dmuls.l``, ``dmulu.l``, ``mac.l``, ``dt``, ``braf``,
+``bsrf``, ``bt/s`` and ``bf/s``), and SH-2 has none of SH-2A's instructions. Neither has an
 FPU or SH-2A's ``tbr``. They run on angr and Ghidra only: Styx and Panda's
 patched QEMU model only SH-2A and SH-4. The ELF loader recognizes them from
 ``e_flags``. SH-2E (SH-2 with a single-precision FPU) has no Ghidra language,
@@ -74,7 +75,7 @@ is documented as working for SH-1 through SH-3 as well.
 Notes per emulator:
 
 - **Unicorn has no SuperH backend at all.** Nothing in upstream Unicorn emulates
-  SuperH, so all three platforms are ``No Support`` rather than merely untested.
+  SuperH, so every SuperH platform is ``No Support`` rather than merely untested.
 - **Panda** runs SuperH on a patched QEMU. QEMU upstream has an SH-4 target but
   no SH-2A model whatsoever, so SmallWorld carries a patch
   (``nix/patches/panda-qemu-sh2a.patch``) adding the SH-2A ISA - the CPU model,
@@ -129,11 +130,16 @@ rewritten instead. Because that spurious access generally succeeds (angr's memor
 is lazily symbolic; Styx maps a flat 4 GiB), it corrupts memory silently rather
 than faulting. Only the Ghidra backend gets this instruction right.
 
-**⚠ angr writes zero for 16-bit stores on SuperH.** ``mov.w Rm,@Rn`` stores zero
-instead of the low half of ``Rm``; the load side and the 32-bit stores are
-correct. Both the plain ``@Rn`` form and SH-2A's displaced 32-bit form are
-affected, and since the bundled specifications differ only in ``bclr`` this is
-not a specification defect.
+**⚠** ``mac.w`` **and** ``mac.l`` **are wrong under angr and Ghidra on sh1, sh2
+and sh2a-fpu.** Ghidra's ``superh.sinc``, which all three are built from, lifts
+both with p-code branches within the instruction, which angr's p-code engine
+cannot run: angr stops with a raw ``AssertionError`` ("FIXME: Test
+statement_offset behavior") rather than an ``EmulationError``. Ghidra runs them
+but gets the result wrong. ``mac.w`` reads each operand as four bytes and
+multiplies their second halfwords, and sets MACH to ``0xffffffff`` for a
+positive product; ``mac.l`` sets MACH wrongly (``0x1000f`` rather than ``0xf``
+for ``0x30005 * 0x50007``). This was measured with ``@r1+,@r2+`` operands and S
+clear; Panda and Styx were not measured.
 
 **⚠ SH-4** ``bsr`` **does not set PR under angr or Ghidra.** This is a defect in
 Ghidra's SuperH4 sleigh specification, not in SmallWorld, and it affects both
@@ -188,7 +194,8 @@ The double-precision registers are the parents of the single-precision ones -
 writing ``dr0`` changes ``fr0`` and ``fr1``, in both endiannesses.
 
 **SuperH event handlers:** instruction, function and memory-access hooks work on
-all three SuperH platforms under angr, Ghidra and Panda. Syscall hooks work under
+every SuperH platform under angr and Ghidra, and on sh2a-fpu, sh4 and sh4el under
+Panda. Syscall hooks work under
 angr, which is the only backend that implements ``hook_syscall``/``hook_syscalls``
 at all, so that is not a SuperH limitation. Interrupt hooks work under Panda;
 Unicorn and Styx also implement ``hook_interrupt``/``hook_interrupts``, but
@@ -474,7 +481,7 @@ Every skip is an upstream defect, reduced to a minimal case first:
   the exception because its FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
 
-Panda passes all ten functions on all three SuperH platforms, which is the
+Panda passes all ten functions on sh2a-fpu, sh4 and sh4el, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in
 ``nix/patches/panda-qemu-sh2a.patch`` computes correctly and not merely
 plausibly.

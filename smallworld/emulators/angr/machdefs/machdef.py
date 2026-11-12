@@ -137,7 +137,8 @@ class PcodeEngine(FloatPcodeEngine):
     low half of a big-endian register (`mulu.w r4,r4` reads r4's bytes 2-3)
     was read from the start of the register, i.e. its high half. archinfo's
     ArchPcode lays out the register file at sleigh's own offsets, so the
-    varnode's offset within its named register carries over unchanged.
+    varnode's offset within its named register carries over unchanged, and
+    the result is the varnode's own sleigh offset.
     """
 
     def _map_register_name(self, varnode) -> int:

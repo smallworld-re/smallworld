@@ -231,8 +231,8 @@ class SH2(PlatformDef):
 class SH1(SH2):
     """SH-1, big-endian.
 
-    SH-1 lacks several SH-2 instructions, among them ``braf``, ``bsrf``,
-    ``bt/s``, ``bf/s``, ``mul.l``, ``dt`` and ``dmuls.l``/``dmulu.l``.
+    SH-1 lacks nine SH-2 instructions: ``braf``, ``bsrf``, ``bt/s``,
+    ``bf/s``, ``mul.l``, ``dmuls.l``, ``dmulu.l``, ``mac.l`` and ``dt``.
     Capstone has no SH-1 mode, so analyses that use it decode SH-1 as SH-2.
     """
 

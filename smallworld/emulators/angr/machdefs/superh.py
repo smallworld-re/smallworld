@@ -31,7 +31,7 @@ def pcode_arch(language: str) -> archinfo.arch.Arch:
     rebuilds the whole register table every time - roughly 8 ms per call, and
     archinfo does not memoize it.  The ``SimCC`` classes here and in
     ``superh4.py`` only ever read from ``ARCH``, so sharing one object per
-    language turns six constructions into three.  That cost is paid during
+    language turns ten constructions into five.  That cost is paid during
     ``import smallworld``, for every user on every platform, because
     ``machdefs/__init__.py`` imports these modules eagerly.
     """

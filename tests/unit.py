@@ -4442,6 +4442,53 @@ class AngrMipsRegisterMapTests(unittest.TestCase):
         self.run_test(platforms.Byteorder.LITTLE)
 
 
+class AngrPcodeSubRegisterTests(unittest.TestCase):
+    """angr's p-code engine used a register varnode that starts partway into
+    its register as if it started at the beginning: a big-endian low byte
+    was read from the high byte, and a little-endian high half from the low
+    half. PcodeEngine fixes this by overriding a private angr method, so an
+    angr upgrade that stops calling it would bring the bug back silently."""
+
+    def step(self, platform, code, registers):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        machine.add(state.memory.RawMemory.from_bytes(b"\x00" * 0x10, 0x2000))
+        cpu.pc.set(0x1000)
+        for name, value in registers.items():
+            getattr(cpu, name).set(value)
+        emu = emulators.AngrEmulator(platform)
+        emu.add_exit_point(0x1000 + len(code))
+        machine.emulate(emu)
+        return emu
+
+    def test_superh_big_endian_low_byte(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+        )
+        # extu.b r4,r5 reads r4's last byte.
+        emu = self.step(platform, bytes.fromhex("654c"), {"r4": 0x123456AB})
+        self.assertEqual(emu.read_register("r5"), 0xAB)
+        # mov.b r4,@r2 stores r4's last byte.
+        emu = self.step(
+            platform, bytes.fromhex("2240"), {"r4": 0x112233CC, "r2": 0x2000}
+        )
+        self.assertEqual(emu.read_memory(0x2000, 1), b"\xcc")
+
+    def test_tricore_little_endian_high_half(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
+        )
+        # st.q [a11]-0xe5,d12 stores d12's high half.
+        emu = self.step(
+            platform,
+            bytes.fromhex("89bc1bca"),
+            {"d12": 0xBEEF1234, "a11": 0x2000 + 0xE5},
+        )
+        self.assertEqual(emu.read_memory(0x2000, 2), b"\xef\xbe")
+
+
 class UnicornPPC64InitTests(unittest.TestCase):
     """PPC64MachineDef.__init__ used `super(...)` without calling __init__."""
 
@@ -6273,6 +6320,30 @@ class ElfIgnorePlatformTests(unittest.TestCase):
                 f, platform=None, ignore_platform=True, user_base=0x100000
             )
         self.assertIsNone(elf.platform)
+
+
+class ElfSuperHPlatformTests(unittest.TestCase):
+    """The ELF loader derives SH-1 and SH-2 from e_flags. The scenarios that
+    load these images pass the platform explicitly, so nothing else checks
+    the derivation."""
+
+    def run_test(self, name, architecture):
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "exitpoint", name
+        )
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built (run `make` in tests/)")
+        with open(path, "rb") as f:
+            elf = ElfExecutable(f)
+        self.assertEqual(
+            elf.platform, platforms.Platform(architecture, platforms.Byteorder.BIG)
+        )
+
+    def test_sh1(self):
+        self.run_test("exitpoint.sh1.elf", platforms.Architecture.SUPERH_SH1)
+
+    def test_sh2(self):
+        self.run_test("exitpoint.sh2.elf", platforms.Architecture.SUPERH_SH2)
 
 
 class ElfPickleCompatibilityTests(unittest.TestCase):

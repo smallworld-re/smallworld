@@ -15,8 +15,8 @@
     ! would produce 0xffff8000; 0x20 is positive, so `mov #0x20` + `shll8` +
     ! `shll2` gives exactly 0x8000.
     !
-    ! Call-free by construction, nothing reads the T bit (SH-2A's T is the
-    ! bitfield sr[0,1] rather than a register) and nothing is privileged, so no
+    ! Call-free by construction, nothing reads the T bit (SH-1 and SH-2's T is
+    ! the bitfield sr[0,1] rather than a register) and nothing is privileged, so no
     ! `ldc ..., sr` preamble is needed.
     .text
     .globl _start

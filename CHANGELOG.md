@@ -13,10 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architectures. angr's p-code engine looked a register varnode up by the
   name of the register containing it, losing its offset within it, so an
   instruction using a big-endian register's low half (SuperH `mulu.w`) used
-  the high half instead.
+  the high half instead. This also fixes SuperH `mov.w Rm,@Rn` and
+  `mov.b Rm,@Rn`, which stored `Rm`'s high bytes, so a halfword store of
+  `0x1234` wrote zero.
 - `GhidraEmulator` reports an instruction its language cannot decode as
   `EmulationExecInvalidFailure`, as the other backends do, rather than letting
-  Ghidra's `DecodePcodeExecutionException` escape.
+  Ghidra's `DecodePcodeExecutionException` escape, or its
+  `InstructionDecodeException` for an undecodable delay-slot instruction.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -116,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- SH-1 and SH-2 ELF images (`e_flags` `EF_SH1` and `EF_SH2`) now load as
+  `SUPERH_SH1` and `SUPERH_SH2` rather than `SUPERH_SH2A_FPU`, so they no
+  longer run on Panda or Styx by default. Pass `platform` with
+  `SUPERH_SH2A_FPU` to keep running them as SH-2A.
 - `Value.{get, set}()` changed to `@property` `value`.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.

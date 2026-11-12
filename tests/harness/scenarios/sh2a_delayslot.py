@@ -88,7 +88,8 @@ SCENARIO_PREFIXES = ((_SCENARIO, _SCENARIO),)
 SCENARIO_INFO = ScenarioInfo(
     prefix=_SCENARIO,
     scenario=_SCENARIO,
-    tags=("scenario", _SCENARIO, "sh2a"),
+    # One tag per architecture the scenario covers; tags apply to every row.
+    tags=("scenario", _SCENARIO, *SPECS),
     variants_source=from_arch_table(SPECS),
     run_factory=just_run(),
 )

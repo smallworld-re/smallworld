@@ -18,25 +18,54 @@ NATIVE_PARITY = False
 # CPU would, rather than run them as SH-2A. These are hand-assembled and
 # checked against Ghidra's SH-1, SH-2 and SH-2A languages:
 #
-#   dt r1                (SH-2 and later)   41 10
-#   bt/s .+4             (SH-2 and later)   8d 00, delay slot add #1,r1 (71 01)
-#   movi20 #0x1234, r1   (SH-2A only)       01 00 12 34
+#   dt r1                 (SH-2 and later)  41 10
+#   bt/s .+4              (SH-2 and later)  8d 00, delay slot add #1,r1 (71 01)
+#   bra .+4               (all)             a0 00, delay slot dt r1 (41 10)
+#   mul.l r1,r1           (SH-2 and later)  01 17, then sts macl,r1 (01 1a)
+#   braf r2               (SH-2 and later)  mov #0,r2 (e2 00), 02 23,
+#                                           delay slot add #1,r1 (71 01)
+#   movi20 #0x1234,r1     (SH-2A only)      01 00 12 34
+#   lds r2,fpul           (SH-2A only)      mov #5,r2 (e2 05), 42 5a,
+#                                           then sts fpul,r1 (01 5a)
 #
 # Each is followed by a nop, and the run stops at the end of the program.  sr
-# is 0, so bt/s is not taken, but its delay slot still runs.
+# is 0, so bt/s is not taken, but its delay slot still runs.  bra itself is
+# valid on SH-1, so only its delay slot is refused there.  SH-2A's shad and
+# shld are left out: angr cannot run them, because their p-code branches within
+# the instruction.
 _PROGRAMS = {
     "dt": bytes.fromhex("4110" "0009"),
     "bts": bytes.fromhex("8d00" "7101" "0009"),
+    "slot_dt": bytes.fromhex("a000" "4110" "0009"),
+    "mull": bytes.fromhex("0117" "011a" "0009"),
+    "braf": bytes.fromhex("e200" "0223" "7101" "0009"),
     "movi20": bytes.fromhex("0100" "1234" "0009"),
+    "fpul": bytes.fromhex("e205" "425a" "015a" "0009"),
 }
 
 # The first SH version with each instruction.
-_INTRODUCED = {"dt": "sh2", "bts": "sh2", "movi20": "sh2a"}
+_INTRODUCED = {
+    "dt": "sh2",
+    "bts": "sh2",
+    "slot_dt": "sh2",
+    "mull": "sh2",
+    "braf": "sh2",
+    "movi20": "sh2a",
+    "fpul": "sh2a",
+}
 _ORDER = ("sh1", "sh2", "sh2a")
 
 # r1 before and after each program, where the instruction runs.
 _R1_IN = 0x10
-_R1_OUT = {"dt": 0xF, "bts": 0x11, "movi20": 0x1234}
+_R1_OUT = {
+    "dt": 0xF,
+    "bts": 0x11,
+    "slot_dt": 0xF,
+    "mull": 0x100,
+    "braf": 0x11,
+    "movi20": 0x1234,
+    "fpul": 0x5,
+}
 
 _ARCHS = ("sh1", "sh2", "sh2a")
 _ENGINES = ("angr", "pcode")
@@ -51,7 +80,7 @@ def _expectations(
     out = []
     for program, introduced in _INTRODUCED.items():
         if _ORDER.index(arch) >= _ORDER.index(introduced):
-            out.append(((program,), f"r1={_R1_OUT[program]:#x}"))
+            out.append(((program,), f"r1={_R1_OUT[program]:#010x}"))
         else:
             out.append(((program,), "illegal instruction"))
     return tuple(out)
@@ -104,5 +133,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     except smallworld.exceptions.EmulationExecInvalidFailure:
         print("illegal instruction")
         return 0
-    print(f"r1={final_cpu.r1.get():#x}")
+    # Fixed width, because the expected output is matched as a substring.
+    print(f"r1={final_cpu.r1.get():#010x}")
     return 0

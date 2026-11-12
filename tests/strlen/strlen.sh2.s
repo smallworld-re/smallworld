@@ -7,9 +7,9 @@ _start:
     ! result.  Writing the whole register makes every bit concrete; `clrt` alone
     ! is not enough, because a deposit into a symbolic sr stays symbolic.
     !
-    ! The value matters: 0x40000000 sets SR.MD (bit 30) and clears T.  Writing
-    ! plain 0 would clear MD too, dropping a full-system emulator into user mode
-    ! where the next privileged instruction faults.
+    ! Only clearing T matters here.  SH-1 and SH-2 have no SR.MD, and bit 30 is
+    ! reserved; 0x40000000 sets it only so this code is the same as the other
+    ! SuperH versions'.
     mov     #0x40, r1
     shll16  r1
     shll8   r1
