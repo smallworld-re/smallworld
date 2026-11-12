@@ -300,10 +300,7 @@ pages 0x10 and 0x20; and request flags beyond a source's flag SFR - the FIFO
 request flags of SPI0, SMBus0, UART1 and I2C0, and PCA0's COVF, in PCA0PWM -
 which request it too, each gated by its own enable bit.  Its Port Match
 interrupt has no request flag, since its pins request it, so it is never
-taken, and ``mcs51_raise_interrupt`` refuses it.  Some of the EFM8BB2's gates
-reset set - SPI0FCN1's SPIFEN, and UART1FCN1's RIE and TIE - but SFRs start
-as the harness maps them, so a program that leaves them alone needs the
-harness to set them.  Any other
+taken, and ``mcs51_raise_interrupt`` refuses it.  Any other
 device whose paging SFR ``mcs51_xpage_sfr()`` knows is accepted too, with a
 warning: it pages MOVX @Ri as it should, but the emulator takes only the
 8052's interrupts, which it has among its own.  Request flags that a second bit gates, as Timer 2's
@@ -312,6 +309,15 @@ interrupt only while that bit is set.  The data sheet does not say whether a
 write to EIE1 or EIP1 holds interrupts for an instruction as one to IE or IP
 does; SmallWorld assumes it does.  Ghidra's own CIP-51 language adds nothing
 an emulator uses, and pypcode lacks it.
+
+SFRs start as the harness maps them, not at the device's reset values, which
+an ``MCS51Device`` does not set: SFRs a harness maps as zero are zero, where
+the hardware would have set some bits.  Firmware usually leaves such bits
+alone, relying on their reset values, so a harness for it must set them.  On
+the EFM8BB2 they include SFRPGCN's SFRPGEN, which enables the SFR page stack;
+SPI0FCN1's SPIFEN, without which SPIF requests no interrupt; and UART1FCN1's
+RIE and TIE, without which RI and TI request none.  Check the reference
+manual's register definitions for the others a program depends on.
 
 Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
 through which the CPU reaches most of them, so that one address holds a
@@ -335,23 +341,60 @@ manual, which lists each SFR's pages: 0x00, 0x10 and 0x20.  SFRPAGE is at
 too - ADC0GTL, at 0xC3, is on pages 0 and 0x10, while page 0x20 has SMB0FCN0
 there - so which SFRs are paged depends on the page; the emulators follow
 SFRPAGE with ``sfr_paged_lo`` and ``sfr_paged_hi`` too, which on angr needs
-SFRPAGE to have a single value.  Its page stack is five deep: SFRPAGE and four
-levels that are no SFRs, which SmallWorld keeps at 0x1001-0x1004 in the SFR
-space, below page 0x10's SFRs, and which firmware reads through SFRSTACK, on
-page 0x10, the level SFRPGCN's SFRPGIDX selects; the emulators keep SFRSTACK
-in step.  SFRPGCN, on page 0x10, enables the stack with bit 0, SFRPGEN, as
-the manual says.  Map pages 0-0x20, or at least SFRPAGE, 0x1001-0x1004,
-SFRPGCN and SFRSTACK.  The manual does not say which page an interrupt whose
-flags are on two pages selects; SmallWorld takes it to be page 0.
+SFRPAGE to have a single value.  SFRPGCN, on page 0x10, enables the page
+stack with bit 0, SFRPGEN, as the manual says.  The manual does not say
+which page an interrupt whose flags are on two pages selects; SmallWorld
+takes it to be page 0.
+
+The EFM8BB2's page stack is five levels deep: SFRPAGE, and four below it
+that are no SFRs, and that firmware reads only through SFRSTACK, on page
+0x10, which shows the level SFRPGCN's SFRPGIDX selects (0 for SFRPAGE, 1-4
+for the levels below).  The hardware has no address for those four levels,
+so SmallWorld keeps them in the SFR space where no SFR is, below page 0x10's
+SFRs: level n at SFR address ``0x1000 + n``, that is, at
+``MCS51_SFR_BASE + 0x1001`` to ``MCS51_SFR_BASE + 0x1004``.  Taking an
+interrupt pushes SFRPAGE into level 1, and each level into the next, the
+bottom one lost; RETI pops them back, leaving the bottom level as it was.
+The emulators keep SFRSTACK in step with the level selected, after SFRPAGE,
+SFRPGCN or the stack changes; a write to SFRSTACK, which the hardware
+ignores, is not undone.  A harness can read or set the levels there, as
+memory, to inspect or set up the stack.  Map pages 0-0x20, or at least
+SFRPAGE, 0x1001-0x1004, SFRPGCN and SFRSTACK; paging is only modeled when
+they are mapped.
 
 A hook or model that writes SFRPAGE changes the page from the next
-instruction on Ghidra, and the next block on angr.  The headers do not say which bit enables
-the stack, nor does SmallWorld have a data sheet that says how the stack
-works; both are taken from memory of Silicon Labs' data sheets for now, and
-the C8051F36x's stack is taken to work as the C8051F04x's does.  The
+instruction on Ghidra, and the next block on angr.  For the C8051 devices,
+SDCC's headers do not say which bit enables the stack, nor does SmallWorld
+have a data sheet that says how their stack works; both are taken from
+memory of Silicon Labs' data sheets for now, and the C8051F36x's stack is
+taken to work as the C8051F04x's does.  The
 C8051F92x and F93x, and Infineon's XC866, which page their SFRs differently,
 are emulated with their SFRs unpaged, with a warning, and the C8051F12x's
 banked flash is not modeled.
+
+To page another device's SFRs, describe them with an ``MCS51SFRPaging``, in
+``smallworld.platforms.defs.mcs51``, and add it to the table
+``mcs51_sfr_paging()`` looks part numbers up in.  SFR addresses in it have the
+page above them where it matters: ``0x10CF`` is SFR 0xCF on page 0x10.  Its
+fields are:
+
+- ``sfrpage``: SFRPAGE's address.
+- ``shared``: the SFRs on every page.  SmallWorld keeps them on page 0.
+- ``also_shared``: for a device with SFRs on some pages but not all, as the
+  EFM8BB2's, the SFRs on page 0 that are on each other page too, by page.
+  Reached on those pages, they are page 0's.  With it, which SFRs are paged
+  depends on the page, as ``paged_masks(page)`` says, and the emulators
+  follow SFRPAGE to set ``sfr_paged_lo`` and ``sfr_paged_hi``.
+- ``stack``: the page stack's levels below SFRPAGE, top first: SFRNEXT and
+  SFRLAST on the C8051 devices, and on the EFM8BB2 the four kept below page
+  0x10's SFRs.
+- ``stack_enable``: the SFR, and the mask of its bits, that enable the stack.
+- ``stack_view``: for a device whose stack's levels are no SFRs, as the
+  EFM8BB2's, the SFR and mask that select a level, and the SFR that shows it
+  (SFRPGCN's SFRPGIDX and SFRSTACK); ``mcs51_sfr_stack_view()`` says what it
+  reads.
+
+``sfrs()`` lists the SFRs that must be mapped for paging to be modeled.
 
 Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
 bit is set, a MOVX write goes to code memory instead of XDATA, clearing the
@@ -369,6 +412,15 @@ address goes to XDATA, and one to flash must write a concrete byte.  Other
 devices' MOVX writes go to XDATA, with a warning.  The flash security lock
 byte, and the resets the data sheet says a locked page's misuse causes, are
 not modeled.
+
+XDATA is whatever the harness maps there: SmallWorld does not model how much
+XRAM a device has, nor that some devices repeat it through XDATA's 64 KiB.
+The EFM8BB2's 2 KiB of XRAM, at 0x0000-0x07FF, repeats every 2 KiB up to
+0xFFFF (its reference manual's "shadow XRAM"), so on the hardware, 0x0800 is
+0x0000 again; in SmallWorld, a program that reaches XRAM through such an
+address reaches a different byte, or unmapped memory.  Map XDATA as the
+device has it, or map the repeats the program uses and keep them in step
+from a hook.
 Both backends take the 8052's six interrupts, or a device's, as the hardware
 does, when the SFRs that control them are mapped: between any two
 instructions, an interrupt whose request flag is set, which IE enables and
