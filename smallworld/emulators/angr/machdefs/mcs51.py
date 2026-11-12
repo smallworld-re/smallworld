@@ -33,6 +33,7 @@ from ....platforms.defs.mcs51 import (
     mcs51_pop_sfr_page,
     mcs51_return_address,
     mcs51_service_interrupts,
+    mcs51_sfr_stack_view,
     mcs51_take_interrupt,
 )
 from .machdef import GhidraMachineDef
@@ -254,9 +255,10 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     _wrote_psw: bool = False
     _parity_stale: bool = False
 
-    # Whether the instruction executing may have written SFRPAGE, on a device
-    # that pages its SFRs, so that sfr_page must be brought in step with it;
-    # and the SFR that pages MOVX @Ri, so that xpage must be.
+    # Whether the instruction executing may have written SFRPAGE, or the SFR
+    # that selects the level of the page stack its view shows, on a device
+    # that pages its SFRs, so that sfr_page and the view must be brought in
+    # step with them; and the SFR that pages MOVX @Ri, so that xpage must be.
     _wrote_sfrpage: bool = False
     _wrote_xpage: bool = False
 
@@ -584,7 +586,13 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
             self._wrote_xpage = True
         extensions = getattr(self.state.scratch, "extensions", {})
         paging = extensions.get(_SFR_PAGING)
-        if paging is not None and may_be(MCS51_SFR_BASE + paging.sfrpage):
+        if paging is not None and (
+            may_be(MCS51_SFR_BASE + paging.sfrpage)
+            or (
+                paging.stack_view is not None
+                and may_be(MCS51_SFR_BASE + paging.stack_view[0])
+            )
+        ):
             self._wrote_sfrpage = True
 
     def _note_internal_ram_write(self, offset, size: int) -> None:
@@ -610,8 +618,9 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
         memory_map = getattr(self.state.scratch, "memory_map", None)
         if paging is None or memory_map is None:
             return None
-        sfrs = (paging.sfrpage, paging.sfrnext, paging.sfrlast, paging.stack_enable[0])
-        if not all(memory_map.contains_value(MCS51_SFR_BASE + sfr) for sfr in sfrs):
+        if not all(
+            memory_map.contains_value(MCS51_SFR_BASE + sfr) for sfr in paging.sfrs()
+        ):
             return None
         return paging
 
@@ -640,13 +649,32 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
 
     def _sync_sfr_page(self, paging: MCS51SFRPaging) -> None:
         # sfr_page mirrors SFRPAGE, from which instructions take the page of
-        # the paged SFRs they reach.
-        self._store_register(
-            "sfr_page",
-            self.state.memory.load(
-                MCS51_SFR_BASE + paging.sfrpage, 1, inspect=False, disable_actions=True
+        # the paged SFRs they reach.  On a device with SFRs on some pages but
+        # not all, sfr_paged_lo and sfr_paged_hi say which are paged on it,
+        # so SFRPAGE must have a single value; and the view of the page
+        # stack, on a device with one, shows SFRPAGE or a level below it.
+        sfrpage = self.state.memory.load(
+            MCS51_SFR_BASE + paging.sfrpage, 1, inspect=False, disable_actions=True
+        )
+        self._store_register("sfr_page", sfrpage)
+        if paging.also_shared:
+            lo, hi = paging.paged_masks(self._concrete(sfrpage, "SFRPAGE"))
+            self._store_register("sfr_paged_lo", claripy.BVV(lo, 64))
+            self._store_register("sfr_paged_hi", claripy.BVV(hi, 64))
+        view = mcs51_sfr_stack_view(
+            paging,
+            lambda address: self._concrete_byte(
+                MCS51_SFR_BASE + address, f"SFR {address:#x}"
             ),
         )
+        if view is not None:
+            address, value = view
+            self.state.memory.store(
+                MCS51_SFR_BASE + address,
+                claripy.BVV(value, 8),
+                inspect=False,
+                disable_actions=True,
+            )
 
     def _interrupt_sources(self) -> typing.Type[MCS51InterruptSource]:
         extensions = getattr(self.state.scratch, "extensions", {})
@@ -1008,6 +1036,7 @@ class MCS51MachineDef(GhidraMachineDef):
             emulator.add_extension(_SFR_PAGING, paging)
         except KeyError:
             raise ConfigurationError("the 8051 device's SFR paging is already set")
+        # Page 0's, as sfr_page starts; the masks follow it from then on.
         lo, hi = paging.paged_masks()
         emulator.write_register("sfr_paged_lo", lo)
         emulator.write_register("sfr_paged_hi", hi)

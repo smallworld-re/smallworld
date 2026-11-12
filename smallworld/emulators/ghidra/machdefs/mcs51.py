@@ -26,6 +26,7 @@ from ....platforms.defs.mcs51 import (
     mcs51_pop_sfr_page,
     mcs51_psw_with_parity,
     mcs51_service_interrupts,
+    mcs51_sfr_stack_view,
     mcs51_take_interrupt,
 )
 from .machdef import GhidraMachineDef, GhidraUserOp
@@ -125,13 +126,7 @@ class MCS51MachineDef(GhidraMachineDef):
         )
         paging = self._sfr_paging
         self._sfr_paging_mapped = paging is not None and all(
-            mapped.contains_value(MCS51_SFR_BASE + sfr)
-            for sfr in (
-                paging.sfrpage,
-                paging.sfrnext,
-                paging.sfrlast,
-                paging.stack_enable[0],
-            )
+            mapped.contains_value(MCS51_SFR_BASE + sfr) for sfr in paging.sfrs()
         )
         flash = self._flash
         self._flash_mapped = flash is not None and all(
@@ -152,6 +147,7 @@ class MCS51MachineDef(GhidraMachineDef):
         """
         self._sfr_paging = paging
         self._mapped_for = None
+        # Page 0's, as sfr_page starts; the masks follow it from then on.
         lo, hi = paging.paged_masks()
         emulator.write_register("sfr_paged_lo", lo)
         emulator.write_register("sfr_paged_hi", hi)
@@ -186,13 +182,31 @@ class MCS51MachineDef(GhidraMachineDef):
         )
         return True
 
-    def _sync_sfr_page(self, emulator) -> None:
+    def _sync_sfr_page(self, emulator, stack: bool = False) -> None:
         # sfr_page mirrors SFRPAGE, from which instructions take the page of
-        # the paged SFRs they reach.
-        assert self._sfr_paging is not None
-        page = emulator.read_memory(MCS51_SFR_BASE + self._sfr_paging.sfrpage, 1)[0]
+        # the paged SFRs they reach, and on a device with SFRs on some pages
+        # but not all, sfr_paged_lo and sfr_paged_hi say which are paged on
+        # it.  The view of the page stack, on a device with one, shows
+        # SFRPAGE or a level below it, so is synced when SFRPAGE changes, and
+        # when the caller says the stack, or the level shown, may have.
+        paging = self._sfr_paging
+        assert paging is not None
+        page = emulator.read_memory(MCS51_SFR_BASE + paging.sfrpage, 1)[0]
         if page != emulator.read_register("sfr_page"):
             emulator.write_register("sfr_page", page)
+            if paging.also_shared:
+                lo, hi = paging.paged_masks(page)
+                emulator.write_register("sfr_paged_lo", lo)
+                emulator.write_register("sfr_paged_hi", hi)
+            stack = True
+        if stack:
+            view = mcs51_sfr_stack_view(
+                paging,
+                lambda address: emulator.read_memory(MCS51_SFR_BASE + address, 1)[0],
+            )
+            if view is not None:
+                address, value = view
+                emulator.write_memory(MCS51_SFR_BASE + address, bytes([value]))
 
     def set_interrupt_sources(
         self, emulator, sources: typing.Type[MCS51InterruptSource]
@@ -258,7 +272,7 @@ class MCS51MachineDef(GhidraMachineDef):
             and previous[0] == MCS51_OPCODE_RETI
             and mcs51_pop_sfr_page(paging, read_sfr, write_sfr)
         ):
-            self._sync_sfr_page(emulator)
+            self._sync_sfr_page(emulator, stack=True)
 
         self._interrupts, source = mcs51_service_interrupts(
             self._interrupts,
@@ -290,7 +304,7 @@ class MCS51MachineDef(GhidraMachineDef):
         emulator.write_register("sp", sp)
         emulator.write_register("pc", source.vector)
         if paged:
-            self._sync_sfr_page(emulator)
+            self._sync_sfr_page(emulator, stack=True)
 
     def update_derived_state(self, emulator, writes=None) -> None:
         """Keep R0-R7 in step with their register bank, and parity with ACC.
@@ -346,14 +360,23 @@ class MCS51MachineDef(GhidraMachineDef):
         self._sync_xpage(emulator, writes)
 
         if self._sfr_paging_mapped:
-            assert self._sfr_paging is not None
-            sfrpage = MCS51_SFR_BASE + self._sfr_paging.sfrpage
+            paging = self._sfr_paging
+            assert paging is not None
+            sfrpage = MCS51_SFR_BASE + paging.sfrpage
+            select = (
+                None
+                if paging.stack_view is None
+                else MCS51_SFR_BASE + paging.stack_view[0]
+            )
+            stack = writes is None or (
+                select is not None and bool(writes.wrote_memory(select, select + 1))
+            )
             if (
-                writes is None
+                stack
                 or writes.wrote_memory(sfrpage, sfrpage + 1)
                 or writes.wrote_register(self._register_offset("sfr_page"))
             ):
-                self._sync_sfr_page(emulator)
+                self._sync_sfr_page(emulator, stack=stack)
 
         if wrote_acc or wrote_psw:
             psw = emulator.read_register("psw")

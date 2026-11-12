@@ -17,6 +17,7 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F36X_SFR_PAGING,
     MCS51_CODE_BASE,
     MCS51_EFM8BB2_FLASH,
+    MCS51_EFM8BB2_SFR_PAGING,
     MCS51_FLKEY_DISABLED,
     MCS51_FLKEY_FIRST_KEY,
     MCS51_FLKEY_LOCKED,
@@ -50,6 +51,7 @@ from smallworld.platforms.defs.mcs51 import (
     mcs51_return_address,
     mcs51_service_interrupts,
     mcs51_sfr_paging,
+    mcs51_sfr_stack_view,
     mcs51_write_idata,
 )
 from smallworld.state.cpus import MCS51Device
@@ -347,16 +349,19 @@ class MCS51SFRPagingTests(unittest.TestCase):
         self.assertIs(mcs51_sfr_paging("C8051F064"), self.paging)
         self.assertIs(mcs51_sfr_paging("C8051F131"), MCS51_C8051F12X_SFR_PAGING)
         self.assertIs(mcs51_sfr_paging("C8051F368"), MCS51_C8051F36X_SFR_PAGING)
+        self.assertIs(
+            mcs51_sfr_paging("EFM8BB21F16G-C-QFN20"), MCS51_EFM8BB2_SFR_PAGING
+        )
         for device in ("C8051F330", "C8051F020"):
             with self.subTest(device=device):
                 self.assertIsNone(mcs51_sfr_paging(device))
-        for device in ("C8051F920", "EFM8BB21F16G", "XC866"):
+        for device in ("C8051F920", "XC866"):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     mcs51_sfr_paging(device)
 
     def test_devices_paged_without_a_table_are_not_paged(self):
-        for device in ("C8051F920", "EFM8BB21F16G", "XC866"):
+        for device in ("C8051F920", "XC866"):
             with self.subTest(device=device):
                 with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
                     self.assertIsNone(MCS51Device(device).sfr_paging)
@@ -412,6 +417,80 @@ class MCS51SFRPagingTests(unittest.TestCase):
         self.assertFalse(mcs51_push_sfr_page(self.paging, values.get, write_sfr, 0))
         self.assertFalse(mcs51_pop_sfr_page(self.paging, values.get, write_sfr))
         self.assertEqual((values[0x84], values[0x85], values[0x86]), (1, 2, 3))
+
+    def test_masks_are_the_same_on_every_page(self):
+        self.assertEqual(self.paging.paged_masks(0x0F), self.paging.paged_masks())
+        self.assertIsNone(mcs51_sfr_stack_view(self.paging, {}.get))
+
+
+class EFM8BB2SFRPagingTests(unittest.TestCase):
+    """The EFM8BB2's SFRs are on pages 0x00, 0x10 and 0x20, many on page 0
+    and one other; its page stack is five deep, read through SFRSTACK."""
+
+    paging = MCS51_EFM8BB2_SFR_PAGING
+
+    def test_sfrs_are_on_one_page_set_each(self):
+        # No SFR is both on every page and on two, nor on page 0 with both
+        # page 0x10 and page 0x20.
+        on_0x10 = self.paging.unpaged(0x10) - self.paging.shared
+        on_0x20 = self.paging.unpaged(0x20) - self.paging.shared
+        self.assertEqual(len(self.paging.shared), 26)
+        self.assertEqual((len(on_0x10), len(on_0x20)), (52, 35))
+        self.assertFalse(on_0x10 & on_0x20)
+        self.assertEqual(self.paging.unpaged(0x05), self.paging.shared)
+
+    def test_masks_follow_the_page(self):
+        def paged(page: int, sfr: int) -> bool:
+            lo, hi = self.paging.paged_masks(page)
+            mask, bit = (lo, sfr - 0x80) if sfr < 0xC0 else (hi, sfr - 0xC0)
+            return bool(mask >> bit & 1)
+
+        # 0xC3: ADC0GTL on pages 0 and 0x10, SMB0FCN0 on 0x20.  0xCE:
+        # CRC0CN0 on pages 0 and 0x20, EIE2 on 0x10.  SFRPAGE, 0xA7, and
+        # EMI0CN, 0xE7, on every page.
+        for page, sfr, expected in (
+            (0x10, 0xC3, False),
+            (0x20, 0xC3, True),
+            (0x10, 0xCE, True),
+            (0x20, 0xCE, False),
+            (0x10, 0xA7, False),
+            (0x20, 0xE7, False),
+            (0x05, 0xC3, True),
+        ):
+            with self.subTest(page=hex(page), sfr=hex(sfr)):
+                self.assertEqual(paged(page, sfr), expected)
+        self.assertNotEqual(self.paging.paged_masks(0x10), self.paging.paged_masks())
+
+    def test_the_sfrs_paging_depends_on(self):
+        self.assertEqual(
+            self.paging.sfrs(),
+            (0xA7, 0x1001, 0x1002, 0x1003, 0x1004, 0x10CF, 0x10CF, 0x10D7),
+        )
+
+    def test_push_and_pop_five_levels(self):
+        values = {0x10CF: 0x01, 0xA7: 0x20, 0x1001: 0x10, 0x1002: 3, 0x1003: 4}
+        values[0x1004] = 5
+
+        def write_sfr(address: int, value: int) -> None:
+            values[address] = value
+
+        levels = (0xA7, 0x1001, 0x1002, 0x1003, 0x1004)
+        self.assertTrue(mcs51_push_sfr_page(self.paging, values.get, write_sfr, 0))
+        self.assertEqual([values[a] for a in levels], [0, 0x20, 0x10, 3, 4])
+        self.assertTrue(mcs51_pop_sfr_page(self.paging, values.get, write_sfr))
+        self.assertEqual([values[a] for a in levels], [0x20, 0x10, 3, 4, 4])
+
+    def test_sfrstack_shows_the_level_selected(self):
+        values = {0xA7: 0x20, 0x1001: 0x10, 0x1002: 3, 0x1003: 4, 0x1004: 5}
+        for index, expected in enumerate((0x20, 0x10, 3, 4, 5, 0, 0, 0)):
+            with self.subTest(index=index):
+                values[0x10CF] = index << 4 | 0x01
+                self.assertEqual(
+                    mcs51_sfr_stack_view(self.paging, values.get), (0x10D7, expected)
+                )
+
+    def test_device_pages_its_sfrs(self):
+        self.assertIs(MCS51Device("EFM8BB21F16G").sfr_paging, self.paging)
 
 
 class MCS51FlashTests(unittest.TestCase):

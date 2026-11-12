@@ -349,14 +349,19 @@ class MCS51SFRPaging:
 
     The SFRPAGE SFR selects the page through which the CPU reaches most
     SFRs, so that one address holds a different SFR on each page; the SFRs in
-    ``shared`` are the same on every page.  SmallWorld keeps each page's SFRs
-    in its own 256 bytes of SFR space (see :data:`MCS51_ADDRESS_SPACES`), and
-    the shared ones on page 0.
+    ``shared`` are the same on every page, and on some devices, others on
+    page 0 are the same on some other pages too (``also_shared``).
+    SmallWorld keeps each page's SFRs in its own 256 bytes of SFR space (see
+    :data:`MCS51_ADDRESS_SPACES`), and the shared ones on page 0.
 
     The device also keeps a stack of pages: taking an interrupt pushes
-    SFRPAGE onto SFRNEXT, and SFRNEXT onto SFRLAST, and selects the
-    interrupt's page, the page of its request flags; RETI pops it.  It does
-    so only while the bits ``stack_enable`` names are set.
+    SFRPAGE onto the stack's levels below it (``stack``) - SFRNEXT, then
+    SFRLAST, on the C8051F04x - and selects the interrupt's page, the page of
+    its request flags; RETI pops it.  It does so only while the bits
+    ``stack_enable`` names are set.  Where those levels are no SFRs of their
+    own, as on the EFM8, SmallWorld keeps them in SFR space below 0x80, where
+    no SFR is, and firmware reads them through an SFR that shows the level
+    another selects (``stack_view``).
 
     Addresses are SFR addresses, with the page above them where it matters:
     ``0xF96`` is SFR 0x96 on page 0xF.
@@ -365,11 +370,8 @@ class MCS51SFRPaging:
     sfrpage: int
     """SFRPAGE's address."""
 
-    sfrnext: int
-    """SFRNEXT's address."""
-
-    sfrlast: int
-    """SFRLAST's address."""
+    stack: typing.Tuple[int, ...]
+    """The addresses of the page stack's levels below SFRPAGE, top first."""
 
     stack_enable: typing.Tuple[int, int]
     """The SFR, and the mask of its bits, that enable the page stack."""
@@ -377,15 +379,42 @@ class MCS51SFRPaging:
     shared: typing.FrozenSet[int]
     """The SFRs that are on every page."""
 
-    def paged_masks(self) -> typing.Tuple[int, int]:
-        """The ``sfr_paged_lo`` and ``sfr_paged_hi`` registers' values.
+    also_shared: typing.Tuple[typing.Tuple[int, typing.FrozenSet[int]], ...] = ()
+    """SFRs on page 0 that are also on another page, by page: (page, SFRs)."""
+
+    stack_view: typing.Optional[typing.Tuple[int, int, int]] = None
+    """How firmware reads the page stack, if its levels are no SFRs of their
+    own: the SFR, and the mask of its bits, that select a level - 0 for
+    SFRPAGE, 1 for ``stack[0]`` and so on - and the SFR that shows it."""
+
+    def unpaged(self, page: int = 0) -> typing.FrozenSet[int]:
+        """The SFRs that are page 0's on a page: those reached there are
+        page 0's, whichever page SFRPAGE selects."""
+        for shared_page, sfrs in self.also_shared:
+            if shared_page == page:
+                return self.shared | sfrs
+        return self.shared
+
+    def paged_masks(self, page: int = 0) -> typing.Tuple[int, int]:
+        """The ``sfr_paged_lo`` and ``sfr_paged_hi`` registers' values, on a
+        page.  They depend on the page only on a device with ``also_shared``.
 
         Bit n of the first is set when SFR 0x80 + n is paged; bit n of the
         second, when SFR 0xC0 + n is.
         """
-        lo = sum(1 << n for n in range(0x40) if 0x80 + n not in self.shared)
-        hi = sum(1 << n for n in range(0x40) if 0xC0 + n not in self.shared)
+        unpaged = self.unpaged(page)
+        lo = sum(1 << n for n in range(0x40) if 0x80 + n not in unpaged)
+        hi = sum(1 << n for n in range(0x40) if 0xC0 + n not in unpaged)
         return lo, hi
+
+    def sfrs(self) -> typing.Tuple[int, ...]:
+        """The SFRs paging depends on, which must be mapped for it to be
+        modeled: SFRPAGE, the page stack, the SFR that enables it and, where
+        there is one, the stack's view."""
+        sfrs = (self.sfrpage,) + self.stack + (self.stack_enable[0],)
+        if self.stack_view is not None:
+            sfrs += (self.stack_view[0], self.stack_view[2])
+        return sfrs
 
 
 #: The C8051F04x's SFR paging, from SDCC 4.6's C8051F040.h, which lists these
@@ -395,8 +424,7 @@ class MCS51SFRPaging:
 #: SFRPGEN.
 MCS51_C8051F04X_SFR_PAGING = MCS51SFRPaging(
     sfrpage=0x84,
-    sfrnext=0x85,
-    sfrlast=0x86,
+    stack=(0x85, 0x86),
     stack_enable=(0xF96, 0x01),
     shared=frozenset(
         {0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x90, 0xA0, 0xA8}
@@ -420,8 +448,7 @@ MCS51_C8051F12X_SFR_PAGING = dataclasses.replace(
 #: 0; the header says neither.
 MCS51_C8051F36X_SFR_PAGING = MCS51SFRPaging(
     sfrpage=0xA7,
-    sfrnext=0x85,
-    sfrlast=0x86,
+    stack=(0x85, 0x86),
     stack_enable=(0xFE5, 0x01),
     shared=frozenset(
         {0x80, 0x81, 0x82, 0x83, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B}
@@ -436,16 +463,60 @@ MCS51_C8051F36X_SFR_PAGING = MCS51SFRPaging(
     ),
 )
 
+#: The EFM8BB2's SFR paging, from its reference manual, preliminary revision
+#: 0.3: section 3, and Table 3.3, which lists each SFR's pages, 0x00, 0x10 and
+#: 0x20.  SFRPAGE is at 0xA7.  Many SFRs are on two pages, page 0 and one
+#: other, and are page 0's there.  The page stack is five levels deep:
+#: SFRPAGE and four that are no SFRs, which SmallWorld keeps at 0x1001-0x1004
+#: - page 0x10, which SFRSTACK is on, below its SFRs, at the index that
+#: selects each.  SFRPGCN, on page 0x10, enables the stack with bit 0,
+#: SFRPGEN, and selects the level SFRSTACK, on page 0x10, shows with bits
+#: 4-6, SFRPGIDX.
+MCS51_EFM8BB2_SFR_PAGING = MCS51SFRPaging(
+    sfrpage=0xA7,
+    stack=(0x1001, 0x1002, 0x1003, 0x1004),
+    stack_enable=(0x10CF, 0x01),
+    shared=frozenset(
+        {0x80, 0x81, 0x82, 0x83, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D}
+        | {0x8E, 0x8F, 0x90, 0x97, 0xA0, 0xA7, 0xA8, 0xA9, 0xB0, 0xB7, 0xB8}
+        | {0xD0, 0xE0, 0xE7, 0xF0}
+    ),
+    also_shared=(
+        (
+            0x10,
+            frozenset(
+                {0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x9B, 0x9C, 0x9D, 0x9E}
+                | {0x9F, 0xAA, 0xAB, 0xB1, 0xB2, 0xB3, 0xB9, 0xBB, 0xBC, 0xBD}
+                | {0xBE, 0xBF, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xCA, 0xCB}
+                | {0xCC, 0xCD, 0xD1, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDF, 0xE4}
+                | {0xE6, 0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xF3, 0xF7, 0xF9, 0xFA}
+                | {0xFB, 0xFC}
+            ),
+        ),
+        (
+            0x20,
+            frozenset(
+                {0x86, 0x98, 0x99, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xAC}
+                | {0xC0, 0xC1, 0xC2, 0xC9, 0xCE, 0xCF, 0xD2, 0xD3, 0xD4, 0xD5}
+                | {0xD6, 0xD7, 0xDD, 0xDE, 0xE1, 0xE2, 0xE3, 0xED, 0xEE, 0xF1}
+                | {0xF2, 0xF6, 0xF8, 0xFD, 0xFE}
+            ),
+        ),
+    ),
+    stack_view=(0x10CF, 0x70, 0x10D7),
+)
+
 #: SFR paging, by device family, for :func:`mcs51_sfr_paging`: (pattern of
 #: part numbers, paging).
 _MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
     (r"C8051F0[46]\d", MCS51_C8051F04X_SFR_PAGING),
     (r"C8051F1[23]\d", MCS51_C8051F12X_SFR_PAGING),
     (r"C8051F36\d", MCS51_C8051F36X_SFR_PAGING),
+    (r"EFM8BB2", MCS51_EFM8BB2_SFR_PAGING),
 )
 
 #: Devices that page their SFRs in ways SmallWorld has no table of.
-_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"EFM8BB2", r"XC866")
+_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"XC866")
 
 
 def mcs51_sfr_paging(device: str) -> typing.Optional[MCS51SFRPaging]:
@@ -494,8 +565,9 @@ def mcs51_push_sfr_page(
     sfr, mask = paging.stack_enable
     if not read_sfr(sfr) & mask:
         return False
-    write_sfr(paging.sfrlast, read_sfr(paging.sfrnext))
-    write_sfr(paging.sfrnext, read_sfr(paging.sfrpage))
+    levels = (paging.sfrpage,) + paging.stack
+    for below, above in reversed(tuple(zip(levels[1:], levels))):
+        write_sfr(below, read_sfr(above))
     write_sfr(paging.sfrpage, page)
     return True
 
@@ -518,9 +590,35 @@ def mcs51_pop_sfr_page(
     sfr, mask = paging.stack_enable
     if not read_sfr(sfr) & mask:
         return False
-    write_sfr(paging.sfrpage, read_sfr(paging.sfrnext))
-    write_sfr(paging.sfrnext, read_sfr(paging.sfrlast))
+    levels = (paging.sfrpage,) + paging.stack
+    for above, below in zip(levels, levels[1:]):
+        write_sfr(above, read_sfr(below))
     return True
+
+
+def mcs51_sfr_stack_view(
+    paging: MCS51SFRPaging, read_sfr: typing.Callable[[int], int]
+) -> typing.Optional[typing.Tuple[int, int]]:
+    """What the SFR that shows the page stack's levels reads now.
+
+    On a device whose page stack's levels below SFRPAGE are no SFRs of their
+    own (see :attr:`MCS51SFRPaging.stack_view`), that SFR shows the level
+    another selects; the emulators keep it in step.  A level past the
+    stack's bottom reads 0.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+
+    Returns:
+        The SFR's address and value, or None if the device has no such SFR.
+    """
+    if paging.stack_view is None:
+        return None
+    select, mask, view = paging.stack_view
+    level = (read_sfr(select) & mask) >> ((mask & -mask).bit_length() - 1)
+    levels = (paging.sfrpage,) + paging.stack
+    return view, read_sfr(levels[level]) if level < len(levels) else 0
 
 
 @dataclasses.dataclass(frozen=True)

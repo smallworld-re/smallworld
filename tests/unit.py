@@ -60,6 +60,7 @@ from ihex.test import (  # noqa: F401 - registers the TestCases
 from mcs51_interrupts.test import (  # noqa: F401 - registers the TestCases
     C8051F33xInterruptTests,
     EFM8BB2FlashTests,
+    EFM8BB2SFRPagingTests,
     MCS51DeviceTests,
     MCS51FlashTests,
     MCS51InterruptChoiceTests,
@@ -11174,6 +11175,7 @@ class MCS51DerivedStateTests(unittest.TestCase):
         code: bytes,
         sfrs: typing.Optional[typing.Dict[int, int]] = None,
         device: typing.Optional[str] = None,
+        sfr_size: int = 0x1000,
         **registers: int,
     ):
         from smallworld.platforms.defs.mcs51 import (
@@ -11201,7 +11203,7 @@ class MCS51DerivedStateTests(unittest.TestCase):
         machine.add(state.memory.RawMemory.from_bytes(bytes(0x100), MCS51_IDATA_BASE))
         machine.add(state.memory.RawMemory.from_bytes(bytes(0x1000), MCS51_XDATA_BASE))
         if sfrs is not None:
-            content = bytearray(0x1000)
+            content = bytearray(sfr_size)
             for sfr, value in sfrs.items():
                 content[sfr] = value
             machine.add(
@@ -11353,6 +11355,59 @@ class MCS51DerivedStateTests(unittest.TestCase):
                 )
                 emulator.step()
                 self.assertEqual(emulator.read_register("sfr_page"), 0x0F)
+
+    def test_efm8bb2_paged_sfrs_follow_the_page(self):
+        from smallworld.platforms.defs.mcs51 import (
+            MCS51_EFM8BB2_SFR_PAGING,
+            MCS51_SFR_BASE,
+        )
+
+        # mov sfrpage,#0x10; nop; nop; nop; nop
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class,
+                    b"\x75\xa7\x10\x00\x00\x00\x00",
+                    sfrs={},
+                    device="EFM8BB21F16G",
+                    sfr_size=0x2100,
+                )
+                emulator.step()
+                emulator.step()
+                masks = (
+                    emulator.read_register("sfr_paged_lo"),
+                    emulator.read_register("sfr_paged_hi"),
+                )
+                self.assertEqual(masks, MCS51_EFM8BB2_SFR_PAGING.paged_masks(0x10))
+                # A harness's write to SFRPAGE moves them too.
+                emulator.write_memory(MCS51_SFR_BASE + 0xA7, b"\x20")
+                emulator.step()
+                masks = (
+                    emulator.read_register("sfr_paged_lo"),
+                    emulator.read_register("sfr_paged_hi"),
+                )
+                self.assertEqual(masks, MCS51_EFM8BB2_SFR_PAGING.paged_masks(0x20))
+
+    def test_efm8bb2_sfrstack_shows_the_level_sfrpgcn_selects(self):
+        from smallworld.platforms.defs.mcs51 import MCS51_SFR_BASE
+
+        # mov sfrpage,#0x10; mov sfrpgcn,#0x21; mov sfrpgcn,#0x01; nop; nop
+        code = b"\x75\xa7\x10\x75\xcf\x21\x75\xcf\x01\x00\x00"
+        for emulator_class in self.EMULATORS:
+            with self.subTest(emulator=emulator_class.__name__):
+                emulator = self.build(
+                    emulator_class,
+                    code,
+                    sfrs={0x1002: 0x5A},
+                    device="EFM8BB21F16G",
+                    sfr_size=0x2100,
+                )
+                sfrstack = MCS51_SFR_BASE + 0x10D7
+                emulator.step()
+                emulator.step()
+                self.assertEqual(emulator.read_memory(sfrstack, 1), b"\x5a")
+                emulator.step()
+                self.assertEqual(emulator.read_memory(sfrstack, 1), b"\x10")
 
     def test_angr_refuses_symbolic_interrupt_state(self):
         import claripy

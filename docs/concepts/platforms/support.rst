@@ -305,7 +305,8 @@ an emulator uses, and pypcode lacks it.
 Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
 through which the CPU reaches most of them, so that one address holds a
 different SFR on each page, and taking an interrupt pushes SFRPAGE onto a
-stack, SFRNEXT and SFRLAST, and selects the interrupt's page, which RETI pops.
+stack - SFRNEXT and SFRLAST on the C8051 devices - and selects the
+interrupt's page, the page of its request flags, which RETI pops.
 An ``MCS51Device`` for the C8051F04x or F06x pages them so, from
 ``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h`` and
 ``C8051F060.h``: the SFRs they list under "All Pages" are on page 0, and the
@@ -315,15 +316,31 @@ rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
 ``C8051F360.h``, has SFRPAGE at 0xA7, pages 0 and 0x0F, and SFR0CN, on page
 0x0F, in place of SFRPGCN.  Map the pages a program uses, and SFRPAGE,
 SFRNEXT, SFRLAST and the SFR that enables the stack, with its bit 0 - SFRPGCN
-or SFR0CN, on page 0x0F; paging is only modeled when they are mapped.  A hook
-or model that writes SFRPAGE changes the page from the next instruction on
-Ghidra, and the next block on angr.  The headers do not say which bit enables
+or SFR0CN, on page 0x0F; paging is only modeled when they are mapped.
+
+The EFM8BB2's, ``MCS51_EFM8BB2_SFR_PAGING``, is taken from its reference
+manual, which lists each SFR's pages: 0x00, 0x10 and 0x20.  SFRPAGE is at
+0xA7, and many SFRs are on page 0 and one other page, where they are page 0's
+too - ADC0GTL, at 0xC3, is on pages 0 and 0x10, while page 0x20 has SMB0FCN0
+there - so which SFRs are paged depends on the page; the emulators follow
+SFRPAGE with ``sfr_paged_lo`` and ``sfr_paged_hi`` too, which on angr needs
+SFRPAGE to have a single value.  Its page stack is five deep: SFRPAGE and four
+levels that are no SFRs, which SmallWorld keeps at 0x1001-0x1004 in the SFR
+space, below page 0x10's SFRs, and which firmware reads through SFRSTACK, on
+page 0x10, the level SFRPGCN's SFRPGIDX selects; the emulators keep SFRSTACK
+in step.  SFRPGCN, on page 0x10, enables the stack with bit 0, SFRPGEN, as
+the manual says.  Map pages 0-0x20, or at least SFRPAGE, 0x1001-0x1004,
+SFRPGCN and SFRSTACK.  The manual does not say which page an interrupt whose
+flags are on two pages selects; SmallWorld takes it to be page 0.
+
+A hook or model that writes SFRPAGE changes the page from the next
+instruction on Ghidra, and the next block on angr.  The headers do not say which bit enables
 the stack, nor does SmallWorld have a data sheet that says how the stack
 works; both are taken from memory of Silicon Labs' data sheets for now, and
 the C8051F36x's stack is taken to work as the C8051F04x's does.  The
 C8051F92x and F93x, and Infineon's XC866, which page their SFRs differently,
-are emulated with their SFRs unpaged, with a warning, as is the EFM8BB2 for
-now, and the C8051F12x's banked flash is not modeled.
+are emulated with their SFRs unpaged, with a warning, and the C8051F12x's
+banked flash is not modeled.
 
 Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
 bit is set, a MOVX write goes to code memory instead of XDATA, clearing the

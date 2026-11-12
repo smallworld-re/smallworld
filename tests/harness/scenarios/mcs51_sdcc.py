@@ -48,7 +48,9 @@ C8051F060 and C8051F120, reaches SFRs on several pages, and takes an
 interrupt with the SFR page stack enabled and disabled.  The scenario
 checks what it read.  ``mcs51_sdcc.sfrpages_f36x.c8051f360``:
 ``sfrpages_f36x.c`` does the like for the C8051F360, which pages its SFRs
-differently.
+differently, and ``mcs51_sdcc.sfrpages_efm8bb2.efm8bb2``:
+``sfrpages_efm8bb2.c`` for the EFM8BB2, many of whose SFRs are on two pages,
+and which reads its deeper page stack through SFRSTACK.
 
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
@@ -92,6 +94,7 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("sfrpages", "c8051f060"),
     ("sfrpages", "c8051f120"),
     ("sfrpages_f36x", "c8051f360"),
+    ("sfrpages_efm8bb2", "efm8bb2"),
 )
 
 # The device each CIP-51 build is for, and whether the scenario emulates it
@@ -212,8 +215,9 @@ def _setup(
     # with emulate_device, from an MCS51Device, which sets the device's
     # interrupts and SFR paging too; either way, it must agree with the
     # device lookup.  A device that pages its SFRs has pages 0-0x0F mapped,
-    # all zero: the programs that take interrupts enable the page stack
-    # themselves, so that they test the SFR the device's table names.
+    # or as far as the last page its paging names, all zero: the programs
+    # that take interrupts enable the page stack themselves, so that they
+    # test the SFR the device's table names.
     sfrs = bytearray(0x100)
     if device is not None:
         xpage_sfr = code.get_map_value("__XPAGE")
@@ -224,7 +228,9 @@ def _setup(
             machine.add(mcs51_device)
             paging = mcs51_device.sfr_paging
             if paging is not None:
-                sfrs = bytearray(0x1000)
+                pages = [0x0F] + [sfr >> 8 for sfr in paging.sfrs()]
+                pages += [page for page, _ in paging.also_shared]
+                sfrs = bytearray(0x100 * (max(pages) + 1))
         else:
             cpu.xpage_sfr.set(xpage_sfr)
         sfrs[_SFR_P2] = _P2_RESET
@@ -589,9 +595,34 @@ def _sfrpages_f36x_checks(xdata) -> Dict[str, Tuple[Any, Any]]:
     }
 
 
+def _sfrpages_efm8bb2_checks(xdata) -> Dict[str, Tuple[Any, Any]]:
+    # sfrpages_efm8bb2.c's results, for the EFM8BB2.
+    result = xdata("_result", 8)
+    return {
+        # ADC0GTL, on pages 0 and 0x10, and SMB0FCN0, on 0x20, at 0xC3.
+        "0xC3": (result[:2], [0x11, 0x22]),
+        # CRC0CN0, on pages 0 and 0x20, and EIE2, on 0x10, at 0xCE.
+        "0xCE": (result[2:4], [0x33, 0x04]),
+        # TR2 set in TMR2CN0, on pages 0 and 0x10, and RI1 in SCON1, on 0x20.
+        "bits": (result[4:6], [0x04, 0x01]),
+        "shared": (result[6], 0x5A),
+        # CRC0FLIP, on page 0, after SFRPGCN, at 0xCF on page 0x10, was set.
+        "0xCF": (result[7], 0x77),
+        # Timer 0's handler on page 0; Timer 1's on page 0, finding SFRPAGE,
+        # 0x10 by then, Timer 0's page, 0x10, and main's, 0x20, on the
+        # stack; Timer 0's back on 0x10, and main on 0x20.  Then, without
+        # the page stack, Timer 0's on main's page.
+        "handler pages": (
+            xdata("_isr", 8),
+            [0, 0, 0x10, 0x10, 0x20, 0x10, 0x20, 0x20],
+        ),
+    }
+
+
 _SFRPAGES_CHECKS = {
     "sfrpages": _sfrpages_checks,
     "sfrpages_f36x": _sfrpages_f36x_checks,
+    "sfrpages_efm8bb2": _sfrpages_efm8bb2_checks,
 }
 
 
