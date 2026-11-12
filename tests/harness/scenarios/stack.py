@@ -235,7 +235,7 @@ _SPECS = {
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         register_arguments=(
             ("r3", 0x1111),
             ("r4", 0x01010101),
@@ -373,7 +373,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "stack"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={arch: {"res": res} for arch, res in _STACK_RES.items()},
     ),
     run_factory=assert_outputs(_stack_expectations, case_sensitive=False),

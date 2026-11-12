@@ -578,6 +578,11 @@ class PowerPCErrnoResolver(ErrnoResolver):
     errno_to_label = ErrnoResolver.errno_to_label | {35: "EDEADLCK", 58: "EDEADLOCK"}
 
 
+class PowerPC64ErrnoResolver(PowerPCErrnoResolver):
+    # Linux shares one errno list between 32- and 64-bit PowerPC.
+    platform = Platform(Architecture.POWERPC64, Byteorder.BIG)
+
+
 class RiscV64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.RISCV64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV

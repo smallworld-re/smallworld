@@ -23,16 +23,20 @@ stdenv.mkDerivation {
     tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
+    # Builds elf_core.ppc64.elf; see the PPC64_GLIBC_CC note in the Makefile.
+    pkgsCross.ppc64.stdenv.cc
   ];
   buildInputs = [
     pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
+    pkgsCross.ppc64.glibc
   ];
   env = {
     AMD64_SYSROOT = x86_64_glibc_path;
     AARCH64_SYSROOT = pkgsCross.aarch64-multiplatform.glibc.outPath;
     PPC_SYSROOT = pkgsCross.ppc32.glibc.outPath;
+    PPC64_SYSROOT = pkgsCross.ppc64.glibc.outPath;
   };
   shellHook = ''
     export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache

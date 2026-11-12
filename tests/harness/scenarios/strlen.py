@@ -113,7 +113,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
             **_SH4_CALL_SKIPS,
         },
     ),

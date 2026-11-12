@@ -124,7 +124,6 @@ SCENARIO_INFO = ScenarioInfo(
             "armhf.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "ppc.styx": "styx PPC405 target lacks MMIO mapping at test addresses",
             "ppc.styx-mpc860": "styx MPC860 target lacks MMIO mapping at test addresses",
-            "ppc64": "Unicorn ppc64 support buggy",
             "sh2a.styx": "styx hangs when a hook is installed, and HDivModel is a MemoryMappedModel",
         },
     ),

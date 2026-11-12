@@ -153,8 +153,16 @@ class PandaEmulator(
             def setup(cpu):
                 logger.debug("cb_after_machine_init(cpu={})".format(cpu))
                 logger.debug("Panda: setting up state")
-                self.setup_state(cpu)
-                self.signal_and_wait()
+                try:
+                    self.machdef.configure_cpu(self.panda, cpu)
+                    self.setup_state(cpu)
+                except Exception as e:
+                    # The constructor is waiting for this signal; without it,
+                    # an error here would hang it rather than reach it.
+                    logger.exception("Exception setting up the PANDA CPU")
+                    self.signal_and_wait(exception=e)
+                else:
+                    self.signal_and_wait()
 
             @self.panda.cb_insn_translate
             def should_run_on_insn(env, pc):
@@ -482,6 +490,11 @@ class PandaEmulator(
                 self.condition.wait()
             # Clear the event for the next iteration
             self.run_main = False
+
+            # If setup failed, report it
+            if self.exception is not None:
+                exception, self.exception = self.exception, None
+                raise exception
 
     def _page_range_for_memory(self, address: int, size: int) -> typing.Tuple[int, int]:
         if size <= 0:

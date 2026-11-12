@@ -15,8 +15,10 @@ i386 mmx,                       No,         No,         No,         No,         
 i386 sse,                       **Yes**,    **Yes**,    No,         No,         **Yes**
 mips32,                         No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
-powerpc32,                      No,         Untested,   No,         Untested,   No Support
-powerpc64,                      No,         Untested,   No Support, No,         No Support
+powerpc32 single,               No Support, **Yes**,    No,         No,         **Yes**
+powerpc32 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
+powerpc64 single,               No Support, **Yes**,    No,         No,         **Yes**
+powerpc64 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
 riscv64,                        Untested,   Untested,   No Support, No,         No Support
 superh-sh2a-fpu single,         No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         No Support

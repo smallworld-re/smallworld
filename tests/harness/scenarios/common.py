@@ -177,7 +177,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="r3",
         stack_pointer_register="sp",
         pointer_size=8,
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
     ),
     "riscv64": ArchInfo(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -549,16 +549,6 @@ def make_noop_model(smallworld, *, name: str, platform, address: int):
             return None
 
     return NoopModel(address)
-
-
-def resolve_ppc64_function_descriptor(code, symbol: str) -> int:
-    descriptor = code.get_symbol_value(symbol) - code.address
-    for offset, value in code.items():
-        size = value.get_size()
-        if offset <= descriptor < offset + size:
-            inner = descriptor - offset
-            return int.from_bytes(value.get_content()[inner : inner + 8], "big")
-    raise ValueError(f"Failed parsing Function Descriptor for {symbol}")
 
 
 def install_tricore_panda_shadow_returns(emulator, code) -> None:

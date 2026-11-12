@@ -115,6 +115,14 @@ _SIMPLE_SPECS = {
         exit_offset=88,
         engine="unicorn",
     ),
+    "ppc64": _FuzzSpec(
+        platform=PlatformSpec("POWERPC64", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="unicorn",
+    ),
     # Styx variants reuse the per-arch fuzz binary but pick an alternate
     # emulator via the engine token (see common.make_emulator). PowerPC routes
     # through the MPC860 core because the fuzz program's deliberate write to
@@ -222,6 +230,15 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "ppc64": _FuzzSpec(
+        platform=PlatformSpec("POWERPC64", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
 }
 
 
@@ -229,7 +246,17 @@ SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
 
 NATIVE_PARITY = True
 
-_FUZZ_ARCHES = ("amd64", "aarch64", "armel", "armhf", "m68k", "mips", "mipsel", "ppc")
+_FUZZ_ARCHES = (
+    "amd64",
+    "aarch64",
+    "armel",
+    "armhf",
+    "m68k",
+    "mips",
+    "mipsel",
+    "ppc",
+    "ppc64",
+)
 
 _AFL_EXPECTED = {
     "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
@@ -240,6 +267,7 @@ _AFL_EXPECTED = {
     "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
     "ppc": ("002975:1", "022192:1", "050871:1"),
+    "ppc64": ("002975:1", "022192:1", "050871:1"),
 }
 
 

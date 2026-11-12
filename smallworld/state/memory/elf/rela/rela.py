@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import typing
 
 from ..... import platforms, utils
 from .. import elf
@@ -57,6 +58,43 @@ class ElfRelocator:
         names a GOT slot that does not exist yet.
         """
         return False
+
+    def prepare_object(
+        self,
+        elf: elf.ElfExecutable,
+        names: typing.Dict[int, str],
+        offsets: typing.Dict[int, int],
+        writable: typing.Set[int],
+    ) -> None:
+        """Set up what a linker would have created for an object file.
+
+        Called once an object file's sections are placed in the image,
+        before its symbols and relocations are processed.  Some
+        architectures' relocations are relative to a table a linker builds
+        (PowerPC64's TOC); this is where a relocator finds it.  The default
+        does nothing.
+
+        Arguments:
+            elf: The image being loaded
+            names: Each loaded section's name, by section index
+            offsets: Each loaded section's image offset, by section index
+            writable: Indexes of the writable, non-TLS sections
+        """
+        pass
+
+    def linker_symbol_value(self, name: str) -> typing.Optional[int]:
+        """The value a linker would give a symbol it defines itself.
+
+        An object file leaves such symbols (e.g. PowerPC64's `.TOC.`)
+        undefined.  The default defines none.
+
+        Arguments:
+            name: The undefined symbol's name
+
+        Returns:
+            Its address, or None if a linker wouldn't define it
+        """
+        return None
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

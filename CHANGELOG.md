@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An exception while `PandaEmulator` sets up its CPU (PANDA's machine-init
+  callback) is raised from the constructor rather than leaving it waiting
+  forever.
+- `UnicornEmulator` runs PowerPC64. SmallWorld's Unicorn build is patched so
+  an explicit PPC64 CPU model selects that model instead of a PPC32 one, and so
+  PPC64 CPUs start in hypervisor mode instead of faulting on their first
+  instruction fetch. `PPC64MachineDef` now warns only when the loaded Unicorn
+  lacks those patches.
+- `UnicornEmulator` enables the PowerPC floating-point, vector and VSX
+  facilities, so floating-point code no longer raises a facility-unavailable
+  interrupt.
+- PowerPC64 ELFv2 binaries relocate: `R_PPC64_JMP_SLOT` is a plain `S + A`
+  there. ELFv1 binaries, whose PLT slots hold function descriptors, still raise
+  `NotImplementedError`. `ElfExecutable.processor_flags` records the header's
+  `e_flags`.
+- PowerPC64 relocatable objects (`.o`) load: the TOC-relative, PC-relative
+  and `bl` relocations a compiler emits are applied, and the linker-defined
+  `.TOC.` symbol is set to the TOC base.
+  As GNU ld does, the TOC base is 0x8000 past `.got`, `.toc`, or failing
+  those the first writable section, and an ELFv2 `bl` enters its callee at
+  the local entry point, past the prologue that sets `r2` from `r12`.
+  `ElfSymbol.other` keeps the whole `st_other` byte. Relocators get two
+  generic hooks for what a linker would create, `ElfRelocator.prepare_object`
+  and `ElfRelocator.linker_symbol_value`, so this lives in the PowerPC64
+  relocator rather than in `ElfExecutable`.
+- ELF symbol visibility is read from the low two bits of `st_other`, so
+  PowerPC64 ELFv2 local-entry bits no longer produce an invalid visibility.
+- A `float` argument passed by a model on PowerPC is rounded to single precision
+  before being written in double format; PowerPC's `stfs` truncates anything
+  more precise.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -48,6 +78,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `floats` and `testfloat` integration cases for 32- and 64-bit PowerPC. Unicorn
+  passes all ten TestFloat functions; Ghidra skips single-precision multiply
+  and divide for its known subnormal flush; angr runs double precision only,
+  since it implements none of the VEX ops PowerPC single precision lowers to.
+  `PandaEmulator` turns on the PowerPC floating-point and vector facilities,
+  which QEMU's system-mode reset leaves off (`PandaMachineDef.configure_cpu`);
+  32-bit PowerPC then passes all but square root, which PANDA's PowerPC 604
+  lacks. PowerPC64 under PANDA has not yet been measured.
+- `PandaEmulator` runs PowerPC64, as a POWER8. SmallWorld's PANDA build is
+  patched to build QEMU's configurable machine for the ppc64 target, and a
+  machine check, which is how the CPU reports an unmapped instruction fetch,
+  raises `EmulationFetchUnmappedFailure`.
+- PowerPC64 ELFv2 System V library models (`smallworld.state.models.powerpc64`),
+  with the ELFv2 rules that a floating-point argument uses up its
+  general-purpose register slot, that an `int` argument fills its doubleword
+  extended by signedness, and that a `float` past `f13` is a single in the
+  second word of its stack slot, as GCC and clang place them. The c99/posix,
+  `sysv`, `funcptr`, `checked_heap`, `rela` and `link_elf` integration cases
+  now cover ppc64.
+- `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
+  to a guest function; on PowerPC64 it also sets `r12` for the TOC.
+- `interrupt`, `fuzz` (including AFL) and `static_rela` integration cases for
+  PowerPC64.
+- `elf_core` integration cases for PowerPC64. Its test binary is built with
+  Nix's ELFv2 cross gcc rather than zig, whose `powerpc64-linux-gnu` target
+  binds ELFv1 glibc symbol versions that the ELFv2 glibc used for the core
+  dump does not provide.
+- `PPC64Instruction`, so analyses can decode PowerPC64; and PowerPC64 support
+  in the malloc field-detection model. The `memhook` integration cases now
+  cover ppc64.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

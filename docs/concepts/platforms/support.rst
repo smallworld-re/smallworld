@@ -43,6 +43,33 @@ Support for privileged operations is unknown.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
 
+**powerpc64 Unicorn:** Stock Unicorn can't run PowerPC64 code at all.
+SmallWorld's build carries two patches (``nix/patches/unicorn-ppc64-*.patch``):
+one makes an explicit PPC64 CPU model select that model rather than a PPC32 one,
+and the other starts PPC64 CPUs in hypervisor mode, without which the first
+instruction fetch faults.  The default CPU is a POWER10, running in real mode;
+the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
+With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
+In real mode the CPU ignores the top four bits of an effective address, so
+memory at or above 2\ :sup:`60` is unreachable, and an access there lands on
+whatever is mapped at the same address with those bits cleared: a load from
+``0xF000000010000000`` reads ``0x10000000``.  Map PPC64 memory below 2\ :sup:`60`.
+
+**powerpc64 Panda:** SmallWorld's PANDA build is patched
+(``nix/patches/panda-qemu-ppc64-configurable.patch``) to include the
+configurable machine in the ppc64 target.  The CPU is a POWER8: POWER9 and
+POWER10 reset with the hypervisor bit clear, so their first instruction fetch
+faults, as on stock Unicorn.  An unmapped instruction fetch surfaces as a
+machine check, which SmallWorld reports as ``EmulationFetchUnmappedFailure``.
+
+**powerpc64 ABI:** SmallWorld models the ELFv2 ABI, which is what current
+toolchains (including the zig build of the test suite) emit.  For ELFv1
+binaries, which use function descriptors, the PLT relocation
+(``R_PPC64_JMP_SLOT``) raises ``NotImplementedError``, and the library models
+don't cover ELFv1.  An ELFv2 function's
+global entry point computes the TOC pointer, ``r2``, from its own address in
+``r12``, so a harness that starts at a function must set ``r12`` to it.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.
@@ -334,7 +361,8 @@ lets the guest walk an array. The contract has the same *shape* everywhere - an
 input cursor, an output cursor and a case count - but each architecture names its
 own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
 on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
-``esi``/``edi``/``ecx`` on i386 and ``rdi``/``rsi``/``rdx`` on amd64. On SuperH
+``esi``/``edi``/``ecx`` on i386, ``rdi``/``rsi``/``rdx`` on amd64 and
+``r3``/``r4``/``r5`` on PowerPC, where the kernel moves the count into ``CTR``. On SuperH
 ``r7`` additionally carries the FPSCR value that the kernel installs with
 ``lds`` - a direct register write would leave the split ``FPSCR_PR`` stale, as
 described above. A
@@ -371,7 +399,9 @@ and square root.
     :header-rows: 1
     :stub-columns: 1
 
-Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
+Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell. The
+PowerPC rows were measured at the default 3000 cases, and 32- and 64-bit PowerPC
+share one kernel and give identical results.
 
 Every skip is an upstream defect, reduced to a minimal case first:
 
@@ -401,7 +431,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
   ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
-- **Panda is skipped on every non-SuperH architecture here**, always because its
+- **PowerPC single precision** is skipped under ``angr``. PowerPC computes
+  single-precision results in its double-format registers and rounds once, so
+  VEX lifts ``fadds`` and its siblings to ``Iop_AddF64r32`` and friends, and
+  ``stfs`` to ``Iop_TruncF64asF32``; angr implements none of them. PowerPC
+  square root lowers to scalar ``Iop_SqrtF64`` and is skipped under ``angr``
+  for the same reason as armhf's. Double-precision add, subtract, multiply and
+  divide pass.
+- **Panda is skipped on x86 and armhf**, always because its
   bare ``-M configurable`` machine brings the CPU up with the floating-point
   unit switched off and nothing in the harness able to switch it on. On x86-64
   the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
@@ -412,6 +449,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
   the exception because its FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
+- **PowerPC under Panda:** QEMU's system-mode reset leaves ``MSR[FP]`` clear,
+  so ``PandaEmulator`` sets ``MSR[FP]``, ``MSR[VEC]`` and ``MSR[VSX]`` when it
+  starts, as ``UnicornEmulator`` does.  powerpc32 passes everything but square
+  root: Panda's ``ppc32`` CPU is a PowerPC 604, which lacks the optional
+  ``fsqrt``/``fsqrts`` instructions.  powerpc64 (a POWER8) has not been
+  measured locally, so it has no row in the table above; CI runs it.  Panda's
+  floating-point registers still aren't exposed through SmallWorld, hence
+  **No** in the floating-point table.
 
 Panda passes all ten functions on all three SuperH platforms, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in

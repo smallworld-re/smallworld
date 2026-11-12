@@ -67,12 +67,10 @@ _SPECS = build_specs(NullPcSpec, _ARCHS)
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-# ppc64 uses angr/pcode only: unicorn's ppc64 support is buggy (matches the
-# branch/unmapped scenarios). PANDA is a supported engine for several arches
-# but is mid-migration and not yet runnable, so its variants are skipped just
-# as they are in the unmapped scenario.
+# PANDA is a supported engine for several arches but is mid-migration and not
+# yet runnable, so its variants are skipped just as they are in the unmapped
+# scenario.
 _SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
     "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
     "armel.panda": "Waiting for panda-ng",

@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import logging
+import math
 import os
 import pathlib
 import pickle
@@ -98,6 +99,7 @@ from smallworld.emulators.hookable import (
     check_hookable_range,
     ranges_overlap,
 )
+from smallworld.emulators.unicorn.machdefs import ppc as ppc_machdefs
 from smallworld.emulators.unicorn.machdefs.ppc import PPC64MachineDef, PPCMachineDef
 from smallworld.exceptions import UnsupportedModelError
 from smallworld.extern.ctypes import TypedPointer, create_typed_pointer
@@ -155,7 +157,11 @@ from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
 from smallworld.state.models.c99.string import _require_c_locale
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
-from smallworld.state.models.cstd import ArgumentType
+from smallworld.state.models.cstd import (
+    ArgumentType,
+    CStdCallingContext,
+    VariadicContext,
+)
 from smallworld.state.models.defaultmmio import (
     LogAccessModel,
     NullMemoryMappedModel,
@@ -181,6 +187,9 @@ from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.filedesc.socket import BytesSocketIO
 from smallworld.state.models.posix.procinfo import ProcInfoManager
+from smallworld.state.models.powerpc64.systemv.systemv import (
+    PowerPC64SysVCallingContext,
+)
 from smallworld.state.models.powerpc.systemv.systemv import (
     PowerPCSysVCallingContext,
 )
@@ -1592,6 +1601,46 @@ class AngrMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class PandaSetupFailureTests(unittest.TestCase):
+    """An exception while PANDA sets up its CPU reaches PandaEmulator's
+    constructor instead of leaving it waiting forever."""
+
+    SCRIPT = """
+import os
+from smallworld import emulators, platforms
+from smallworld.emulators.panda.machdefs import PandaMachineDef
+
+def configure_cpu(self, panda_obj, panda_cpu):
+    raise RuntimeError("configure_cpu failed")
+
+PandaMachineDef.configure_cpu = configure_cpu
+try:
+    emulators.PandaEmulator(
+        platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
+    )
+except RuntimeError as e:
+    print(e, flush=True)
+    os._exit(0)
+os._exit(1)
+"""
+
+    def test_setup_exception_is_raised(self):
+        # A separate process, since one process can't run two PANDAs.
+        cwd = os.path.abspath(os.path.dirname(__file__))
+        try:
+            result = subprocess.run(
+                wrap_python_command(["python3", "-c", self.SCRIPT]),
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            self.fail("PandaEmulator hung after a setup exception")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(b"configure_cpu failed", result.stdout)
+
+
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1733,8 +1782,7 @@ class PandaMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
         )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_panda_riscv64(self):
         platform = platforms.Platform(
@@ -4267,6 +4315,43 @@ class ArmInstructionPlatformTests(unittest.TestCase):
         self.assertIn("movs", insn.disasm)
 
 
+class PPC64InstructionTests(unittest.TestCase):
+    """Analyses decode PowerPC64 through PPC64Instruction."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+    )
+
+    def test_from_bytes_selects_ppc64(self):
+        # ld r3, 8(r1)
+        insn = Instruction.from_bytes(bytes.fromhex("e8610008"), 0x1000, self.PLATFORM)
+        self.assertEqual(type(insn).__name__, "PPC64Instruction")
+        self.assertIn("ld r3, 8(r1)", insn.disasm)
+
+    def test_load_use_def(self):
+        insn = Instruction.from_bytes(bytes.fromhex("e8610008"), 0x1000, self.PLATFORM)
+        memory = [r for r in insn.reads if isinstance(r, BSIDMemoryReferenceOperand)]
+        self.assertIn(RegisterOperand("r1"), insn.reads)
+        self.assertEqual(insn.writes, {RegisterOperand("r3")})
+        self.assertEqual(len(memory), 1)
+        self.assertEqual(memory[0].offset, 8)
+        self.assertEqual(memory[0].size, 8)
+
+    def test_from_angr_name_selects_ppc64(self):
+        import archinfo
+
+        # from_angr reads only these fields of angr's instruction and block.
+        code = bytes.fromhex("60000000e8610008")  # nop; ld r3, 8(r1)
+        block = types.SimpleNamespace(addr=0x1000, bytes=code)
+        angr_insn = types.SimpleNamespace(address=0x1004, size=4)
+        arch = archinfo.ArchPPC64(archinfo.Endness.BE).name
+        insn = Instruction.from_angr(angr_insn, block, arch)
+        self.assertEqual(type(insn).__name__, "PPC64Instruction")
+        self.assertIn("ld r3, 8(r1)", insn.disasm)
+        memory = [r for r in insn.reads if isinstance(r, BSIDMemoryReferenceOperand)]
+        self.assertEqual(memory[0].size, 8)
+
+
 class X86ImmediateOperandTests(unittest.TestCase):
     """x86Instruction.reads hit `assert 1 == 0` on immediate operands."""
 
@@ -4380,25 +4465,31 @@ class AngrMipsRegisterMapTests(unittest.TestCase):
 class UnicornPPC64InitTests(unittest.TestCase):
     """PPC64MachineDef.__init__ used `super(...)` without calling __init__."""
 
+    LOGGER = "smallworld.emulators.unicorn.machdefs.ppc"
+
     def test_ppc64_machdef_calls_base_init(self):
         calls = []
 
         def record_init(self, *args, **kwargs):
             calls.append((args, kwargs))
 
-        with self.assertLogs(
-            "smallworld.emulators.unicorn.machdefs.ppc", level="WARNING"
-        ):
-            with mock.patch.object(PPCMachineDef, "__init__", record_init):
-                PPC64MachineDef()
+        with mock.patch.object(PPCMachineDef, "__init__", record_init):
+            PPC64MachineDef()
         self.assertEqual(calls, [((), {})])
 
     def test_ppc64_machdef_instantiates_with_registers(self):
-        with self.assertLogs(
-            "smallworld.emulators.unicorn.machdefs.ppc", level="WARNING"
-        ):
-            machdef = PPC64MachineDef()
+        machdef = PPC64MachineDef()
         self.assertEqual(machdef.uc_reg("r0"), unicorn.ppc_const.UC_PPC_REG_0)
+
+    def test_ppc64_machdef_warns_on_unpatched_unicorn(self):
+        with mock.patch.object(ppc_machdefs, "unicorn_runs_ppc64", return_value=False):
+            with self.assertLogs(self.LOGGER, level="WARNING"):
+                PPC64MachineDef()
+
+    def test_ppc64_machdef_is_quiet_on_patched_unicorn(self):
+        with mock.patch.object(ppc_machdefs, "unicorn_runs_ppc64", return_value=True):
+            with self.assertNoLogs(self.LOGGER, level="WARNING"):
+                PPC64MachineDef()
 
 
 class SysVFloatArgRegisterTests(unittest.TestCase):
@@ -4463,6 +4554,190 @@ class _RegisterDictEmulator:
 
     def write_register(self, name, value):
         self.regs[name] = value
+
+
+class PowerPC64SysVCallingContextTests(unittest.TestCase):
+    """ELFv2: each argument owns a doubleword slot backed by r3-r10, and a
+    floating-point argument in f1-f13 still uses up its slot."""
+
+    A = ArgumentType
+
+    def _place(self, types, varargs=()):
+        ctx = PowerPC64SysVCallingContext()
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        if varargs:
+            ctx = VariadicContext(ctx)
+            for i, t in enumerate(varargs, start=len(types)):
+                CStdCallingContext.add_argument(ctx, i, t)
+        placed = []
+        for i, t in enumerate(list(types) + list(varargs)):
+            if ctx._on_stack[i]:
+                placed.append(f"sp+{ctx._arg_offset[i]}")
+            elif t in (self.A.FLOAT, self.A.DOUBLE) and not varargs:
+                placed.append(ctx._double_arg_regs[ctx._arg_offset[i]])
+            else:
+                placed.append(ctx._eight_byte_arg_regs[ctx._arg_offset[i]])
+        return placed
+
+    def test_fp_arguments_use_up_their_gpr_slots(self):
+        # bar() from tests/sysv: the second uint is the fourth slot, so r6.
+        A = self.A
+        types = [A.UINT, A.FLOAT, A.DOUBLE, A.UINT, A.DOUBLE, A.DOUBLE]
+        self.assertEqual(self._place(types), ["r3", "f1", "f2", "r6", "f3", "f4"])
+
+    def test_stack_arguments_follow_the_register_slots(self):
+        # The parameter save area starts 32 bytes up; its first 8 slots
+        # back r3-r10.
+        self.assertEqual(self._place([self.A.INT] * 9)[-1], "sp+96")
+
+    def test_fp_argument_past_the_gprs_still_takes_a_stack_slot(self):
+        A = self.A
+        placed = self._place([A.DOUBLE] * 9 + [A.INT])
+        self.assertEqual(placed[-2:], ["f9", "sp+104"])
+
+    def test_varargs_continue_in_gprs_then_the_stack(self):
+        # foo() from tests/sysv.
+        A = self.A
+        placed = self._place(
+            [A.ULONGLONG, A.UINT, A.ULONGLONG, A.UINT, A.ULONGLONG],
+            varargs=[A.ULONGLONG, A.UINT, A.UINT, A.ULONGLONG],
+        )
+        self.assertEqual(
+            placed, ["r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "sp+96"]
+        )
+
+    def test_int_return_is_sign_extended_and_uint_zero_extended(self):
+        ctx = PowerPC64SysVCallingContext()
+        emu = _RegisterDictEmulator()
+        ctx.return_type = self.A.INT
+        ctx._return_4_byte(emu, 0xFFFFFFFF)
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFFFFFFFFFF)
+        ctx.return_type = self.A.UINT
+        ctx._return_4_byte(emu, 0xFFFFFFFF)
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFF)
+
+    SP = 0x7000
+
+    def _set(self, types, values):
+        ctx = PowerPC64SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        for i, v in enumerate(values):
+            ctx.set_argument(i, emu, v)
+        return ctx, emu
+
+    def test_int_arguments_are_extended_by_signedness(self):
+        # As GCC and clang callers do: a 64-bit `li 4,-1` for an int in a
+        # register, and an `std` of the whole doubleword (-9 at sp+96) for
+        # one on the stack.  A callee like `long f(int x)` returns r3 as is.
+        A = self.A
+        ctx, emu = self._set(
+            [A.INT, A.UINT] + [A.INT] * 6 + [A.INT, A.UINT],
+            [-1, 0xFFFFFFFF, 2, 3, 4, 5, 6, 7, -9, 0xFFFFFFF7],
+        )
+        self.assertEqual(emu.regs["r3"], 0xFFFFFFFFFFFFFFFF)
+        self.assertEqual(emu.regs["r4"], 0xFFFFFFFF)
+        self.assertEqual(emu.read_memory(self.SP + 96, 8), b"\xff" * 7 + b"\xf7")
+        self.assertEqual(
+            emu.read_memory(self.SP + 104, 8), bytes(4) + b"\xff" * 3 + b"\xf7"
+        )
+        self.assertEqual(ctx.get_argument(0, A.INT, emu), -1)
+        self.assertEqual(ctx.get_argument(8, A.INT, emu), -9)
+
+    def test_stack_floats_are_singles_in_the_second_word(self):
+        # GCC and clang callers both `stfs` the 14th and 15th arguments to
+        # sp+140 and sp+148, and callees `lfs` them from there; the int
+        # after them is a doubleword at sp+152.
+        A = self.A
+        types = [A.DOUBLE] * 13 + [A.FLOAT, A.FLOAT, A.INT]
+        ctx, emu = self._set(types, [float(i) for i in range(13)] + [1.5, 2.5, -7])
+        self.assertEqual(
+            emu.read_memory(self.SP + 136, 8), bytes(4) + struct.pack(">f", 1.5)
+        )
+        self.assertEqual(
+            emu.read_memory(self.SP + 144, 8), bytes(4) + struct.pack(">f", 2.5)
+        )
+        self.assertEqual(
+            emu.read_memory(self.SP + 152, 8), (-7).to_bytes(8, "big", signed=True)
+        )
+        self.assertEqual(ctx.get_argument(13, A.FLOAT, emu), 1.5)
+        self.assertEqual(ctx.get_argument(14, A.FLOAT, emu), 2.5)
+
+    def test_float_argument_is_rounded_to_single_precision(self):
+        # PowerPC's stfs truncates a value that isn't single-precision,
+        # so the double written to f1 must already be rounded.
+        ctx = PowerPC64SysVCallingContext()
+        ctx.set_argument_types([self.A.FLOAT])
+        emu = _RegisterDictEmulator()
+        ctx.set_argument(0, emu, math.pi)
+        (f1,) = struct.unpack(">d", emu.regs["f1"].to_bytes(8, "big"))
+        (single,) = struct.unpack(">f", struct.pack(">f", math.pi))
+        self.assertEqual(f1, single)
+
+    def test_enter_function_sets_r12(self):
+        # An ELFv2 global entry point computes r2 from r12.
+        emu = _RegisterDictEmulator()
+        PowerPC64SysVCallingContext().enter_function(emu, 0x401000)
+        self.assertEqual(emu.regs, {"r12": 0x401000, "pc": 0x401000})
+
+
+class UnicornPowerPCFacilityTests(unittest.TestCase):
+    """Unicorn starts PowerPC CPUs with the FPU off; SmallWorld turns it on."""
+
+    def test_fp_facility_is_enabled(self):
+        for arch in (
+            platforms.Architecture.POWERPC32,
+            platforms.Architecture.POWERPC64,
+        ):
+            with self.subTest(arch=arch):
+                emu = emulators.UnicornEmulator(
+                    platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+                msr = emu.engine.reg_read(unicorn.ppc_const.UC_PPC_REG_MSR)
+                self.assertTrue(msr & ppc_machdefs.MSR_FP)
+
+
+class PandaPowerPCFacilityTests(unittest.TestCase):
+    """QEMU's system-mode reset leaves the PowerPC FPU off; SmallWorld turns
+    it on, as for Unicorn.  PANDA isn't needed: pandare2's arch is faked."""
+
+    class _Panda:
+        """pandare2's Panda, as far as configure_cpu uses it."""
+
+        def __init__(self, msr):
+            self.env = types.SimpleNamespace(msr=msr)
+            self.arch = types.SimpleNamespace(cpu_env=lambda cpu: self.env)
+            self.libpanda = types.SimpleNamespace(ppc_store_msr=self._store)
+
+        def _store(self, env, value):
+            assert env is self.env
+            env.msr = value
+
+    def test_fp_facility_is_enabled(self):
+        for arch in (
+            platforms.Architecture.POWERPC32,
+            platforms.Architecture.POWERPC64,
+        ):
+            with self.subTest(arch=arch):
+                machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(
+                    platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+                panda = self._Panda(1 << 60)
+                machdef.configure_cpu(panda, None)
+                # HV (bit 60) kept; FP, VSX and VEC (bits 13, 23, 25) set.
+                self.assertEqual(
+                    panda.env.msr, (1 << 60) | (1 << 13) | (1 << 23) | (1 << 25)
+                )
+
+    def test_other_architectures_are_left_alone(self):
+        machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(
+            platforms.Platform(
+                platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+            )
+        )
+        machdef.configure_cpu(object(), None)
 
 
 class MipsReturnDoubleTests(unittest.TestCase):
@@ -6262,6 +6537,37 @@ class ElfPickleCompatibilityTests(unittest.TestCase):
             self.assertEqual(getattr(new, name), getattr(elf, name))
 
 
+class ElfProcessorFlagsTests(unittest.TestCase):
+    """ElfExecutable keeps the header's e_flags as processor_flags."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "rela", "rela.ppc64.elf"
+    )
+
+    def _load(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make ppc64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            return ElfExecutable(f, user_base=0x80000000)
+
+    def test_ppc64_elfv2_flags_are_kept(self):
+        # zig's powerpc64-linux-gnu emits ELFv2, which e_flags records as 2.
+        self.assertEqual(self._load().processor_flags & 0x3, 2)
+
+    def test_old_pickle_gets_zero_flags(self):
+        elf = self._load()
+        getstate = ElfExecutable.__getstate__
+
+        def old_getstate(this):
+            state = getstate(this)
+            del state["processor_flags"]
+            return state
+
+        with mock.patch.object(ElfExecutable, "__getstate__", old_getstate):
+            data = pickle.dumps(elf)
+        self.assertEqual(pickle.loads(data).processor_flags, 0)
+
+
 class ElfCoreFileMissingPlatformTests(unittest.TestCase):
     """ElfCoreFile with no resolvable platform must fail with a
     ConfigurationError, not an assert (SW-169). ignore_platform=True skips the
@@ -7119,8 +7425,9 @@ class _FakeElf:
     #: Stands in for the resolver ElfExecutable would have bound, if any.
     tlsdesc_resolver = 0
 
-    def __init__(self, address: int = 0):
+    def __init__(self, address: int = 0, processor_flags: int = 0):
         self.address = address
+        self.processor_flags = processor_flags
         self.noted: list = []
 
     def note_tlsdesc_descriptor(self, address: int) -> int:
@@ -7278,7 +7585,7 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     BE64 = b"\xff\xff\xff\xff\xff\xff\xed\xcc"
     LE64 = b"\xcc\xed\xff\xff\xff\xff\xff\xff"
 
-    def _value(self, relocator, type_):
+    def _value(self, relocator, type_, processor_flags=0):
         rela = ElfRela(
             is_rela=True,
             offset=0x2000,
@@ -7286,7 +7593,20 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
             symbol=_make_symbol(value=0, baseaddr=0),
             addend=self.ADDEND,
         )
-        return relocator._compute_value(rela, _FakeElf())
+        return relocator._compute_value(rela, _FakeElf(processor_flags=processor_flags))
+
+    def test_ppc64_elfv2_r_ppc64_jmp_slot(self):
+        # R_PPC64_JMP_SLOT == 21; ELFv2 (e_flags 2) has no function descriptors.
+        self.assertEqual(
+            self._value(PowerPC64ElfRelocator(), 21, processor_flags=2), self.BE64
+        )
+
+    def test_ppc64_elfv1_r_ppc64_jmp_slot_is_refused(self):
+        # ELFv1 (e_flags 1, or 0 for unspecified) needs a function descriptor.
+        for flags in (0, 1):
+            with self.subTest(processor_flags=flags):
+                with self.assertRaises(NotImplementedError):
+                    self._value(PowerPC64ElfRelocator(), 21, processor_flags=flags)
 
     def test_m68k_r_68k_32(self):
         # R_68K_32 == 1
@@ -7319,6 +7639,105 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     def test_powerpc64_r_ppc64_addr64(self):
         # R_PPC64_ADDR64 == 38
         self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
+
+
+class PowerPC64ObjectRelocationTests(unittest.TestCase):
+    """The relocations a PowerPC64 relocatable object needs, from the
+    `static_rela` scenario: TOC-relative and PC-relative 16-bit fields, and
+    the 24-bit displacement of `bl`."""
+
+    P = 0x400000
+
+    class _Elf:
+        def __init__(self, existing: bytes, processor_flags=2):
+            self.address = 0x400000
+            self.processor_flags = processor_flags
+            self._existing = existing
+
+        def read_int(self, address, size, byteorder):
+            return int.from_bytes(self._existing[:size], "big")
+
+    def _value(
+        self,
+        type_,
+        symval,
+        existing=b"\0\0\0\0",
+        toc_base=0x418000,
+        other=0,
+        processor_flags=2,
+    ):
+        symbol = _make_symbol(value=symval, baseaddr=0)
+        symbol.other = other
+        rela = ElfRela(
+            is_rela=True,
+            offset=self.P,
+            type=type_,
+            symbol=symbol,
+            addend=0,
+        )
+        relocator = PowerPC64ElfRelocator()
+        relocator.toc_base = toc_base
+        return relocator._compute_value(rela, self._Elf(existing, processor_flags))
+
+    def test_rel16_halves(self):
+        # S - P = 0x18000: lo is 0x8000, which `addi` sign-extends to
+        # -0x8000, so ha rounds the high half up to 2 where hi says 1.
+        symval = self.P + 0x18000
+        self.assertEqual(self._value(250, symval), b"\x80\x00")  # REL16_LO
+        self.assertEqual(self._value(251, symval), b"\x00\x01")  # REL16_HI
+        self.assertEqual(self._value(252, symval), b"\x00\x02")  # REL16_HA
+
+    def test_toc16_is_relative_to_the_toc_base(self):
+        # TOC16_HA/LO of TOC - 0x10: ha 0, lo 0xFFF0.
+        self.assertEqual(self._value(50, 0x418000 - 0x10), b"\x00\x00")
+        self.assertEqual(self._value(48, 0x418000 - 0x10), b"\xff\xf0")
+
+    def test_toc16_lo_ds_keeps_the_opcode_bits(self):
+        # `lwa` is DS-form with XO = 2 in the field's low two bits.
+        self.assertEqual(
+            self._value(64, 0x418000 + 0x8008, existing=b"\x00\x02"), b"\x80\x0a"
+        )
+
+    def test_toc16_overflow_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(47, 0x418000 + 0x8000)
+
+    def test_toc16_without_a_toc_base_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(48, 0x418000, toc_base=None)
+
+    def test_rel24_fills_the_branch_displacement(self):
+        # `bl` (0x48000001) back to 0x10000 from P.
+        self.assertEqual(
+            self._value(10, 0x10000, existing=b"\x48\x00\x00\x01"),
+            ((0x48000001 | ((0x10000 - self.P) & 0x03FFFFFC))).to_bytes(4, "big"),
+        )
+
+    def test_rel24_out_of_range_is_refused(self):
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._value(10, self.P + (1 << 25), existing=b"\x48\x00\x00\x01")
+
+    def test_rel24_enters_an_elfv2_callee_at_its_local_entry(self):
+        # st_other 0x60 encodes a local entry 8 bytes in, past the two
+        # instructions that set r2 from r12; GNU ld branches there too.
+        bl = b"\x48\x00\x00\x01"
+        for other, offset in ((0x00, 0), (0x20, 0), (0x40, 4), (0x60, 8), (0x80, 16)):
+            with self.subTest(other=other):
+                self.assertEqual(
+                    self._value(10, 0x10000, existing=bl, other=other),
+                    (0x48000001 | ((0x10000 + offset - self.P) & 0x03FFFFFC)).to_bytes(
+                        4, "big"
+                    ),
+                )
+
+    def test_rel24_ignores_st_other_under_elfv1(self):
+        # ELFv1 has no local entry points.
+        self.assertEqual(
+            self._value(
+                10, 0x10000, existing=b"\x48\x00\x00\x01", other=0x60, processor_flags=1
+            ),
+            ((0x48000001 | ((0x10000 - self.P) & 0x03FFFFFC))).to_bytes(4, "big"),
+        )
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
@@ -9840,6 +10259,18 @@ class MallocModelZeroCountTests(unittest.TestCase):
         self.assertEqual(emu.reg_writes, [("rax", 0x10010)])
 
 
+class MallocModelRegisterTests(unittest.TestCase):
+    """MallocModel knows each supported ABI's size and result registers."""
+
+    def test_ppc64_uses_r3(self):
+        heap = _AnalysesBumpAllocator(0x10000, 0x1000)
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        model = MallocModel(0x400000, heap, platform, None, None)
+        self.assertEqual((model.arg1_reg, model.ret_reg), ("r3", "r3"))
+
+
 class _FieldDetectionProbe(field_analysis.FieldDetectionMixin):
     """Concrete FieldDetectionMixin: satisfies the abstract execute()."""
 
@@ -10202,6 +10633,75 @@ class ElfShdrsTextOffsetTests(unittest.TestCase):
         addr = code.get_symbol_value("main")
         data = code.to_bytes()
         self.assertEqual(data[addr - self.BASE : addr - self.BASE + 16], text[:16])
+
+
+class PowerPC64TocBaseTests(unittest.TestCase):
+    """The relocator places an object's TOC 0x8000 past .got, .toc, then (as
+    GNU ld does) the first writable section, so objects with neither still
+    load; `.TOC.` is defined to it."""
+
+    ADDRESS = 0x400000
+    NAMES = {1: ".text", 3: ".data", 4: ".bss", 5: ".toc", 6: ".got"}
+    OFFSETS = {1: 0x0, 3: 0x2000, 4: 0x2008, 5: 0x2010, 6: 0x2020}
+
+    def _relocator(self, indexes, writable):
+        relocator = PowerPC64ElfRelocator()
+        relocator.prepare_object(
+            types.SimpleNamespace(address=self.ADDRESS),
+            {i: self.NAMES[i] for i in indexes},
+            {i: self.OFFSETS[i] for i in indexes},
+            set(writable),
+        )
+        return relocator
+
+    def _base(self, indexes, writable):
+        return self._relocator(indexes, writable).toc_base
+
+    def test_got_then_toc(self):
+        self.assertEqual(self._base([1, 3, 4, 5, 6], [3, 4, 5, 6]), 0x40A020)
+        self.assertEqual(self._base([1, 3, 4, 5], [3, 4, 5]), 0x40A010)
+
+    def test_first_writable_section_without_got_or_toc(self):
+        # GNU ld's choice for GCC -O1 output with only .text and .data.
+        self.assertEqual(self._base([1, 4, 3], [4, 3]), 0x40A000)
+
+    def test_first_section_without_writable_ones(self):
+        self.assertEqual(self._base([1], []), 0x408000)
+        self.assertIsNone(self._base([], []))
+
+    def test_dot_toc_is_the_toc_base(self):
+        relocator = self._relocator([1, 3, 5], [3, 5])
+        self.assertEqual(relocator.linker_symbol_value(".TOC."), 0x40A010)
+        self.assertIsNone(relocator.linker_symbol_value("main"))
+
+    def test_other_relocators_define_no_linker_symbols(self):
+        relocator = AMD64ElfRelocator()
+        relocator.prepare_object(
+            types.SimpleNamespace(address=self.ADDRESS), {}, {}, set()
+        )
+        self.assertIsNone(relocator.linker_symbol_value(".TOC."))
+
+
+class PowerPC64LocalEntryLoadTests(unittest.TestCase):
+    """The loader keeps st_other whole, so a REL24 to an ELFv2 function can
+    enter it at its local entry."""
+
+    def test_the_loader_keeps_a_local_entry_offset(self):
+        # static_rela.ppc64.o's main has `[<localentry>: 8]`.
+        path = BINARIES_TESTS_DIR / "static_rela" / "static_rela.ppc64.o"
+        if not path.exists():
+            self.skipTest(_BINARIES_SKIP_REASON)
+        with path.open("rb") as f:
+            code = Executable.from_elf(
+                f,
+                platform=platforms.Platform(
+                    platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+                ),
+                address=0x400000,
+            )
+        (main,) = code._get_symbols("main", dynamic=False)
+        self.assertEqual(main.other & 0xE0, 0x60)
+        self.assertEqual(main.visibility, 0)
 
 
 @unittest.skipUnless(_TEST_BINARIES_BUILT, _BINARIES_SKIP_REASON)

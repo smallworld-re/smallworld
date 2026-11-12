@@ -194,6 +194,9 @@ class ElfExecutable(Executable):
         self._static_relas: typing.List[ElfRela] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
         self._relocator: typing.Optional[ElfRelocator] = None
+        # The header's e_flags.  Its meaning is architecture-specific;
+        # e.g. on PowerPC64 it records which ELF ABI version the file uses.
+        self.processor_flags: int = 0
         # TLS state; see _tls_defaults.
         self.__dict__.update(self._tls_defaults())
 
@@ -220,6 +223,7 @@ class ElfExecutable(Executable):
         ehdr = elf.header
         if ehdr is None:
             raise ConfigurationError("Failed extracting ELF header")
+        self.processor_flags = ehdr.processor_flag
 
         # Check machine compatibility
         if not ignore_platform:
@@ -747,6 +751,16 @@ class ElfExecutable(Executable):
             self._tls_image = bytes(tls)
             self._tls_size = len(tls)
 
+        if self._relocator is not None:
+            # Some architectures' relocations depend on tables a linker
+            # would have created (e.g. PowerPC64's TOC).
+            self._relocator.prepare_object(
+                self,
+                {i: elf.sections[i].name for i in self._section_offsets},
+                self._section_offsets,
+                {i for i in section_data_offsets if i not in tls_section_offsets},
+            )
+
         for sym in elf.symbols:
             if sym.type.value == STT_TLS:
                 # Relative to the TLS block, not the image: adding the
@@ -793,7 +807,11 @@ class ElfExecutable(Executable):
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
-                visibility=s.visibility,
+                # Visibility is the low two bits of st_other.  The rest can
+                # mean something else; on PowerPC64 ELFv2 it's the offset of
+                # the function's local entry point.
+                visibility=s.other & 0x3,
+                other=s.other,
                 shndx=s.shndx,
                 value=s.value,
                 size=s.size,
@@ -1039,6 +1057,15 @@ class ElfExecutable(Executable):
         for sym in self._static_symbols:
             if sym.shndx in self._section_offsets:
                 self.update_symbol_value(sym, sym.value, rebase=False)
+
+        if self._relocator is not None:
+            # An object file leaves the symbols a linker defines (e.g.
+            # PowerPC64's `.TOC.`) undefined; define them as it would.
+            for sym in self._static_symbols:
+                if sym.shndx == 0:
+                    value = self._relocator.linker_symbol_value(sym.name)
+                    if value is not None:
+                        self.update_symbol_value(sym, value)
 
         if len(self._dynamic_symbols) > 0:
             # Any rela tied to the NULL symbol needs to be relocated
@@ -1391,6 +1418,8 @@ class ElfExecutable(Executable):
         # and every TLS accessor then raises AttributeError.
         for name, value in self._tls_defaults().items():
             state.setdefault(name, value)
+        # Likewise for pickles written before processor_flags existed.
+        state.setdefault("processor_flags", 0)
         self.__dict__.update(state)
 
 
