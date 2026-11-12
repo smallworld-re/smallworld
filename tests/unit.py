@@ -2284,6 +2284,124 @@ class AngrLiftSourceTests(unittest.TestCase):
                 self.assertEqual(rounding_modes(engine.lift_vex(**kwargs)), {3})
 
 
+class AngrUpstreamCanaryTests(unittest.TestCase):
+    """angr, VEX and claripy still have the defects SmallWorld works around.
+
+    Each test asserts an upstream defect a SmallWorld workaround depends on.
+    A failure after an upgrade means upstream changed: review the named
+    workaround, which may now be redundant or wrong, rather than changing the
+    test to pass.
+    """
+
+    def lift(self, arch, code, thumb=False):
+        import pyvex
+
+        # angr lifts Thumb code at the odd address, one byte into the bytes.
+        return pyvex.lift(
+            bytes.fromhex(code),
+            0x1001 if thumb else 0x1000,
+            arch,
+            bytes_offset=1 if thumb else 0,
+            opt_level=1,
+        )
+
+    def test_vex_lifts_ties_away_rounding_as_ties_to_even(self):
+        import archinfo
+        import pyvex
+
+        cases = (
+            (archinfo.ArchARMEL(), "400af8fe", "Iop_RoundF32toInt"),  # vrinta
+            (archinfo.ArchAArch64(), "0040261e", "Iop_RoundF32toInt"),  # frinta
+            (archinfo.ArchAArch64(), "0000241e", "Iop_F32toI32S"),  # fcvtas
+        )
+        for arch, code, op in cases:
+            with self.subTest(code=code):
+                modes = [
+                    stmt.data.args[0]
+                    for stmt in self.lift(arch, code).statements
+                    if isinstance(stmt, pyvex.stmt.WrTmp)
+                    and isinstance(stmt.data, pyvex.expr.Binop)
+                    and stmt.data.op == op
+                ]
+                self.assertEqual(
+                    [str(mode) for mode in modes],
+                    ["0x00000000"],
+                    "VEX's ties-away lifting changed: review "
+                    "smallworld/emulators/angr/v8fp.py's rounding rewrite",
+                )
+
+    def test_angr_has_no_maxnum_or_minnum(self):
+        from angr.engines.vex.claripy import irop
+
+        for op in ("MaxNumF32", "MaxNumF64", "MinNumF32", "MinNumF64"):
+            with self.subTest(op=op):
+                self.assertNotIn(
+                    f"Iop_{op}",
+                    irop.operations,
+                    "angr runs maxNum/minNum now: review "
+                    "smallworld/emulators/angr/v8fp.py's vmaxnm rewrite",
+                )
+
+    def test_vex_lifts_v8m_stack_limit_moves_as_nothing(self):
+        import archinfo
+        import pyvex
+
+        # msr msplim, r0 (Thumb)
+        irsb = self.lift(archinfo.ArchARMCortexM(), "80f30a88", thumb=True)
+        self.assertEqual(
+            [type(stmt) for stmt in irsb.statements],
+            [pyvex.stmt.IMark],
+            "VEX lifts msr msplim now: review smallworld/emulators/angr/v8m.py",
+        )
+
+    def test_vex_lifts_ldrexd_as_one_doubleword(self):
+        import archinfo
+        import pyvex
+
+        # ldrexd r0, r1, [r2]
+        irsb = self.lift(archinfo.ArchARMEL(), "9f0fb2e1")
+        accesses = [
+            irsb.tyenv.lookup(stmt.result)
+            for stmt in irsb.statements
+            if isinstance(stmt, pyvex.stmt.LLSC)
+        ]
+        self.assertEqual(
+            accesses,
+            ["Ity_I64"],
+            "VEX's ldrexd lifting changed: review swap_exclusive_doublewords "
+            "in smallworld/emulators/angr/be8.py",
+        )
+
+    def test_claripy_shares_one_object_between_live_nans(self):
+        # NEW-015: documented in docs/concepts/emulators/angr.rst.
+        held = claripy.BVV(0xFFFFFFFD, 32).raw_to_fp()
+        other = claripy.BVV(0x7FC00002, 32).raw_to_fp()
+        self.assertIs(
+            other,
+            held,
+            "claripy keeps NaN bit patterns now: review NEW-015's warning in "
+            "docs/concepts/emulators/angr.rst",
+        )
+
+    def test_claripy_quiets_single_precision_signalling_nans(self):
+        # NEW-015: documented in docs/concepts/emulators/angr.rst. In a fresh
+        # interpreter, since a NaN another test left alive would replace it.
+        code = (
+            "import claripy\n"
+            "nan = claripy.BVV(0x7F800001, 32).raw_to_fp()\n"
+            "print(nan.raw_to_bv().concrete_value)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=True
+        )
+        self.assertEqual(
+            int(result.stdout),
+            0x7FC00001,
+            "claripy keeps signalling NaNs now: review NEW-015's warning in "
+            "docs/concepts/emulators/angr.rst",
+        )
+
+
 class AngrThumbTests(unittest.TestCase):
     """angr addresses Thumb code with bit 0 set; harnesses use the address."""
 
@@ -11512,6 +11630,71 @@ class GhidraSymbolicUseropTests(unittest.TestCase):
             struct.unpack("<f", emu.read_register("s0").to_bytes(4, "little"))[0],
             -3.0,
         )
+
+
+class GhidraUpstreamCanaryTests(unittest.TestCase):
+    """Ghidra still has the userops SmallWorld runs, and still can't run them.
+
+    A failure after an upgrade means Ghidra changed: review the machine
+    definition's ``userops`` or ``nop_userops``, which may now be redundant or
+    never match, rather than changing the test to pass.
+    """
+
+    # Ghidra's setISAMode fails on the v4 language, which has no TMode, so
+    # SmallWorld deliberately runs it as a no-op there.
+    DELIBERATE_OVERRIDES = {(platforms.Architecture.ARM_V4, "setISAMode")}
+
+    @classmethod
+    def setUpClass(cls):
+        _ensure_pyghidra_started()
+        from ghidra.pcode.emu import PcodeEmulator
+
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        cls.machdefs = []
+        for arch in platforms.Architecture:
+            if not arch.name.startswith(("ARM", "AARCH64")):
+                continue
+            for byteorder in (platforms.Byteorder.LITTLE, platforms.Byteorder.BIG):
+                platform = platforms.Platform(arch, byteorder)
+                try:
+                    machdef = GhidraMachineDef.for_platform(platform)
+                except ValueError:
+                    continue
+                language = machdef.language
+                declared = {
+                    str(language.getUserDefinedOpName(i))
+                    for i in range(language.getNumberOfUserDefinedOpNames())
+                }
+                library = PcodeEmulator(language).newThread().getUseropLibrary()
+                native = {str(name) for name in library.getUserops().keySet()}
+                cls.machdefs.append((platform, machdef, declared, native))
+
+    def test_every_userop_is_declared_by_a_language(self):
+        # Crc32Calc is in every ARM machdef but only the v8 languages have it.
+        declared = set().union(*(entry[2] for entry in self.machdefs))
+        for platform, machdef, _, _ in self.machdefs:
+            for name in set(machdef.userops) | set(machdef.nop_userops):
+                with self.subTest(platform=str(platform), userop=name):
+                    self.assertIn(
+                        name,
+                        declared,
+                        "No Ghidra language declares this userop now: review "
+                        f"{type(machdef).__name__}'s userops",
+                    )
+
+    def test_ghidra_runs_none_of_the_userops_smallworld_runs(self):
+        for platform, machdef, _, native in self.machdefs:
+            for name in set(machdef.userops) | set(machdef.nop_userops):
+                if (platform.architecture, name) in self.DELIBERATE_OVERRIDES:
+                    continue
+                with self.subTest(platform=str(platform), userop=name):
+                    self.assertNotIn(
+                        name,
+                        native,
+                        "Ghidra's emulator runs this userop now: review "
+                        f"{type(machdef).__name__}'s userops",
+                    )
 
 
 class GhidraAArch64Crc32Tests(unittest.TestCase):
