@@ -150,7 +150,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
             flag = self.machdef.language.getRegister(sleigh_name)
-            state.setVar(flag, self.bytes_py_to_java(bytes([(value >> bit) & 1])))
+            if flag.isProcessorContext():
+                self.machdef.write_context(self._thread, flag, (value >> bit) & 1)
+            else:
+                state.setVar(flag, self.bytes_py_to_java(bytes([(value >> bit) & 1])))
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         # Get the thread's memory state

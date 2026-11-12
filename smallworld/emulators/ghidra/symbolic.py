@@ -387,9 +387,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 flag = (value >> bit) & 1
             else:
                 flag = claripy.ZeroExt(7, claripy.Extract(bit, bit, value))
-            self._write_register(
-                self.machdef.language.getRegister(sleigh_name), sleigh_name, flag
-            )
+            flag_reg = self.machdef.language.getRegister(sleigh_name)
+            if flag_reg.isProcessorContext():
+                if isinstance(flag, claripy.ast.bv.BV):
+                    if flag.symbolic:
+                        # Decoding context is always concrete; a label on the
+                        # register leaves the mode it selects as it is.
+                        continue
+                    flag = flag.concrete_value
+                self.machdef.write_context(self._thread, flag_reg, flag)
+            else:
+                self._write_register(flag_reg, sleigh_name, flag)
 
     def _write_register(
         self,
@@ -480,8 +488,18 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         """Merge into a register's value the bits the language keeps in
         registers of their own; see ``GhidraMachineDef.split_bits``."""
         for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag_reg = self.machdef.language.getRegister(sleigh_name)
+            if flag_reg.isProcessorContext():
+                # Decoding context is always concrete.
+                flag = claripy.BVV(self.machdef.read_context(self._thread, flag_reg), 8)
+                bv = (bv & ~(1 << bit)) | claripy.If(
+                    flag == 0,
+                    claripy.BVV(0, bv.size()),
+                    claripy.BVV(1 << bit, bv.size()),
+                )
+                continue
             pair = self._thread.getState().getVar(
-                self.machdef.language.getRegister(sleigh_name),
+                flag_reg,
                 PcodeExecutorStatePiece.Reason.INSPECT,
             )
             sym = pair.getRight()

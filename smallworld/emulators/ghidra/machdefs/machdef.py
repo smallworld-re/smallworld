@@ -96,8 +96,8 @@ class GhidraMachineDef:
 
     # Bits of a register that the language keeps in registers of their own,
     # as {register: {bit: SLEIGH register}}. Each SLEIGH register holds its
-    # bit as a 0 or 1 byte; reads merge the bits in, and writes split them
-    # back out.
+    # bit as a 0 or 1 byte, or is a one-bit context field; reads merge the
+    # bits in, and writes split them back out.
     split_bits: typing.Mapping[str, typing.Mapping[int, str]] = {}
 
     _registers: typing.Dict[str, typing.Optional[str]]

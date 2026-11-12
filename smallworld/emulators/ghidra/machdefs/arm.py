@@ -29,8 +29,9 @@ class ARMMachineDef(GhidraMachineDef):
 
     # Ghidra's ARM languages keep the condition flags, Q and GE in registers
     # of their own, which they test and set instead of cpsr: N, Z, C, V and Q
-    # in bits 31-27, and GE[3:0] in bits 19-16. cpsr's T bit is in Ghidra's
-    # TMode decoding context, which this leaves alone.
+    # in bits 31-27, and GE[3:0] in bits 19-16. cpsr's T bit (5) is the TMode
+    # decoding context. M-profile's psr has no T bit to read: it is in EPSR,
+    # which reads as zero.
     _psr_bits = {
         31: "NG",
         30: "ZR",
@@ -42,7 +43,7 @@ class ARMMachineDef(GhidraMachineDef):
         17: "GE2",
         16: "GE1",
     }
-    split_bits = {"cpsr": _psr_bits, "psr": _psr_bits}
+    split_bits = {"cpsr": {**_psr_bits, 5: "TMode"}, "psr": _psr_bits}
 
     # An odd pc enters Thumb state, as on hardware and the other emulators.
     # On M-profile, whose languages start with TMode set, this just aligns the
@@ -876,8 +877,9 @@ class ARMv4MachineDef(
     # With no Thumb state it's a no-op.
     nop_userops = ARMMachineDef.nop_userops | {"setISAMode"}
 
-    # No Thumb state for an odd pc to select
+    # No Thumb state for an odd pc or cpsr's T bit to select
     isa_bit_context = None
+    split_bits = {"cpsr": ARMMachineDef._psr_bits, "psr": ARMMachineDef._psr_bits}
 
 
 class ARMv4TMachineDef(
