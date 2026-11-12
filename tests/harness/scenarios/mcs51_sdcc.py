@@ -55,7 +55,10 @@ and which reads its deeper page stack through SFRSTACK.
 ``mcs51_sdcc.interrupts.cip51``: ``interrupts.cip51.c``, built only for the
 C8051F330, requests the device's interrupts beyond the 8052's.  The scenario
 adds an ``MCS51Device`` for the C8051F330, so the emulators take them, and
-checks the order the handlers ran in.
+checks the order the handlers ran in.  ``mcs51_sdcc.interrupts_efm8bb2.efm8bb2``:
+``interrupts_efm8bb2.c`` does the like for the EFM8BB2, with its four priority
+levels, its sources on SFR pages 0x10 and 0x20, and the page each handler
+starts on.
 """
 
 from __future__ import annotations
@@ -88,6 +91,7 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc", "efm8bb2"),
     ("libc_models", "efm8bb2"),
     ("interrupts", "cip51"),
+    ("interrupts_efm8bb2", "efm8bb2"),
     ("flash", "cip51"),
     ("flash_efm8bb2", "efm8bb2"),
     ("sfrpages", "c8051f040"),
@@ -495,6 +499,42 @@ def _run_interrupts(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
+def _run_interrupts_efm8bb2(smallworld, engine: str) -> int:
+    platform, machine, code = _setup(
+        smallworld,
+        _DIR / "interrupts_efm8bb2.efm8bb2.mcs51",
+        "EFM8BB21F16G",
+        emulate_device=True,
+    )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    count = emulator.read_memory(code.get_symbol_value("_n"), 1)[0]
+    order = list(emulator.read_memory(code.get_symbol_value("_order"), count))
+    # Handlers log their interrupt numbers and the SFR pages they start on,
+    # main its markers, 0xF0 and up, and handlers that raise another, theirs,
+    # 0x70 and up.
+    checks = {
+        "order": (
+            order,
+            # EIE1 and EIE2 sources in polling order, each on its flag's page.
+            [7, 0x00, 14, 0x00, 17, 0x20, 18, 0x20, 19, 0x10, 0xF0]
+            # Priorities 0-3, each preempting the one below.
+            + [17, 0x20, 14, 0x00, 7, 0x00, 19, 0x10, 0x72, 0x71, 0x70, 0xF1]
+            # EIP2H's priority 2 beats EIP2's 1, against polling order.
+            + [19, 0x10, 17, 0x20, 0xF2]
+            # IPH's priority 2 preempts EIP1's 1.
+            + [14, 0x00, 1, 0x00, 0x74, 0xF3]
+            # RI gated by RIE.
+            + [0xF4, 17, 0x20, 0xF5]
+            # COVF, in PCA0PWM, gated by ECOV.
+            + [0xF6, 11, 0x00, 0xF7],
+        ),
+    }
+    return _report(checks, [])
+
+
 def _run_flash(smallworld, engine: str) -> int:
     from smallworld.platforms.defs.mcs51 import MCS51_CODE_BASE, MCS51_XDATA_BASE
 
@@ -651,6 +691,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_abi(smallworld, build, engine)
     if program == "interrupts":
         return _run_interrupts(smallworld, engine)
+    if program == "interrupts_efm8bb2":
+        return _run_interrupts_efm8bb2(smallworld, engine)
     if program == "flash":
         return _run_flash(smallworld, engine)
     if program == "flash_efm8bb2":

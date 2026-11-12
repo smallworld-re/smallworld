@@ -194,9 +194,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an `MCS51Device` for it writes its flash, from `MCS51_EFM8BB2_FLASH`, as
   its reference manual describes. `MCS51FlashProgramming` takes regions of
   flash whose pages are another size, as the EFM8BB2's 64-byte pages at
-  0xF800-0xFBFF are. It takes the 8052's interrupts. `mcs51_sdcc` programs
-  built for it, with `tests/mcs51_sdcc/efm8bb2.h` in place of the device
-  header SDCC lacks, test it.
+  0xF800-0xFBFF are. `mcs51_sdcc` programs built for it, with
+  `tests/mcs51_sdcc/efm8bb2.h` in place of the device header SDCC lacks,
+  test it.
 - The EFM8BB2's paged SFRs: an `MCS51Device` for it pages them from
   `MCS51_EFM8BB2_SFR_PAGING`, taken from its reference manual, with SFRs on
   page 0 and one other page as well, and a five-level page stack that
@@ -206,6 +206,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sfrlast` become `stack`, the levels below SFRPAGE. `mcs51_sfr_stack_view()`
   says what that SFR reads. An `mcs51_sdcc` program built for the EFM8BB2
   tests it.
+- The EFM8BB2's interrupts, as `EFM8BB2Interrupt`, from its reference
+  manual, with four priority levels. An `MCS51InterruptSource` takes the SFR
+  of its priority's high bit, `priority_high_sfr`, and request flags in
+  other SFRs, `other_flags`; `level()` and `page()` say its priority and the
+  SFR page taking it selects. `mcs51_raise_interrupt()` refuses a source
+  with no request flag, as the EFM8BB2's Port Match is. An `mcs51_sdcc`
+  program built for the EFM8BB2 tests them.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

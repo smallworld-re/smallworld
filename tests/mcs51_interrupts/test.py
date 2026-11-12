@@ -36,11 +36,13 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_SFR_TCON,
     MCS51_XDATA_BASE,
     C8051F33xInterrupt,
+    EFM8BB2Interrupt,
     MCS51Interrupt,
     MCS51InterruptState,
     mcs51_flash_owns_store,
     mcs51_flash_programming,
     mcs51_flash_store,
+    mcs51_interrupt_control_sfrs,
     mcs51_interrupt_sfrs,
     mcs51_interrupt_to_take,
     mcs51_interrupts,
@@ -599,6 +601,155 @@ class EFM8BB2FlashTests(MCS51FlashTests):
         self.store(MCS51_XDATA_BASE + 0xF85A, 0x00)
         flash = {a - MCS51_CODE_BASE for a, v in self.memory.items() if v == 0xFF}
         self.assertEqual(flash, set(range(0xF840, 0xF880)))
+
+
+class EFM8BB2InterruptTests(unittest.TestCase):
+    """The EFM8BB2's sources: four priority levels, sources on SFR pages
+    0x10 and 0x20, and request flags beyond their flag SFR."""
+
+    sources = EFM8BB2Interrupt
+    IE = MCS51_SFR_IE
+    IPH = 0x10F2
+    EIE1 = 0xE6
+    EIP1 = 0xF3
+    EIP1H = 0x10F5
+    EIE2 = 0x10CE
+    EIP2 = 0x10F4
+    EIP2H = 0x10F6
+
+    def take(self, sfrs: typing.Dict[int, int], in_service=()):
+        sfrs = dict(sfrs)
+        sfrs[self.IE] = sfrs.get(self.IE, 0) | MCS51_IE_EA
+        return mcs51_interrupt_to_take(
+            lambda address: sfrs.get(address, 0), in_service, self.sources
+        )
+
+    def test_lookup(self):
+        self.assertIs(mcs51_interrupts("EFM8BB21F16G-C-QFN20"), self.sources)
+        self.assertIs(MCS51Device("EFM8BB21F16G").interrupts, self.sources)
+
+    def test_vectors_and_polling_order(self):
+        self.assertEqual(
+            [source.vector for source in self.sources],
+            [0x03, 0x0B, 0x13, 0x1B, 0x23, 0x2B, 0x33, 0x3B, 0x43, 0x4B]
+            + [0x53, 0x5B, 0x63, 0x6B, 0x73, 0x8B, 0x93, 0x9B],
+        )
+
+    def test_priority_bits_match_enable_bits(self):
+        # Each source's priority bits are at its enable bit's position: IP
+        # and IPH for IE, EIP1 and EIP1H for EIE1, EIP2 and EIP2H for EIE2.
+        priorities = {
+            self.IE: (MCS51_SFR_IP, self.IPH),
+            self.EIE1: (self.EIP1, self.EIP1H),
+            self.EIE2: (self.EIP2, self.EIP2H),
+        }
+        for source in self.sources:
+            with self.subTest(source=source.name):
+                self.assertEqual(
+                    (source.priority_sfr, source.priority_high_sfr),
+                    priorities[source.enable_sfr],
+                )
+
+    def test_four_levels(self):
+        source = self.sources.TIMER4
+        for low, high, level in ((0, 0, 0), (1, 0, 1), (0, 1, 2), (1, 1, 3)):
+            sfrs = {self.EIP2: low * 0x10, self.EIP2H: high * 0x10}
+            with self.subTest(level=level):
+                self.assertEqual(source.level(lambda a: sfrs.get(a, 0)), level)
+
+    def test_priority_beats_polling_order_across_levels(self):
+        # Timer 0, polled first, at 1 through IP; UART1, at 2 through EIP2H.
+        sfrs = {
+            MCS51_SFR_TCON: 0x20,
+            0x20C8: 0x01,
+            0x20D8: 0x01,  # RIE
+            self.IE: 0x02,
+            self.EIE2: 0x04,
+            MCS51_SFR_IP: 0x02,
+            self.EIP2H: 0x04,
+        }
+        self.assertEqual(self.take(sfrs), (self.sources.UART1, 2))
+        # With UART1's request gone, an interrupt in service at 2 holds Timer
+        # 0 off, and one at 0 does not.
+        self.assertIsNone(self.take({**sfrs, 0x20C8: 0}, in_service=(2,)))
+        self.assertEqual(
+            self.take({**sfrs, 0x20C8: 0}, in_service=(0,)), (self.sources.TIMER0, 1)
+        )
+
+    def test_gates(self):
+        # UART1's RI requests only while UART1FCN1's RIE is set, SPI0's SPIF
+        # only while SPI0FCN1's SPIFEN is.
+        for source, sfrs, gate in (
+            (self.sources.UART1, {0x20C8: 0x01}, (0x20D8, 0x01)),
+            (self.sources.SPI0, {0xF8: 0x80}, (0x209B, 0x10)),
+        ):
+            with self.subTest(source=source.name):
+                self.assertFalse(source.pending(lambda a: sfrs.get(a, 0)))
+                sfrs[gate[0]] = gate[1]
+                self.assertTrue(source.pending(lambda a: sfrs.get(a, 0)))
+
+    def test_other_flags_and_their_pages(self):
+        # PCA0's COVF, in PCA0PWM, requests while ECOV is set; SPI0's RFRQ,
+        # in SPI0FCN1 on page 0x20, while RFRQE is, and selects page 0x20
+        # when SPI0CN0's flags, page 0's, do not request too.
+        pca0 = self.sources.PCA0
+        sfrs = {0xF7: 0x20}
+        self.assertFalse(pca0.pending(lambda a: sfrs.get(a, 0)))
+        sfrs[0xF7] = 0x60
+        self.assertTrue(pca0.pending(lambda a: sfrs.get(a, 0)))
+        self.assertEqual(pca0.page(lambda a: sfrs.get(a, 0)), 0)
+
+        spi0 = self.sources.SPI0
+        sfrs = {0x209B: 0x08, 0x209A: 0x08}
+        self.assertTrue(spi0.pending(lambda a: sfrs.get(a, 0)))
+        self.assertEqual(spi0.page(lambda a: sfrs.get(a, 0)), 0x20)
+        sfrs[0xF8] = 0x40  # WCOL
+        self.assertEqual(spi0.page(lambda a: sfrs.get(a, 0)), 0)
+
+    def test_pages_of_the_flags(self):
+        for source, page in (
+            (self.sources.TIMER0, 0),
+            (self.sources.SMBUS0, 0),
+            (self.sources.TIMER4, 0x10),
+            (self.sources.UART1, 0x20),
+            (self.sources.I2C0, 0x20),
+        ):
+            with self.subTest(source=source.name):
+                self.assertEqual(source.flag_sfr >> 8, page)
+
+    def test_port_match_is_never_pending_and_cannot_be_raised(self):
+        source = self.sources.PORT_MATCH
+        self.assertFalse(source.pending(lambda address: 0xFF))
+
+        class Emulator:
+            def read_memory(self, address: int, size: int) -> bytes:
+                return bytes(size)
+
+            def write_memory(self, address: int, content: bytes) -> None:
+                raise AssertionError("nothing to write")
+
+        with self.assertRaises(ValueError):
+            mcs51_raise_interrupt(Emulator(), source)
+
+    def test_the_sfrs_that_decide_and_hold(self):
+        sfrs = mcs51_interrupt_sfrs(self.sources)
+        for sfr in (self.IPH, self.EIP1H, self.EIE2, self.EIP2H, 0xF7, 0x209A):
+            with self.subTest(sfr=hex(sfr)):
+                self.assertIn(sfr, sfrs)
+        self.assertEqual(
+            mcs51_interrupt_control_sfrs(self.sources),
+            {
+                self.IE,
+                MCS51_SFR_IP,
+                self.IPH,
+                self.EIE1,
+                self.EIP1,
+                self.EIP1H,
+                self.EIE2,
+                self.EIP2,
+                self.EIP2H,
+            },
+        )
 
 
 class MCS51StackTests(unittest.TestCase):

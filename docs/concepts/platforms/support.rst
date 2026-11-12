@@ -291,8 +291,19 @@ and makes the emulator take the device's interrupts instead of the 8052's
 
     machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
 
-Only the C8051F330-F335's interrupts are tabulated so far, as
-``C8051F33xInterrupt``, from the data sheet's interrupt summary.  Any other
+The C8051F330-F335's interrupts are tabulated, as ``C8051F33xInterrupt``,
+from the data sheet's interrupt summary, and the EFM8BB2's, as
+``EFM8BB2Interrupt``, from its reference manual.  The EFM8BB2 has four
+priority levels, each source's low bit in IP, EIP1 or EIP2 and high bit in
+IPH, EIP1H or EIP2H; sources enabled through EIE2, and their flags, on SFR
+pages 0x10 and 0x20; and request flags beyond a source's flag SFR - the FIFO
+request flags of SPI0, SMBus0, UART1 and I2C0, and PCA0's COVF, in PCA0PWM -
+which request it too, each gated by its own enable bit.  Its Port Match
+interrupt has no request flag, since its pins request it, so it is never
+taken, and ``mcs51_raise_interrupt`` refuses it.  Some of the EFM8BB2's gates
+reset set - SPI0FCN1's SPIFEN, and UART1FCN1's RIE and TIE - but SFRs start
+as the harness maps them, so a program that leaves them alone needs the
+harness to set them.  Any other
 device whose paging SFR ``mcs51_xpage_sfr()`` knows is accepted too, with a
 warning: it pages MOVX @Ri as it should, but the emulator takes only the
 8052's interrupts, which it has among its own.  Request flags that a second bit gates, as Timer 2's

@@ -412,11 +412,13 @@ mcs51_sdcc/flash.cip51.mcs51.ihx : mcs51_sdcc/flash.cip51.c
 
 # The EFM8BB2, which SDCC has no header for: mcs51_sdcc/efm8bb2.h declares the
 # SFRs the programs use.  libc.mcs51.c for it as for the C8051F330, its EMI0CN
-# at 0xE7; flash_efm8bb2.c, which erases its two sizes of flash page; and
-# sfrpages_efm8bb2.c, which reaches SFRs on its pages and reads its page stack.
+# at 0xE7; flash_efm8bb2.c, which erases its two sizes of flash page;
+# sfrpages_efm8bb2.c, which reaches SFRs on its pages and reads its page stack;
+# and interrupts_efm8bb2.c, which takes its interrupts.
 MCS51_EFM8BB2_H := $(CURDIR)/mcs51_sdcc/efm8bb2.h
 MCS51_C_IHXS += mcs51_sdcc/libc.efm8bb2.mcs51.ihx mcs51_sdcc/flash_efm8bb2.efm8bb2.mcs51.ihx
 MCS51_C_IHXS += mcs51_sdcc/sfrpages_efm8bb2.efm8bb2.mcs51.ihx
+MCS51_C_IHXS += mcs51_sdcc/interrupts_efm8bb2.efm8bb2.mcs51.ihx
 
 mcs51_sdcc/libc.efm8bb2.mcs51.ihx : mcs51_sdcc/libc.mcs51.c mcs51_sdcc/efm8bb2.h
 	./mcs51_cc.sh --medium --device $(MCS51_EFM8BB2_H) --pdata 0x7e00 $< $@
@@ -425,6 +427,9 @@ mcs51_sdcc/flash_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/flash_efm8bb2.c mcs51_sd
 	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
 
 mcs51_sdcc/sfrpages_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/sfrpages_efm8bb2.c mcs51_sdcc/efm8bb2.h
+	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
+
+mcs51_sdcc/interrupts_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/interrupts_efm8bb2.c mcs51_sdcc/efm8bb2.h
 	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
 
 # interrupts.cip51.c only for the C8051F330, whose interrupts it tests.

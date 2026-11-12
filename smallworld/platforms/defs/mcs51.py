@@ -801,14 +801,22 @@ class MCS51InterruptSource(enum.Enum):
     Each subclass lists one device's sources, in the order the CPU polls them
     within a priority level.  Each source is a vector; the SFR holding its
     request flags, the mask of those flags (``pending_flags``), and the flag
-    :func:`mcs51_raise_interrupt` sets; the mask of its enable bit; the flags
-    the CPU clears when it vectors to the handler; the SFRs that hold its
-    enable bit and its priority bit, at the same position, by default IE and
-    IP; and its gates.
+    :func:`mcs51_raise_interrupt` sets, or 0 for a source with no flag it
+    can set; the mask of its enable bit; the flags the CPU clears when it
+    vectors to the handler; the SFRs that hold its enable bit and its
+    priority bit, at the same position, by default IE and IP; its gates; on
+    a device with four priority levels, the SFR that holds its priority's
+    high bit, at the same position too (``priority_high_sfr``); and its
+    request flags in other SFRs (``other_flags``).
 
     A gate is a mask of request flags, an SFR and a mask of bits in it: those
     flags request the interrupt only while one of those bits is set, as a
-    timer's low-byte overflow flag does only while its own enable bit is.
+    timer's low-byte overflow flag does only while its own enable bit is.  A
+    request flag in another SFR is that SFR, the mask of the flag, and its
+    gate's SFR and mask.
+
+    SFR addresses have the page above them where it matters; see
+    :class:`MCS51SFRPaging`.
     """
 
     def __init__(
@@ -822,6 +830,8 @@ class MCS51InterruptSource(enum.Enum):
         enable_sfr: int = MCS51_SFR_IE,
         priority_sfr: int = MCS51_SFR_IP,
         gates: typing.Tuple[typing.Tuple[int, int, int], ...] = (),
+        priority_high_sfr: typing.Optional[int] = None,
+        other_flags: typing.Tuple[typing.Tuple[int, int, int, int], ...] = (),
     ):
         self.vector = vector
         self.flag_sfr = flag_sfr
@@ -832,18 +842,62 @@ class MCS51InterruptSource(enum.Enum):
         self.enable_sfr = enable_sfr
         self.priority_sfr = priority_sfr
         self.gates = gates
+        self.priority_high_sfr = priority_high_sfr
+        self.other_flags = other_flags
+
+    def _requested(self, read_sfr: typing.Callable[[int], int]) -> int:
+        # The flags in flag_sfr that request the interrupt, past their gates.
+        requested = read_sfr(self.flag_sfr) & self.pending_flags
+        for gated, sfr, mask in self.gates:
+            if requested & gated and not read_sfr(sfr) & mask:
+                requested &= ~gated
+        return requested
+
+    def _other_requests(
+        self, read_sfr: typing.Callable[[int], int]
+    ) -> typing.Iterator[int]:
+        # The other SFRs whose flags request the interrupt.
+        for sfr, flag, gate_sfr, gate in self.other_flags:
+            if read_sfr(sfr) & flag and read_sfr(gate_sfr) & gate:
+                yield sfr
 
     def pending(self, read_sfr: typing.Callable[[int], int]) -> bool:
         """Whether the source requests its interrupt.
 
         Arguments:
-            read_sfr: Reads an SFR, by its address (0x80-0xFF).
+            read_sfr: Reads an SFR, by its address (0x80-0xFF, with its page
+                above it).
         """
-        requested = read_sfr(self.flag_sfr) & self.pending_flags
-        for gated, sfr, mask in self.gates:
-            if requested & gated and not read_sfr(sfr) & mask:
-                requested &= ~gated
-        return bool(requested)
+        if self._requested(read_sfr):
+            return True
+        return next(self._other_requests(read_sfr), None) is not None
+
+    def level(self, read_sfr: typing.Callable[[int], int]) -> int:
+        """The source's priority level: 0, the lowest, or 1; or on a device
+        with four levels, up to 3, with ``priority_high_sfr``'s bit as its
+        high bit.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address.
+        """
+        level = 1 if read_sfr(self.priority_sfr) & self.enable else 0
+        if self.priority_high_sfr is not None:
+            if read_sfr(self.priority_high_sfr) & self.enable:
+                level += 2
+        return level
+
+    def page(self, read_sfr: typing.Callable[[int], int]) -> int:
+        """The SFR page of the flag that requests the interrupt, which taking
+        it selects, on a device that pages its SFRs: ``flag_sfr``'s, unless
+        only a flag in another SFR requests it.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address.
+        """
+        if not self._requested(read_sfr):
+            for sfr in self._other_requests(read_sfr):
+                return sfr >> 8
+        return self.flag_sfr >> 8
 
 
 class MCS51Interrupt(MCS51InterruptSource):
@@ -956,11 +1010,274 @@ class C8051F33xInterrupt(MCS51InterruptSource):
     )
 
 
+# The EFM8BB2's interrupt enable and priority SFRs, with their pages: EIE1
+# and EIP1 are on pages 0x00 and 0x10, the rest only on 0x10.
+_EFM8BB2_IPH = 0x10F2
+_EFM8BB2_EIE1 = 0xE6
+_EFM8BB2_EIP1 = 0xF3
+_EFM8BB2_EIP1H = 0x10F5
+_EFM8BB2_EIE2 = 0x10CE
+_EFM8BB2_EIP2 = 0x10F4
+_EFM8BB2_EIP2H = 0x10F6
+
+# What an 8052 source's tuple lacks on the EFM8BB2: its enable and priority
+# SFRs, IE and IP as before, no gates, and IPH for its priority's high bit.
+_EFM8BB2_IE_PRIORITY = (MCS51_SFR_IE, MCS51_SFR_IP, (), _EFM8BB2_IPH)
+
+# The EFM8BB2's peripheral SFRs that hold request flags or gate them, with
+# their pages.
+_EFM8BB2_TMR3CN0 = 0x91
+_EFM8BB2_CMP0CN0 = 0x9B
+_EFM8BB2_CMP0MD = 0x9D
+_EFM8BB2_CMP1MD = 0xAB
+_EFM8BB2_CMP1CN0 = 0xBF
+_EFM8BB2_SMB0CN0 = 0xC0
+_EFM8BB2_TMR2CN0 = 0xC8
+_EFM8BB2_PCA0CN0 = 0xD8
+_EFM8BB2_PCA0MD = 0xD9
+_EFM8BB2_PCA0CPM0 = 0xDA
+_EFM8BB2_ADC0CN0 = 0xE8
+_EFM8BB2_PCA0PWM = 0xF7
+_EFM8BB2_SPI0CN0 = 0xF8
+_EFM8BB2_TMR4CN0 = 0x1098
+_EFM8BB2_SPI0FCN0 = 0x209A
+_EFM8BB2_SPI0FCN1 = 0x209B
+_EFM8BB2_UART1FCN0 = 0x209D
+_EFM8BB2_I2C0FCN1 = 0x20AB
+_EFM8BB2_I2C0FCN0 = 0x20AD
+_EFM8BB2_I2C0STAT = 0x20B9
+_EFM8BB2_SMB0FCN0 = 0x20C3
+_EFM8BB2_SMB0FCN1 = 0x20C4
+_EFM8BB2_SCON1 = 0x20C8
+_EFM8BB2_UART1FCN1 = 0x20D8
+
+
+def _efm8bb2_fifo_requests(
+    fcn1: int, fcn0: int
+) -> typing.Tuple[typing.Tuple[int, int, int, int], ...]:
+    # A FIFO's RFRQ (bit 3) and TFRQ (bit 7), in its FCN1, each gated by
+    # its enable, at the same bit of its FCN0.
+    return ((fcn1, 0x08, fcn0, 0x08), (fcn1, 0x80, fcn0, 0x80))
+
+
+class EFM8BB2Interrupt(MCS51InterruptSource):
+    """The interrupt sources of Silicon Labs' EFM8BB2.
+
+    From the EFM8BB2 reference manual, preliminary revision 0.3: Table 6.2,
+    the IE, IP, IPH, EIE1, EIP1, EIP1H, EIE2, EIP2 and EIP2H definitions, and
+    the peripherals' flag and enable bits.  Each source has four priority
+    levels, its low bit in IP, EIP1 or EIP2, and its high bit in IPH, EIP1H
+    or EIP2H.  Vectors 0x7B and 0x83 are reserved.  As with the 8052, the
+    external interrupts' flags are cleared on vectoring even when
+    level-triggered.
+
+    SFRs are on their pages (see :data:`MCS51_EFM8BB2_SFR_PAGING`); one on
+    page 0 and another page is page 0's, so taking an interrupt whose flag
+    is there selects page 0, which the manual does not say.  Port Match has
+    no request flag - its pins, which SmallWorld does not model, request it
+    - so it is never pending, and :func:`mcs51_raise_interrupt` refuses it.
+    The read-only FIFO request flags, RFRQ and TFRQ, of SPI0, SMBus0, UART1
+    and I2C0 request their interrupts as the manual says, as does PCA0's
+    COVF, in PCA0PWM; the flags in SPI0FCN1 and SMB0FCN1 are on page 0x20,
+    which taking SPI0's or SMBus0's interrupt for them alone selects.
+    """
+
+    EXTERNAL0 = MCS51Interrupt.EXTERNAL0.value + _EFM8BB2_IE_PRIORITY
+    TIMER0 = MCS51Interrupt.TIMER0.value + _EFM8BB2_IE_PRIORITY
+    EXTERNAL1 = MCS51Interrupt.EXTERNAL1.value + _EFM8BB2_IE_PRIORITY
+    TIMER1 = MCS51Interrupt.TIMER1.value + _EFM8BB2_IE_PRIORITY
+    # RI and TI in SCON0.
+    UART0 = MCS51Interrupt.SERIAL.value + _EFM8BB2_IE_PRIORITY
+    # TF2H and TF2L in TMR2CN0; TF2L gated by TF2LEN.
+    TIMER2 = (
+        0x2B,
+        _EFM8BB2_TMR2CN0,
+        0xC0,
+        0x80,
+        0x20,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x40, _EFM8BB2_TMR2CN0, 0x20),),
+        _EFM8BB2_IPH,
+    )
+    # SPIF, gated by SPI0FCN1's SPIFEN, WCOL, MODF and RXOVRN.
+    SPI0 = (
+        0x33,
+        _EFM8BB2_SPI0CN0,
+        0xF0,
+        0x80,
+        0x40,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x80, _EFM8BB2_SPI0FCN1, 0x10),),
+        _EFM8BB2_IPH,
+        _efm8bb2_fifo_requests(_EFM8BB2_SPI0FCN1, _EFM8BB2_SPI0FCN0),
+    )
+    # SI.
+    SMBUS0 = (
+        0x3B,
+        _EFM8BB2_SMB0CN0,
+        0x01,
+        0x01,
+        0x01,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+        _efm8bb2_fifo_requests(_EFM8BB2_SMB0FCN1, _EFM8BB2_SMB0FCN0),
+    )
+    # No request flag; EIE1, its enable SFR, stands in for one.
+    PORT_MATCH = (
+        0x43,
+        _EFM8BB2_EIE1,
+        0x00,
+        0x00,
+        0x02,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # ADWINT.
+    ADC0_WINDOW = (
+        0x4B,
+        _EFM8BB2_ADC0CN0,
+        0x08,
+        0x08,
+        0x04,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # ADINT.
+    ADC0_CONVERSION = (
+        0x53,
+        _EFM8BB2_ADC0CN0,
+        0x20,
+        0x20,
+        0x08,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # CF, gated by PCA0MD's ECF, and CCF0-CCF2, each gated by its module's
+    # ECCF in PCA0CPMn; and COVF, in PCA0PWM, gated by its ECOV.
+    PCA0 = (
+        0x5B,
+        _EFM8BB2_PCA0CN0,
+        0x87,
+        0x80,
+        0x10,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (
+            (0x80, _EFM8BB2_PCA0MD, 0x01),
+            (0x01, _EFM8BB2_PCA0CPM0, 0x01),
+            (0x02, _EFM8BB2_PCA0CPM0 + 1, 0x01),
+            (0x04, _EFM8BB2_PCA0CPM0 + 2, 0x01),
+        ),
+        _EFM8BB2_EIP1H,
+        ((_EFM8BB2_PCA0PWM, 0x20, _EFM8BB2_PCA0PWM, 0x40),),
+    )
+    # CPRIF and CPFIF, gated by CMP0MD's CPRIE and CPFIE.
+    COMPARATOR0 = (
+        0x63,
+        _EFM8BB2_CMP0CN0,
+        0x30,
+        0x20,
+        0x20,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x10, _EFM8BB2_CMP0MD, 0x10), (0x20, _EFM8BB2_CMP0MD, 0x20)),
+        _EFM8BB2_EIP1H,
+    )
+    # CPRIF and CPFIF, gated by CMP1MD's CPRIE and CPFIE.
+    COMPARATOR1 = (
+        0x6B,
+        _EFM8BB2_CMP1CN0,
+        0x30,
+        0x20,
+        0x40,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x10, _EFM8BB2_CMP1MD, 0x10), (0x20, _EFM8BB2_CMP1MD, 0x20)),
+        _EFM8BB2_EIP1H,
+    )
+    # TF3H and TF3L; TF3L gated by TF3LEN.
+    TIMER3 = (
+        0x73,
+        _EFM8BB2_TMR3CN0,
+        0xC0,
+        0x80,
+        0x80,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x40, _EFM8BB2_TMR3CN0, 0x20),),
+        _EFM8BB2_EIP1H,
+    )
+    # RI and TI in SCON1, gated by UART1FCN1's RIE and TIE.
+    UART1 = (
+        0x8B,
+        _EFM8BB2_SCON1,
+        0x03,
+        0x01,
+        0x04,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        ((0x01, _EFM8BB2_UART1FCN1, 0x01), (0x02, _EFM8BB2_UART1FCN1, 0x10)),
+        _EFM8BB2_EIP2H,
+        _efm8bb2_fifo_requests(_EFM8BB2_UART1FCN1, _EFM8BB2_UART1FCN0),
+    )
+    # I2C0INT.
+    I2C0 = (
+        0x93,
+        _EFM8BB2_I2C0STAT,
+        0x20,
+        0x20,
+        0x08,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        (),
+        _EFM8BB2_EIP2H,
+        _efm8bb2_fifo_requests(_EFM8BB2_I2C0FCN1, _EFM8BB2_I2C0FCN0),
+    )
+    # TF4H and TF4L; TF4L gated by TF4LEN.
+    TIMER4 = (
+        0x9B,
+        _EFM8BB2_TMR4CN0,
+        0xC0,
+        0x80,
+        0x10,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        ((0x40, _EFM8BB2_TMR4CN0, 0x20),),
+        _EFM8BB2_EIP2H,
+    )
+
+
 #: The interrupt sources, by device family, for :func:`mcs51_interrupts`:
 #: (pattern of part numbers, sources).
 _MCS51_INTERRUPTS: typing.Tuple[
     typing.Tuple[str, typing.Type[MCS51InterruptSource]], ...
-] = ((r"C8051F33[0-5]", C8051F33xInterrupt),)
+] = (
+    (r"C8051F33[0-5]", C8051F33xInterrupt),
+    (r"EFM8BB2", EFM8BB2Interrupt),
+)
 
 
 def mcs51_interrupts(device: str) -> typing.Type[MCS51InterruptSource]:
@@ -997,7 +1314,8 @@ def mcs51_interrupt_to_take(
     Arguments:
         read_sfr: Reads an SFR, by its address (0x80-0xFF).
         in_service: The priority levels of the interrupts in service: 0 for
-            low, 1 for high.
+            low, 1 for high, or up to 3 on a device with four levels (see
+            :meth:`MCS51InterruptSource.level`).
         sources: The device's interrupt sources; by default, the 8052's.
 
     Returns:
@@ -1012,7 +1330,7 @@ def mcs51_interrupt_to_take(
             read_sfr
         ):
             continue
-        level = 1 if read_sfr(source.priority_sfr) & source.enable else 0
+        level = source.level(read_sfr)
         if level > current and (chosen is None or level > chosen[1]):
             chosen = (source, level)
     return chosen
@@ -1029,7 +1347,13 @@ def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51InterruptSource) ->
     Arguments:
         emulator: The emulator.
         source: The interrupt to request.
+
+    Raises:
+        ValueError: If the source has no request flag to set, as the
+            EFM8BB2's Port Match, which its pins request, does not.
     """
+    if not source.request:
+        raise ValueError(f"{source} has no request flag to set")
     address = MCS51_SFR_BASE + source.flag_sfr
     value = emulator.read_memory(address, 1)[0]
     emulator.write_memory(address, bytes([value | source.request]))
@@ -1041,8 +1365,8 @@ def mcs51_interrupt_sfrs(
 ) -> typing.FrozenSet[int]:
     """The SFRs that decide whether a device's interrupts are taken.
 
-    They are IE, and each source's flag, enable and priority SFRs and the
-    SFRs of its gates.  Interrupts are only modeled when they are all
+    They are IE, and each source's flag, enable and priority SFRs, the SFRs
+    of its gates, and its request flags in other SFRs and their gates.  Interrupts are only modeled when they are all
     mapped, and only a write to one of them, or RETI, can make an interrupt
     takeable.
 
@@ -1053,6 +1377,10 @@ def mcs51_interrupt_sfrs(
     for source in sources:
         sfrs |= {source.flag_sfr, source.enable_sfr, source.priority_sfr}
         sfrs |= {sfr for _, sfr, _ in source.gates}
+        for sfr, _, gate_sfr, _ in source.other_flags:
+            sfrs |= {sfr, gate_sfr}
+        if source.priority_high_sfr is not None:
+            sfrs.add(source.priority_high_sfr)
     return frozenset(sfrs)
 
 
@@ -1071,6 +1399,8 @@ def mcs51_interrupt_control_sfrs(
     sfrs = {MCS51_SFR_IE, MCS51_SFR_IP}
     for source in sources:
         sfrs |= {source.enable_sfr, source.priority_sfr}
+        if source.priority_high_sfr is not None:
+            sfrs.add(source.priority_high_sfr)
     return frozenset(sfrs)
 
 
@@ -1079,7 +1409,8 @@ class MCS51InterruptState:
     """What an 8051 tracks about interrupts that no register shows."""
 
     in_service: typing.Tuple[int, ...] = ()
-    """The priority levels of the interrupts in service, oldest first."""
+    """The priority levels of the interrupts in service, oldest first (see
+    :meth:`MCS51InterruptSource.level`)."""
 
     previous: typing.Optional[typing.Tuple[int, typing.Tuple[int, ...]]] = None
     """The opcode of the instruction now executing, and the values of the
@@ -1165,8 +1496,8 @@ def mcs51_take_interrupt(
 
     Calls the handler as LCALL would, pushing PC low byte first; clears the
     source's ``cleared`` flags; and, on a device that pages its SFRs,
-    switches to the page of its request flags (see
-    :func:`mcs51_push_sfr_page`).  Jumping to ``source.vector`` is the
+    switches to the page of the request flag that requested it (see
+    :meth:`MCS51InterruptSource.page` and :func:`mcs51_push_sfr_page`).  Jumping to ``source.vector`` is the
     caller's job.
 
     Arguments:
@@ -1182,12 +1513,13 @@ def mcs51_take_interrupt(
     Returns:
         The new stack pointer, and whether SFRPAGE changed.
     """
+    page = source.page(read_sfr) if paging is not None else 0
     for byte in pc.to_bytes(2, "little"):
         sp = (sp + 1) & 0xFF
         write_idata(sp, byte)
     if source.cleared:
         write_sfr(source.flag_sfr, read_sfr(source.flag_sfr) & ~source.cleared)
     paged = paging is not None and mcs51_push_sfr_page(
-        paging, read_sfr, write_sfr, source.flag_sfr >> 8
+        paging, read_sfr, write_sfr, page
     )
     return sp, paged

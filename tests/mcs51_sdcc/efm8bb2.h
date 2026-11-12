@@ -47,4 +47,23 @@ __sbit __at(0xAB) ET1;
 __sbit __at(0xAF) EA;
 __sbit __at(0xBB) PT1;
 
+/* The EFM8BB2's interrupt enables and priorities: EIE1 and EIP1 on pages
+ * 0x00 and 0x10, the rest on page 0x10. */
+__sfr __at(0xE6) EIE1;
+__sfr __at(0xF3) EIP1;
+__sfr __at(0xF5) EIP1H;
+__sfr __at(0xF4) EIP2;
+__sfr __at(0xF6) EIP2H;
+__sfr __at(0xF2) IPH;
+
+/* Peripheral SFRs that hold request flags or gate them, as Table 3.3 lists
+ * their pages. */
+__sfr __at(0x91) TMR3CN0;   /* 0x00, 0x10 */
+__sfr __at(0xC0) SMB0CN0;   /* 0x00, 0x20 */
+__sfr __at(0xF7) PCA0PWM;   /* 0x00, 0x10 */
+__sfr __at(0x98) TMR4CN0;   /* 0x10 */
+__sfr __at(0xB9) I2C0STAT;  /* 0x20 */
+__sfr __at(0xD8) UART1FCN1; /* 0x20 */
+__sbit __at(0xC0) SI;       /* SMB0CN0 bit 0 */
+
 #endif
