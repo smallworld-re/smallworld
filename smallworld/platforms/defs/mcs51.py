@@ -1,0 +1,1543 @@
+import dataclasses
+import enum
+import functools
+import re
+import typing
+
+from ..platforms import Architecture, Byteorder
+from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
+
+
+class MCS51(PlatformDef):
+    """Platform definition for the Intel MCS-51 (8051) family.
+
+    The 8051 is a Harvard machine with several overlapping address spaces:
+    64 KiB of code, 64 KiB of external data (XDATA), 256 bytes of internal
+    RAM, and the special function registers (SFRs) and bit-addressable memory
+    layered over parts of internal RAM.  SmallWorld lays these out side by
+    side in one flat address map (see :data:`MCS51_ADDRESS_SPACES`), so
+    ``address_size`` is the CPU's pointer width, not the width of that map.
+    """
+
+    architecture = Architecture.MCS51
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "8051:BE:16:default"
+    address_size = 2
+
+    # Not supported by capstone
+    capstone_arch = -1
+    capstone_mode = -1
+
+    conditional_branch_mnemonics = {
+        "jc",
+        "jnc",
+        "jz",
+        "jnz",
+        "jb",
+        "jnb",
+        "jbc",
+        "cjne",
+        "djnz",
+    }
+    compare_mnemonics = {"cjne"}
+    compare_branch_mnemonics = {"cjne", "djnz", "jz", "jnz", "jb", "jnb", "jbc"}
+    status_register = "psw"
+
+    pc_register = "pc"
+    sp_register = "sp"
+
+    # R0-R7 are the working registers of the current register bank.
+    general_purpose_registers = [f"r{i}" for i in range(0, 8)]
+
+    @property
+    def registers(self) -> typing.Dict[str, RegisterDef]:
+        return self._registers
+
+    def __init__(self):
+        self._registers: typing.Dict[str, RegisterDef] = {
+            "pc": RegisterDef(name="pc", size=2),
+            # SP is an 8-bit index into internal RAM.
+            "sp": RegisterDef(name="sp", size=1),
+            "acc": RegisterDef(name="acc", size=1),
+            "a": RegisterAliasDef(name="a", parent="acc", size=1, offset=0),
+            "b": RegisterDef(name="b", size=1),
+            "psw": RegisterDef(name="psw", size=1),
+            "dptr": RegisterDef(name="dptr", size=2),
+            "dph": RegisterAliasDef(name="dph", parent="dptr", size=1, offset=1),
+            "dpl": RegisterAliasDef(name="dpl", parent="dptr", size=1, offset=0),
+            # Not registers of the hardware: the SFR that pages MOVX @Ri, and
+            # its value (see MCS51_SFR_P2), and SFR paging (see
+            # MCS51SFRPaging).
+            "xpage_sfr": RegisterDef(name="xpage_sfr", size=1),
+            "xpage": RegisterDef(name="xpage", size=1),
+            "sfr_page": RegisterDef(name="sfr_page", size=1),
+            "sfr_paged_lo": RegisterDef(name="sfr_paged_lo", size=8),
+            "sfr_paged_hi": RegisterDef(name="sfr_paged_hi", size=8),
+        }
+        for i in range(0, 8):
+            self._registers[f"r{i}"] = RegisterDef(name=f"r{i}", size=1)
+
+
+#: SmallWorld's flat layout of the 8051's address spaces, as
+#: (Ghidra space name, flat base address, size).  CODE sits at 0 so that code
+#: addresses, exit points and the program counter all agree; the data spaces
+#: sit above 64 KiB, where no code address can reach them.
+#:
+#: SFRs are in PSFR, SmallWorld's SFR space, which has a page for each value
+#: of a Silicon Labs device's SFRPAGE: SFR ``sfr`` on page ``page`` is at
+#: ``MCS51_SFR_BASE + (page << 8) + sfr``.  SFRs that are not paged, as none
+#: are on most devices, are on page 0.
+MCS51_ADDRESS_SPACES: typing.Tuple[typing.Tuple[str, int, int], ...] = (
+    ("CODE", 0x00000, 0x10000),
+    ("EXTMEM", 0x10000, 0x10000),
+    ("INTMEM", 0x20000, 0x100),
+    ("PSFR", 0x20100, 0x10000),
+    ("BITS", 0x30100, 0x100),
+)
+
+#: Flat base addresses, by space, for scripts and tests.
+MCS51_CODE_BASE = 0x00000
+MCS51_XDATA_BASE = 0x10000
+MCS51_IDATA_BASE = 0x20000
+MCS51_SFR_BASE = 0x20100
+MCS51_BITS_BASE = 0x30100
+
+
+def mcs51_read_idata(emulator: typing.Any, offset: int, size: int) -> bytes:
+    """Read internal RAM as the 8051's stack does, wrapping past 0xFF to 0.
+
+    Arguments:
+        emulator: The emulator to read from.
+        offset: The offset into internal RAM of the first byte; taken modulo
+            256, so it may be negative.
+        size: The number of bytes.
+    """
+    offset &= 0xFF
+    if offset + size <= 0x100:
+        return emulator.read_memory(MCS51_IDATA_BASE + offset, size)
+    first = 0x100 - offset
+    return emulator.read_memory(MCS51_IDATA_BASE + offset, first) + mcs51_read_idata(
+        emulator, 0, size - first
+    )
+
+
+def mcs51_write_idata(emulator: typing.Any, offset: int, content: bytes) -> None:
+    """Write internal RAM as the 8051's stack does, wrapping past 0xFF to 0.
+
+    Arguments:
+        emulator: The emulator to write to.
+        offset: The offset into internal RAM of the first byte; taken modulo
+            256, so it may be negative.
+        content: The bytes.
+    """
+    offset &= 0xFF
+    first = min(len(content), 0x100 - offset)
+    emulator.write_memory(MCS51_IDATA_BASE + offset, content[:first])
+    if first < len(content):
+        mcs51_write_idata(emulator, 0, content[first:])
+
+
+def mcs51_return_address(emulator: typing.Any, pop: bool = False) -> int:
+    """Read the return address an 8051 call left on the stack.
+
+    LCALL and ACALL push the return address low byte first onto a stack that
+    grows up through internal RAM, so SP points at its high byte.  SP is an
+    offset into internal RAM, not a flat address.
+
+    Arguments:
+        emulator: The emulator to read from.
+        pop: Whether to also pop the return address, as RET does.
+
+    Returns:
+        The return address.
+    """
+    sp = emulator.read_register("sp")
+    ret = int.from_bytes(mcs51_read_idata(emulator, sp - 1, 2), "little")
+    if pop:
+        emulator.write_register("sp", (sp - 2) & 0xFF)
+    return ret
+
+
+#: R0-R7 are a bank of eight bytes in internal RAM; PSW's RS1 and RS0 bits
+#: select one of four banks, at internal RAM 0x00, 0x08, 0x10 and 0x18.
+MCS51_PSW_BANK_SELECT = 0x18
+MCS51_PSW_BANK_SHIFT = 3
+MCS51_REGISTER_BANKS_SIZE = 0x20
+
+#: PSW's parity flag, P: set when the accumulator holds an odd number of ones.
+#: The hardware recomputes it from ACC on every cycle, so it is read-only.
+MCS51_PSW_PARITY = 0x01
+
+
+def mcs51_psw_with_parity(psw: int, acc: int) -> int:
+    """PSW with its parity flag recomputed from the accumulator."""
+    return (psw & ~MCS51_PSW_PARITY) | (bin(acc & 0xFF).count("1") & 1)
+
+
+#: PSW's carry and auxiliary-carry flags.
+MCS51_PSW_CARRY = 0x80
+MCS51_PSW_AUX_CARRY = 0x40
+
+
+class MCS51Operations(typing.NamedTuple):
+    """The operations :func:`mcs51_decimal_adjust` computes with.
+
+    So that one description of an instruction serves Python integers and
+    symbolic values alike: :data:`MCS51_CONCRETE_OPERATIONS` for integers, or
+    claripy's ``If``, ``Or``, ``And`` and ``UGT`` for angr.
+    """
+
+    if_then_else: typing.Callable[[typing.Any, typing.Any, typing.Any], typing.Any]
+    or_: typing.Callable[[typing.Any, typing.Any], typing.Any]
+    and_: typing.Callable[[typing.Any, typing.Any], typing.Any]
+    unsigned_greater: typing.Callable[[typing.Any, typing.Any], typing.Any]
+
+
+MCS51_CONCRETE_OPERATIONS = MCS51Operations(
+    if_then_else=lambda condition, then, otherwise: then if condition else otherwise,
+    or_=lambda a, b: a or b,
+    and_=lambda a, b: a and b,
+    unsigned_greater=lambda a, b: a > b,
+)
+
+
+def mcs51_decimal_adjust(
+    acc: typing.Any,
+    carry: typing.Any,
+    aux_carry: typing.Any,
+    operations: MCS51Operations = MCS51_CONCRETE_OPERATIONS,
+) -> typing.Tuple[typing.Any, typing.Any]:
+    """DA A: adjust the accumulator after a BCD addition.
+
+    Arguments:
+        acc: The accumulator, at least nine bits wide, so that a carry out
+            of it shows.
+        carry: PSW's carry flag.
+        aux_carry: PSW's auxiliary-carry flag.
+        operations: What to compute with.
+
+    Returns:
+        The adjusted accumulator, still as wide, and the new carry flag.  DA
+        A only ever sets the carry, never clears it.
+    """
+    ops = operations
+    adjust_low = ops.or_(ops.unsigned_greater(acc & 0x0F, 9), aux_carry)
+    acc = ops.if_then_else(adjust_low, acc + 0x06, acc)
+    carry = ops.or_(carry, ops.and_(adjust_low, ops.unsigned_greater(acc, 0xFF)))
+    adjust_high = ops.or_(ops.unsigned_greater((acc >> 4) & 0x0F, 9), carry)
+    acc = ops.if_then_else(adjust_high, acc + 0x60, acc)
+    carry = ops.or_(carry, ops.and_(adjust_high, ops.unsigned_greater(acc, 0xFF)))
+    return acc, carry
+
+
+#: P2, the SFR that supplies the high byte of MOVX @Ri's address on Intel's
+#: 8051, and the default of the ``xpage_sfr`` register, which names that SFR.
+#: Silicon Labs' CIP-51 devices page MOVX @Ri through their EMI0CN instead:
+#: set ``xpage_sfr`` to its address (SDCC's device headers declare it as
+#: ``_XPAGE``) to emulate one.
+#:
+#: MOVX @Ri itself takes the page from the ``xpage`` register, which the
+#: emulators keep in step with the SFR ``xpage_sfr`` names, so that it reads
+#: no SFR: where that SFR is not mapped, ``xpage`` is 0, and MOVX @Ri reaches
+#: XDATA's first page.
+MCS51_SFR_P2 = 0xA0
+
+
+#: The registers that are not the hardware's (see :class:`MCS51`), as they
+#: start: MOVX @Ri pages through P2, as on Intel's 8051, until a harness
+#: names another SFR, and no SFR is paged.
+MCS51_INITIAL_REGISTERS: typing.Dict[str, int] = {
+    "xpage_sfr": MCS51_SFR_P2,
+    "xpage": 0,
+    "sfr_page": 0,
+    "sfr_paged_lo": 0,
+    "sfr_paged_hi": 0,
+}
+
+
+def mcs51_initialize_state(emulator: typing.Any) -> None:
+    """Set the registers that are not the hardware's to their initial values.
+
+    For the emulators' machine definitions; see
+    :data:`MCS51_INITIAL_REGISTERS`.
+    """
+    for register, value in MCS51_INITIAL_REGISTERS.items():
+        emulator.write_register(register, value)
+
+
+#: The SFR that pages MOVX @Ri, by device family, for :func:`mcs51_xpage_sfr`:
+#: (pattern of part numbers, SFR address).  Taken from the ``_XPAGE``
+#: declarations in SDCC 4.6's device headers, but for the EFM8BB2's, which
+#: SDCC has no header for, from its reference manual, preliminary revision
+#: 0.3, section 2.5.1.
+_MCS51_XPAGE_SFRS: typing.Tuple[typing.Tuple[str, int], ...] = (
+    # Silicon Labs CIP-51: EMI0CN.
+    (r"EFM8BB2", 0xE7),
+    (r"C8051F0[0-2]\d", 0xAF),
+    (r"C8051F2\d\d", 0xAF),
+    (r"C8051F0[46]\d", 0xA2),
+    (r"C8051F1[23]\d", 0xA2),
+    (r"C8051F3[1-6]\d", 0xAA),
+    (r"C8051F41\d", 0xAA),
+    (r"C8051F9[23]\d", 0xAA),
+    (r"C8051T6[13]\d", 0xAA),
+    # Axsem: XPAGE.
+    (r"AX8052", 0xD9),
+    # Chipcon and Texas Instruments: MPAGE.
+    (r"CC(1110|2430|251[01]|253\d)", 0x93),
+    (r"MSC12\d\d", 0x92),
+    # Infineon: XADDRH, which shares its address with SFRs on other SFR
+    # pages; SmallWorld has no table of the XC866's paging.
+    (r"XC866", 0xB3),
+)
+
+
+def mcs51_xpage_sfr(device: str) -> int:
+    """The SFR that pages MOVX @Ri on an 8051 device, for ``xpage_sfr``.
+
+    Many 8051 derivatives page MOVX @Ri through an SFR of their own instead
+    of P2 - Silicon Labs' CIP-51 devices through EMI0CN, for one.  To
+    emulate one, set the CPU's ``xpage_sfr`` register to this::
+
+        cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
+
+    A program built with SDCC records the same address in its linker map, as
+    ``__XPAGE``; see
+    :meth:`~smallworld.state.memory.ihex.IHexExecutable.get_map_value`.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``, ``CC2530``
+            or ``XC866``; case and suffixes, such as a package code, are
+            ignored.
+
+    Returns:
+        The address of the SFR in the SFR space.
+
+    Raises:
+        ValueError: If the device is not one SmallWorld knows.  Intel's 8051
+            and the many derivatives that keep its P2 paging are not listed:
+            leave ``xpage_sfr`` unset for those.
+    """
+    for pattern, sfr in _MCS51_XPAGE_SFRS:
+        if re.match(pattern, device, re.IGNORECASE):
+            return sfr
+    raise ValueError(
+        f"unknown 8051 device {device}: set xpage_sfr to the address of the SFR "
+        "that pages MOVX @Ri, which SDCC's device header declares as _XPAGE"
+    )
+
+
+def mcs51_pdata_page(emulator: typing.Any) -> int:
+    """The page of XDATA that MOVX @Ri reaches now: pdata.
+
+    It is the value of the SFR the ``xpage_sfr`` register names - P2 on
+    Intel's 8051, EMI0CN on Silicon Labs' CIP-51 devices - as the ``xpage``
+    register holds it: 0 where that SFR is not mapped.
+
+    Arguments:
+        emulator: The emulator to read from.
+
+    Returns:
+        The page, the high byte of the XDATA address.
+    """
+    return emulator.read_register("xpage")
+
+
+@dataclasses.dataclass(frozen=True)
+class MCS51SFRPaging:
+    """How an 8051 device pages its SFRs, as Silicon Labs' larger devices do.
+
+    The SFRPAGE SFR selects the page through which the CPU reaches most
+    SFRs, so that one address holds a different SFR on each page; the SFRs in
+    ``shared`` are the same on every page, and on some devices, others on
+    page 0 are the same on some other pages too (``also_shared``).
+    SmallWorld keeps each page's SFRs in its own 256 bytes of SFR space (see
+    :data:`MCS51_ADDRESS_SPACES`), and the shared ones on page 0.
+
+    The device also keeps a stack of pages: taking an interrupt pushes
+    SFRPAGE onto the stack's levels below it (``stack``) - SFRNEXT, then
+    SFRLAST, on the C8051F04x - and selects the interrupt's page, the page of
+    its request flags; RETI pops it.  It does so only while the bits
+    ``stack_enable`` names are set.  Where those levels are no SFRs of their
+    own, as on the EFM8, SmallWorld keeps them in SFR space below 0x80, where
+    no SFR is, and firmware reads them through an SFR that shows the level
+    another selects (``stack_view``).
+
+    Addresses are SFR addresses, with the page above them where it matters:
+    ``0xF96`` is SFR 0x96 on page 0xF.
+    """
+
+    sfrpage: int
+    """SFRPAGE's address."""
+
+    stack: typing.Tuple[int, ...]
+    """The addresses of the page stack's levels below SFRPAGE, top first."""
+
+    stack_enable: typing.Tuple[int, int]
+    """The SFR, and the mask of its bits, that enable the page stack."""
+
+    shared: typing.FrozenSet[int]
+    """The SFRs that are on every page."""
+
+    also_shared: typing.Tuple[typing.Tuple[int, typing.FrozenSet[int]], ...] = ()
+    """SFRs on page 0 that are also on another page, by page: (page, SFRs)."""
+
+    stack_view: typing.Optional[typing.Tuple[int, int, int]] = None
+    """How firmware reads the page stack, if its levels are no SFRs of their
+    own: the SFR, and the mask of its bits, that select a level - 0 for
+    SFRPAGE, 1 for ``stack[0]`` and so on - and the SFR that shows it."""
+
+    def unpaged(self, page: int = 0) -> typing.FrozenSet[int]:
+        """The SFRs that are page 0's on a page: those reached there are
+        page 0's, whichever page SFRPAGE selects."""
+        for shared_page, sfrs in self.also_shared:
+            if shared_page == page:
+                return self.shared | sfrs
+        return self.shared
+
+    def paged_masks(self, page: int = 0) -> typing.Tuple[int, int]:
+        """The ``sfr_paged_lo`` and ``sfr_paged_hi`` registers' values, on a
+        page.  They depend on the page only on a device with ``also_shared``.
+
+        Bit n of the first is set when SFR 0x80 + n is paged; bit n of the
+        second, when SFR 0xC0 + n is.
+        """
+        unpaged = self.unpaged(page)
+        lo = sum(1 << n for n in range(0x40) if 0x80 + n not in unpaged)
+        hi = sum(1 << n for n in range(0x40) if 0xC0 + n not in unpaged)
+        return lo, hi
+
+    def sfrs(self) -> typing.Tuple[int, ...]:
+        """The SFRs paging depends on, which must be mapped for it to be
+        modeled: SFRPAGE, the page stack, the SFR that enables it and, where
+        there is one, the stack's view."""
+        sfrs = (self.sfrpage,) + self.stack + (self.stack_enable[0],)
+        if self.stack_view is not None:
+            sfrs += (self.stack_view[0], self.stack_view[2])
+        return sfrs
+
+
+#: The C8051F04x's SFR paging, from SDCC 4.6's C8051F040.h, which lists these
+#: SFRs under "All Pages" and every other SFR under a page of its own; its
+#: C8051F060.h lists the same for the C8051F06x.  The headers do not say which
+#: bit of SFRPGCN enables the page stack; SmallWorld takes it to be bit 0,
+#: SFRPGEN.
+MCS51_C8051F04X_SFR_PAGING = MCS51SFRPaging(
+    sfrpage=0x84,
+    stack=(0x85, 0x86),
+    stack_enable=(0xF96, 0x01),
+    shared=frozenset(
+        {0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x90, 0xA0, 0xA8}
+        | {0xB0, 0xB8, 0xD0, 0xE0, 0xE6, 0xE7, 0xF0, 0xF6, 0xF7, 0xFF}
+    ),
+)
+
+#: The C8051F12x's and F13x's SFR paging: the C8051F04x's, with PSBANK, the
+#: flash bank select, on every page too, as SDCC 4.6's C8051F120.h lists it.
+MCS51_C8051F12X_SFR_PAGING = dataclasses.replace(
+    MCS51_C8051F04X_SFR_PAGING,
+    shared=MCS51_C8051F04X_SFR_PAGING.shared | {0xB1},
+)
+
+#: The C8051F36x's SFR paging, from SDCC 4.6's C8051F360.h, which lists these
+#: SFRs under "All Pages" and every other SFR on page 0 or 0x0F, but for
+#: 0xAB, 0xB4 and 0xE3, which it does not list, and which, as reserved
+#: addresses on other devices' pages are, are taken to be paged.  SFRPAGE is
+#: at 0xA7, and SFR0CN, on page 0x0F, controls the page stack.  SmallWorld
+#: takes the stack to work as the C8051F04x's does, enabled by SFR0CN's bit
+#: 0; the header says neither.
+MCS51_C8051F36X_SFR_PAGING = MCS51SFRPaging(
+    sfrpage=0xA7,
+    stack=(0x85, 0x86),
+    stack_enable=(0xFE5, 0x01),
+    shared=frozenset(
+        {0x80, 0x81, 0x82, 0x83, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B}
+        | {0x8C, 0x8D, 0x8E, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97}
+        | {0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F, 0xA0, 0xA1, 0xA2}
+        | {0xA3, 0xA7, 0xA8, 0xAA, 0xB0, 0xB5, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC}
+        | {0xBD, 0xBE, 0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC8, 0xCA}
+        | {0xCB, 0xCC, 0xCD, 0xD0, 0xD1, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD}
+        | {0xDE, 0xDF, 0xE0, 0xE4, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA, 0xEB, 0xEC}
+        | {0xED, 0xEE, 0xEF, 0xF0, 0xF5, 0xF6, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC}
+        | {0xFD, 0xFE, 0xFF}
+    ),
+)
+
+#: The EFM8BB2's SFR paging, from its reference manual, preliminary revision
+#: 0.3: section 3, and Table 3.3, which lists each SFR's pages, 0x00, 0x10 and
+#: 0x20.  SFRPAGE is at 0xA7.  Many SFRs are on two pages, page 0 and one
+#: other, and are page 0's there.  The page stack is five levels deep:
+#: SFRPAGE and four that are no SFRs, which SmallWorld keeps at 0x1001-0x1004
+#: - page 0x10, which SFRSTACK is on, below its SFRs, at the index that
+#: selects each.  SFRPGCN, on page 0x10, enables the stack with bit 0,
+#: SFRPGEN, and selects the level SFRSTACK, on page 0x10, shows with bits
+#: 4-6, SFRPGIDX.
+MCS51_EFM8BB2_SFR_PAGING = MCS51SFRPaging(
+    sfrpage=0xA7,
+    stack=(0x1001, 0x1002, 0x1003, 0x1004),
+    stack_enable=(0x10CF, 0x01),
+    shared=frozenset(
+        {0x80, 0x81, 0x82, 0x83, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D}
+        | {0x8E, 0x8F, 0x90, 0x97, 0xA0, 0xA7, 0xA8, 0xA9, 0xB0, 0xB7, 0xB8}
+        | {0xD0, 0xE0, 0xE7, 0xF0}
+    ),
+    also_shared=(
+        (
+            0x10,
+            frozenset(
+                {0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x9B, 0x9C, 0x9D, 0x9E}
+                | {0x9F, 0xAA, 0xAB, 0xB1, 0xB2, 0xB3, 0xB9, 0xBB, 0xBC, 0xBD}
+                | {0xBE, 0xBF, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xCA, 0xCB}
+                | {0xCC, 0xCD, 0xD1, 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDF, 0xE4}
+                | {0xE6, 0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xF3, 0xF7, 0xF9, 0xFA}
+                | {0xFB, 0xFC}
+            ),
+        ),
+        (
+            0x20,
+            frozenset(
+                {0x86, 0x98, 0x99, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xAC}
+                | {0xC0, 0xC1, 0xC2, 0xC9, 0xCE, 0xCF, 0xD2, 0xD3, 0xD4, 0xD5}
+                | {0xD6, 0xD7, 0xDD, 0xDE, 0xE1, 0xE2, 0xE3, 0xED, 0xEE, 0xF1}
+                | {0xF2, 0xF6, 0xF8, 0xFD, 0xFE}
+            ),
+        ),
+    ),
+    stack_view=(0x10CF, 0x70, 0x10D7),
+)
+
+#: SFR paging, by device family, for :func:`mcs51_sfr_paging`: (pattern of
+#: part numbers, paging).
+_MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
+    (r"C8051F0[46]\d", MCS51_C8051F04X_SFR_PAGING),
+    (r"C8051F1[23]\d", MCS51_C8051F12X_SFR_PAGING),
+    (r"C8051F36\d", MCS51_C8051F36X_SFR_PAGING),
+    (r"EFM8BB2", MCS51_EFM8BB2_SFR_PAGING),
+)
+
+#: Devices that page their SFRs in ways SmallWorld has no table of.
+_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"XC866")
+
+
+def mcs51_sfr_paging(device: str) -> typing.Optional[MCS51SFRPaging]:
+    """How an 8051 device pages its SFRs.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F040``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's SFR paging, or None if it does not page its SFRs.
+
+    Raises:
+        ValueError: If the device pages its SFRs, but SmallWorld has no table
+            of how.
+    """
+    for pattern, paging in _MCS51_SFR_PAGING:
+        if re.match(pattern, device, re.IGNORECASE):
+            return paging
+    for pattern in _MCS51_SFR_PAGING_UNKNOWN:
+        if re.match(pattern, device, re.IGNORECASE):
+            raise ValueError(
+                f"8051 device {device} pages its SFRs, which SmallWorld has no "
+                "table of"
+            )
+    return None
+
+
+def mcs51_push_sfr_page(
+    paging: MCS51SFRPaging,
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+    page: int,
+) -> bool:
+    """Push the SFR page stack, as taking an interrupt does.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+        page: The interrupt's page.
+
+    Returns:
+        Whether the stack is enabled, and so was pushed.
+    """
+    sfr, mask = paging.stack_enable
+    if not read_sfr(sfr) & mask:
+        return False
+    levels = (paging.sfrpage,) + paging.stack
+    for below, above in reversed(tuple(zip(levels[1:], levels))):
+        write_sfr(below, read_sfr(above))
+    write_sfr(paging.sfrpage, page)
+    return True
+
+
+def mcs51_pop_sfr_page(
+    paging: MCS51SFRPaging,
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+) -> bool:
+    """Pop the SFR page stack, as RETI does.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+
+    Returns:
+        Whether the stack is enabled, and so was popped.
+    """
+    sfr, mask = paging.stack_enable
+    if not read_sfr(sfr) & mask:
+        return False
+    levels = (paging.sfrpage,) + paging.stack
+    for above, below in zip(levels, levels[1:]):
+        write_sfr(above, read_sfr(below))
+    return True
+
+
+def mcs51_unmapped_paging_message(unmapped: typing.Sequence[int]) -> str:
+    """The warning the emulators log, once, when a device's SFR paging is
+    not modeled because SFRs it depends on (see :meth:`MCS51SFRPaging.sfrs`)
+    are not mapped: every SFR is then reached on page 0.
+
+    Arguments:
+        unmapped: The SFRs that are not mapped, with their pages above them.
+    """
+    sfrs = ", ".join(f"{sfr:#x}" for sfr in sorted(set(unmapped)))
+    return (
+        f"8051 SFR paging is not modeled, and every SFR is reached on page 0: "
+        f"SFRs {sfrs} are not mapped (addresses in the SFR space, with the "
+        "page above the SFR)"
+    )
+
+
+def mcs51_sfr_stack_view(
+    paging: MCS51SFRPaging, read_sfr: typing.Callable[[int], int]
+) -> typing.Optional[typing.Tuple[int, int]]:
+    """What the SFR that shows the page stack's levels reads now.
+
+    On a device whose page stack's levels below SFRPAGE are no SFRs of their
+    own (see :attr:`MCS51SFRPaging.stack_view`), that SFR shows the level
+    another selects; the emulators keep it in step.  A level past the
+    stack's bottom reads 0.
+
+    Arguments:
+        paging: The device's SFR paging.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+
+    Returns:
+        The SFR's address and value, or None if the device has no such SFR.
+    """
+    if paging.stack_view is None:
+        return None
+    select, mask, view = paging.stack_view
+    level = (read_sfr(select) & mask) >> ((mask & -mask).bit_length() - 1)
+    levels = (paging.sfrpage,) + paging.stack
+    return view, read_sfr(levels[level]) if level < len(levels) else 0
+
+
+@dataclasses.dataclass(frozen=True)
+class MCS51FlashProgramming:
+    """How a Silicon Labs device writes its own flash.
+
+    With PSCTL's PSWE bit set, MOVX writes go to flash - code memory - rather
+    than XDATA: a write clears the bits of the flash byte that are clear in
+    the byte written, since only erasing sets them, and with PSEE set too,
+    erases the whole page holding the byte, setting it to 0xFF.  MOVX reads
+    still read XDATA; a program reads flash with MOVC.
+
+    Each write or erase must be unlocked first, by writing 0xA5 then 0xF1 to
+    FLKEY; the lock closes again after it.  Writing anything else to FLKEY,
+    or writing or erasing flash while it is locked, disables writes and
+    erases until reset.  Reading FLKEY reads the lock's state, one of the
+    ``MCS51_FLKEY_*`` values.
+
+    Addresses are SFR addresses, with the page above them where it matters.
+    """
+
+    psctl: int
+    """PSCTL's address."""
+
+    flkey: int
+    """FLKEY's address."""
+
+    page_size: int
+    """The size of a flash page, which an erase sets to 0xFF."""
+
+    page_regions: typing.Tuple[typing.Tuple[int, int, int], ...] = ()
+    """Regions of flash whose pages are another size: (start, end, page
+    size), the end exclusive, by code address."""
+
+    def page(self, address: int) -> typing.Tuple[int, int]:
+        """The flash page holding a code address: its start and size."""
+        size = self.page_size
+        for start, end, region_size in self.page_regions:
+            if start <= address < end:
+                size = region_size
+                break
+        return address - address % size, size
+
+
+#: PSCTL's bits: PSWE, which sends MOVX writes to flash, and PSEE, which makes
+#: them erase.
+MCS51_PSCTL_PSWE = 0x01
+MCS51_PSCTL_PSEE = 0x02
+
+#: The states of the flash lock, as FLKEY reads: locked, with the first key
+#: written, unlocked, and disabled until reset.
+MCS51_FLKEY_LOCKED = 0
+MCS51_FLKEY_FIRST_KEY = 1
+MCS51_FLKEY_UNLOCKED = 2
+MCS51_FLKEY_DISABLED = 3
+
+#: The C8051F33x's flash programming, from its data sheet, revision 1.7:
+#: section 11 and the PSCTL and FLKEY definitions.
+MCS51_C8051F33X_FLASH = MCS51FlashProgramming(psctl=0x8F, flkey=0xB7, page_size=512)
+
+#: The EFM8BB2's flash programming, from its reference manual, preliminary
+#: revision 0.3: section 4 and the PSCTL and FLKEY definitions.  Code is in
+#: 512-byte pages, and the 1 KiB at 0xF800-0xFBFF, which holds nonvolatile
+#: data and the security page, in 64-byte pages.
+MCS51_EFM8BB2_FLASH = MCS51FlashProgramming(
+    psctl=0x8F, flkey=0xB7, page_size=512, page_regions=((0xF800, 0xFC00, 64),)
+)
+
+#: Flash programming, by device family, for :func:`mcs51_flash_programming`:
+#: (pattern of part numbers, flash programming).
+_MCS51_FLASH: typing.Tuple[typing.Tuple[str, MCS51FlashProgramming], ...] = (
+    (r"C8051F33[0-5]", MCS51_C8051F33X_FLASH),
+    (r"EFM8BB2", MCS51_EFM8BB2_FLASH),
+)
+
+
+def mcs51_flash_programming(device: str) -> typing.Optional[MCS51FlashProgramming]:
+    """How an 8051 device writes its own flash.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's flash programming, or None if SmallWorld has no table
+        of it.
+    """
+    for pattern, flash in _MCS51_FLASH:
+        if re.match(pattern, device, re.IGNORECASE):
+            return flash
+    return None
+
+
+def mcs51_flash_owns_store(
+    flash: MCS51FlashProgramming,
+    address: int,
+    read_memory: typing.Callable[[int, int], bytes],
+) -> bool:
+    """Whether a store is the flash's to perform: see :func:`mcs51_flash_store`.
+
+    Arguments:
+        flash: The device's flash programming.
+        address: The flat address stored to.
+        read_memory: Reads memory, by flat address and size.
+    """
+    if address == MCS51_SFR_BASE + flash.flkey:
+        return True
+    return MCS51_XDATA_BASE <= address < MCS51_XDATA_BASE + 0x10000 and bool(
+        read_memory(MCS51_SFR_BASE + flash.psctl, 1)[0] & MCS51_PSCTL_PSWE
+    )
+
+
+def mcs51_flash_store(
+    flash: MCS51FlashProgramming,
+    address: int,
+    value: int,
+    read_memory: typing.Callable[[int, int], bytes],
+    write_memory: typing.Callable[[int, bytes], None],
+) -> None:
+    """Perform a store the flash owns, as the device does.
+
+    A store to FLKEY advances the lock, and leaves FLKEY reading its state.
+    A MOVX write, while PSWE is set, writes or erases flash if the lock is
+    open, and closes it, or else disables writes and erases until reset.
+
+    Arguments:
+        flash: The device's flash programming.
+        address: The flat address stored to, one
+            :func:`mcs51_flash_owns_store` says the flash owns.
+        value: The byte stored.
+        read_memory: Reads memory, by flat address and size.
+        write_memory: Writes memory, by flat address and content.
+    """
+    flkey = MCS51_SFR_BASE + flash.flkey
+    lock = read_memory(flkey, 1)[0] & 0x03
+    if address == flkey:
+        if lock == MCS51_FLKEY_LOCKED and value == 0xA5:
+            lock = MCS51_FLKEY_FIRST_KEY
+        elif lock == MCS51_FLKEY_FIRST_KEY and value == 0xF1:
+            lock = MCS51_FLKEY_UNLOCKED
+        else:
+            lock = MCS51_FLKEY_DISABLED
+        write_memory(flkey, bytes([lock]))
+        return
+    if lock != MCS51_FLKEY_UNLOCKED:
+        write_memory(flkey, bytes([MCS51_FLKEY_DISABLED]))
+        return
+    offset = address - MCS51_XDATA_BASE
+    if read_memory(MCS51_SFR_BASE + flash.psctl, 1)[0] & MCS51_PSCTL_PSEE:
+        page, size = flash.page(offset)
+        write_memory(MCS51_CODE_BASE + page, bytes([0xFF]) * size)
+    else:
+        old = read_memory(MCS51_CODE_BASE + offset, 1)[0]
+        write_memory(MCS51_CODE_BASE + offset, bytes([old & value]))
+    write_memory(flkey, bytes([MCS51_FLKEY_LOCKED]))
+
+
+#: SFRs that control interrupts.
+MCS51_SFR_TCON = 0x88
+MCS51_SFR_SCON = 0x98
+MCS51_SFR_IE = 0xA8
+MCS51_SFR_IP = 0xB8
+MCS51_SFR_T2CON = 0xC8
+
+#: SFRs of Silicon Labs' CIP-51 devices that control interrupts.
+MCS51_SFR_EIE1 = 0xE6
+MCS51_SFR_EIP1 = 0xF6
+
+#: IE's global enable bit, EA.
+MCS51_IE_EA = 0x80
+
+#: RETI's opcode.  Ghidra's 8051 language makes RETI a plain return, so
+#: SmallWorld recognizes it by its opcode to end an interrupt's service.
+MCS51_OPCODE_RETI = 0x32
+
+
+class MCS51InterruptSource(enum.Enum):
+    """Base for the interrupt sources of an 8051 device.
+
+    Each subclass lists one device's sources, in the order the CPU polls them
+    within a priority level.  Each source is a vector; the SFR holding its
+    request flags, the mask of those flags (``pending_flags``), and the flag
+    :func:`mcs51_raise_interrupt` sets, or 0 for a source with no flag it
+    can set; the mask of its enable bit; the flags the CPU clears when it
+    vectors to the handler; the SFRs that hold its enable bit and its
+    priority bit, at the same position, by default IE and IP; its gates; on
+    a device with four priority levels, the SFR that holds its priority's
+    high bit, at the same position too (``priority_high_sfr``); and its
+    request flags in other SFRs (``other_flags``).
+
+    A gate is a mask of request flags, an SFR and a mask of bits in it: those
+    flags request the interrupt only while one of those bits is set, as a
+    timer's low-byte overflow flag does only while its own enable bit is.  A
+    request flag in another SFR is that SFR, the mask of the flag, and its
+    gate's SFR and mask.
+
+    SFR addresses have the page above them where it matters; see
+    :class:`MCS51SFRPaging`.
+    """
+
+    def __init__(
+        self,
+        vector: int,
+        flag_sfr: int,
+        flags: int,
+        request: int,
+        enable: int,
+        cleared: int,
+        enable_sfr: int = MCS51_SFR_IE,
+        priority_sfr: int = MCS51_SFR_IP,
+        gates: typing.Tuple[typing.Tuple[int, int, int], ...] = (),
+        priority_high_sfr: typing.Optional[int] = None,
+        other_flags: typing.Tuple[typing.Tuple[int, int, int, int], ...] = (),
+    ):
+        self.vector = vector
+        self.flag_sfr = flag_sfr
+        self.pending_flags = flags
+        self.request = request
+        self.enable = enable
+        self.cleared = cleared
+        self.enable_sfr = enable_sfr
+        self.priority_sfr = priority_sfr
+        self.gates = gates
+        self.priority_high_sfr = priority_high_sfr
+        self.other_flags = other_flags
+
+    def _requested(self, read_sfr: typing.Callable[[int], int]) -> int:
+        # The flags in flag_sfr that request the interrupt, past their gates.
+        requested = read_sfr(self.flag_sfr) & self.pending_flags
+        for gated, sfr, mask in self.gates:
+            if requested & gated and not read_sfr(sfr) & mask:
+                requested &= ~gated
+        return requested
+
+    def _other_requests(
+        self, read_sfr: typing.Callable[[int], int]
+    ) -> typing.Iterator[int]:
+        # The other SFRs whose flags request the interrupt.
+        for sfr, flag, gate_sfr, gate in self.other_flags:
+            if read_sfr(sfr) & flag and read_sfr(gate_sfr) & gate:
+                yield sfr
+
+    def pending(self, read_sfr: typing.Callable[[int], int]) -> bool:
+        """Whether the source requests its interrupt.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address (0x80-0xFF, with its page
+                above it).
+        """
+        if self._requested(read_sfr):
+            return True
+        return next(self._other_requests(read_sfr), None) is not None
+
+    def level(self, read_sfr: typing.Callable[[int], int]) -> int:
+        """The source's priority level: 0, the lowest, or 1; or on a device
+        with four levels, up to 3, with ``priority_high_sfr``'s bit as its
+        high bit.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address.
+        """
+        level = 1 if read_sfr(self.priority_sfr) & self.enable else 0
+        if self.priority_high_sfr is not None:
+            if read_sfr(self.priority_high_sfr) & self.enable:
+                level += 2
+        return level
+
+    def page(self, read_sfr: typing.Callable[[int], int]) -> int:
+        """The SFR page of the flag that requests the interrupt, which taking
+        it selects, on a device that pages its SFRs: ``flag_sfr``'s, unless
+        only a flag in another SFR requests it.
+
+        Arguments:
+            read_sfr: Reads an SFR, by its address.
+        """
+        if not self._requested(read_sfr):
+            for sfr in self._other_requests(read_sfr):
+                return sfr >> 8
+        return self.flag_sfr >> 8
+
+
+class MCS51Interrupt(MCS51InterruptSource):
+    """The 8052's interrupt sources.
+
+    The external interrupts' flags are cleared on vectoring whether they are
+    edge- or level-triggered: SmallWorld has no pins, so a level-triggered
+    request does not stay asserted as a held-down pin would.
+    """
+
+    EXTERNAL0 = (0x03, MCS51_SFR_TCON, 0x02, 0x02, 0x01, 0x02)
+    TIMER0 = (0x0B, MCS51_SFR_TCON, 0x20, 0x20, 0x02, 0x20)
+    EXTERNAL1 = (0x13, MCS51_SFR_TCON, 0x08, 0x08, 0x04, 0x08)
+    TIMER1 = (0x1B, MCS51_SFR_TCON, 0x80, 0x80, 0x08, 0x80)
+    SERIAL = (0x23, MCS51_SFR_SCON, 0x03, 0x01, 0x10, 0x00)
+    TIMER2 = (0x2B, MCS51_SFR_T2CON, 0xC0, 0x80, 0x20, 0x00)
+
+
+# The C8051F33x's peripheral SFRs that hold request flags or gate them.
+_F33X_TMR3CN = 0x91
+_F33X_CPT0CN = 0x9B
+_F33X_CPT0MD = 0x9D
+_F33X_SMB0CN = 0xC0
+_F33X_PCA0CN = 0xD8
+_F33X_PCA0MD = 0xD9
+_F33X_PCA0CPM0 = 0xDA
+_F33X_ADC0CN = 0xE8
+_F33X_SPI0CN = 0xF8
+_EIE1 = MCS51_SFR_EIE1
+_EIP1 = MCS51_SFR_EIP1
+
+
+class C8051F33xInterrupt(MCS51InterruptSource):
+    """The interrupt sources of Silicon Labs' C8051F330-F335.
+
+    From the C8051F33x data sheet, revision 1.7: Table 9.4, the IE, IP, EIE1
+    and EIP1 definitions, and the peripherals' flag and enable bits.  The
+    first five are the 8052's, UART0 included; Timer 2's low-byte flag,
+    TF2L, requests only while TF2LEN is set.  Vectors 0x43 and 0x6B are
+    reserved.  As with the 8052, the external interrupts' flags are cleared
+    on vectoring even when level-triggered.
+    """
+
+    EXTERNAL0 = MCS51Interrupt.EXTERNAL0.value
+    TIMER0 = MCS51Interrupt.TIMER0.value
+    EXTERNAL1 = MCS51Interrupt.EXTERNAL1.value
+    TIMER1 = MCS51Interrupt.TIMER1.value
+    UART0 = MCS51Interrupt.SERIAL.value
+    # TF2H and TF2L in TMR2CN, at T2CON's address; TF2L gated by TF2LEN.
+    TIMER2 = (
+        0x2B,
+        MCS51_SFR_T2CON,
+        0xC0,
+        0x80,
+        0x20,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x40, MCS51_SFR_T2CON, 0x20),),
+    )
+    # SPIF, WCOL, MODF and RXOVRN.
+    SPI0 = (0x33, _F33X_SPI0CN, 0xF0, 0x80, 0x40, 0x00)
+    # SI.
+    SMBUS0 = (0x3B, _F33X_SMB0CN, 0x01, 0x01, 0x01, 0x00, _EIE1, _EIP1)
+    # AD0WINT.
+    ADC0_WINDOW = (0x4B, _F33X_ADC0CN, 0x08, 0x08, 0x04, 0x00, _EIE1, _EIP1)
+    # AD0INT.
+    ADC0_CONVERSION = (0x53, _F33X_ADC0CN, 0x20, 0x20, 0x08, 0x00, _EIE1, _EIP1)
+    # CF, gated by PCA0MD's ECF, and CCF0-CCF2, each gated by its module's
+    # ECCFn in PCA0CPMn.
+    PCA0 = (
+        0x5B,
+        _F33X_PCA0CN,
+        0x87,
+        0x80,
+        0x10,
+        0x00,
+        _EIE1,
+        _EIP1,
+        (
+            (0x80, _F33X_PCA0MD, 0x01),
+            (0x01, _F33X_PCA0CPM0, 0x01),
+            (0x02, _F33X_PCA0CPM0 + 1, 0x01),
+            (0x04, _F33X_PCA0CPM0 + 2, 0x01),
+        ),
+    )
+    # CP0FIF and CP0RIF, gated by CPT0MD's CP0FIE and CP0RIE.
+    COMPARATOR0 = (
+        0x63,
+        _F33X_CPT0CN,
+        0x30,
+        0x20,
+        0x20,
+        0x00,
+        _EIE1,
+        _EIP1,
+        ((0x10, _F33X_CPT0MD, 0x10), (0x20, _F33X_CPT0MD, 0x20)),
+    )
+    # TF3H and TF3L; TF3L gated by TF3LEN.
+    TIMER3 = (
+        0x73,
+        _F33X_TMR3CN,
+        0xC0,
+        0x80,
+        0x80,
+        0x00,
+        _EIE1,
+        _EIP1,
+        ((0x40, _F33X_TMR3CN, 0x20),),
+    )
+
+
+# The EFM8BB2's interrupt enable and priority SFRs, with their pages: EIE1
+# and EIP1 are on pages 0x00 and 0x10, the rest only on 0x10.
+_EFM8BB2_IPH = 0x10F2
+_EFM8BB2_EIE1 = 0xE6
+_EFM8BB2_EIP1 = 0xF3
+_EFM8BB2_EIP1H = 0x10F5
+_EFM8BB2_EIE2 = 0x10CE
+_EFM8BB2_EIP2 = 0x10F4
+_EFM8BB2_EIP2H = 0x10F6
+
+# What an 8052 source's tuple lacks on the EFM8BB2: its enable and priority
+# SFRs, IE and IP as before, no gates, and IPH for its priority's high bit.
+_EFM8BB2_IE_PRIORITY = (MCS51_SFR_IE, MCS51_SFR_IP, (), _EFM8BB2_IPH)
+
+# The EFM8BB2's peripheral SFRs that hold request flags or gate them, with
+# their pages.
+_EFM8BB2_TMR3CN0 = 0x91
+_EFM8BB2_CMP0CN0 = 0x9B
+_EFM8BB2_CMP0MD = 0x9D
+_EFM8BB2_CMP1MD = 0xAB
+_EFM8BB2_CMP1CN0 = 0xBF
+_EFM8BB2_SMB0CN0 = 0xC0
+_EFM8BB2_TMR2CN0 = 0xC8
+_EFM8BB2_PCA0CN0 = 0xD8
+_EFM8BB2_PCA0MD = 0xD9
+_EFM8BB2_PCA0CPM0 = 0xDA
+_EFM8BB2_ADC0CN0 = 0xE8
+_EFM8BB2_PCA0PWM = 0xF7
+_EFM8BB2_SPI0CN0 = 0xF8
+_EFM8BB2_TMR4CN0 = 0x1098
+_EFM8BB2_SPI0FCN0 = 0x209A
+_EFM8BB2_SPI0FCN1 = 0x209B
+_EFM8BB2_UART1FCN0 = 0x209D
+_EFM8BB2_I2C0FCN1 = 0x20AB
+_EFM8BB2_I2C0FCN0 = 0x20AD
+_EFM8BB2_I2C0STAT = 0x20B9
+_EFM8BB2_SMB0FCN0 = 0x20C3
+_EFM8BB2_SMB0FCN1 = 0x20C4
+_EFM8BB2_SCON1 = 0x20C8
+_EFM8BB2_UART1FCN1 = 0x20D8
+
+
+def _efm8bb2_fifo_requests(
+    fcn1: int, fcn0: int
+) -> typing.Tuple[typing.Tuple[int, int, int, int], ...]:
+    # A FIFO's RFRQ (bit 3) and TFRQ (bit 7), in its FCN1, each gated by
+    # its enable, at the same bit of its FCN0.
+    return ((fcn1, 0x08, fcn0, 0x08), (fcn1, 0x80, fcn0, 0x80))
+
+
+class EFM8BB2Interrupt(MCS51InterruptSource):
+    """The interrupt sources of Silicon Labs' EFM8BB2.
+
+    From the EFM8BB2 reference manual, preliminary revision 0.3: Table 6.2,
+    the IE, IP, IPH, EIE1, EIP1, EIP1H, EIE2, EIP2 and EIP2H definitions, and
+    the peripherals' flag and enable bits.  Each source has four priority
+    levels, its low bit in IP, EIP1 or EIP2, and its high bit in IPH, EIP1H
+    or EIP2H.  Vectors 0x7B and 0x83 are reserved.  As with the 8052, the
+    external interrupts' flags are cleared on vectoring even when
+    level-triggered.
+
+    SFRs are on their pages (see :data:`MCS51_EFM8BB2_SFR_PAGING`); one on
+    page 0 and another page is page 0's, so taking an interrupt whose flag
+    is there selects page 0, which the manual does not say.  Port Match has
+    no request flag - its pins, which SmallWorld does not model, request it
+    - so it is never pending, and :func:`mcs51_raise_interrupt` refuses it.
+    The read-only FIFO request flags, RFRQ and TFRQ, of SPI0, SMBus0, UART1
+    and I2C0 request their interrupts as the manual says, as does PCA0's
+    COVF, in PCA0PWM; the flags in SPI0FCN1 and SMB0FCN1 are on page 0x20,
+    which taking SPI0's or SMBus0's interrupt for them alone selects.
+    """
+
+    EXTERNAL0 = MCS51Interrupt.EXTERNAL0.value + _EFM8BB2_IE_PRIORITY
+    TIMER0 = MCS51Interrupt.TIMER0.value + _EFM8BB2_IE_PRIORITY
+    EXTERNAL1 = MCS51Interrupt.EXTERNAL1.value + _EFM8BB2_IE_PRIORITY
+    TIMER1 = MCS51Interrupt.TIMER1.value + _EFM8BB2_IE_PRIORITY
+    # RI and TI in SCON0.
+    UART0 = MCS51Interrupt.SERIAL.value + _EFM8BB2_IE_PRIORITY
+    # TF2H and TF2L in TMR2CN0; TF2L gated by TF2LEN.
+    TIMER2 = (
+        0x2B,
+        _EFM8BB2_TMR2CN0,
+        0xC0,
+        0x80,
+        0x20,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x40, _EFM8BB2_TMR2CN0, 0x20),),
+        _EFM8BB2_IPH,
+    )
+    # SPIF, gated by SPI0FCN1's SPIFEN, WCOL, MODF and RXOVRN.
+    SPI0 = (
+        0x33,
+        _EFM8BB2_SPI0CN0,
+        0xF0,
+        0x80,
+        0x40,
+        0x00,
+        MCS51_SFR_IE,
+        MCS51_SFR_IP,
+        ((0x80, _EFM8BB2_SPI0FCN1, 0x10),),
+        _EFM8BB2_IPH,
+        _efm8bb2_fifo_requests(_EFM8BB2_SPI0FCN1, _EFM8BB2_SPI0FCN0),
+    )
+    # SI.
+    SMBUS0 = (
+        0x3B,
+        _EFM8BB2_SMB0CN0,
+        0x01,
+        0x01,
+        0x01,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+        _efm8bb2_fifo_requests(_EFM8BB2_SMB0FCN1, _EFM8BB2_SMB0FCN0),
+    )
+    # No request flag; EIE1, its enable SFR, stands in for one.
+    PORT_MATCH = (
+        0x43,
+        _EFM8BB2_EIE1,
+        0x00,
+        0x00,
+        0x02,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # ADWINT.
+    ADC0_WINDOW = (
+        0x4B,
+        _EFM8BB2_ADC0CN0,
+        0x08,
+        0x08,
+        0x04,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # ADINT.
+    ADC0_CONVERSION = (
+        0x53,
+        _EFM8BB2_ADC0CN0,
+        0x20,
+        0x20,
+        0x08,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (),
+        _EFM8BB2_EIP1H,
+    )
+    # CF, gated by PCA0MD's ECF, and CCF0-CCF2, each gated by its module's
+    # ECCF in PCA0CPMn; and COVF, in PCA0PWM, gated by its ECOV.
+    PCA0 = (
+        0x5B,
+        _EFM8BB2_PCA0CN0,
+        0x87,
+        0x80,
+        0x10,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        (
+            (0x80, _EFM8BB2_PCA0MD, 0x01),
+            (0x01, _EFM8BB2_PCA0CPM0, 0x01),
+            (0x02, _EFM8BB2_PCA0CPM0 + 1, 0x01),
+            (0x04, _EFM8BB2_PCA0CPM0 + 2, 0x01),
+        ),
+        _EFM8BB2_EIP1H,
+        ((_EFM8BB2_PCA0PWM, 0x20, _EFM8BB2_PCA0PWM, 0x40),),
+    )
+    # CPRIF and CPFIF, gated by CMP0MD's CPRIE and CPFIE.
+    COMPARATOR0 = (
+        0x63,
+        _EFM8BB2_CMP0CN0,
+        0x30,
+        0x20,
+        0x20,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x10, _EFM8BB2_CMP0MD, 0x10), (0x20, _EFM8BB2_CMP0MD, 0x20)),
+        _EFM8BB2_EIP1H,
+    )
+    # CPRIF and CPFIF, gated by CMP1MD's CPRIE and CPFIE.
+    COMPARATOR1 = (
+        0x6B,
+        _EFM8BB2_CMP1CN0,
+        0x30,
+        0x20,
+        0x40,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x10, _EFM8BB2_CMP1MD, 0x10), (0x20, _EFM8BB2_CMP1MD, 0x20)),
+        _EFM8BB2_EIP1H,
+    )
+    # TF3H and TF3L; TF3L gated by TF3LEN.
+    TIMER3 = (
+        0x73,
+        _EFM8BB2_TMR3CN0,
+        0xC0,
+        0x80,
+        0x80,
+        0x00,
+        _EFM8BB2_EIE1,
+        _EFM8BB2_EIP1,
+        ((0x40, _EFM8BB2_TMR3CN0, 0x20),),
+        _EFM8BB2_EIP1H,
+    )
+    # RI and TI in SCON1, gated by UART1FCN1's RIE and TIE.
+    UART1 = (
+        0x8B,
+        _EFM8BB2_SCON1,
+        0x03,
+        0x01,
+        0x04,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        ((0x01, _EFM8BB2_UART1FCN1, 0x01), (0x02, _EFM8BB2_UART1FCN1, 0x10)),
+        _EFM8BB2_EIP2H,
+        _efm8bb2_fifo_requests(_EFM8BB2_UART1FCN1, _EFM8BB2_UART1FCN0),
+    )
+    # I2C0INT.
+    I2C0 = (
+        0x93,
+        _EFM8BB2_I2C0STAT,
+        0x20,
+        0x20,
+        0x08,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        (),
+        _EFM8BB2_EIP2H,
+        _efm8bb2_fifo_requests(_EFM8BB2_I2C0FCN1, _EFM8BB2_I2C0FCN0),
+    )
+    # TF4H and TF4L; TF4L gated by TF4LEN.
+    TIMER4 = (
+        0x9B,
+        _EFM8BB2_TMR4CN0,
+        0xC0,
+        0x80,
+        0x10,
+        0x00,
+        _EFM8BB2_EIE2,
+        _EFM8BB2_EIP2,
+        ((0x40, _EFM8BB2_TMR4CN0, 0x20),),
+        _EFM8BB2_EIP2H,
+    )
+
+
+#: The interrupt sources, by device family, for :func:`mcs51_interrupts`:
+#: (pattern of part numbers, sources).
+_MCS51_INTERRUPTS: typing.Tuple[
+    typing.Tuple[str, typing.Type[MCS51InterruptSource]], ...
+] = (
+    (r"C8051F33[0-5]", C8051F33xInterrupt),
+    (r"EFM8BB2", EFM8BB2Interrupt),
+)
+
+
+def mcs51_interrupts(device: str) -> typing.Type[MCS51InterruptSource]:
+    """The interrupt sources of an 8051 device.
+
+    Arguments:
+        device: The device's part number, such as ``C8051F330``; case and
+            suffixes, such as a package code, are ignored.
+
+    Returns:
+        The device's sources, an :class:`MCS51InterruptSource` subclass.
+
+    Raises:
+        ValueError: If SmallWorld has no table of the device's sources.
+    """
+    for pattern, sources in _MCS51_INTERRUPTS:
+        if re.match(pattern, device, re.IGNORECASE):
+            return sources
+    raise ValueError(f"no table of the interrupt sources of 8051 device {device}")
+
+
+def mcs51_interrupt_to_take(
+    read_sfr: typing.Callable[[int], int],
+    in_service: typing.Sequence[int],
+    sources: typing.Type[MCS51InterruptSource] = MCS51Interrupt,
+) -> typing.Optional[typing.Tuple[MCS51InterruptSource, int]]:
+    """Choose the interrupt the 8051 takes now, if any.
+
+    An interrupt is taken when interrupts are enabled (IE's EA bit), its own
+    enable bit is set, it is pending (see :meth:`MCS51InterruptSource.pending`),
+    and its priority beats every interrupt in service.  Of those, the higher
+    priority wins, then the first in polling order.
+
+    Arguments:
+        read_sfr: Reads an SFR, by its address (0x80-0xFF).
+        in_service: The priority levels of the interrupts in service: 0 for
+            low, 1 for high, or up to 3 on a device with four levels (see
+            :meth:`MCS51InterruptSource.level`).
+        sources: The device's interrupt sources; by default, the 8052's.
+
+    Returns:
+        The interrupt and its priority level, or None.
+    """
+    if not read_sfr(MCS51_SFR_IE) & MCS51_IE_EA:
+        return None
+    current = max(in_service, default=-1)
+    chosen: typing.Optional[typing.Tuple[MCS51InterruptSource, int]] = None
+    for source in sources:
+        if not read_sfr(source.enable_sfr) & source.enable or not source.pending(
+            read_sfr
+        ):
+            continue
+        level = source.level(read_sfr)
+        if level > current and (chosen is None or level > chosen[1]):
+            chosen = (source, level)
+    return chosen
+
+
+def mcs51_raise_interrupt(emulator: typing.Any, source: MCS51InterruptSource) -> None:
+    """Request an 8051 interrupt, as the hardware that raises it would.
+
+    Sets the source's request flag in its SFR: on the 8052, IE0, TF0, IE1 or
+    TF1 in TCON, RI in SCON, or TF2 in T2CON.  The CPU takes the interrupt
+    at the next instruction boundary, if it is enabled, its gate, if any, is
+    open, and its priority allows.
+
+    Arguments:
+        emulator: The emulator.
+        source: The interrupt to request.
+
+    Raises:
+        ValueError: If the source has no request flag to set, as the
+            EFM8BB2's Port Match, which its pins request, does not.
+    """
+    if not source.request:
+        raise ValueError(f"{source} has no request flag to set")
+    address = MCS51_SFR_BASE + source.flag_sfr
+    value = emulator.read_memory(address, 1)[0]
+    emulator.write_memory(address, bytes([value | source.request]))
+
+
+@functools.lru_cache(maxsize=None)
+def mcs51_interrupt_sfrs(
+    sources: typing.Type[MCS51InterruptSource],
+) -> typing.FrozenSet[int]:
+    """The SFRs that decide whether a device's interrupts are taken.
+
+    They are IE, and each source's flag, enable and priority SFRs, the SFRs
+    of its gates, and its request flags in other SFRs and their gates.
+    Interrupts are only modeled when they are all mapped, and only a write
+    to one of them, or RETI, can make an interrupt takeable.
+
+    Arguments:
+        sources: The device's interrupt sources.
+    """
+    sfrs = {MCS51_SFR_IE}
+    for source in sources:
+        sfrs |= {source.flag_sfr, source.enable_sfr, source.priority_sfr}
+        sfrs |= {sfr for _, sfr, _ in source.gates}
+        for sfr, _, gate_sfr, _ in source.other_flags:
+            sfrs |= {sfr, gate_sfr}
+        if source.priority_high_sfr is not None:
+            sfrs.add(source.priority_high_sfr)
+    return frozenset(sfrs)
+
+
+def mcs51_interrupt_control_sfrs(
+    sources: typing.Type[MCS51InterruptSource],
+) -> typing.FrozenSet[int]:
+    """The SFRs that enable a device's interrupts and set their priorities.
+
+    As IE and IP on Intel's 8051, a write to one holds interrupts for one
+    instruction.  Silicon Labs' data sheets and reference manuals do not say
+    whether their extended enable and priority SFRs do - EIE1 and EIP1, and
+    on the EFM8BB2 EIE2, IPH, EIP1H, EIP2 and EIP2H too; SmallWorld assumes
+    they do.
+
+    Arguments:
+        sources: The device's interrupt sources.
+    """
+    sfrs = {MCS51_SFR_IE, MCS51_SFR_IP}
+    for source in sources:
+        sfrs |= {source.enable_sfr, source.priority_sfr}
+        if source.priority_high_sfr is not None:
+            sfrs.add(source.priority_high_sfr)
+    return frozenset(sfrs)
+
+
+@dataclasses.dataclass(frozen=True)
+class MCS51InterruptState:
+    """What an 8051 tracks about interrupts that no register shows."""
+
+    in_service: typing.Tuple[int, ...] = ()
+    """The priority levels of the interrupts in service, oldest first (see
+    :meth:`MCS51InterruptSource.level`)."""
+
+    previous: typing.Optional[typing.Tuple[int, typing.Tuple[int, ...]]] = None
+    """The opcode of the instruction now executing, and the values of the
+    SFRs that enable interrupts and set their priorities before it, in
+    address order (see :func:`mcs51_interrupt_control_sfrs`)."""
+
+
+def mcs51_service_interrupts(
+    state: MCS51InterruptState,
+    pc: int,
+    read_sfr: typing.Callable[[int], int],
+    read_code: typing.Callable[[int], int],
+    last: typing.Optional[int] = None,
+    take: bool = True,
+    sources: typing.Type[MCS51InterruptSource] = MCS51Interrupt,
+) -> typing.Tuple[MCS51InterruptState, typing.Optional[MCS51InterruptSource]]:
+    """Decide, between two instructions, whether the 8051 takes an interrupt.
+
+    Called at every instruction boundary.  The instruction just executed
+    ends an interrupt's service if it was RETI; then, as on hardware, no
+    interrupt is taken if it was RETI or wrote IE or IP - or, on a CIP-51,
+    another SFR that enables interrupts or sets their priorities - so at
+    least one more instruction runs first.  Otherwise the CPU takes the interrupt
+    :func:`mcs51_interrupt_to_take` chooses.
+
+    Taking it is the caller's job; see :func:`mcs51_take_interrupt`.
+
+    A caller that runs several instructions before the next boundary - a
+    block, all but whose last instruction leave interrupts alone - says
+    where the last one is.
+
+    Arguments:
+        state: The state from the previous boundary.
+        pc: The address of the next instruction.
+        read_sfr: Reads an SFR, by its address (0x80-0xFF).
+        read_code: Reads a byte of code memory.
+        last: The address of the last instruction to run before the next
+            boundary, if not ``pc``.  Ignored when an interrupt is taken.
+        take: False to only record the state, taking no interrupt: for a
+            boundary straight after one was taken, before its vector's
+            first instruction.
+        sources: The device's interrupt sources; by default, the 8052's.
+
+    Returns:
+        The state for the next boundary, and the interrupt to take, if any.
+    """
+    controls = tuple(
+        read_sfr(sfr) for sfr in sorted(mcs51_interrupt_control_sfrs(sources))
+    )
+    in_service = state.in_service
+    hold = not take
+    if take and state.previous is not None:
+        opcode, previous_controls = state.previous
+        if opcode == MCS51_OPCODE_RETI:
+            in_service = in_service[:-1]
+            hold = True
+        if controls != previous_controls:
+            hold = True
+
+    taken = None if hold else mcs51_interrupt_to_take(read_sfr, in_service, sources)
+    if taken is not None:
+        source, level = taken
+        in_service = in_service + (level,)
+        last = source.vector
+    elif last is None:
+        last = pc
+    return (
+        MCS51InterruptState(in_service, (read_code(last), controls)),
+        None if taken is None else taken[0],
+    )
+
+
+def mcs51_take_interrupt(
+    source: MCS51InterruptSource,
+    pc: int,
+    sp: int,
+    write_idata: typing.Callable[[int, int], None],
+    read_sfr: typing.Callable[[int], int],
+    write_sfr: typing.Callable[[int, int], None],
+    paging: typing.Optional[MCS51SFRPaging] = None,
+) -> typing.Tuple[int, bool]:
+    """Take an interrupt :func:`mcs51_service_interrupts` chose.
+
+    Calls the handler as LCALL would, pushing PC low byte first; clears the
+    source's ``cleared`` flags; and, on a device that pages its SFRs,
+    switches to the page of the request flag that requested it (see
+    :meth:`MCS51InterruptSource.page` and :func:`mcs51_push_sfr_page`).
+    Jumping to ``source.vector`` is the caller's job.
+
+    Arguments:
+        source: The interrupt to take.
+        pc: The address of the instruction it interrupts.
+        sp: The stack pointer.
+        write_idata: Writes a byte of internal RAM, by its offset and value.
+        read_sfr: Reads an SFR, by its address (with its page above it).
+        write_sfr: Writes an SFR, by its address and value.
+        paging: The device's SFR paging, if it pages its SFRs and they are
+            mapped.
+
+    Returns:
+        The new stack pointer, and whether SFRPAGE changed.
+    """
+    page = source.page(read_sfr) if paging is not None else 0
+    for byte in pc.to_bytes(2, "little"):
+        sp = (sp + 1) & 0xFF
+        write_idata(sp, byte)
+    if source.cleared:
+        write_sfr(source.flag_sfr, read_sfr(source.flag_sfr) & ~source.cleared)
+    paged = paging is not None and mcs51_push_sfr_page(
+        paging, read_sfr, write_sfr, page
+    )
+    return sp, paged

@@ -1,7 +1,15 @@
 #include <stdlib.h>
 #define ARR_LEN 10
 
-int compare(const void* a, const void* b) {
+#ifdef __SDCC
+// SDCC's library calls the comparator with its reentrant convention, and
+// does not warn when given one compiled with its default convention.
+#define CALLBACK __reentrant
+#else
+#define CALLBACK
+#endif
+
+int compare(const void* a, const void* b) CALLBACK {
     return *(int*)a - *(int*)b;
 }
 

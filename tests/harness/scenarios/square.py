@@ -17,6 +17,7 @@ _ARCHS = (
     "i386",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "mips64",
@@ -90,7 +91,7 @@ SCENARIO_INFO = ScenarioInfo(
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
+            **{arch: {"sixteenbit": True} for arch in ("mcs51", "msp430", "msp430x")},
         },
     ),
     run_factory=assert_outputs(_square_expectations),

@@ -17,11 +17,24 @@ class FunctionPointer:
         argument_types: list[ArgumentType],
         return_type: ArgumentType,
         platform: smallworld.platforms.Platform,
+        context: typing.Optional[CStdCallingContext] = None,
     ):
+        """
+        Arguments:
+            address: The function's address
+            argument_types: The function's argument types
+            return_type: The function's return type
+            platform: The platform the function runs on
+            context: The calling convention to call it with; by default, the
+                platform's.  :meth:`CStdCallingContext.function_pointer`
+                supplies the right one for a model's convention.
+        """
         self.address = address
         self.argument_types = argument_types
         self.return_type = return_type
-        self.context: CStdCallingContext = CStdCallingContext.for_platform(platform)
+        if context is None:
+            context = CStdCallingContext.for_platform(platform)
+        self.context: CStdCallingContext = context
         self.context.set_argument_types(argument_types)
         self.context.return_type = self.return_type
 
@@ -50,10 +63,14 @@ class FunctionPointer:
             raise exceptions.ConfigurationError(
                 "FunctionPointerValue set to non-integer value"
             )
-        self.context.set_return_address(emulator, return_address, push=True)
-        for i, arg in enumerate(args):
-            self.context.set_argument(i, emulator, arg)
-        self.context.enter_function(emulator, self.address)
+        self.context.begin_call(emulator, self.address, args, return_address)
 
     def get_return_value(self, emulator: emulators.Emulator):
-        return self.context.get_return_value(emulator)
+        """Get the return value of the call, once it has returned.
+
+        Call this once each time the function returns: it also cleans up the
+        call, which some conventions leave to the caller.
+        """
+        value = self.context.get_return_value(emulator)
+        self.context.end_call(emulator)
+        return value

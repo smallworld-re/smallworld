@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  sdcc,
   superHBinutils,
   tricoreGcc,
   xtensaGcc,
@@ -25,6 +26,8 @@ stdenv.mkDerivation {
     pkgsCross.m68k.stdenv.cc
     # Builds elf_core.ppc64.elf; see the PPC64_GLIBC_CC note in the Makefile.
     pkgsCross.ppc64.stdenv.cc
+    # Builds the 8051 tests; see mcs51_asm.sh and mcs51_cc.sh.
+    sdcc
   ];
   buildInputs = [
     pkgsCross.m68k.glibc
@@ -62,7 +65,7 @@ stdenv.mkDerivation {
     make
   '';
   installPhase = ''
-    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     mkdir -p $out
     cp -r test_binaries.tar $out
   '';

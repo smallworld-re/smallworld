@@ -5,7 +5,6 @@ import typing
 
 from .... import exceptions
 from ....emulators import Emulator
-from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
 from .utils import _emu_strlen
 
@@ -762,24 +761,20 @@ def handle_pointer(
     flags = m.group(1)
     width = m.group(2)
 
-    fmt = "{:"
+    # The only flag pointer_re accepts is '-', which left-justifies.
+    align = "<" if flags == "-" else ">"
 
-    # Handle flags
-    # These mean the same for python as they do for C,
-    # with the exception of '-' in C being '<' in Python
-    flags = handle_flags(flags)
-    fmt += flags + "#"
-
-    # Handle width
+    # Handle width.  A negative width from '*' left-justifies too, as C says.
     width = handle_width(width, varargs, emulator)
-    fmt += width
+    if width.startswith("-"):
+        align, width = "<", width[1:]
 
-    val = varargs.get_next_argument(ArgumentType.POINTER, emulator)
-    assert isinstance(val, int)
+    # How the pointer is shown is up to the platform's C library.
+    text = varargs.format_next_pointer(emulator)
+    if not varargs.pads_pointers:
+        return text
 
-    fmt += "x}"
-
-    return fmt.format(val)
+    return f"{text:{align}{width}}"
 
 
 def handle_len(
@@ -787,25 +782,23 @@ def handle_len(
 ) -> str:
     length = m.group(5)
 
+    if not varargs.writes_counts:
+        # The library has no %n; see VariadicContext.writes_counts.
+        return "N"
+
     addr = varargs.get_next_argument(ArgumentType.POINTER, emulator)
     assert isinstance(addr, int)
 
-    val = len(output)
     if length == "hh":
-        val = val & 0xFF
-        width = 1
+        kind = ArgumentType.CHAR
     elif length == "h":
-        val = val & 0xFFFF
-        width = 2
+        kind = ArgumentType.SHORT
     elif length == "":
-        val = val & varargs._int_inv_mask
-        width = 4
+        kind = ArgumentType.INT
     elif length in ("l", "z", "Z"):
-        val = val & varargs._long_inv_mask
-        width = 4 if ArgumentType.LONG in varargs._four_byte_types else 8
+        kind = ArgumentType.LONG
     elif length in ("ll", "q"):
-        val = val & varargs._long_long_inv_mask
-        width = 8
+        kind = ArgumentType.LONGLONG
     elif length == "j":
         raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
@@ -813,12 +806,9 @@ def handle_len(
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
-    if varargs.platform.byteorder == Byteorder.LITTLE:
-        data = val.to_bytes(width, "little")
-    else:
-        data = val.to_bytes(width, "big")
-
-    emulator.write_memory(addr, data)
+    # The model's convention knows the type's size and how it is stored.
+    model = typing.cast(CStdModel, varargs.parent)
+    model.write_integer(addr, len(output), kind, emulator)
 
     return ""
 

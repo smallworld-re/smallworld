@@ -10,6 +10,9 @@ from smallworld.exceptions.exceptions import ConfigurationError
 
 from ... import emulators, exceptions
 from ...platforms import Byteorder, PlatformDef
+
+if typing.TYPE_CHECKING:
+    from .funcptr import FunctionPointer
 from .model import Model
 
 log = logging.getLogger(__name__)
@@ -1181,6 +1184,64 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"Don't know how to return for {self.platform.architecture}"
             )
 
+    def function_pointer(
+        self,
+        address: int,
+        argument_types: typing.List[ArgumentType],
+        return_type: ArgumentType,
+    ) -> "FunctionPointer":
+        """Get a callable function pointer, such as a callback a model was given
+
+        The function is called with this platform's convention for function
+        pointers, which a convention can override.
+
+        Arguments:
+            address: The function's address
+            argument_types: The function's argument types
+            return_type: The function's return type
+
+        Returns:
+            A function pointer a model can call
+        """
+        from .funcptr import FunctionPointer
+
+        return FunctionPointer(address, argument_types, return_type, self.platform)
+
+    def begin_call(
+        self,
+        emulator: emulators.Emulator,
+        address: int,
+        args: typing.Sequence[typing.Union[int, float]],
+        return_address: int,
+    ) -> None:
+        """Set up a call to a function with this convention
+
+        Passes the arguments, sets the return address, and enters the
+        function (see :meth:`enter_function`).  Call :meth:`end_call` once it
+        returns.
+
+        Arguments:
+            emulator: The emulator to set the call up in
+            address: The function's address
+            args: The arguments, of this context's argument types
+            return_address: Where the function returns to
+        """
+        self.set_return_address(emulator, return_address, push=True)
+        for i, arg in enumerate(args):
+            self.set_argument(i, emulator, arg)
+        self.enter_function(emulator, address)
+
+    def end_call(self, emulator: emulators.Emulator) -> None:
+        """Clean up after a call set up by :meth:`begin_call` returns
+
+        Nothing to do by default; a convention whose caller pops the
+        arguments does that here.
+
+        Arguments:
+            emulator: The emulator the call ran in
+        """
+        pass
+
 
 class CStdModel(Model, CStdCallingContext):
     """Base class for C standard function models
@@ -1363,3 +1424,22 @@ class VariadicContext:
 
         CStdCallingContext.add_argument(self, index, kind)
         return CStdCallingContext.get_argument(self, index, kind, emulator)
+
+    #: Whether printf pads %p to the field width, as it does other
+    #: conversions.
+    pads_pointers = True
+
+    #: Whether printf's %n writes the count of characters so far through its
+    #: pointer argument, as C says.  SDCC's library has no %n, and prints
+    #: ``N`` in its place, taking no argument.
+    writes_counts = True
+
+    def format_next_pointer(self, emulator: emulators.Emulator) -> str:
+        """Get the next argument as a pointer, as printf's %p shows it
+
+        This is the text before any padding to a field width; see
+        :attr:`pads_pointers`.
+        """
+        val = self.get_next_argument(ArgumentType.POINTER, emulator)
+        assert isinstance(val, int)
+        return f"{val:#x}"

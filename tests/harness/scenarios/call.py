@@ -16,6 +16,7 @@ _ARCHS = (
     "i386",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "mips64",
@@ -53,6 +54,8 @@ _STACKS = {
     "i386": _stack("i386", argument_size=4, pointer_adjust=4),
     "la64": _stack("la64"),
     "m68k": _stack("m68k"),
+    # The 8051's foo never returns, so no fake return address is needed.
+    "mcs51": _stack("mcs51", fake_return_size=None),
     "mips": _stack("mips"),
     "mipsel": _stack("mipsel"),
     "mips64": _stack("mips64"),
@@ -97,11 +100,15 @@ def _call_expectations(
     variant: str, kwargs: Mapping[str, Any]
 ) -> tuple[tuple[tuple[str, ...], str], ...]:
     signext = bool(kwargs.get("signext", False))
-    outputs = (
-        (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
-        (101, 0x321),
-        (65536, 0x21),
-    )
+    if kwargs.get("sixteenbit", False):
+        # 65536 does not fit a 16-bit argument; 1000 takes the same branch.
+        outputs: tuple[tuple[int, int], ...] = ((0, 0xFFF9), (101, 0x321), (1000, 0x21))
+    else:
+        outputs = (
+            (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
+            (101, 0x321),
+            (65536, 0x21),
+        )
     return tuple(((str(n),), f"{r:#x}") for n, r in outputs)
 
 
@@ -137,8 +144,11 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons=_SH4_CALL_SKIPS,
         arch_kwargs={
-            arch: {"signext": True}
-            for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+            **{
+                arch: {"signext": True}
+                for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+            },
+            "mcs51": {"sixteenbit": True},
         },
     ),
     run_factory=assert_outputs(_call_expectations),
