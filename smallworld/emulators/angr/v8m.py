@@ -98,7 +98,7 @@ def _ignored_imarks(irsb: pyvex.IRSB) -> typing.List[int]:
     ]
 
 
-def _instruction(
+def instruction_bytes(
     at: int,
     addr: int,
     state: typing.Any,
@@ -145,7 +145,7 @@ class ARMv8MEngine(UberEngine):
             return irsb
         found = []
         for index in _ignored_imarks(irsb):
-            insn = _instruction(
+            insn = instruction_bytes(
                 irsb.statements[index].addr,
                 irsb.addr if addr is None else addr,
                 state,

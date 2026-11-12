@@ -7,6 +7,7 @@ from angr.engines.vex.claripy import ccall
 
 from ....platforms import Architecture, Byteorder
 from ..be8 import BE8Engine, be8_arch
+from ..v8fp import BE8V8FPEngine, V8FPEngine
 from ..v8m import ARMv8MEngine, v8m_arch
 from .machdef import AngrMachineDef
 
@@ -126,7 +127,7 @@ class ARMMachineMixinBanked:
             state, regs.cc_op, regs.cc_dep1, regs.cc_dep2, regs.cc_ndep
         )
         fixed = self._CPSR_FIXED
-        if self.angr_engine is BE8Engine:
+        if self.angr_engine is not None and issubclass(self.angr_engine, BE8Engine):
             fixed |= self._CPSR_E
         cpsr |= claripy.BVV(fixed, 32)
         cpsr |= claripy.If(
@@ -958,6 +959,7 @@ class ARMv8AMachineDef(
 ):
     # Typed as any Arch, so the BE8 subclass can use be8_arch().
     angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
+    angr_engine = V8FPEngine
     arch = Architecture.ARM_V8A
     byteorder = Byteorder.LITTLE
 
@@ -973,6 +975,7 @@ class ARMv8RMachineDef(
 ):
     # Typed as any Arch, so the BE8 subclass can use be8_arch().
     angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
+    angr_engine = V8FPEngine
     arch = Architecture.ARM_V8R
     byteorder = Byteorder.LITTLE
 
@@ -1023,11 +1026,11 @@ class ARMv7RBEMachineDef(ARMv7RMachineDef):
 
 class ARMv8ABEMachineDef(ARMv8AMachineDef):
     angr_arch = be8_arch()
-    angr_engine = BE8Engine
+    angr_engine = BE8V8FPEngine
     byteorder = Byteorder.BIG
 
 
 class ARMv8RBEMachineDef(ARMv8RMachineDef):
     angr_arch = be8_arch()
-    angr_engine = BE8Engine
+    angr_engine = BE8V8FPEngine
     byteorder = Byteorder.BIG
