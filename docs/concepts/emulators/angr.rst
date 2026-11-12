@@ -203,6 +203,38 @@ as ``write_register_label()``.
    memory backend, with all the performance caveats
    that entails.  Please load your code up front if at all possible.
 
+Floating Point
+--------------
+
+.. warning::
+   angr silently corrupts floating-point registers and memory
+   whose bits form a NaN
+   wherever VEX gives the data a floating-point type:
+   NaN payloads, signalling NaNs,
+   and integers that look like NaNs, such as small negative integers.
+   Such a value comes back as the bits of the first NaN
+   the Python process saw,
+   so results can depend on what ran before.
+   Ordinary numbers, infinities and zeros are unaffected.
+
+   This affects floating-point loads, stores and register moves on
+   AArch64, arm32 (including integers moved through ``s`` registers
+   with ``vmov`` or produced by ``vcvt``), MIPS, MIPS64 and RISC-V,
+   and x87 loads and stores on amd64 and i386.
+   SSE moves on amd64 and i386, and platforms angr runs through Ghidra's
+   Pcode (such as LoongArch), keep the bits of their loads, stores and
+   moves.
+
+   On PowerPC, single-precision floating-point stores (``stfs``) raise an
+   ``EmulationError``, since angr doesn't implement the VEX operation
+   they lift to.
+
+On ARMv8 (arm32 and AArch64), ``AngrEmulator`` corrects VEX's lifting of
+the instructions that round ties away from zero
+(``vrinta``, ``vcvta``, ``frinta``, ``fcvtas`` and ``fcvtau``),
+which VEX lifts as rounding ties to even,
+and of ``vmaxnm`` and ``vminnm``, which angr doesn't otherwise run.
+
 Event Handlers
 --------------
 
