@@ -1,7 +1,7 @@
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
-from .rela import ElfRelocator
+from .rela import RELOCATED_TLS_MODULE, ElfRelocator
 
 # ABI shorthand used in the comments below:
 #   A: addend
@@ -57,9 +57,8 @@ class RISCV64ElfRelocator(ElfRelocator):
             # not just the symbol's address.
             self._missing_context(rela, "the copied symbol's source bytes")
         elif rela.type == self._dtpmod:
-            # SmallWorld emulates a single module in isolation, so there is
-            # exactly one TLS module; it gets the conventional module ID 1.
-            return self._pack(1)
+            # The runtime-assigned TLS module ID; see RELOCATED_TLS_MODULE.
+            return self._pack(RELOCATED_TLS_MODULE)
         elif rela.type == self._dtprel:
             # A TLS symbol's value is already its offset within the module's
             # TLS block; adding the load base would make it an address.

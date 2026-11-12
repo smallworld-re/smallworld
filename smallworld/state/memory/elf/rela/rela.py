@@ -7,6 +7,12 @@ from ..... import platforms, utils
 from .. import elf
 from ..structs import ElfRela
 
+#: The TLS module ID relocators give every thread-local, for an
+#: architecture's DTPMOD relocations.  SmallWorld emulates one module in
+#: isolation, so there is exactly one TLS block, and it gets the
+#: conventional ID 1; the TLS models name its storage arena by the same ID.
+RELOCATED_TLS_MODULE = 1
+
 
 class ElfRelocator:
     """Platform-specific ELF relocator
