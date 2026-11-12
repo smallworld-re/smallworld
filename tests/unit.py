@@ -5024,6 +5024,20 @@ class GhidraUserOpTests(unittest.TestCase):
                     self.assertIs(machdef.userops.named(member.short_name), member)
                 self.assertIsNone(machdef.userops.named("no such op"))
 
+    def test_angr_mcs51_table_matches_by_the_same_names(self):
+        from smallworld.emulators.angr.machdefs.mcs51 import (
+            MCS51UserOp as AngrMCS51UserOp,
+        )
+        from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51UserOp
+
+        self.assertEqual(
+            {member.short_name for member in AngrMCS51UserOp},
+            {member.short_name for member in MCS51UserOp},
+        )
+        for member in AngrMCS51UserOp:
+            self.assertIs(AngrMCS51UserOp.named(member.short_name), member)
+        self.assertIsNone(AngrMCS51UserOp.named("no such op"))
+
     def test_only_skips(self):
         from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51UserOp
         from smallworld.emulators.ghidra.machdefs.riscv import RISCVUserOp

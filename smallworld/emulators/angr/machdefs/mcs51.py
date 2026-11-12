@@ -55,13 +55,6 @@ _SPACE_SIZES = {name: size for name, _, size in MCS51_ADDRESS_SPACES}
 _FLAT_BITS = 32
 
 
-class _UpdatedEnumMeta(enum.EnumMeta):
-    def __contains__(cls, obj):
-        if isinstance(obj, int):
-            return obj in cls._value2member_map_
-        return super().__contains__(obj)
-
-
 def handle_nop(engine, op):
     # This op does nothing
     pass
@@ -89,7 +82,7 @@ def handle_decimal_adjust(engine, op):
     engine._set_value(op.output, acc[7:0])
 
 
-class MCS51UserOp(enum.IntEnum, metaclass=_UpdatedEnumMeta):
+class MCS51UserOp(enum.IntEnum):
     def __new__(
         cls, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
     ):
@@ -111,7 +104,18 @@ class MCS51UserOp(enum.IntEnum, metaclass=_UpdatedEnumMeta):
     def __repr__(self):
         return f"{hex(self.value)}: {self.short_name} - {self.description}"
 
-    # Numbered in declaration order; see the Ghidra backend's MCS51UserOp.
+    @classmethod
+    def named(cls, name: str) -> typing.Optional["MCS51UserOp"]:
+        """The member for the operation the language names ``name``, if any."""
+        for member in cls:
+            if member.short_name == name:
+                return member
+        return None
+
+    # Numbered in declaration order, as in Ghidra 12.1.2, for reference; the
+    # engine matches them by name, since a release that adds or reorders a
+    # `define pcodeop` renumbers them (see the Ghidra backend's
+    # GhidraUserOp).
     DECIMAL_ADJUST = 0x00, "decimal_adjust", handle_decimal_adjust, "Decimal Adjust"
     NOP = 0x01, "nop", handle_nop, "No Operation"
 
@@ -975,10 +979,11 @@ class MCS51EnginePcode(angr.engines.UberEnginePcode):
     def _execute_callother(self) -> None:
         op = self._current_op
         assert op is not None
-        opnum = op.inputs[0].offset
-        if opnum not in MCS51UserOp:
-            raise AngrError(f"Undefined user op {hex(opnum)}")
-        MCS51UserOp(opnum).handler(self, op)
+        name = op.inputs[0].getUserDefinedOpName()
+        userop = MCS51UserOp.named(name)
+        if userop is None:
+            raise AngrError(f"Undefined user op {name}")
+        userop.handler(self, op)
 
 
 class MCS51MachineDef(GhidraMachineDef):
