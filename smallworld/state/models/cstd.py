@@ -1106,18 +1106,6 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             f"Cannot read unhandled return type {self.return_type}"
         )
 
-    def enter_function(self, emulator: emulators.Emulator, address: int) -> None:
-        """Transfer control to the start of a function.
-
-        Most ABIs only need the program counter set.  Some also expect the
-        callee's address in a register, which it uses to find its data.
-
-        Arguments:
-            emulator: The emulator to set up
-            address: The function's address
-        """
-        emulator.write_register("pc", address)
-
     def set_return_address(
         self, emulator: emulators.Emulator, address: int, push=False
     ) -> None:
@@ -1216,9 +1204,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     ) -> None:
         """Set up a call to a function with this convention
 
-        Passes the arguments, sets the return address, and enters the
-        function (see :meth:`enter_function`).  Call :meth:`end_call` once it
-        returns.
+        Passes the arguments, sets the return address, and points the program
+        counter at the function.  Call :meth:`end_call` once it returns.  A
+        convention that needs more when a call starts - a register holding
+        the callee's address, room for stack arguments - overrides this.
 
         Arguments:
             emulator: The emulator to set the call up in
@@ -1229,7 +1218,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         self.set_return_address(emulator, return_address, push=True)
         for i, arg in enumerate(args):
             self.set_argument(i, emulator, arg)
-        self.enter_function(emulator, address)
+        emulator.write_register("pc", address)
 
     def end_call(self, emulator: emulators.Emulator) -> None:
         """Clean up after a call set up by :meth:`begin_call` returns

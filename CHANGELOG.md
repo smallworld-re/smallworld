@@ -121,8 +121,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   second word of its stack slot, as GCC and clang place them. The c99/posix,
   `sysv`, `funcptr`, `checked_heap`, `rela` and `link_elf` integration cases
   now cover ppc64.
-- `CStdCallingContext.enter_function()`, which `FunctionPointer` uses to jump
-  to a guest function; on PowerPC64 it also sets `r12` for the TOC.
+- PowerPC64's calling context sets `r12` to the callee's address when
+  `FunctionPointer` calls a guest function, through `begin_call()`, as an
+  ELFv2 global entry point expects for finding the TOC.
 - `interrupt`, `fuzz` (including AFL) and `static_rela` integration cases for
   PowerPC64.
 - `elf_core` integration cases for PowerPC64. Its test binary is built with

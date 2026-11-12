@@ -4828,11 +4828,15 @@ class PowerPC64SysVCallingContextTests(unittest.TestCase):
         (single,) = struct.unpack(">f", struct.pack(">f", math.pi))
         self.assertEqual(f1, single)
 
-    def test_enter_function_sets_r12(self):
+    def test_begin_call_sets_r12(self):
         # An ELFv2 global entry point computes r2 from r12.
         emu = _RegisterDictEmulator()
-        PowerPC64SysVCallingContext().enter_function(emu, 0x401000)
-        self.assertEqual(emu.regs, {"r12": 0x401000, "pc": 0x401000})
+        context = PowerPC64SysVCallingContext()
+        context.set_argument_types([ArgumentType.INT])
+        context.begin_call(emu, 0x401000, [7], 0x500000)
+        self.assertEqual(
+            emu.regs, {"r12": 0x401000, "pc": 0x401000, "r3": 7, "lr": 0x500000}
+        )
 
 
 class UnicornPowerPCFacilityTests(unittest.TestCase):

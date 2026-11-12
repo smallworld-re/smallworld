@@ -152,11 +152,17 @@ class PowerPC64SysVCallingContext(CStdCallingContext):
             + 4
         )
 
-    def enter_function(self, emulator: emulators.Emulator, address: int) -> None:
+    def begin_call(
+        self,
+        emulator: emulators.Emulator,
+        address: int,
+        args: typing.Sequence[typing.Union[int, float]],
+        return_address: int,
+    ) -> None:
         # A function's global entry point derives the TOC pointer, r2,
         # from its own address in r12.
         emulator.write_register("r12", address)
-        super().enter_function(emulator, address)
+        super().begin_call(emulator, address, args, return_address)
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
