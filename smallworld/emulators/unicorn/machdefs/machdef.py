@@ -66,6 +66,16 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         return False
 
+    def uc_pc_value(self, pc: int) -> int:
+        """The value to give Unicorn for ``pc``, as a start address or register.
+
+        Unicorn takes some execution modes from the low bit of the pc, both
+        when emu_start() begins and when the pc register is written; an even
+        value leaves such a mode. A machine that runs in one sets that bit
+        here.
+        """
+        return pc
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt
 
