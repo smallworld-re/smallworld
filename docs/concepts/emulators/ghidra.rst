@@ -57,6 +57,14 @@ Accessing Registers
 Setting labels on registers has no effect on ``GhidraEmulator``,
 and the labels are not preserved after execution starts.
 
+.. note::
+   On arm32, ``set_thumb()`` and ``get_thumb()`` work as they do on Unicorn:
+   they set and report whether the core runs ARM or Thumb code,
+   writing an odd ``pc`` enters Thumb state,
+   and writing an even one keeps the state the core is in.
+   ``cpsr``'s T bit reads and writes the same state.
+   ``GhidraSymbolicEmulator`` behaves the same way.
+
 Mapping Memory
 --------------
 
