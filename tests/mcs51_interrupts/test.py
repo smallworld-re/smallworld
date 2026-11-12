@@ -16,6 +16,7 @@ from smallworld.platforms.defs.mcs51 import (
     MCS51_C8051F33X_FLASH,
     MCS51_C8051F36X_SFR_PAGING,
     MCS51_CODE_BASE,
+    MCS51_EFM8BB2_FLASH,
     MCS51_FLKEY_DISABLED,
     MCS51_FLKEY_FIRST_KEY,
     MCS51_FLKEY_LOCKED,
@@ -349,13 +350,13 @@ class MCS51SFRPagingTests(unittest.TestCase):
         for device in ("C8051F330", "C8051F020"):
             with self.subTest(device=device):
                 self.assertIsNone(mcs51_sfr_paging(device))
-        for device in ("C8051F920", "XC866"):
+        for device in ("C8051F920", "EFM8BB21F16G", "XC866"):
             with self.subTest(device=device):
                 with self.assertRaises(ValueError):
                     mcs51_sfr_paging(device)
 
     def test_devices_paged_without_a_table_are_not_paged(self):
-        for device in ("C8051F920", "XC866"):
+        for device in ("C8051F920", "EFM8BB21F16G", "XC866"):
             with self.subTest(device=device):
                 with self.assertLogs("smallworld.state.cpus.mcs51", "WARNING"):
                     self.assertIsNone(MCS51Device(device).sfr_paging)
@@ -486,6 +487,39 @@ class MCS51FlashTests(unittest.TestCase):
         self.store(MCS51_XDATA_BASE + 0x1A00, 0x00)
         self.assertNotIn(MCS51_CODE_BASE + 0x1A00, self.memory)
         self.assertEqual(self.memory[self.flkey], MCS51_FLKEY_DISABLED)
+
+
+class EFM8BB2FlashTests(MCS51FlashTests):
+    """The EFM8BB2 writes its flash as the C8051F33x does, but for its
+    64-byte pages at 0xF800-0xFBFF."""
+
+    flash = MCS51_EFM8BB2_FLASH
+    psctl = MCS51_SFR_BASE + MCS51_EFM8BB2_FLASH.psctl
+    flkey = MCS51_SFR_BASE + MCS51_EFM8BB2_FLASH.flkey
+
+    def test_lookup(self):
+        self.assertIs(mcs51_flash_programming("EFM8BB21F16G-C-QFN20"), self.flash)
+        self.assertIs(mcs51_flash_programming("efm8bb22f16g"), self.flash)
+
+    def test_pages(self):
+        for address, page in (
+            (0x0000, (0x0000, 512)),
+            (0x3FFF, (0x3E00, 512)),
+            (0xF7FF, (0xF600, 512)),
+            (0xF800, (0xF800, 64)),
+            (0xF87F, (0xF840, 64)),
+            (0xFBFF, (0xFBC0, 64)),
+            (0xFC00, (0xFC00, 512)),
+        ):
+            with self.subTest(address=hex(address)):
+                self.assertEqual(self.flash.page(address), page)
+
+    def test_erase_sets_a_small_page(self):
+        self.memory[self.psctl] = MCS51_PSCTL_PSWE | MCS51_PSCTL_PSEE
+        self.keys(0xA5, 0xF1)
+        self.store(MCS51_XDATA_BASE + 0xF85A, 0x00)
+        flash = {a - MCS51_CODE_BASE for a, v in self.memory.items() if v == 0xFF}
+        self.assertEqual(flash, set(range(0xF840, 0xF880)))
 
 
 class MCS51StackTests(unittest.TestCase):

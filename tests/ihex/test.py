@@ -297,6 +297,7 @@ class MCS51XpageSfrTests(unittest.TestCase):
             ("C8051F411", 0xAA),
             ("C8051F931", 0xAA),
             ("C8051T634", 0xAA),
+            ("EFM8BB21F16G-C-QFN20", 0xE7),
         ):
             with self.subTest(device=device):
                 self.assertEqual(mcs51_xpage_sfr(device), sfr)

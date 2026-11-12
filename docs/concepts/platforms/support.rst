@@ -260,14 +260,15 @@ and the selected bank in step around every instruction, and the ``cpu.r0`` to
 eight, so one left unset writes 0 over what the bank held, and a harness that
 loads internal RAM from a snapshot must set them from it too; otherwise R0-R7
 are plain registers.
-Silicon Labs' C8051 CIP-51 devices run the 8051's
+Silicon Labs' CIP-51 devices - the C8051 families and the newer EFM8 - run the 8051's
 instructions and are emulated as an 8051, with one difference SmallWorld
 models: ``movx @Ri`` takes its high address byte from the device's EMI0CN, not
 P2.  The ``xpage_sfr`` register, which is not the hardware's but a property of
 the device, names that SFR; it is P2's address, 0xA0, unless the harness sets
 it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x, F12x and F13x,
-0xAF on the C8051F00x, F01x, F02x and F2xx; SDCC's device headers declare it as
-``_XPAGE``).  ``mcs51_xpage_sfr()``, in ``smallworld.platforms.defs.mcs51``,
+0xAF on the C8051F00x, F01x, F02x and F2xx, 0xE7 on the EFM8BB2; SDCC's device
+headers declare it as ``_XPAGE``, but SDCC has none for the EFM8, whose
+address is from its reference manual).  ``mcs51_xpage_sfr()``, in ``smallworld.platforms.defs.mcs51``,
 looks the address up by part number, for these and the other 8051s whose
 paging SFR SDCC's headers declare (Chipcon and TI's CC and MSC12xx, Axsem's
 AX8052, Infineon's XC866); a program built with SDCC records it in its linker
@@ -321,8 +322,8 @@ the stack, nor does SmallWorld have a data sheet that says how the stack
 works; both are taken from memory of Silicon Labs' data sheets for now, and
 the C8051F36x's stack is taken to work as the C8051F04x's does.  The
 C8051F92x and F93x, and Infineon's XC866, which page their SFRs differently,
-are emulated with their SFRs unpaged, with a warning, and the C8051F12x's
-banked flash is not modeled.
+are emulated with their SFRs unpaged, with a warning, as is the EFM8BB2 for
+now, and the C8051F12x's banked flash is not modeled.
 
 Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
 bit is set, a MOVX write goes to code memory instead of XDATA, clearing the
@@ -331,7 +332,9 @@ erasing the page that holds it to 0xFF; FLKEY must be unlocked, by writing
 0xA5 then 0xF1, before each write or erase, and writing it wrongly, or
 writing flash while it is locked, disables writes until reset.  An
 ``MCS51Device`` for the C8051F330-F335 does all that, from
-``MCS51_C8051F33X_FLASH``, which is taken from the data sheet; map the flash
+``MCS51_C8051F33X_FLASH``, which is taken from the data sheet, and one for the
+EFM8BB2 from ``MCS51_EFM8BB2_FLASH``, taken from its reference manual, whose
+flash at 0xF800-0xFBFF is in 64-byte pages rather than 512-byte; map the flash
 pages the program writes, and PSCTL and FLKEY, without which MOVX writes go
 to XDATA as on other devices.  On angr, a MOVX write through a symbolic
 address goes to XDATA, and one to flash must write a concrete byte.  Other
@@ -368,8 +371,8 @@ C models for the 8051 follow SDCC's calling conventions, ``ABI.SDCC`` and
 ``ABI.SDCCSTACKAUTO``; see :ref:`models`.  ``Executable.from_ihex()`` loads
 the Intel HEX images SDCC builds, and with the linker's map, finds symbols in
 the right space.  The ``mcs51_sdcc`` scenarios load C compiled by SDCC that
-way, and run it from the reset vector, some of them built for the C8051F330
-and the C8051F020, whose EMI0CN are at different addresses.
+way, and run it from the reset vector, some of them built for the C8051F330,
+the C8051F020 and the EFM8BB2, whose EMI0CN are at different addresses.
 The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
 ucsim_51: its programs run from a random starting state and must end in the
 state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;

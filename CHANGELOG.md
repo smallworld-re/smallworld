@@ -190,6 +190,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   machine definitions can perform an instruction's store themselves, through
   `redirect_store()`. An `mcs51_sdcc` program built for the C8051F330 tests
   it.
+- Silicon Labs' EFM8BB2: `mcs51_xpage_sfr()` knows its EMI0CN, at 0xE7, and
+  an `MCS51Device` for it writes its flash, from `MCS51_EFM8BB2_FLASH`, as
+  its reference manual describes. `MCS51FlashProgramming` takes regions of
+  flash whose pages are another size, as the EFM8BB2's 64-byte pages at
+  0xF800-0xFBFF are. Its SFRs are not yet paged, with a warning, and it takes
+  the 8052's interrupts. `mcs51_sdcc` programs built for it, with
+  `tests/mcs51_sdcc/efm8bb2.h` in place of the device header SDCC lacks, test
+  it.
 
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).

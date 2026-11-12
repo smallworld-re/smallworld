@@ -59,6 +59,7 @@ from ihex.test import (  # noqa: F401 - registers the TestCases
 )
 from mcs51_interrupts.test import (  # noqa: F401 - registers the TestCases
     C8051F33xInterruptTests,
+    EFM8BB2FlashTests,
     MCS51DeviceTests,
     MCS51FlashTests,
     MCS51InterruptChoiceTests,

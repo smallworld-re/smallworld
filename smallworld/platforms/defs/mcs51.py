@@ -267,9 +267,12 @@ def mcs51_initialize_state(emulator: typing.Any) -> None:
 
 #: The SFR that pages MOVX @Ri, by device family, for :func:`mcs51_xpage_sfr`:
 #: (pattern of part numbers, SFR address).  Taken from the ``_XPAGE``
-#: declarations in SDCC 4.6's device headers.
+#: declarations in SDCC 4.6's device headers, but for the EFM8BB2's, which
+#: SDCC has no header for, from its reference manual, preliminary revision
+#: 0.3, section 2.5.1.
 _MCS51_XPAGE_SFRS: typing.Tuple[typing.Tuple[str, int], ...] = (
     # Silicon Labs CIP-51: EMI0CN.
+    (r"EFM8BB2", 0xE7),
     (r"C8051F0[0-2]\d", 0xAF),
     (r"C8051F2\d\d", 0xAF),
     (r"C8051F0[46]\d", 0xA2),
@@ -442,7 +445,7 @@ _MCS51_SFR_PAGING: typing.Tuple[typing.Tuple[str, MCS51SFRPaging], ...] = (
 )
 
 #: Devices that page their SFRs in ways SmallWorld has no table of.
-_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"XC866")
+_MCS51_SFR_PAGING_UNKNOWN = (r"C8051F9[23]\d", r"EFM8BB2", r"XC866")
 
 
 def mcs51_sfr_paging(device: str) -> typing.Optional[MCS51SFRPaging]:
@@ -548,6 +551,19 @@ class MCS51FlashProgramming:
     page_size: int
     """The size of a flash page, which an erase sets to 0xFF."""
 
+    page_regions: typing.Tuple[typing.Tuple[int, int, int], ...] = ()
+    """Regions of flash whose pages are another size: (start, end, page
+    size), the end exclusive, by code address."""
+
+    def page(self, address: int) -> typing.Tuple[int, int]:
+        """The flash page holding a code address: its start and size."""
+        size = self.page_size
+        for start, end, region_size in self.page_regions:
+            if start <= address < end:
+                size = region_size
+                break
+        return address - address % size, size
+
 
 #: PSCTL's bits: PSWE, which sends MOVX writes to flash, and PSEE, which makes
 #: them erase.
@@ -565,10 +581,19 @@ MCS51_FLKEY_DISABLED = 3
 #: section 11 and the PSCTL and FLKEY definitions.
 MCS51_C8051F33X_FLASH = MCS51FlashProgramming(psctl=0x8F, flkey=0xB7, page_size=512)
 
+#: The EFM8BB2's flash programming, from its reference manual, preliminary
+#: revision 0.3: section 4 and the PSCTL and FLKEY definitions.  Code is in
+#: 512-byte pages, and the 1 KiB at 0xF800-0xFBFF, which holds nonvolatile
+#: data and the security page, in 64-byte pages.
+MCS51_EFM8BB2_FLASH = MCS51FlashProgramming(
+    psctl=0x8F, flkey=0xB7, page_size=512, page_regions=((0xF800, 0xFC00, 64),)
+)
+
 #: Flash programming, by device family, for :func:`mcs51_flash_programming`:
 #: (pattern of part numbers, flash programming).
 _MCS51_FLASH: typing.Tuple[typing.Tuple[str, MCS51FlashProgramming], ...] = (
     (r"C8051F33[0-5]", MCS51_C8051F33X_FLASH),
+    (r"EFM8BB2", MCS51_EFM8BB2_FLASH),
 )
 
 
@@ -645,8 +670,8 @@ def mcs51_flash_store(
         return
     offset = address - MCS51_XDATA_BASE
     if read_memory(MCS51_SFR_BASE + flash.psctl, 1)[0] & MCS51_PSCTL_PSEE:
-        page = offset - offset % flash.page_size
-        write_memory(MCS51_CODE_BASE + page, bytes([0xFF]) * flash.page_size)
+        page, size = flash.page(offset)
+        write_memory(MCS51_CODE_BASE + page, bytes([0xFF]) * size)
     else:
         old = read_memory(MCS51_CODE_BASE + offset, 1)[0]
         write_memory(MCS51_CODE_BASE + offset, bytes([old & value]))

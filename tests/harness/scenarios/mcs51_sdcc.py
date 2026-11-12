@@ -32,12 +32,16 @@ machine instead, which sets ``xpage_sfr``, and, with no table of the
 device's interrupts, leaves the emulator taking the 8052's.  And a fifth
 time, ``c8051f040``, for the C8051F040, whose EMI0CN is at 0xA2, and which
 pages its SFRs; its ``MCS51Device`` pages them, and the scenario maps SFR
-pages 0-0x0F.
+pages 0-0x0F.  And a sixth time, ``efm8bb2``, for the EFM8BB2, whose EMI0CN is
+at 0xE7; SDCC has no header for it, so ``efm8bb2.h`` declares its SFRs.
 
 ``mcs51_sdcc.flash.cip51``: ``flash.cip51.c``, built only for the
 C8051F330, erases and writes its own flash, unlocking it with FLKEY, and
 writes it while locked.  The scenario maps the flash page it writes, and
 checks what it read back, and that XDATA was left alone.
+``mcs51_sdcc.flash_efm8bb2.efm8bb2``: ``flash_efm8bb2.c`` erases a 512-byte
+page of the EFM8BB2's code flash and one of its 64-byte pages, and writes in
+the second; the scenario checks what it read back.
 
 ``mcs51_sdcc.sfrpages.<device>``: ``sfrpages.c``, built for the C8051F040,
 C8051F060 and C8051F120, reaches SFRs on several pages, and takes an
@@ -79,8 +83,11 @@ _CASES = tuple((program, abi) for program in _PROGRAMS for abi in _ABIS) + (
     ("libc_models", "c8051f020"),
     ("libc", "c8051f040"),
     ("libc_models", "c8051f040"),
+    ("libc", "efm8bb2"),
+    ("libc_models", "efm8bb2"),
     ("interrupts", "cip51"),
     ("flash", "cip51"),
+    ("flash_efm8bb2", "efm8bb2"),
     ("sfrpages", "c8051f040"),
     ("sfrpages", "c8051f060"),
     ("sfrpages", "c8051f120"),
@@ -96,6 +103,7 @@ _DEVICES = {
     "c8051f060": ("C8051F060", True),
     "c8051f120": ("C8051F120", True),
     "c8051f360": ("C8051F360", True),
+    "efm8bb2": ("EFM8BB21F16G", True),
 }
 
 # P2, and its reset value.
@@ -515,6 +523,38 @@ def _run_flash(smallworld, engine: str) -> int:
     return _report(checks, [])
 
 
+def _run_flash_efm8bb2(smallworld, engine: str) -> int:
+    from smallworld.platforms.defs.mcs51 import MCS51_CODE_BASE
+
+    platform, machine, code = _setup(
+        smallworld,
+        _DIR / "flash_efm8bb2.efm8bb2.mcs51",
+        "EFM8BB21F16G",
+        emulate_device=True,
+    )
+    # The pages the program erases, and their neighbors, all zero.
+    for start, size in ((0x1800, 0x600), (0xF800, 0x400)):
+        machine.add(
+            smallworld.state.memory.RawMemory.from_bytes(
+                bytes(size), MCS51_CODE_BASE + start
+            )
+        )
+    emulator = make_emulator(smallworld, platform, engine)
+    emulator.add_exit_point(_program_exit(code))
+    machine.emulate(emulator)
+
+    result = list(emulator.read_memory(code.get_symbol_value("_result"), 10))
+    checks = {
+        # 0x19FF, 0x1A00, 0x1BFF and 0x1C00: the 512-byte page at 0x1A00.
+        "large page": (result[:4], [0, 0xFF, 0xFF, 0]),
+        # 0xF83F, 0xF840, 0xF845, 0xF87F and 0xF880: the 64-byte page at
+        # 0xF840, with 0x3C written at 0xF845.
+        "small page": (result[4:9], [0, 0xFF, 0x3C, 0xFF, 0]),
+        "flkey": (result[9], 0),
+    }
+    return _report(checks, [])
+
+
 def _sfrpages_checks(xdata) -> Dict[str, Tuple[Any, Any]]:
     # sfrpages.c's results, for the C8051F040, F060 and F120.
     return {
@@ -582,6 +622,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return _run_interrupts(smallworld, engine)
     if program == "flash":
         return _run_flash(smallworld, engine)
+    if program == "flash_efm8bb2":
+        return _run_flash_efm8bb2(smallworld, engine)
     if program in _SFRPAGES_CHECKS:
         return _run_sfrpages(smallworld, program, build, engine)
     return _run_libc(smallworld, build, engine, models=program == "libc_models")
