@@ -1944,6 +1944,287 @@ class AngrArmV8MLiftTests(unittest.TestCase):
         self.assertEqual(self._written(block.vex), {"msplim", "r1"})
 
 
+def _f64(value: float) -> int:
+    return struct.unpack("<Q", struct.pack("<d", value))[0]
+
+
+def _lanes(values: typing.Sequence[int], bits: int) -> int:
+    """Pack lanes into a vector register's value, lane 0 lowest"""
+    return sum(v << (i * bits) for i, v in enumerate(values))
+
+
+class AngrV8FPTests(unittest.TestCase):
+    """angr rounds ties away from zero, and runs vmaxnm and vminnm.
+
+    VEX lifts vrinta, vcvta, frinta, fcvtas and fcvtau with its ties-to-even
+    rounding mode, and vmaxnm and vminnm to operations angr doesn't run.
+
+    No value here is a NaN bit pattern, which includes small negative
+    integers in S registers: angr corrupts those wherever they pass through
+    a float (NEW-015).
+    """
+
+    A32 = (
+        (platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG),
+    )
+    A64 = (
+        (platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.AARCH64, platforms.Byteorder.BIG),
+    )
+    NOP = {"a32": "00f020e3", "t32": "00bf00bf", "a64": "1f2003d5"}
+
+    INF = 0x7F800000
+
+    # (input, ties-away result) as f32 values, or bits for the specials
+    TIES = (
+        (0.5, 1.0),
+        (-0.5, -1.0),
+        (2.5, 3.0),
+        (-2.5, -3.0),
+        (3.5, 4.0),
+        (1.5, 2.0),
+        (0.49999997, 0.0),
+        (-0.49999997, -0.0),
+        (1.25, 1.0),
+        (1e20, 1e20),
+    )
+
+    def run_one(self, arch, byteorder, isa, insn, registers, thumb=False):
+        emu = emulators.AngrEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex(insn + self.NOP[isa]))
+        emu.write_register("pc", 0x1001 if thumb else 0x1000)
+        for name, value in registers.items():
+            emu.write_register(name, value)
+        emu.add_exit_point(0x1000 + len(insn) // 2 + 4)
+        emu.step()
+        return emu
+
+    def check(self, platforms_, isa, insn, inputs, output, cases, thumb=False):
+        """Run insn on each platform and case: (inputs, expected output)"""
+        for arch, byteorder in platforms_:
+            for values, expected in cases:
+                with self.subTest(
+                    insn=insn, arch=arch.name, byteorder=byteorder.name, values=values
+                ):
+                    emu = self.run_one(
+                        arch,
+                        byteorder,
+                        isa,
+                        insn,
+                        dict(zip(inputs, values)),
+                        thumb=thumb,
+                    )
+                    self.assertEqual(hex(emu.read_register(output)), hex(expected))
+
+    def test_vrinta(self):
+        cases = [((_f32(x),), _f32(y)) for x, y in self.TIES]
+        cases += [((self.INF,), self.INF), ((self.INF | 1 << 31,), self.INF | 1 << 31)]
+        self.check(self.A32, "a32", "400af8fe", ("s0",), "s1", cases)
+        self.check(
+            self.A32,
+            "a32",
+            "401bb8fe",
+            ("d0",),
+            "d1",
+            [((_f64(x),), _f64(y)) for x, y in self.TIES],
+        )
+
+    def test_vrinta_thumb(self):
+        self.check(
+            self.A32,
+            "t32",
+            "f8fe400a",
+            ("s0",),
+            "s1",
+            [((_f32(2.5),), _f32(3.0)), ((_f32(-0.5),), _f32(-1.0))],
+            thumb=True,
+        )
+
+    def test_vrintn_still_rounds_ties_to_even(self):
+        self.check(
+            self.A32,
+            "a32",
+            "400af9fe",
+            ("s0",),
+            "s1",
+            [((_f32(2.5),), _f32(2.0)), ((_f32(0.5),), _f32(0.0))],
+        )
+
+    def test_vcvta(self):
+        signed = [
+            ((_f32(2.5),), 3),
+            ((_f32(0.5),), 1),
+            ((_f32(0.49999997),), 0),
+            ((_f32(-0.49999997),), 0),
+        ]
+        self.check(self.A32, "a32", "c01abcfe", ("s0",), "s2", signed)
+        self.check(self.A32, "a32", "401abcfe", ("s0",), "s2", [((_f32(2.5),), 3)])
+        self.check(
+            self.A32,
+            "a32",
+            "c01bbcfe",
+            ("d0",),
+            "s2",
+            [((_f64(3.5),), 4)],
+        )
+        self.check(
+            self.A32,
+            "t32",
+            "bcfec01a",
+            ("s0",),
+            "s2",
+            [((_f32(2.5),), 3)],
+            thumb=True,
+        )
+
+    def test_neon_vrinta_and_vcvta(self):
+        lanes = (0.5, -2.5, 2.5, 1.25)
+        q0 = _lanes([_f32(x) for x in lanes], 32)
+        self.check(
+            self.A32,
+            "a32",
+            "4025baf3",
+            ("q0",),
+            "q1",
+            [((q0,), _lanes([_f32(x) for x in (1.0, -3.0, 3.0, 1.0)], 32))],
+        )
+        self.check(
+            self.A32,
+            "a32",
+            "4020bbf3",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, 3.5, 2.5, 1.25)], 32),),
+                    _lanes([1, 4, 3, 1], 32),
+                )
+            ],
+        )
+
+    def test_frinta(self):
+        self.check(
+            self.A64,
+            "a64",
+            "0140261e",
+            ("s0",),
+            "s1",
+            [((_f32(x),), _f32(y)) for x, y in self.TIES],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0140661e",
+            ("d0",),
+            "d1",
+            [((_f64(x),), _f64(y)) for x, y in self.TIES],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0188216e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, -2.5, 2.5, 1.25)], 32),),
+                    _lanes([_f32(x) for x in (1.0, -3.0, 3.0, 1.0)], 32),
+                )
+            ],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0188616e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f64(-0.5), _f64(2.5)], 64),),
+                    _lanes([_f64(-1.0), _f64(3.0)], 64),
+                )
+            ],
+        )
+
+    def test_frintn_still_rounds_ties_to_even(self):
+        self.check(
+            self.A64, "a64", "0140241e", ("s0",), "s1", [((_f32(2.5),), _f32(2.0))]
+        )
+
+    def test_fcvtas_and_fcvtau(self):
+        self.check(
+            self.A64,
+            "a64",
+            "0100241e",
+            ("s0",),
+            "x1",
+            [((_f32(-2.5),), 0xFFFFFFFD), ((_f32(0.5),), 1)],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0100649e",
+            ("d0",),
+            "x1",
+            [((_f64(-2.5),), 0xFFFFFFFFFFFFFFFD)],
+        )
+        self.check(self.A64, "a64", "0100251e", ("s0",), "x1", [((_f32(2.5),), 3)])
+        self.check(self.A64, "a64", "01c8215e", ("s0",), "s1", [((_f32(2.5),), 3)])
+        self.check(
+            self.A64,
+            "a64",
+            "01c8214e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, -2.5, 2.5, 1.25)], 32),),
+                    _lanes([1, 0xFFFFFFFD, 3, 1], 32),
+                )
+            ],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "01c8616e",
+            ("q0",),
+            "q1",
+            [((_lanes([_f64(2.5), _f64(0.5)], 64),), _lanes([3, 1], 64))],
+        )
+
+    def test_vmaxnm(self):
+        two, three = _f32(2.0), _f32(3.0)
+        plus0, minus0 = 0, 0x80000000
+        cases = [
+            ((two, three), three),
+            ((three, two), three),
+            ((_f32(-2.0), _f32(-3.0)), _f32(-2.0)),
+            ((plus0, minus0), plus0),
+            ((minus0, plus0), plus0),
+            ((self.INF, two), self.INF),
+        ]
+        self.check(self.A32, "a32", "811ac0fe", ("s1", "s2"), "s3", cases)
+        self.check(self.A32, "t32", "c0fe811a", ("s1", "s2"), "s3", cases, thumb=True)
+
+    def test_vminnm(self):
+        cases = [
+            ((_f64(2.0), _f64(3.0)), _f64(2.0)),
+            ((0, 0x8000000000000000), 0x8000000000000000),
+            ((0x8000000000000000, 0), 0x8000000000000000),
+        ]
+        self.check(self.A32, "a32", "423b81fe", ("d1", "d2"), "d3", cases)
+
+    def test_neon_vmaxnm(self):
+        q0 = _lanes([_f32(1.0), 0, _f32(-4.0), _f32(2.0)], 32)
+        q1 = _lanes([_f32(0.5), 0x80000000, _f32(-5.0), _f32(3.0)], 32)
+        expected = _lanes([_f32(1.0), 0, _f32(-4.0), _f32(3.0)], 32)
+        self.check(
+            self.A32, "a32", "524f00f3", ("q0", "q1"), "q2", [((q0, q1), expected)]
+        )
+
+
 class AngrThumbTests(unittest.TestCase):
     """angr addresses Thumb code with bit 0 set; harnesses use the address."""
 
