@@ -65,8 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero (`beqz`, `c.bnez`...) count as conditional branches.
 - On RISC-V, `TritonEmulator` raises an interrupt for `c.ebreak`, as for
   `ebreak`, and steps past `fence`, `fence.i`, `fence.tso` and `pause`;
-  `GhidraEmulator` steps past `fence` and `fence.i`
-  (`GhidraMachineDef.nop_userops`).  Both stopped with an error.
+  `GhidraEmulator` steps past `fence` and `fence.i`, through its
+  `GhidraMachineDef.userops` table.  Both stopped with an error.
 - The RISC-V ELF relocator resolves TLS module and offset relocations
   (`R_RISCV_TLS_DTPMOD64`, `R_RISCV_TLS_DTPREL64`) and names what is missing
   for `R_RISCV_COPY` and `R_RISCV_TLS_TPREL64`, rather than calling them
@@ -146,8 +146,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The 8051's separate address spaces share one flat SmallWorld memory map,
   which `GhidraMachineDef.address_spaces` describes and the Ghidra emulator
   translates; `GhidraMachineDef.userops` lets a machine implement SLEIGH
-  user-defined operations in Python, following the angr backend's Xtensa
-  tables. Test binaries are assembled with SDCC. SmallWorld's Nix environment
+  user-defined operations in Python, or skip them with `handle_nop`,
+  following the angr backend's Xtensa tables. The emulator matches them by
+  name, as the angr backend's RISC-V and SuperH-4 code does, since Ghidra
+  numbers them in declaration order. Test binaries are assembled with SDCC. SmallWorld's Nix environment
   patches Ghidra's 8051 language (`nix/patches/ghidra-8051.patch`) so that
   arithmetic flags, bit addressing, `mov sp,#n` and `movx @Ri` behave as on
   hardware; `movx @Ri` takes the high byte of its address from P2, which SDCC

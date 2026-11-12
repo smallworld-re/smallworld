@@ -9,21 +9,26 @@ from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
 
 
-class _UserOpEnumMeta(enum.EnumMeta):
-    # Let `opnum in SomeUserOp` test raw userop numbers.
-    def __contains__(cls, obj):
-        if isinstance(obj, int):
-            return obj in cls._value2member_map_
-        return super().__contains__(obj)
+def handle_nop(emulator, op):
+    """A :class:`GhidraUserOp` handler for an operation with no effect
+    SmallWorld models, such as a memory fence."""
+    pass
 
 
-class GhidraUserOp(enum.IntEnum, metaclass=_UserOpEnumMeta):
+class GhidraUserOp(enum.IntEnum):
     """Base for a machine's table of SLEIGH user-defined operations.
 
     Each member is the operation's number, followed by its name, a handler
     and a description, as in the angr backend's Xtensa and LoongArch tables.
     The handler is called as ``handler(emulator, op)`` with the CALLOTHER
-    p-code op, in place of running it, and must perform the operation itself.
+    p-code op, in place of running it, and must perform the operation itself;
+    :func:`handle_nop` skips it.
+
+    The emulator matches an operation to a member by its name, as the
+    language declares it, not by its number: Ghidra numbers a language's
+    operations in declaration order, so a Ghidra release that adds or
+    reorders one would retarget a number at another operation.  The numbers
+    are those of the Ghidra release SmallWorld pins, for reference.
     """
 
     def __new__(
@@ -46,6 +51,20 @@ class GhidraUserOp(enum.IntEnum, metaclass=_UserOpEnumMeta):
 
     def __repr__(self):
         return f"{hex(self.value)}: {self.short_name} - {self.description}"
+
+    @classmethod
+    def named(cls, name: str) -> typing.Optional["GhidraUserOp"]:
+        """The member for the operation the language names ``name``, if any."""
+        for member in cls:
+            if member.short_name == name:
+                return member
+        return None
+
+    @classmethod
+    def only_skips(cls) -> bool:
+        """Whether every operation in the table is skipped, with
+        :func:`handle_nop`, rather than performed."""
+        return all(member.handler is handle_nop for member in cls)
 
 
 class GhidraWrites:
@@ -120,12 +139,6 @@ class GhidraMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
-    # SLEIGH user-defined operations (CALLOTHER) that have no effect
-    # SmallWorld models, such as memory fences.  Ghidra's emulator implements
-    # none of a language's user operations, so the emulator skips these
-    # rather than fail.
-    nop_userops: typing.Set[str] = set()
-
     #: Address spaces SmallWorld's flat memory map covers, as
     #: (Ghidra space name, flat base address, size).  None means the
     #: language's default space alone, at flat address 0, which is every
@@ -140,7 +153,8 @@ class GhidraMachineDef:
     #: The SLEIGH user-defined operations (CALLOTHER) this machine
     #: implements in Python, as a :class:`GhidraUserOp` enum, for operations
     #: the language leaves to its host and Ghidra's emulator does not
-    #: provide.  None means the emulator runs CALLOTHER ops as Ghidra does.
+    #: provide, or skips, such as memory fences.  An operation the table does
+    #: not name, or every one if it is None, runs as Ghidra runs it.
     userops: typing.Optional[typing.Type["GhidraUserOp"]] = None
 
     _registers: typing.Dict[str, typing.Optional[str]]

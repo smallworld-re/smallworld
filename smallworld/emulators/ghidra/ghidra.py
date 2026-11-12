@@ -438,15 +438,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
         data = (value & ((1 << (size * 8)) - 1)).to_bytes(size, self._byteorder_name())
         self._thread.getState().setVar(var, self.bytes_py_to_java(data))
 
-    def _process_userop(self, op) -> None:
-        # Mirrors the angr backend's userop tables: look the op up in the
-        # machine's GhidraUserOp enum and let its handler perform it.
+    def _process_userop(self, op) -> bool:
+        # Mirrors the angr backend's userop tables: look the op up, by name,
+        # in the machine's GhidraUserOp enum and let its handler perform it.
+        # Returns whether the table has it; one it lacks runs as Ghidra runs
+        # it.
         assert self.machdef.userops is not None
         opnum = int(op.getInputs()[0].getOffset())
-        if opnum not in self.machdef.userops:
-            raise exceptions.EmulationError(f"Undefined user op {hex(opnum)}")
-        userop = self.machdef.userops(opnum)
+        userop = self.machdef.userops.named(
+            self.machdef.language.getUserDefinedOpName(opnum)
+        )
+        if userop is None:
+            return False
         userop.handler(self, op)
+        return True
 
     def hook_memory_read(
         self,
@@ -624,10 +629,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
                             self._note_memory_write(
                                 out_space[1] + out.getOffset(), out.getSize()
                             )
-                if opcode == op.CALLOTHER and self.machdef.userops is not None:
+                if (
+                    opcode == op.CALLOTHER
+                    and self.machdef.userops is not None
+                    and self._process_userop(op)
+                ):
                     # A user-defined operation; the machine definition's
-                    # handler performs it in place of the op.
-                    self._process_userop(op)
+                    # handler performed it in place of the op.
                     skip = True
                 elif opcode == op.STORE:
                     # This is a STORE opcode; could trigger a "write" hook
@@ -713,16 +721,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         )
 
                     # This is not a memory access.  No need to break
-                elif (
-                    opcode == op.CALLOTHER
-                    and self.machdef.nop_userops
-                    and self.machdef.language.getUserDefinedOpName(
-                        int(op.getInput(0).getOffset())
-                    )
-                    in self.machdef.nop_userops
-                ):
-                    # A user operation with no effect SmallWorld models
-                    skip = True
 
         if self._tracks_writes:
             self._update_derived_state()

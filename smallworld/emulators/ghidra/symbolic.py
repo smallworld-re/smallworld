@@ -83,8 +83,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
         # This emulator addresses only the language's default space, and
-        # runs none of the user operations a machine definition implements.
-        if self.machdef.address_spaces is not None or self.machdef.userops is not None:
+        # runs none of the user operations a machine definition implements;
+        # one whose table only skips operations runs as it did without it.
+        userops = self.machdef.userops
+        if self.machdef.address_spaces is not None or (
+            userops is not None and not userops.only_skips()
+        ):
             raise exceptions.ConfigurationError(
                 f"GhidraSymbolicEmulator does not support {platform}"
             )

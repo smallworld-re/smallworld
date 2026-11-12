@@ -31,14 +31,9 @@ from ....platforms.defs.mcs51 import (
     mcs51_take_interrupt,
     mcs51_unmapped_paging_message,
 )
-from .machdef import GhidraMachineDef, GhidraUserOp
+from .machdef import GhidraMachineDef, GhidraUserOp, handle_nop
 
 logger = logging.getLogger(__name__)
-
-
-def handle_nop(emulator, op):
-    # This op does nothing
-    pass
 
 
 def handle_decimal_adjust(emulator, op):
@@ -55,7 +50,8 @@ def handle_decimal_adjust(emulator, op):
 
 
 class MCS51UserOp(GhidraUserOp):
-    # Numbered in declaration order.  Ghidra builds the 8051 with
+    # Numbered in declaration order, as in Ghidra 12.1.2; matched by name.
+    # Ghidra builds the 8051 with
     # BIT_OPS = "BIT_ADDRS", which declares only these two; the bit-access
     # ops (get, set, set_bit_value, clr) exist only under "PCODEOPS".
     DECIMAL_ADJUST = 0x00, "decimal_adjust", handle_decimal_adjust, "Decimal Adjust"

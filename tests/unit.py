@@ -4993,6 +4993,58 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
             )
 
 
+class GhidraUserOpTests(unittest.TestCase):
+    """Ghidra machine definitions' userop tables are matched by name."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Importing the Ghidra machine definitions needs the JVM up, started
+        # with the SymZ3 extension for the symbolic emulator.
+        _ensure_pyghidra_started()
+
+    def test_tables_match_the_languages_names(self):
+        from smallworld.emulators.ghidra.machdefs import GhidraMachineDef
+
+        for arch, byteorder in (
+            (platforms.Architecture.MCS51, platforms.Byteorder.BIG),
+            (platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE),
+            (platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE),
+        ):
+            with self.subTest(arch=arch.name):
+                machdef = GhidraMachineDef.for_platform(
+                    platforms.Platform(arch, byteorder)
+                )
+                language = machdef.language
+                names = {
+                    language.getUserDefinedOpName(i)
+                    for i in range(language.getNumberOfUserDefinedOpNames())
+                }
+                for member in machdef.userops:
+                    self.assertIn(member.short_name, names)
+                    self.assertIs(machdef.userops.named(member.short_name), member)
+                self.assertIsNone(machdef.userops.named("no such op"))
+
+    def test_only_skips(self):
+        from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51UserOp
+        from smallworld.emulators.ghidra.machdefs.riscv import RISCVUserOp
+
+        self.assertTrue(RISCVUserOp.only_skips())
+        self.assertFalse(MCS51UserOp.only_skips())
+
+    def test_symbolic_emulator_takes_a_table_that_only_skips(self):
+        emulators.GhidraSymbolicEmulator(
+            platforms.Platform(
+                platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+            )
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulators.GhidraSymbolicEmulator(
+                platforms.Platform(
+                    platforms.Architecture.MCS51, platforms.Byteorder.BIG
+                )
+            )
+
+
 class RiscVInstructionTests(unittest.TestCase):
     """RiscV instructions that need more than plain p-code or semantics:
     compressed decoding, branch aliases, traps and fences, on each backend
