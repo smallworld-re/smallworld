@@ -4,6 +4,7 @@ import typing
 import claripy
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
+from java.math import BigInteger
 
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
@@ -53,6 +54,29 @@ class GhidraMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
+    @property
+    def context(self) -> typing.Dict[str, int]:
+        """Starting values for context fields, as {name: value}, where they
+        differ from the language's defaults.
+
+        Some sleigh languages hold several encodings and pick one with a
+        context field that branches can change. The emulator sets these once,
+        when it creates its thread; after that the program's own jumps change
+        them. Sourced from the platform definition, which the p-code use/def
+        analysis also reads.
+        """
+        platdef = PlatformDef.for_platform(
+            platforms.Platform(self.arch, self.byteorder)
+        )
+        return platdef.ghidra_context
+
+    # A context field that a pc written with its low bit set selects.
+    #
+    # On ISAs that mark the instruction set in the low bit of a jump target
+    # (MIPS's ISA bit), writing an odd pc sets this field to 1 and stores the
+    # even address. An even pc leaves the field as it is.
+    isa_bit_context: typing.Optional[str] = None
+
     # Userops the emulator steps over instead of running,
     # for SLEIGH that calls a userop Ghidra's emulator can't run
     # on this language.
@@ -76,12 +100,40 @@ class GhidraMachineDef:
     # back out.
     split_bits: typing.Mapping[str, typing.Mapping[int, str]] = {}
 
-    # Does this machine run Thumb code only (ARM M-profile)? Its language
-    # decodes Thumb at any pc, so writes to pc drop the Thumb bit that
-    # interworking addresses (e.g. lr) carry.
-    thumb_only: bool = False
-
     _registers: typing.Dict[str, typing.Optional[str]]
+
+    def apply_context(self, thread) -> None:
+        """Set this machine's starting context fields on a p-code thread."""
+        for name, field in self.context.items():
+            self.write_context(thread, self.language.getRegister(name), field)
+
+    def read_context(self, thread, reg: Register) -> int:
+        """Read a context field from a p-code thread's decode context."""
+        value = thread.getContext().getRegisterValue(reg)
+        if value is None or not value.hasValue():
+            return 0
+        return int(value.getUnsignedValue().longValue())
+
+    def write_context(self, thread, reg: Register, field: int) -> None:
+        """Write a context field into a p-code thread's decode context."""
+        bits = reg.getBitLength()
+        if not 0 <= field < 1 << bits:
+            # Ghidra would keep only the field's low bits, without a word.
+            raise ValueError(
+                f"context field {reg.getName()} is {bits} bits wide; "
+                f"{field} does not fit"
+            )
+        value = thread.getContext().assign(reg, BigInteger.valueOf(field))
+        thread.overrideContext(value)
+
+    def pc_value(self, thread, pc: int) -> int:
+        """The address to store for a pc write, applying the ISA bit."""
+        if self.isa_bit_context is not None and pc & 1:
+            self.write_context(
+                thread, self.language.getRegister(self.isa_bit_context), 1
+            )
+            return pc & ~1
+        return pc
 
     def __init__(self):
         # Load the Pcode language definition
@@ -89,6 +141,14 @@ class GhidraMachineDef:
         langID = LanguageID(self.language_id)
         self.language: Language = slp.getLanguage(langID)
         assert self.language is not None
+
+    def get_thumb(self, thread) -> bool:
+        """Whether a p-code thread is in Thumb state, for ARM32."""
+        raise exceptions.ConfigurationError(f"called get_thumb() on {self.arch}")
+
+    def set_thumb(self, thread, enabled: bool) -> None:
+        """Put a p-code thread in Thumb or ARM state, for ARM32."""
+        raise exceptions.ConfigurationError(f"called set_thumb() on {self.arch}")
 
     def userop_name(self, op) -> typing.Optional[str]:
         """The name of the userop this p-code op calls, if it calls one."""

@@ -1,5 +1,6 @@
 import typing
 
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef, Userop
 from .userops import (
@@ -43,6 +44,26 @@ class ARMMachineDef(GhidraMachineDef):
     }
     split_bits = {"cpsr": _psr_bits, "psr": _psr_bits}
 
+    # An odd pc enters Thumb state, as on hardware and the other emulators.
+    # On M-profile, whose languages start with TMode set, this just aligns the
+    # Thumb-tagged addresses that interworking leaves (e.g. a return through
+    # lr).
+    isa_bit_context: typing.Optional[str] = "TMode"
+
+    def get_thumb(self, thread) -> bool:
+        if self.isa_bit_context is None:
+            return False
+        reg = self.language.getRegister(self.isa_bit_context)
+        return bool(self.read_context(thread, reg))
+
+    def set_thumb(self, thread, enabled: bool) -> None:
+        if bool(enabled) == self.get_thumb(thread):
+            return
+        if self.isa_bit_context is None:
+            raise exceptions.ConfigurationError(f"{self.arch} has no Thumb state")
+        reg = self.language.getRegister(self.isa_bit_context)
+        self.write_context(thread, reg, int(bool(enabled)))
+
     def __init__(self):
         super().__init__()
         self._registers = {
@@ -80,7 +101,9 @@ class ARMMachineDef(GhidraMachineDef):
 class ARMMachineMixinM:
     """Mixin for ARM series M CPUs"""
 
-    thumb_only = True
+    def set_thumb(self, thread, enabled: bool) -> None:
+        if not enabled:
+            raise exceptions.ConfigurationError("M-profile is Thumb-only")
 
     def __init__(self):
         super().__init__()
@@ -852,6 +875,9 @@ class ARMv4MachineDef(
     # context register; Ghidra's emulator then fails on the null context.
     # With no Thumb state it's a no-op.
     nop_userops = ARMMachineDef.nop_userops | {"setISAMode"}
+
+    # No Thumb state for an odd pc to select
+    isa_bit_context = None
 
 
 class ARMv4TMachineDef(

@@ -87,6 +87,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
         # Context configuration isn't auto-propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
         # Byte ranges the harness has explicitly written. write_memory_label
@@ -298,6 +299,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
@@ -330,6 +335,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            return claripy.BVV(
+                self.machdef.read_context(self._thread, reg),
+                self._expected_register_size(name) * 8,
+            )
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         sym = pair.getRight()
@@ -355,11 +365,22 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             return
         if name == "pc":
             name = self.platdef.pc_register
-        if name == self.platdef.pc_register and self.machdef.thumb_only:
-            # Thumb-only platforms run Ghidra's Thumb-only language, so a
-            # Thumb-tagged address (e.g. a return through lr) is just aligned.
-            value = value & ~1
-        self._write_register(self.machdef.pcode_reg(name), name, value)
+        reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            if not isinstance(value, int):
+                raise exceptions.SymbolicValueError(
+                    f"Context register {name} cannot hold a symbolic value"
+                )
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            if isinstance(value, claripy.ast.bv.BV) and not value.symbolic:
+                # A concrete pc takes the int path, so pc_value sees its
+                # low bit; a symbolic one has no bit to act on.
+                value = value.concrete_value
+            if isinstance(value, int):
+                value = self.machdef.pc_value(self._thread, value)
+        self._write_register(reg, name, value)
         for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
             flag: typing.Union[int, claripy.ast.bv.BV]
             if isinstance(value, int):
@@ -834,6 +855,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             elif self.machdef.userop(op) is not None:
                 self._run_userop(op)
                 skip = True
+
+    def get_thumb(self) -> bool:
+        return self.machdef.get_thumb(self._thread)
+
+    def set_thumb(self, enabled=True) -> None:
+        self.machdef.set_thumb(self._thread, enabled)
 
     def current_instruction_bytes(self) -> bytes:
         """The bytes of the instruction being executed, in memory order, for a

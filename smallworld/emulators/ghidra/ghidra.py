@@ -50,6 +50,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
 
@@ -90,6 +91,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
 
         # Get the thread's register state
         state = self._thread.getState()
@@ -122,10 +127,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
             return
         if not isinstance(value, int):
             raise TypeError("Pcode emulator can't support symbolic values")
-        if name == self.platdef.pc_register and self.machdef.thumb_only:
-            # Thumb-only platforms run Ghidra's Thumb-only language, so a
-            # Thumb-tagged address (e.g. a return through lr) is just aligned.
-            value &= ~1
+        if reg.isProcessorContext():
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            value = self.machdef.pc_value(self._thread, value)
 
         state = self._thread.getState()
 
@@ -560,6 +566,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             raise exceptions.EmulationBounds()
+
+    def get_thumb(self) -> bool:
+        return self.machdef.get_thumb(self._thread)
+
+    def set_thumb(self, enabled=True) -> None:
+        self.machdef.set_thumb(self._thread, enabled)
 
     def current_instruction_bytes(self) -> bytes:
         """The bytes of the instruction being executed, in memory order, for a
