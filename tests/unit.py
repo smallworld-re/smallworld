@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import ctypes
+import functools
 import importlib.util
 import io
 import json
@@ -10807,17 +10808,138 @@ class GhidraThumbOnlyPcTests(unittest.TestCase):
                 self.assertEqual(lrs, [0x1005])
                 self.assertEqual(emu.read_register("r0"), 5)
 
-    def test_only_m_profile_is_thumb_only(self):
-        for arch in (
-            platforms.Architecture.ARM_V5T,
-            platforms.Architecture.ARM_V7A,
-            platforms.Architecture.X86_64,
-        ):
-            with self.subTest(arch=arch.name):
-                self.assertFalse(_ghidra_concrete_emulator(arch).machdef.thumb_only)
+    def test_m_profile_is_thumb_only(self):
         for arch in self.M_PROFILES:
             with self.subTest(arch=arch.name):
-                self.assertTrue(_ghidra_concrete_emulator(arch).machdef.thumb_only)
+                emu = self.emulator(emulators.ghidra.GhidraEmulator, arch, self.MOVS)
+                self.assertTrue(emu.get_thumb())
+                emu.set_thumb(True)
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_thumb(False)
+
+
+class GhidraThumbTests(unittest.TestCase):
+    """On A- and R-profile, an odd pc enters Thumb state on both Ghidra
+    emulators, as on Unicorn and angr, and get_thumb/set_thumb work.
+
+    Ghidra picks ARM or Thumb decoding from its TMode context register, so an
+    odd pc used to be fetched as is and fault as misaligned.
+    """
+
+    EMULATORS = (
+        emulators.ghidra.GhidraEmulator,
+        emulators.ghidra.GhidraSymbolicEmulator,
+    )
+
+    # (architecture, byte order, Thumb code is big-endian (BE32))
+    PLATFORMS = (
+        (platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG, True),
+        (platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG, False),
+        (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG, False),
+    )
+
+    # movs r0, #1; movs r1, #2; nop
+    MOVS = "2001" "2102" "bf00"
+    # bl 0x1100; movs r0, #5
+    CALL = "f000" "f87e" "2005"
+
+    def emulator(self, cls, arch, byteorder, be32, halfwords):
+        _ensure_pyghidra_started()
+        code = bytes.fromhex(halfwords)
+        if not be32:
+            code = b"".join(code[i : i + 2][::-1] for i in range(0, len(code), 2))
+        emu = cls(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        emu.write_register("r0", 0)
+        emu.write_register("r1", 0)
+        return emu
+
+    def cases(self):
+        """(subtest parameters, emulator factory) for each emulator and platform"""
+        return [
+            (
+                dict(emulator=cls.__name__, arch=arch.name, byteorder=byteorder.name),
+                functools.partial(self.emulator, cls, arch, byteorder, be32),
+            )
+            for cls in self.EMULATORS
+            for arch, byteorder, be32 in self.PLATFORMS
+        ]
+
+    def test_odd_pc_write_enters_thumb(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                self.assertFalse(emu.get_thumb())
+                emu.write_register("pc", 0x1001)
+                self.assertTrue(emu.get_thumb())
+                self.assertEqual(emu.read_register("pc"), 0x1000)
+                emu.step()
+                self.assertEqual(emu.read_register("pc"), 0x1002)
+                self.assertEqual(emu.read_register("r0"), 1)
+                # Writing back the even pc keeps Thumb state, as on Unicorn.
+                emu.write_register("pc", 0x1002)
+                self.assertTrue(emu.get_thumb())
+                emu.step()
+                self.assertEqual(emu.read_register("r1"), 2)
+
+    def test_set_thumb(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                emu.write_register("pc", 0x1000)
+                emu.set_thumb(True)
+                self.assertTrue(emu.get_thumb())
+                emu.step()
+                self.assertEqual(emu.read_register("r0"), 1)
+                emu.set_thumb(False)
+                self.assertFalse(emu.get_thumb())
+                self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_function_hook_returns_into_thumb_code(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.CALL)
+                emu.write_register("pc", 0x1001)
+                emu.add_exit_point(0x1006)
+                lrs = []
+
+                def model(emu):
+                    lrs.append(emu.read_register("lr"))
+                    emu.write_register("pc", emu.read_register("lr"))
+
+                emu.hook_function(0x1100, model)
+                emu.run()
+                self.assertEqual(lrs, [0x1005])
+                self.assertEqual(emu.read_register("r0"), 5)
+
+    def test_v4_has_no_thumb(self):
+        _ensure_pyghidra_started()
+        for cls in self.EMULATORS:
+            with self.subTest(emulator=cls.__name__):
+                emu = cls(
+                    platforms.Platform(
+                        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+                    )
+                )
+                self.assertFalse(emu.get_thumb())
+                emu.set_thumb(False)
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_thumb(True)
+
+    def test_get_thumb_needs_arm32(self):
+        for arch in (platforms.Architecture.AARCH64, platforms.Architecture.X86_64):
+            with self.subTest(arch=arch.name):
+                emu = _ghidra_concrete_emulator(arch)
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.get_thumb()
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_thumb(True)
 
 
 class _GhidraFakeConcretePair:
