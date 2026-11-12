@@ -74,7 +74,6 @@ _TRITON_NO_ACQREL = "Triton doesn't support the ARMv8 acquire/release instructio
 _TRITON_NO_DECODE = "Triton can't decode this ARMv8 instruction"
 _TRITON_NO_FLOAT = "Triton implements no floating-point instruction semantics"
 _ANGR_NO_CRC32 = "VEX can't decode the ARMv8 CRC32 instructions"
-_ANGR_NO_MAXNUM = "angr doesn't implement VEX's Iop_MaxNumF32 (vmaxnm)"
 
 # family -> (archs, [(argument, expected r0)], skip reasons)
 _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] = {
@@ -108,12 +107,11 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         # Every rounding is a tie, so rounding ties to even shows: vcvta in
         # bits 7:0 and vrinta in bits 15:8 (arg 2 gives 0x0202, -3 0xfefe).
         # 5 selects vmaxnm's 7.0; the others select the tie itself.
+        # On angr, -3 in an s register is a NaN bit pattern, which angr
+        # corrupts into the first NaN the process saw (NEW-015); each case
+        # runs in its own process, and -3 is the only such pattern there.
         ((5, 0x0607), (2, 0x0303), (0xFFFFFFFD, 0xFDFD)),
         {
-            **{
-                f"{arch}.angr": _ANGR_NO_MAXNUM
-                for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
-            },
             **{
                 f"{arch}.triton": _TRITON_NO_FLOAT
                 for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe")
