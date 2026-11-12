@@ -108,8 +108,9 @@ _FAMILIES: dict[str, tuple[tuple[str, ...], tuple[tuple[int, int], ...], dict]] 
         # bits 7:0 and vrinta in bits 15:8 (arg 2 gives 0x0202, -3 0xfefe).
         # 5 selects vmaxnm's 7.0; the others select the tie itself.
         # On angr, -3 in an s register is a NaN bit pattern, which angr
-        # corrupts into the first NaN the process saw (NEW-015); each case
-        # runs in its own process, and -3 is the only such pattern there.
+        # corrupts into any other NaN still alive in the process (NEW-015);
+        # each case runs in its own process, and -3 is the only such pattern
+        # there.
         ((5, 0x0607), (2, 0x0303), (0xFFFFFFFD, 0xFDFD)),
         {
             **{

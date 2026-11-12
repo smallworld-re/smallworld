@@ -212,9 +212,12 @@ Floating Point
    wherever VEX gives the data a floating-point type:
    NaN payloads, signalling NaNs,
    and integers that look like NaNs, such as small negative integers.
-   Such a value comes back as the bits of the first NaN
-   the Python process saw,
-   so results can depend on what ran before.
+   Such a value comes back as the bits of any other NaN of the same size
+   that is still held anywhere in the Python process,
+   such as in another register, in memory, or in another machine state,
+   so results can depend on what else is running or ran before.
+   Single-precision signalling NaNs are also made quiet
+   even when no other NaN is held.
    Ordinary numbers, infinities and zeros are unaffected.
 
    This affects floating-point loads, stores and register moves on
