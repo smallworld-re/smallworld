@@ -1382,9 +1382,9 @@ def mcs51_interrupt_sfrs(
     """The SFRs that decide whether a device's interrupts are taken.
 
     They are IE, and each source's flag, enable and priority SFRs, the SFRs
-    of its gates, and its request flags in other SFRs and their gates.  Interrupts are only modeled when they are all
-    mapped, and only a write to one of them, or RETI, can make an interrupt
-    takeable.
+    of its gates, and its request flags in other SFRs and their gates.
+    Interrupts are only modeled when they are all mapped, and only a write
+    to one of them, or RETI, can make an interrupt takeable.
 
     Arguments:
         sources: The device's interrupt sources.
@@ -1406,8 +1406,10 @@ def mcs51_interrupt_control_sfrs(
     """The SFRs that enable a device's interrupts and set their priorities.
 
     As IE and IP on Intel's 8051, a write to one holds interrupts for one
-    instruction.  Silicon Labs' data sheets do not say whether their
-    extended enable and priority SFRs do; SmallWorld assumes they do.
+    instruction.  Silicon Labs' data sheets and reference manuals do not say
+    whether their extended enable and priority SFRs do - EIE1 and EIP1, and
+    on the EFM8BB2 EIE2, IPH, EIP1H, EIP2 and EIP2H too; SmallWorld assumes
+    they do.
 
     Arguments:
         sources: The device's interrupt sources.
@@ -1513,8 +1515,8 @@ def mcs51_take_interrupt(
     Calls the handler as LCALL would, pushing PC low byte first; clears the
     source's ``cleared`` flags; and, on a device that pages its SFRs,
     switches to the page of the request flag that requested it (see
-    :meth:`MCS51InterruptSource.page` and :func:`mcs51_push_sfr_page`).  Jumping to ``source.vector`` is the
-    caller's job.
+    :meth:`MCS51InterruptSource.page` and :func:`mcs51_push_sfr_page`).
+    Jumping to ``source.vector`` is the caller's job.
 
     Arguments:
         source: The interrupt to take.

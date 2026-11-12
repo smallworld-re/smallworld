@@ -305,9 +305,12 @@ device whose paging SFR ``mcs51_xpage_sfr()`` knows is accepted too, with a
 warning: it pages MOVX @Ri as it should, but the emulator takes only the
 8052's interrupts, which it has among its own.  Request flags that a second bit gates, as Timer 2's
 low-byte flag is by TF2LEN and each PCA module's by its ECCFn, request their
-interrupt only while that bit is set.  The data sheet does not say whether a
-write to EIE1 or EIP1 holds interrupts for an instruction as one to IE or IP
-does; SmallWorld assumes it does.  Ghidra's own CIP-51 language adds nothing
+interrupt only while that bit is set.  A write to IE or IP holds interrupts
+for an instruction, as on Intel's 8051.  Neither the C8051F33x's data sheet
+nor the EFM8BB2's reference manual says whether a write to the other SFRs
+that enable interrupts or set their priorities does - EIE1 and EIP1 on the
+C8051F33x; EIE1, EIE2, IPH, EIP1, EIP1H, EIP2 and EIP2H on the EFM8BB2 -
+and SmallWorld assumes each does.  Ghidra's own CIP-51 language adds nothing
 an emulator uses, and pypcode lacks it.
 
 SFRs start as the harness maps them, not at the device's reset values, which
