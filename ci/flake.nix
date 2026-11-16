@@ -304,6 +304,31 @@
           { }
       );
 
+      # `nix run ./ci#local -- --cores N` replays the pull-request workflow.
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+          localCi = pkgs.writeShellApplication {
+            name = "smallworld-local-ci";
+            runtimeInputs = [
+              (pkgs.python312.withPackages (ps: [ ps.pyyaml ]))
+              pkgs.git
+              pkgs.gnutar
+            ];
+            text = ''
+              exec python3 ${./local.py} "$@"
+            '';
+          };
+        in
+        lib.optionalAttrs (lib.hasSuffix "-linux" system) {
+          local = {
+            type = "app";
+            program = lib.getExe localCi;
+          };
+        }
+      );
+
       packages = forAllSystems (
         system:
         if lib.hasSuffix "-linux" system then
