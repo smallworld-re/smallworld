@@ -8,24 +8,24 @@ from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
 NATIVE_PARITY = True
 
-# PowerPC SPE embedded floating point, as the e200 runs it instead of a
-# classic FPU. Only the VLE platform has an SPE test; the single-precision
-# instructions are the same on any e200.
+# PowerPC SPE embedded floating point, which e200 cores with floating point
+# have instead of a classic FPU (the e200z0 has none). Only the VLE platform
+# has an SPE test; the single-precision instructions are the same on any
+# e200 that has them.
 _ARCHS = ("ppcvle",)
 
 _SPECS = build_specs(RawBinarySpec, _ARCHS)
 
-# Blocked upstream, as in the floats scenario: angr's pcode engine
-# implements none of the OpBehaviorFloat* operations
-# (angr/engines/pcode/behavior.py), so floating point fails on every
-# pcode-backed architecture. Measured: efscfsi raises AngrError("Not
-# implemented!") on its int2float. The binary and expected outputs are
-# correct; drop the skip when angr implements the behaviors.
+# Blocked upstream: Sleigh lifts efscfsi and efsctsiz with branches inside
+# their own p-code (const-space CBRANCH/BRANCH), which angr's engine cannot
+# take: it fails on "FIXME: Test statement_offset behavior". That needs an
+# angr fix. (The other blocker, angr's missing floating-point operations, is
+# gone: SmallWorld supplies them.) The binary and expected outputs are
+# correct.
 _SKIP_REASONS = {
     "ppcvle.angr": (
-        "angr's pcode engine implements no floating-point arithmetic: every "
-        "OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented "
-        "(upstream, affects every pcode-backed arch)"
+        "angr's pcode engine cannot take the branches inside efscfsi's and "
+        "efsctsiz's p-code (an upstream angr limitation)"
     ),
 }
 

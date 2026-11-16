@@ -1,7 +1,7 @@
     .text
 # Single-precision arithmetic with the SPE embedded floating-point
-# instructions, which the e200 has in place of a classic FPU. They work on
-# the general-purpose registers. Returns trunc(n * n / 2 - 10) for n in r3.
+# instructions, which e200 cores with floating point have in place of a
+# classic FPU. They work on the general-purpose registers. Returns trunc(n * n / 2 - 10) for n in r3.
 spe:
     efscfsi  3,3        # r3 = (float)n
     efsmul   3,3,3      # r3 = n * n

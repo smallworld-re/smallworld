@@ -71,11 +71,7 @@ def register_alias(name: str, arch: Architecture) -> str:
         m = _AARCH64_ZREG_RE.fullmatch(name)
         if m:
             return f"q{m.group(1)}"
-    elif arch in (
-        Architecture.POWERPC32,
-        Architecture.POWERPC32_VLE,
-        Architecture.POWERPC64,
-    ):
+    elif arch in (Architecture.POWERPC32, Architecture.POWERPC64):
         # Both share PowerPCPlatformDef's register set and both carry a
         # ghidra_language_id, so keying on POWERPC32 alone silently dropped
         # every one of these operands on 64-bit PowerPC.

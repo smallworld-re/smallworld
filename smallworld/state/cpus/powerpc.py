@@ -339,7 +339,7 @@ QemuPPCSPRNames = {
 class PowerPC(cpu.CPU):
     """CPU state for 32-bit PowerPC."""
 
-    def __init__(self, wordsize):
+    def __init__(self, wordsize, has_fpu=True):
         super().__init__()
         # *** General Purpose Registers ***
         # NOTE: Used expressive names for GPRs and FPRs.
@@ -416,73 +416,6 @@ class PowerPC(cpu.CPU):
         self.bp = state.RegisterAlias("bp", self.r31, size=wordsize, offset=0)
         self.add(self.bp)
 
-        # Floating Point Registers
-        # Always 8 bytes, regardless of wordsize.
-        self.f0 = state.Register("f0", size=8)
-        self.add(self.f0)
-        self.f1 = state.Register("f1", size=8)
-        self.add(self.f1)
-        self.f2 = state.Register("f2", size=8)
-        self.add(self.f2)
-        self.f3 = state.Register("f3", size=8)
-        self.add(self.f3)
-        self.f4 = state.Register("f4", size=8)
-        self.add(self.f4)
-        self.f5 = state.Register("f5", size=8)
-        self.add(self.f5)
-        self.f6 = state.Register("f6", size=8)
-        self.add(self.f6)
-        self.f7 = state.Register("f7", size=8)
-        self.add(self.f7)
-        self.f8 = state.Register("f8", size=8)
-        self.add(self.f8)
-        self.f9 = state.Register("f9", size=8)
-        self.add(self.f9)
-        self.f10 = state.Register("f10", size=8)
-        self.add(self.f10)
-        self.f11 = state.Register("f11", size=8)
-        self.add(self.f11)
-        self.f12 = state.Register("f12", size=8)
-        self.add(self.f12)
-        self.f13 = state.Register("f13", size=8)
-        self.add(self.f13)
-        self.f14 = state.Register("f14", size=8)
-        self.add(self.f14)
-        self.f15 = state.Register("f15", size=8)
-        self.add(self.f15)
-        self.f16 = state.Register("f16", size=8)
-        self.add(self.f16)
-        self.f17 = state.Register("f17", size=8)
-        self.add(self.f17)
-        self.f18 = state.Register("f18", size=8)
-        self.add(self.f18)
-        self.f19 = state.Register("f19", size=8)
-        self.add(self.f19)
-        self.f20 = state.Register("f20", size=8)
-        self.add(self.f20)
-        self.f21 = state.Register("f21", size=8)
-        self.add(self.f21)
-        self.f22 = state.Register("f22", size=8)
-        self.add(self.f22)
-        self.f23 = state.Register("f23", size=8)
-        self.add(self.f23)
-        self.f24 = state.Register("f24", size=8)
-        self.add(self.f24)
-        self.f25 = state.Register("f25", size=8)
-        self.add(self.f25)
-        self.f26 = state.Register("f26", size=8)
-        self.add(self.f26)
-        self.f27 = state.Register("f27", size=8)
-        self.add(self.f27)
-        self.f28 = state.Register("f28", size=8)
-        self.add(self.f28)
-        self.f29 = state.Register("f29", size=8)
-        self.add(self.f29)
-        self.f30 = state.Register("f30", size=8)
-        self.add(self.f30)
-        self.f31 = state.Register("f31", size=8)
-        self.add(self.f31)
-
         # *** Pointer Registers ***
         # Program Counter.
         # Not really a register; nothing can access it directly
@@ -524,10 +457,6 @@ class PowerPC(cpu.CPU):
         # self.xer = state.Register("xer", size=4)
         # self.add(self.xer)
 
-        # Floating Point Status and Control Register
-        self.fpscr = state.Register("fpscr", size=4)
-        self.add(self.fpscr)
-
         # TODO: This only focuses on the user-facing registrers.
         # ppc has a huge number of privileged registers.
         # Extend this as needed.
@@ -544,6 +473,78 @@ class PowerPC(cpu.CPU):
         self.msr = state.Register("msr", size=wordsize)
         self.add(self.msr)
 
+        if has_fpu:
+            # Floating Point Registers
+            # Always 8 bytes, regardless of wordsize.
+            self.f0 = state.Register("f0", size=8)
+            self.add(self.f0)
+            self.f1 = state.Register("f1", size=8)
+            self.add(self.f1)
+            self.f2 = state.Register("f2", size=8)
+            self.add(self.f2)
+            self.f3 = state.Register("f3", size=8)
+            self.add(self.f3)
+            self.f4 = state.Register("f4", size=8)
+            self.add(self.f4)
+            self.f5 = state.Register("f5", size=8)
+            self.add(self.f5)
+            self.f6 = state.Register("f6", size=8)
+            self.add(self.f6)
+            self.f7 = state.Register("f7", size=8)
+            self.add(self.f7)
+            self.f8 = state.Register("f8", size=8)
+            self.add(self.f8)
+            self.f9 = state.Register("f9", size=8)
+            self.add(self.f9)
+            self.f10 = state.Register("f10", size=8)
+            self.add(self.f10)
+            self.f11 = state.Register("f11", size=8)
+            self.add(self.f11)
+            self.f12 = state.Register("f12", size=8)
+            self.add(self.f12)
+            self.f13 = state.Register("f13", size=8)
+            self.add(self.f13)
+            self.f14 = state.Register("f14", size=8)
+            self.add(self.f14)
+            self.f15 = state.Register("f15", size=8)
+            self.add(self.f15)
+            self.f16 = state.Register("f16", size=8)
+            self.add(self.f16)
+            self.f17 = state.Register("f17", size=8)
+            self.add(self.f17)
+            self.f18 = state.Register("f18", size=8)
+            self.add(self.f18)
+            self.f19 = state.Register("f19", size=8)
+            self.add(self.f19)
+            self.f20 = state.Register("f20", size=8)
+            self.add(self.f20)
+            self.f21 = state.Register("f21", size=8)
+            self.add(self.f21)
+            self.f22 = state.Register("f22", size=8)
+            self.add(self.f22)
+            self.f23 = state.Register("f23", size=8)
+            self.add(self.f23)
+            self.f24 = state.Register("f24", size=8)
+            self.add(self.f24)
+            self.f25 = state.Register("f25", size=8)
+            self.add(self.f25)
+            self.f26 = state.Register("f26", size=8)
+            self.add(self.f26)
+            self.f27 = state.Register("f27", size=8)
+            self.add(self.f27)
+            self.f28 = state.Register("f28", size=8)
+            self.add(self.f28)
+            self.f29 = state.Register("f29", size=8)
+            self.add(self.f29)
+            self.f30 = state.Register("f30", size=8)
+            self.add(self.f30)
+            self.f31 = state.Register("f31", size=8)
+            self.add(self.f31)
+
+            # Floating Point Status and Control Register
+            self.fpscr = state.Register("fpscr", size=4)
+            self.add(self.fpscr)
+
 
 class PowerPC32(PowerPC):
     """CPU state for 32-bit PowerPC."""
@@ -556,12 +557,19 @@ class PowerPC32(PowerPC):
         super().__init__(4)
 
 
-class PowerPC32VLE(PowerPC32):
-    """CPU state for 32-bit PowerPC with the Variable Length Encoding."""
+class PowerPC32VLE(PowerPC):
+    """CPU state for 32-bit PowerPC e200 with the Variable Length Encoding.
+
+    The e200 has no classic floating-point unit, so there are no f0-f31 or
+    fpscr.
+    """
 
     platform = platforms.Platform(
         platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
     )
+
+    def __init__(self):
+        super().__init__(4, has_fpu=False)
 
 
 class PowerPC64(PowerPC):
