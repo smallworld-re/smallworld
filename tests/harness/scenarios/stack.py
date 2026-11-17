@@ -143,7 +143,7 @@ _SPECS = {
         platform=PlatformSpec("M68K", "BIG"),
         pc_register="pc",
         result_register="d0",
-        engines=("unicorn", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         stack_arguments=(
             (0x44444444, 4),
             (0x01010101, 4),

@@ -97,6 +97,18 @@ its LLVM has no 32-bit LoongArch CPU model to compile C for, so the tests are
 assembly only; exitpoint and unmapped have hand-written stand-ins. There are no
 System V ABI models for LoongArch32 yet.
 
+**m68k angr:** angr runs Ghidra's ``68000:BE:32:default`` language, with these
+gaps:
+
+- ``cas`` and ``cas2`` branch within their own p-code, which angr's p-code
+  engine can't run, so angr refuses a block containing them.
+- ``trap``, ``trapv``, ``chk``, ``bkpt`` and the BCD instructions (``abcd``,
+  ``sbcd``, ``nbcd``) raise, so syscall hooks never fire.
+- The FPU doesn't run (see the float support notes below).
+- ``sfc``, ``dfc`` and ``tc`` read back at their real widths, but the language
+  holds them in 4 bytes, so a ``movec`` that reads one into a register gives a
+  partly symbolic value.
+
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.

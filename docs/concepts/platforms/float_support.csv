@@ -14,6 +14,7 @@ i386 x87,                       No,         No,         No,         No,         
 i386 mmx,                       No,         No,         No,         No,         No
 i386 sse,                       **Yes**,    **Yes**,    No,         No,         **Yes**
 loongarch64 scalar,             Untested,   Untested,   No Support, No,         No Support
+m68k,                           No,         Untested,   No Support, No,         Untested
 mips32,                         No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
 powerpc32,                      No,         Untested,   No,         Untested,   No Support

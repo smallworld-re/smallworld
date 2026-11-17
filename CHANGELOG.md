@@ -81,8 +81,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `R_LARCH_32` relocations. There are no System V ABI models for it yet.
 - `AngrEmulator` supports M68K (68040), using Ghidra's `68000:BE:32:default`
   p-code, with a stack-based System V calling convention for function hooks.
-  The `sfc`, `dfc` and `tc` control registers keep their real widths even
-  though sleigh widens them to 4 bytes.
+  On angr, the `sfc`, `dfc` and `tc` control registers keep their real widths
+  even though sleigh widens them to 4 bytes. `cas`/`cas2` are refused, and
+  traps, syscalls, the BCD instructions and the FPU aren't supported; see the
+  platform support notes.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

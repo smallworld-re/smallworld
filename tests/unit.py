@@ -1185,9 +1185,7 @@ class UnicornMachdefTests(unittest.TestCase):
 
 @platform_tests(
     "angr",
-    unsupported={
-        name: "Not supported by angr" for name in ("amd64_avx512", "armv7r", "m68k")
-    },
+    unsupported={name: "Not supported by angr" for name in ("amd64_avx512", "armv7r")},
 )
 class AngrMachdefTests(unittest.TestCase):
     def run_test(self, platform):
@@ -1242,6 +1240,48 @@ class AngrMachdefTests(unittest.TestCase):
         # The bare `except:` used to discard the underlying failure; it must now
         # be chained so real errors (e.g. a malformed subclass) stay visible.
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
+
+
+class M68KAngrTests(unittest.TestCase):
+    platform = platforms.Platform(platforms.Architecture.M68K, platforms.Byteorder.BIG)
+
+    # cas.l d1,d2,(a0); seq d3; nop
+    CAS = bytes.fromhex("0ed0008157c34e71")
+
+    def _cas(self, d1):
+        emu = emulators.AngrEmulator(self.platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, self.CAS)
+        emu.map_memory(0x2000, 0x1000)
+        emu.write_memory_content(0x2000, bytes.fromhex("11223344"))
+        for name, value in (("a0", 0x2000), ("d1", d1), ("d2", 0x55667788), ("d3", 0)):
+            emu.write_register(name, value)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(self.CAS))
+        try:
+            emu.run()
+        except exceptions.EmulationStop:
+            pass
+        return emu
+
+    def test_cas_is_refused(self):
+        # cas branches within its own p-code, which angr can't run
+        for d1 in (0x11223344, 0x11223345):
+            with self.subTest(d1=hex(d1)):
+                with self.assertRaises(exceptions.EmulationExecFailure) as raised:
+                    self._cas(d1)
+                self.assertEqual(raised.exception.pc, 0x1000)
+
+    @unittest.expectedFailure
+    def test_cas(self):
+        for d1, memory, d3 in (
+            (0x11223344, "55667788", 0xFF),
+            (0x11223345, "11223344", 0),
+        ):
+            with self.subTest(d1=hex(d1)):
+                emu = self._cas(d1)
+                self.assertEqual(emu.read_memory_content(0x2000, 4).hex(), memory)
+                self.assertEqual(emu.read_register("d3") & 0xFF, d3)
 
 
 # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so sh2a
