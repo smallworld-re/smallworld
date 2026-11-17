@@ -8,7 +8,9 @@ class X86RealMode(I386):
 
     The registers are the 80386's, but ``pc`` is the linear address of the
     next instruction (``cs * 16 + ip``) rather than an alias of ``eip``. Set
-    ``pc`` and the segment registers; ``ip`` and ``eip`` follow from them.
+    ``pc`` and the segment registers. On Unicorn, ``ip`` and ``eip`` follow
+    from them; angr and Ghidra have no ``eip``, so leave ``ip`` and ``eip``
+    unset there.
 
     The segment registers start at 0, so a harness that sets nothing else
     runs in the first 64 KiB with every segment overlapping. Every memory

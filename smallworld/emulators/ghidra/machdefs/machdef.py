@@ -83,7 +83,8 @@ class GhidraMachineDef:
             inputs: The values of its inputs, after the op index
 
         Returns:
-            The value of its output, or None to leave the op to Ghidra
+            The value of its output (any int, for an op without one), or None
+            to leave the op to Ghidra
         """
         return None
 

@@ -12,8 +12,7 @@ class Architecture(enum.Enum):
     """
 
     X86_16 = "x86-16"
-    """16-bit x86 in real mode, with the 80386's 32-bit operand and address
-    prefixes."""
+    """16-bit x86 in real mode, with the 80386's 32-bit registers."""
 
     X86_32 = "x86-32"
     """32-bit x86 supporting SSE extensions."""

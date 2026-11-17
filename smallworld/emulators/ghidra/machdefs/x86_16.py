@@ -12,7 +12,8 @@ class X86RealModeMachineDef(i386MachineDef):
     as ``(EIP >> 4) & 0xf000``: near calls push the low 16 bits of the
     linear address, and returns add it back onto cs. Both are only right
     when cs is a multiple of 0x1000, so code must run from a segment that
-    starts on a 64 KiB boundary.
+    starts on a 64 KiB boundary. A few instructions ignore segments
+    altogether; see the platform support notes.
     """
 
     arch = Architecture.X86_16

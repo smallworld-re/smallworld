@@ -38,8 +38,11 @@ class X86RealModeStack(stack.DescendingStack):
 
     def get_offset(self) -> int:
         """Get the stack pointer as an offset from the stack segment, the
-        value for ``sp``."""
-        return self.get_pointer() - self.address
+        value for ``sp``.
+
+        An empty 64 KiB stack has sp 0, which wraps to 0xfffe on the first
+        push."""
+        return (self.get_pointer() - self.address) & 0xFFFF
 
     @classmethod
     def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):

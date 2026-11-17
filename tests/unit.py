@@ -115,7 +115,12 @@ from smallworld.hinting.hints import (
     RegisterPointerHint,
     TraceExecutionHint,
 )
-from smallworld.instructions import Instruction, RegisterOperand
+from smallworld.instructions import (
+    Instruction,
+    RegisterOperand,
+    x86RealModeInstruction,
+    x86RealModeMemoryReferenceOperand,
+)
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
@@ -1164,6 +1169,158 @@ class X86RealModeTests(unittest.TestCase):
         cpu.apply(emu)
         self.assertEqual(emu.read_register("ip"), 5)
         self.assertEqual(emu.read_register("pc"), 0x7C05)
+
+    def test_empty_full_segment_stack_offset(self):
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x10000, 0x10000)
+        self.assertEqual(stack.get_offset(), 0)
+
+    def _emulator(self, engine):
+        return {
+            "unicorn": emulators.UnicornEmulator,
+            "angr": emulators.AngrEmulator,
+            "pcode": emulators.GhidraEmulator,
+        }[engine](self.platform)
+
+    def _run(self, engine, code, cs, stack_items=(), memory=(), registers=None):
+        """Run `code` at cs:0, with `stack_items` (2-byte words, first on
+        top) at 2000:0ff0 - ..., and return the final CPU state."""
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        machine.add(cpu)
+        executable = state.memory.code.Executable.from_bytes(code, address=cs << 4)
+        machine.add(executable)
+        for address, content in memory:
+            machine.add(state.memory.RawMemory.from_bytes(content, address))
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x20000, 0x1000)
+        machine.add(stack)
+        for item in reversed(stack_items):
+            stack.push_integer(item, 2, None)
+        cpu.cs.set(cs)
+        cpu.ss.set(stack.get_segment())
+        cpu.sp.set(stack.get_offset())
+        for name, value in (registers or {}).items():
+            getattr(cpu, name).set(value)
+        cpu.pc.set(executable.address)
+        return machine, cpu, executable
+
+    def _final(self, machine, emulator):
+        out = machine.emulate(emulator).get_cpu()
+
+        def value(register):
+            content = register.get()
+            if isinstance(content, claripy.ast.bv.BV):
+                return content.concrete_value if content.concrete else content
+            return content
+
+        return out, value
+
+    def test_hook_returns_through_ss_and_cs(self):
+        # call +0xfd (to cs:0100); mov ax,1; the model at cs:0100 returns to
+        # the mov through ss:sp and cs, which are both non-zero.
+        code = b"\xe8\xfd\x00\xb8\x01\x00" + b"\x90" * 0x10
+
+        class Nop(state.models.Model):
+            name = "nop"
+            platform = X86RealModeTests.platform
+            abi = platforms.ABI.NONE
+
+            def model(self, emulator):
+                pass
+
+        for engine in ("unicorn", "angr", "pcode"):
+            with self.subTest(engine=engine):
+                machine, cpu, code_memory = self._run(
+                    engine, code, 0x1000, registers={"ax": 0}
+                )
+                machine.add(Nop(code_memory.address + 0x100))
+                emulator = self._emulator(engine)
+                emulator.add_exit_point(code_memory.address + 6)
+                out, value = self._final(machine, emulator)
+                self.assertEqual(value(out.ax), 1)
+                self.assertEqual(value(out.pc), 0x10006)
+                self.assertEqual(value(out.sp), 0x1000)
+
+    def test_angr_lock_is_a_nop(self):
+        # xchg ax,[bx], which sleigh brackets in LOCK() and UNLOCK()
+        machine, cpu, code = self._run(
+            "angr",
+            b"\x87\x07",
+            0x1000,
+            memory=((0x10010, b"\x34\x12"),),
+            registers={"ax": 0x5678, "bx": 0x10, "ds": 0x1000},
+        )
+        emulator = self._emulator("angr")
+        emulator.add_exit_point(code.address + 2)
+        out, value = self._final(machine, emulator)
+        self.assertEqual(value(out.ax), 0x1234)
+
+    def test_angr_refuses_unaligned_code_segment(self):
+        machine, cpu, code = self._run("angr", b"\x90\x90", 0x07C0)
+        emulator = self._emulator("angr")
+        emulator.add_exit_point(code.address + 2)
+        with self.assertRaises(exceptions.ConfigurationError):
+            machine.emulate(emulator)
+
+    # A far return to 2000:0005, where mov ax,7 is; int3 fills the rest of
+    # that segment's start, so landing anywhere else faults.
+    _FAR_TARGET = ((0x20000, b"\xcc" * 5 + b"\xb8\x07\x00"),)
+
+    def _far_return(self, engine, code, stack_items):
+        machine, cpu, executable = self._run(
+            engine, code, 0x1000, stack_items, self._FAR_TARGET, {"ax": 0}
+        )
+        emulator = self._emulator(engine)
+        emulator.add_exit_point(0x20008)
+        out, value = self._final(machine, emulator)
+        self.assertEqual(value(out.ax), 7)
+        self.assertEqual(value(out.cs), 0x2000)
+        self.assertEqual(value(out.pc), 0x20008)
+
+    def test_iret_unicorn(self):
+        self._far_return("unicorn", b"\xcf", (0x0005, 0x2000, 0x0002))
+
+    @unittest.expectedFailure
+    def test_retf_unicorn(self):
+        # Unicorn 2.1.4 loads the new cs but keeps the old ip on a far
+        # return while a memory-read hook is installed, as UnicornEmulator's
+        # always is.
+        self._far_return("unicorn", b"\xcb", (0x0005, 0x2000))
+
+    @unittest.expectedFailure
+    def test_iret_angr(self):
+        # Real-mode sleigh returns from iret to the popped ip, without cs.
+        self._far_return("angr", b"\xcf", (0x0005, 0x2000, 0x0002))
+
+    def test_instruction_operands(self):
+        instruction = Instruction.from_bytes(b"\x8b\x40\x04", 0x10000, self.platform)
+        self.assertIsInstance(instruction, x86RealModeInstruction)
+        (operand,) = [
+            op
+            for op in instruction.reads
+            if isinstance(op, x86RealModeMemoryReferenceOperand)
+        ]
+
+        emu = emulators.UnicornEmulator(self.platform)
+        emu.write_register("ds", 0x2000)
+        emu.write_register("ss", 0x3000)
+        emu.write_register("es", 0x4000)
+        emu.write_register("bx", 0xFFF0)
+        emu.write_register("si", 0x20)
+        emu.write_register("bp", 0x10)
+        # [bx+si+4] wraps within ds.
+        self.assertEqual(operand.address(emu), 0x20014)
+
+        for raw, address in (
+            (b"\x8b\x46\x02", 0x30012),  # [bp+2] is in ss
+            (b"\x26\x8a\x07", 0x4FFF0),  # es:[bx]
+        ):
+            with self.subTest(raw=raw.hex()):
+                (operand,) = [
+                    op
+                    for op in Instruction.from_bytes(raw, 0x10000, self.platform).reads
+                    if isinstance(op, x86RealModeMemoryReferenceOperand)
+                ]
+                self.assertEqual(operand.address(emu), address)
 
 
 @platform_tests(

@@ -4,6 +4,7 @@ import angr
 import archinfo
 import claripy
 
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs import X86RealMode
 from .machdef import GhidraMachineDef
@@ -12,17 +13,23 @@ X86_16_PCODE_LANGUAGE = "x86:LE:16:Real Mode"
 
 
 class X86RealModeEnginePcode(angr.engines.UberEnginePcode):
-    """angr's p-code engine, plus sleigh's `segment` user op.
+    """angr's p-code engine, plus sleigh's `segment`, `LOCK` and `UNLOCK`
+    user ops.
 
     Real-mode sleigh computes every memory address with `segment(seg, off)`,
     which the x86 processor spec defines as ``(zext(seg) << 4) + zext(off)``.
-    angr's engine rejects every user op, so this one is evaluated here.
+    It brackets `lock`-prefixed instructions, and `xchg` with memory, in
+    `LOCK()` and `UNLOCK()`, which do nothing in a single-threaded emulator.
+    angr's engine rejects every user op, so these are evaluated here.
     """
 
     def _execute_callother(self) -> None:
         op = self._current_op
         assert op is not None
-        if op.inputs[0].getUserDefinedOpName() != "segment":
+        name = op.inputs[0].getUserDefinedOpName()
+        if name in ("LOCK", "UNLOCK"):
+            return
+        if name != "segment":
             super()._execute_callother()
             return
         assert op.output is not None
@@ -52,8 +59,8 @@ class X86RealModeMachineDef(GhidraMachineDef):
     p-code.
 
     Sleigh keeps the linear pc in EIP, and infers the code segment from it,
-    so code must run from a segment that starts on a 64 KiB boundary. See
-    the Ghidra machine definition.
+    so code must run from a segment that starts on a 64 KiB boundary, and
+    `successors()` refuses any other. See the Ghidra machine definition.
     """
 
     arch = Architecture.X86_16
@@ -64,6 +71,19 @@ class X86RealModeMachineDef(GhidraMachineDef):
 
     def __init__(self):
         self._angr_arch = ArchPcodeX86RealMode()
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        # Sleigh infers cs from the linear pc, which only works for a cs on a
+        # 64 KiB boundary; code in any other segment would run on silently
+        # wrong, so refuse it instead.
+        cs = typing.cast(claripy.ast.BV, state.regs.cs)
+        if cs.concrete and cs.concrete_value & 0xFFF:
+            raise exceptions.ConfigurationError(
+                f"code segment {cs.concrete_value:#06x} does not start on a "
+                "64 KiB boundary (cs must be a multiple of 0x1000), which angr's "
+                "real-mode p-code requires"
+            )
+        return super().successors(state, **kwargs)
 
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:
         if name == "ip":
@@ -82,11 +102,50 @@ class X86RealModeMachineDef(GhidraMachineDef):
     }
 
 
+class SimRealModeReturnAddr(angr.calling_conventions.SimStackArg):
+    """The 2-byte return offset a near call leaves at ss:sp.
+
+    angr returns from a hook to wherever this points, so it reads the offset
+    through ss and returns the linear address it names in cs, where a plain
+    stack argument would read the flat address sp and jump to the offset.
+    """
+
+    def __init__(self):
+        super().__init__(0, 2)
+
+    def _address(self, state, stack_base):
+        if stack_base is None:
+            stack_base = state.regs.sp
+        return (state.regs.ss.zero_extend(16) << 4) + (
+            stack_base + self.stack_offset
+        ).zero_extend(16)
+
+    def get_value(self, state, stack_base=None, **kwargs):
+        ip = state.memory.load(
+            self._address(state, stack_base),
+            endness=state.arch.memory_endness,
+            size=self.size,
+        )
+        return (state.regs.cs.zero_extend(16) << 4) + ip.zero_extend(16)
+
+    def set_value(self, state, value, stack_base=None, **kwargs):
+        # A linear address is stored as its offset into cs.
+        if isinstance(value, int):
+            value = claripy.BVV(value, 32)
+        ip = value - (state.regs.cs.zero_extend(16) << 4)
+        state.memory.store(
+            self._address(state, stack_base),
+            ip[15:0],
+            endness=state.arch.memory_endness,
+        )
+
+
 class SimCCX86RealMode(angr.calling_conventions.SimCC):
     """16-bit near cdecl calling convention.
 
     Arguments are all passed on the stack, above the 2-byte return address
-    a near call pushes, and integers come back in ax (or dx:ax).
+    a near call pushes, and integers come back in ax (or dx:ax). The return
+    address is the offset at ss:sp, into cs.
     """
 
     ARG_REGS: typing.List[str] = []
@@ -94,7 +153,7 @@ class SimCCX86RealMode(angr.calling_conventions.SimCC):
     STACKARG_SP_DIFF = 2
     RETURN_VAL = angr.calling_conventions.SimRegArg("ax", 2)
     OVERFLOW_RETURN_VAL = angr.calling_conventions.SimRegArg("dx", 2)
-    RETURN_ADDR = angr.calling_conventions.SimStackArg(0, 2)
+    RETURN_ADDR = SimRealModeReturnAddr()
     ARCH = ArchPcodeX86RealMode()  # type: ignore
 
 

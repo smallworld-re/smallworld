@@ -54,7 +54,7 @@ def register_alias(name: str, arch: Architecture) -> str:
         m = _X86_VECTOR_LANE_RE.fullmatch(name)
         if m:
             return m.group(1)
-    elif arch in (Architecture.X86_32, Architecture.X86_16):
+    elif arch == Architecture.X86_32:
         if name in _X86_FLAG_BITS:
             return "eflags"
         m = _X86_VECTOR_LANE_RE.fullmatch(name)

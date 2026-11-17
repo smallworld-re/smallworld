@@ -314,6 +314,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if result is None:
             return False
         out_var = op.getOutput()
+        if out_var is None:
+            return True
         size = out_var.getSize()
         value = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
         state.setVar(out_var, self.bytes_py_to_java(value))
