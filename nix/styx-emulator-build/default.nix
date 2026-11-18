@@ -154,6 +154,17 @@ ps.buildPythonPackage {
   # copy, and fails its build script if pkg-config cannot find one.
   buildInputs = [ zstd ];
 
+  # With nixpkgs' current GCC the C/C++ parts of the extension emit calls to
+  # libatomic's 16-byte helpers (`__atomic_compare_exchange_16` and friends)
+  # instead of inlining them, and nothing on the link line pulls libatomic
+  # in. The wheel still links - undefined symbols are allowed in a shared
+  # object - and then fails at `import styx_emulator`. clang resolves these
+  # from compiler-rt, so this is only wanted for GCC.
+  env.NIX_LDFLAGS = lib.optionalString stdenv.cc.isGNU "-latomic";
+
+  # Catch that class of breakage at build time rather than in the test suite.
+  pythonImportsCheck = [ "styx_emulator" ];
+
   PROTOC = "${protobuf}/bin/protoc";
   PROTOC_INCLUDE = "${protobuf}/include";
 }

@@ -74,7 +74,26 @@
       forEachSystem = lib.genAttrs supportedSystems;
 
       pkgsFor = system: nixpkgs.legacyPackages.${system};
-      pythonFor = system: (pkgsFor system).python312;
+      # nixpkgs builds its Python 3.12 package set from source, test suites
+      # included, and `pyvex` (which angr links against) depends on
+      # `bitstring`. bitstring's tests pull in `pytest-benchmark`, which
+      # drags in elasticsearch -> respx -> starlette -> `httpx2`, whose test
+      # suite opens IPv6 sockets and so fails on hosts without IPv6 - our CI
+      # runners among them. Skip bitstring's checks so none of that chain is
+      # built at all: it is test-only tooling for a package we do not touch.
+      pythonFor =
+        system:
+        let
+          python = (pkgsFor system).python312.override {
+            self = python;
+            packageOverrides = _final: prev: {
+              bitstring = prev.bitstring.overridePythonAttrs (_: {
+                doCheck = false;
+              });
+            };
+          };
+        in
+        python;
 
       pandaPackages = import ./nix/panda-packages.nix {
         inherit
