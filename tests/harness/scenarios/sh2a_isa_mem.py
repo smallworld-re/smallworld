@@ -35,7 +35,7 @@ NATIVE_PARITY = True
 _ARCH = "sh2a"
 _SCENARIO = "sh2a_isa_mem"
 
-# Integer-only, so angr's missing floating-point support is irrelevant here.
+# Integer-only.
 _ENGINES = ("angr", "pcode", "styx", "panda")
 
 

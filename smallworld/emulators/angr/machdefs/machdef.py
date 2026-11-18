@@ -5,6 +5,7 @@ import angr
 import archinfo
 
 from .... import exceptions, platforms, utils
+from .pcode_float import FloatPcodeEngine
 
 
 class AngrMachineDef:
@@ -139,8 +140,9 @@ class GhidraMachineDef(AngrMachineDef):
     def angr_arch(self) -> archinfo.arch.Arch:
         return self._angr_arch
 
+    # angr's own p-code engine, with floating-point operations.
     angr_engine: typing.Optional[typing.Type[angr.engines.UberEnginePcode]] = (
-        angr.engines.UberEnginePcode
+        FloatPcodeEngine
     )
 
     def __init__(self):

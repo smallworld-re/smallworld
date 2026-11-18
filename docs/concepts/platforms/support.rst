@@ -271,14 +271,61 @@ A few notes:
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
 - Panda can probably emulate many of these, but it needs to be modified to expose the FPU registers.
 - Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
-- **angr cannot do floating point on any Pcode-backed architecture.** In
-  ``angr/engines/pcode/behavior.py`` every ``OpBehaviorFloat*`` class - add,
-  subtract, multiply, divide, square root, the comparisons, the conversions -
-  has its body present only as commented-out C++ that was never ported to
-  Python, so the base class raises ``AngrError("Not implemented!")``. This is why
-  the ``angr`` column reads **No** for SuperH, and it applies equally to every
-  other Pcode-backed ISA here: TriCore, Xtensa, MSP430 and LoongArch. The angr
-  entries that do work are all VEX architectures.
+- **angr's p-code engine leaves floating point unimplemented upstream**: every
+  ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
+  ``AngrError("Not implemented!")``. SmallWorld supplies its own, in
+  ``smallworld/emulators/angr/machdefs/pcode_float.py``, and runs every
+  Pcode-backed architecture with them, though only SH-2A single precision is
+  measured; TriCore and LoongArch64 are untested. Xtensa stays at No: Ghidra's
+  sleigh includes its optional FPU, but SmallWorld's angr machdef for it
+  exposes no floating-point registers. The behaviors follow IEEE 754, rounding to
+  nearest, ties to even. A comparison with a NaN is unordered, so
+  ``FLOAT_NOTEQUAL`` is true and the others false, and ``-0`` equals ``+0``;
+  Ghidra's p-code reference says ``FLOAT_NOTEQUAL`` is false on a NaN. Where
+  IEEE 754 leaves a result open, a NaN result is the canonical quiet NaN, and
+  ``FLOAT_TRUNC`` saturates to the output's signed range, with NaN giving 0.
+  ``FLOAT_ROUND``, which has no IEEE 754 counterpart, rounds halfway cases up,
+  as Ghidra does.
+
+  They are checked against the arithmetic Ghidra's p-code emulator runs. That
+  departs from IEEE 754, and so from angr, in these places:
+
+  - **Subnormal underflow.** Half- and single-precision ``FLOAT_MULT``,
+    ``FLOAT_DIV`` and narrowing ``FLOAT_FLOAT2FLOAT`` give zero for a result
+    between half the least subnormal and the least subnormal, which rounds to
+    the least subnormal: ``0x00000001`` times ``0x3F000001`` gives
+    ``0x00000000``, and ``2**-150 * (1 + 2**-20)`` narrowed to single
+    precision gives ``0x00000000``. Double precision is unaffected.
+  - **Double rounding.** ``FLOAT_INT2FLOAT`` converts through a double, so an
+    integer wider than 53 bits can round twice on its way to single or half
+    precision: ``2**60 + 2**36 + 1`` gives ``0x5D800000``, not ``0x5D800001``.
+  - **FLOAT_ROUND** computes ``floor(x + 0.5)`` in floating point, so
+    ``0.49999999999999994`` rounds to 1.
+  - **NaNs.** ``FLOAT_NEG`` and ``FLOAT_ABS`` of a NaN give a default NaN,
+    losing its payload; IEEE 754 changes only the sign bit. Ghidra's NaN
+    results are also the host's, so on x86-64 one produced by an invalid
+    operation has its sign set (``0xFFC00000``). IEEE 754 allows that, but
+    the bits differ from angr's.
+  - **Out-of-range FLOAT_TRUNC.** IEEE 754 leaves the result open. Ghidra
+    saturates to a 64-bit integer and keeps its low bits, so ``+inf`` to 4
+    bytes gives ``0xFFFFFFFF`` and ``-inf`` gives 0, where angr gives
+    ``0x7FFFFFFF`` and ``0x80000000``.
+
+  Ghidra evaluates operands wider than 8 bytes through a separate BigInteger
+  implementation, with other differences; angr supports no such format.
+
+  Concrete operands support half, single and double precision. Symbolic ones
+  are solved by Z3, and support single and double precision only, because
+  claripy has no other formats; symbolic floating-point queries can take
+  seconds. Neither supports the 80-bit formats of x87 and the 68881.
+
+  angr's p-code engine also cannot branch between the p-code ops of a single
+  instruction, which rules out instructions whose semantics contain an
+  if/else. SH-4's floating-point instructions are such an if/else on
+  ``FPSCR_PR``, so SH-4 floating point still does not run on angr; SH-2A's does.
+  A harness that writes ``fpscr`` directly meets a second problem first:
+  ``FPSCR_PR`` is then not stale, as under Ghidra (see below), but
+  unconstrained, so each floating-point instruction forks into both paths.
 - **SuperH double precision** is a separate row from single because the two are
   selected at runtime by ``FPSCR.PR`` rather than by the opcode, and the backends
   differ in two distinct ways.
@@ -375,8 +422,12 @@ Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
 
 Every skip is an upstream defect, reduced to a minimal case first:
 
-- **angr** is skipped wholesale - it implements no floating point on any
-  Pcode-backed architecture, as described above.
+- **angr** is skipped on SH-4, whose floating-point instructions branch within
+  the instruction, which angr's p-code engine cannot do (see above). The
+  ``floats`` scenario, which writes ``fpscr`` directly, fails earlier, because
+  angr leaves ``FPSCR_PR`` unconstrained. On SH-2A,
+  angr passes all five single-precision functions, including the multiply and
+  divide cases where Ghidra flushes subnormal results to zero.
 - **SH-2A double precision** is skipped on the sleigh-derived backends because
   ``superh.sinc`` ignores ``FPSCR.PR``. TestFloat measures this precisely:
   ``0.0 + A57F319EDE38F755`` returns ``0x3FF0000000000000`` for a preceding
