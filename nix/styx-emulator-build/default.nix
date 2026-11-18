@@ -19,6 +19,7 @@
   pkg-config,
   protobuf,
   stdenv,
+  zstd,
 }:
 let
   rawSrc = fetchFromGitHub {
@@ -147,6 +148,11 @@ ps.buildPythonPackage {
     pkg-config
     protobuf
   ];
+
+  # nixpkgs' cargoSetupHook now exports `ZSTD_SYS_USE_PKG_CONFIG=1`, so the
+  # `zstd-sys` crate links the system libzstd instead of compiling its bundled
+  # copy, and fails its build script if pkg-config cannot find one.
+  buildInputs = [ zstd ];
 
   PROTOC = "${protobuf}/bin/protoc";
   PROTOC_INCLUDE = "${protobuf}/include";

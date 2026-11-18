@@ -35,8 +35,16 @@
 
     # PANDA is the only major dependency that still needs custom Nix glue.
     # See `nix/panda-packages.nix` for the explanation.
+    #
+    # Pinned to the last revision before upstream rebuilt PANDA as an in-tree
+    # patch series on QEMU 11.1. That rewrite dropped the `libpanda-ng-src`
+    # and `panda-qemu-src` flake inputs `nix/panda-packages.nix` reads from
+    # PANDA's lock file, and it has no TriCore, SuperH or macOS support, so
+    # everything in `nix/patches/panda-*` and `libpanda-*` would have to be
+    # ported to the new engine first. Without the pin, the scheduled
+    # `nix flake update` moves us onto it and breaks evaluation.
     panda-ng = {
-      url = "github:panda-re/panda-ng";
+      url = "github:panda-re/panda-ng/fdfbf0a53860ad8460953880814ddae61635a0c8";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
