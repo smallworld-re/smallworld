@@ -39,20 +39,31 @@ dependencies = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+# Developer tooling only -- nothing here is needed to *use* SmallWorld, which
+# still supports Python 3.9 (`requires-python` above).
+#
+# Every entry carries a `python_version >= '3.12'` marker because the tooling
+# is only ever run on the project's pinned interpreter (`.python-version` and
+# the nix flake are both 3.12). Without the marker uv also has to lock this
+# group for 3.9-3.11, where the newest installable black, notebook,
+# jupyter-server, anyio, urllib3, requests, pip, bleach, tornado, filelock and
+# soupsieve are all releases with known security advisories whose fixes need a
+# newer Python. On an older interpreter `uv sync` still works; it just
+# installs the library without these tools.
 [dependency-groups]
 dev = [
-    "black>=23.11.0",
-    "black[jupyter]>=25.11.0",
-    "flake8>=6.1.0",
-    "isort>=5.13.2",
-    "jupyterlab>=4.4.9",
-    "mypy>=1.7.1",
-    "notebook>=7.4.7",
-    "pip-tools>=7.3.0",
-    "pre-commit>=3.5.0",
-    "sphinx>=7.1.2",
-    "sphinxcontrib-programoutput>=0.17",
-    "timeout-decorator>=0.5.0",
+    "black>=23.11.0; python_version >= '3.12'",
+    "black[jupyter]>=25.11.0; python_version >= '3.12'",
+    "flake8>=6.1.0; python_version >= '3.12'",
+    "isort>=5.13.2; python_version >= '3.12'",
+    "jupyterlab>=4.4.9; python_version >= '3.12'",
+    "mypy>=1.7.1; python_version >= '3.12'",
+    "notebook>=7.4.7; python_version >= '3.12'",
+    "pip-tools>=7.3.0; python_version >= '3.12'",
+    "pre-commit>=3.5.0; python_version >= '3.12'",
+    "sphinx>=7.1.2; python_version >= '3.12'",
+    "sphinxcontrib-programoutput>=0.17; python_version >= '3.12'",
+    "timeout-decorator>=0.5.0; python_version >= '3.12'",
 ]
 
 [project.optional-dependencies]

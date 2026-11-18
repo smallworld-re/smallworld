@@ -70,7 +70,7 @@ ps.buildPythonPackage {
     postPatch = ''
       cp ${./Cargo.lock} Cargo.lock
     '';
-    hash = "sha256-lrjjvAdlQ17zdcw7J0uo6OZPeoqQ0sR/yuTyZV3msTI=";
+    hash = "sha256-8HhBRmolfHxOSlyZfcZXoLmRgBSJzxGvjkUL0AodYj8=";
   };
 
   # Inject our pinned Cargo.lock into the unpacked source tree. cargoSetupHook
