@@ -121,15 +121,11 @@ from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
+from smallworld.state.memory.elf.rela import ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
-from smallworld.state.memory.elf.rela.mips import (
-    MIPS64ELElfRelocator,
-    MIPS64ElfRelocator,
-    MIPSElfRelocator,
-)
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
@@ -5717,6 +5713,18 @@ class ElfPickleCompatibilityTests(unittest.TestCase):
         for name in self.TLS_FIELDS:
             self.assertEqual(getattr(new, name), getattr(elf, name))
 
+    def test_old_pickle_relocator_gets_platform(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            elf = ElfExecutable(f, user_base=0x100000)
+        # Relocators used to keep no state, so an old pickle's relocator
+        # has no platform.
+        del elf._relocator.platform
+        old = pickle.loads(pickle.dumps(elf))
+        self.assertEqual(old._relocator.platform, elf.platform)
+        self.assertEqual(old._relocator.byteorder, elf.platform.byteorder)
+
 
 class ElfCoreFileMissingPlatformTests(unittest.TestCase):
     """ElfCoreFile with no resolvable platform must fail with a
@@ -6758,15 +6766,45 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
 
     def test_mips32_r_mips_32(self):
         # R_MIPS_32 == 2, big-endian 32-bit
-        self.assertEqual(self._value(MIPSElfRelocator(), 2), self.BE32)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+                    )
+                ),
+                2,
+            ),
+            self.BE32,
+        )
 
     def test_mips64_r_mips_64(self):
         # R_MIPS_64 == 18, big-endian 64-bit
-        self.assertEqual(self._value(MIPS64ElfRelocator(), 18), self.BE64)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+                    )
+                ),
+                18,
+            ),
+            self.BE64,
+        )
 
     def test_mips64el_r_mips_64(self):
         # R_MIPS_64 == 18, little-endian 64-bit
-        self.assertEqual(self._value(MIPS64ELElfRelocator(), 18), self.LE64)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+                    )
+                ),
+                18,
+            ),
+            self.LE64,
+        )
 
     def test_powerpc_r_ppc_abs32(self):
         # R_PPC_ABS32 == 1
@@ -6775,6 +6813,47 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
     def test_powerpc64_r_ppc64_addr64(self):
         # R_PPC64_ADDR64 == 38
         self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
+
+
+class ElfRelocatorPlatformTests(unittest.TestCase):
+    """A relocator may cover several platforms; for_platform hands it the one
+    it was selected for."""
+
+    def platform(self, architecture, byteorder):
+        return platforms.Platform(architecture, byteorder)
+
+    def test_family_relocator_gets_its_platform(self):
+        for architecture, byteorder in (
+            (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
+            (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
+            (platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE),
+        ):
+            platform = self.platform(architecture, byteorder)
+            with self.subTest(platform=platform):
+                relocator = ElfRelocator.for_platform(platform)
+                self.assertEqual(relocator.platform, platform)
+                self.assertEqual(relocator.arch, architecture)
+                self.assertEqual(relocator.byteorder, byteorder)
+
+    def test_single_platform_relocator_needs_no_platform(self):
+        relocator = M68KElfRelocator()
+        self.assertEqual(
+            relocator.platform,
+            self.platform(platforms.Architecture.M68K, platforms.Byteorder.BIG),
+        )
+
+    def test_family_relocator_needs_a_platform(self):
+        relocator_class = type(
+            ElfRelocator.for_platform(
+                self.platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+            )
+        )
+        self.assertRaises(ValueError, relocator_class)
+        self.assertRaises(
+            ValueError,
+            relocator_class,
+            self.platform(platforms.Architecture.M68K, platforms.Byteorder.BIG),
+        )
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):

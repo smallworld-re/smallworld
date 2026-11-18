@@ -25,11 +25,27 @@ R_SH_NUM = 256  # This and higher aren't valid
 
 
 class SuperHElfRelocator(ElfRelocator):
-    """Shared SuperH ELF relocator.
+    """SuperH ELF relocator, for every SuperH generation."""
 
-    Deliberately has no ``arch``/``byteorder``, so ``find_subclass`` never
-    selects it; the concrete subclasses below do.
-    """
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+            ),
+            platforms.Platform(
+                platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+            ),
+            platforms.Platform(
+                platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+            ),
+            platforms.Platform(
+                platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+            ),
+            platforms.Platform(
+                platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+            ),
+        }
+    )
 
     def _pack(self, val: int) -> bytes:
         # `Byteorder`'s values are literally "big"/"little", which is what
@@ -70,26 +86,8 @@ class SuperHElfRelocator(ElfRelocator):
             )
 
 
-class SH2AFPUElfRelocator(SuperHElfRelocator):
-    arch = platforms.Architecture.SUPERH_SH2A_FPU
-    byteorder = platforms.Byteorder.BIG
-
-
-class SH2ElfRelocator(SuperHElfRelocator):
-    arch = platforms.Architecture.SUPERH_SH2
-    byteorder = platforms.Byteorder.BIG
-
-
-class SH1ElfRelocator(SuperHElfRelocator):
-    arch = platforms.Architecture.SUPERH_SH1
-    byteorder = platforms.Byteorder.BIG
-
-
-class SuperH4BEElfRelocator(SuperHElfRelocator):
-    arch = platforms.Architecture.SUPERH_SH4
-    byteorder = platforms.Byteorder.BIG
-
-
-class SuperH4ELElfRelocator(SuperHElfRelocator):
-    arch = platforms.Architecture.SUPERH_SH4
-    byteorder = platforms.Byteorder.LITTLE
+# The names of the relocators SuperHElfRelocator replaced, so pickles that
+# hold one still load.
+SH2AFPUElfRelocator = SuperHElfRelocator
+SuperH4BEElfRelocator = SuperHElfRelocator
+SuperH4ELElfRelocator = SuperHElfRelocator

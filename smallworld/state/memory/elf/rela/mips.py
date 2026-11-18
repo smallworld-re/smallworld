@@ -11,8 +11,14 @@ R_MIPS_JUMP_SLOT = 127
 
 
 class MIPSElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.MIPS32
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        platforms.Platform(architecture, byteorder)
+        for architecture in (
+            platforms.Architecture.MIPS32,
+            platforms.Architecture.MIPS64,
+        )
+        for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         # Unpack a MIPS64 relocation.
@@ -72,14 +78,8 @@ class MIPSElfRelocator(ElfRelocator):
         )
 
 
-class MIPSELElfRelocator(MIPSElfRelocator):
-    byteorder = platforms.Byteorder.LITTLE
-
-
-class MIPS64ElfRelocator(MIPSElfRelocator):
-    arch = platforms.Architecture.MIPS64
-
-
-class MIPS64ELElfRelocator(MIPSElfRelocator):
-    arch = platforms.Architecture.MIPS64
-    byteorder = platforms.Byteorder.LITTLE
+# The names of the relocators MIPSElfRelocator replaced, so pickles that
+# hold one still load.
+MIPSELElfRelocator = MIPSElfRelocator
+MIPS64ElfRelocator = MIPSElfRelocator
+MIPS64ELElfRelocator = MIPSElfRelocator

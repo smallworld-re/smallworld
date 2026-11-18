@@ -1407,6 +1407,11 @@ class ElfExecutable(Executable):
         for name, value in self._tls_defaults().items():
             state.setdefault(name, value)
         self.__dict__.update(state)
+        # Relocators written before they covered several platforms kept no
+        # state; the image's own platform is the one they relocated for.
+        relocator = state.get("_relocator")
+        if relocator is not None and "platform" not in relocator.__dict__:
+            relocator.platform = self.platform
 
 
 __all__ = ["ElfExecutable"]

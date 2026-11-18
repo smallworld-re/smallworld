@@ -15,8 +15,13 @@ R_LARCH_NUM = 127  # This and higher aren't valid
 
 
 class LoongArch64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.LOONGARCH64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
+            )
+        }
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         if rela.type == R_LARCH_JUMP_SLOT or rela.type == R_LARCH_64:
