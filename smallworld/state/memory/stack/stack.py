@@ -137,7 +137,10 @@ class DescendingStack(Stack):
         offset = self.stack_pointer - self.address - value.get_size()
         self[offset] = value
         self.stack_pointer -= value.get_size()
-        return offset
+        # Return the stack pointer after the push (the absolute address of the
+        # value just pushed), as the base Stack.push contract documents -- not
+        # the region-relative offset.
+        return self.stack_pointer
 
 
 __all__ = ["Stack"]

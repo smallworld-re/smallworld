@@ -100,38 +100,50 @@ class BinjaDatabase(Executable):
                 f"Binary Ninja could not open {path!r} – BinaryView is None"
             )
 
-        self.entrypoint = bv.entry_point
+        # load() opens a BinaryView holding a native file handle; ensure it is
+        # closed on every exit path, not just success. Several checks below can
+        # raise between here and the close.
+        try:
+            self.entrypoint = bv.entry_point
 
-        # --- Platform / architecture detection ---
-        if not ignore_platform:
-            hdr_platform = self._platform_for_bv(bv)
-            if self.platform is not None:
-                if self.platform != hdr_platform:
+            # --- Platform / architecture detection ---
+            if not ignore_platform:
+                hdr_platform = self._platform_for_bv(bv)
+                if self.platform is not None:
+                    if self.platform != hdr_platform:
+                        raise ConfigurationError(
+                            "Platform mismatch: "
+                            f"specified {self.platform}, but detected {hdr_platform} from database"
+                        )
+                else:
+                    self.platform = hdr_platform
+                # PlatformDef.for_platform raises ValueError for an unknown
+                # platform; surface it as ConfigurationError like every other
+                # failure in this constructor.
+                try:
+                    self.platdef = PlatformDef.for_platform(hdr_platform)
+                except ValueError as e:
                     raise ConfigurationError(
-                        "Platform mismatch: "
-                        f"specified {self.platform}, but detected {hdr_platform} from database"
-                    )
-            else:
-                self.platform = hdr_platform
-            self.platdef = PlatformDef.for_platform(hdr_platform)
+                        f"No platform definition for detected platform {hdr_platform}"
+                    ) from e
 
-        # --- Base address ---
-        self._determine_base(bv)
+            # --- Base address ---
+            self._determine_base(bv)
 
-        # --- Sections → memory map ---
-        self._map_sections(bv)
+            # --- Sections → memory map ---
+            self._map_sections(bv)
 
-        # --- Executable bounds ---
-        self._map_bounds(bv)
+            # --- Executable bounds ---
+            self._map_bounds(bv)
 
-        # Compute total size from mapped content.
-        for offset, value in self.items():
-            self.size = max(self.size, offset + value.get_size())
+            # Compute total size from mapped content.
+            for offset, value in self.items():
+                self.size = max(self.size, offset + value.get_size())
 
-        # --- Symbols ---
-        self._extract_symbols(bv)
-
-        bv.file.close()
+            # --- Symbols ---
+            self._extract_symbols(bv)
+        finally:
+            bv.file.close()
 
     # ------------------------------------------------------------------
     # Platform detection – generalised for arbitrary binaries

@@ -22,6 +22,7 @@ class LoongArchPlatformDef(PlatformDef):
         "bltu",
         "bgeu",
         "beqz",
+        "bnez",
     }
     # LoongArch follows MIPS' philosophy.
     # Integer comparisons are built into the conditional branch instructions.

@@ -1898,7 +1898,7 @@ class Vfork(CStdModel):
             logger.warning("Calling vfork(); simulating an error")
             self.set_return_value(emulator, -1)
         elif self.follow_parent:
-            logger.warning("Calling vfork(); simulating returning to the child")
+            logger.warning("Calling vfork(); simulating returning to the parent")
             self.set_return_value(emulator, 42)
         else:
             logger.warning("Calling vfork(); simulating returning to the child")

@@ -100,7 +100,7 @@ class POSIXFileDescriptorManager(FileDescriptorManager):
     ):
         if (domain, type, protocol) not in self.SOCKET_CONFIGS:
             raise ConfigurationError(
-                "Unknown domain/type/protocol {domain}, {type}, {protocol}"
+                f"Unknown domain/type/protocol {domain}, {type}, {protocol}"
             )
 
         backing = io.BytesIO(data)

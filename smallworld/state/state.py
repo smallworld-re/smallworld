@@ -832,14 +832,24 @@ class Machine(StatefulSet):
         elif isinstance(value, bytes):
             return value
         elif isinstance(value, int):
-            return value.to_bytes((value.bit_length() + 7) // 8, "big")
+            if value < 0:
+                # A raw negative int has no width here to two's-complement
+                # against; to_bytes(..., signed=False) would raise a cryptic
+                # OverflowError. Callers that need a signed value must supply a
+                # width (e.g. via Register.set_content).
+                raise exceptions.ConfigurationError(
+                    f"cannot concretize negative int {value} without a fixed width"
+                )
+            # bit_length() is 0 for a value of 0, which would yield empty bytes;
+            # use at least one byte, matching concretize_symbols (0 -> b"\x00").
+            return value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big")
         elif isinstance(value, claripy.ast.bv.BV):
             solver = self._build_solver()
             try:
                 (res,) = solver.eval(value, 1)
             except claripy.errors.UnsatError:
                 raise exceptions.UnsatError("No assignment given constraints")
-            return res.to_bytes((res.bit_length() + 7) // 8, "big")
+            return res.to_bytes(max(1, (res.bit_length() + 7) // 8), "big")
         else:
             raise TypeError(f"Unexpected value type {type(value)}")
 
@@ -1268,24 +1278,57 @@ class Machine(StatefulSet):
             raise exceptions.ConfigurationError("You have more than one platform")
         return platforms.pop()
 
+    def _value_covering(self, address: int):
+        """Return (bytes, base, size) of the memory value covering ``address``,
+        or None if no value backs it."""
+        for m in self:
+            if issubclass(type(m), state.memory.Memory):
+                for po, v in m.items():
+                    base = m.address + po
+                    if base <= address < base + v.get_size():
+                        return v.to_bytes(), base, v.get_size()
+        return None
+
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         """Read bytes out of memory if available.
+
+        The result is assembled across adjacent memory values/regions, so a
+        read that spans a value boundary returns the full ``size`` bytes rather
+        than being silently truncated to the first value.
 
         Arguments:
             address: start address of read.
             size: number of bytes to read.
 
         Returns:
-            the bytes read, or None if unavailable.
+            the ``size`` bytes read, or None if ``address`` is not backed by any
+            value at all.
+
+        Raises:
+            ConfigurationError: if the read starts inside a value but the
+                ``[address, address + size)`` range runs into an unbacked hole
+                before ``size`` bytes are collected. A short read is never
+                returned silently.
         """
-        for m in self:
-            if issubclass(type(m), state.memory.Memory):
-                for po, v in m.items():
-                    if m.address + po <= address < m.address + po + v.get_size():
-                        c = v.to_bytes()
-                        o = address - (m.address + po)
-                        return c[o : o + size]
-        return None
+        result = bytearray()
+        pos = address
+        end = address + size
+        while pos < end:
+            covering = self._value_covering(pos)
+            if covering is None:
+                if pos == address:
+                    # Nothing backs the start address.
+                    return None
+                raise exceptions.ConfigurationError(
+                    f"cannot read [{hex(address)}, {hex(end)}): "
+                    f"unmapped hole at {hex(pos)}"
+                )
+            data, base, vsize = covering
+            offset = pos - base
+            take = min(vsize - offset, end - pos)
+            result += data[offset : offset + take]
+            pos += take
+        return bytes(result)
 
 
 __all__ = [

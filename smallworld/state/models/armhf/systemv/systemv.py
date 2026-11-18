@@ -1,4 +1,5 @@
 import struct
+import typing
 
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdCallingContext, CStdModel
@@ -47,10 +48,8 @@ class ArmHFSysVCallingContext(CStdCallingContext):
     _variadic_soft_float = True
     _floats_are_doubles = False
     # AAPCS-VFP passes FP arguments in s0-s15 (16 single-precision) and d0-d7
-    # (8 double-precision). The two banks physically alias (d0 == s0:s1); mixed
-    # float/double back-fill allocation is still approximate (the shared
-    # _fp_reg_offset does not model the overlap), but the pure-float and
-    # pure-double cases need the full-length banks to place arguments correctly.
+    # (8 double-precision), whose banks physically alias (d(k) == s(2k):s(2k+1)).
+    # _next_fp_register below allocates them with the AAPCS back-fill rule.
     _float_arg_regs = [f"s{i}" for i in range(16)]
     _double_arg_regs = [f"d{i}" for i in range(8)]
 
@@ -62,6 +61,41 @@ class ArmHFSysVCallingContext(CStdCallingContext):
     _eight_byte_stack_size = 8
     _float_stack_size = 4
     _double_stack_size = 8
+
+    def _next_fp_register(self, kind: ArgumentType) -> typing.Optional[int]:
+        """Allocate an FP argument register per the AAPCS-VFP back-fill rule.
+
+        Single-precision arguments take the lowest free s register (back-filling
+        holes an aligned double left behind); double-precision arguments take
+        the lowest free even s-pair, i.e. a d register (d(k) == s(2k):s(2k+1)).
+        Once any FP argument is passed on the stack, every not-yet-allocated VFP
+        register is marked unavailable, so a later single-precision argument
+        cannot back-fill past a stacked argument.
+        """
+        # Set of allocated single-precision (s) register indices. Created lazily
+        # because models initialize the calling context through
+        # CStdCallingContext.__init__ directly, bypassing __init__ here.
+        if not hasattr(self, "_vfp_used"):
+            self._vfp_used: typing.Set[int] = set()
+        used = self._vfp_used
+        n = len(self._float_arg_regs)  # 16 single-precision registers
+
+        if kind == ArgumentType.FLOAT:
+            for s in range(n):
+                if s not in used:
+                    used.add(s)
+                    return s
+        else:  # ArgumentType.DOUBLE
+            for d in range(len(self._double_arg_regs)):
+                lo, hi = 2 * d, 2 * d + 1
+                if lo not in used and hi not in used:
+                    used.add(lo)
+                    used.add(hi)
+                    return d
+
+        # Exhausted: mark all remaining VFP registers unavailable.
+        used.update(range(n))
+        return None
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""

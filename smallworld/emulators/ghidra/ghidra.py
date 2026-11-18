@@ -221,12 +221,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if address in self._function_hooks:
             del self._function_hooks[address]
 
-    def _update_access_breakpoints(self) -> None:
-        # Refresh all access breakpoints
-        # There's no way to clear a single access breakpoint;
-        # you need to clear them all and re-apply.
-        return
-
         # Wipe out all access breakpoints
         self._emu.clearAccessBreakpoints()
 
@@ -260,6 +254,39 @@ class GhidraEmulator(AbstractGhidraEmulator):
             addr_range = AddressRangeImpl(start_addr, end_addr)
             self._emu.addAccessBreakpoint(addr_range, self._emu.AccessKind.W)
 
+    def _require_mapped(
+        self,
+        addr: int,
+        size: int,
+        exc: typing.Type[exceptions.EmulationMemoryFailure],
+        verb: str,
+        hooks: typing.Iterable[typing.Tuple[int, int]] = (),
+    ) -> None:
+        # contains_value() only checks the starting byte; a multi-byte access
+        # can begin inside a mapped region and run off its end into unmapped
+        # memory. Validate every byte of [addr, addr + size) and report the
+        # first unmapped one.
+        #
+        # An access directed at a hooked (MMIO) region is a special case: the
+        # region's model owns the access semantics and may legitimately be
+        # declared narrower than the instruction that reads/writes it (e.g. a
+        # 1-byte device polled with a word-sized load). The model, not the
+        # backing store, supplies the value, so skip the span check when the
+        # access begins inside a hooked range. This keeps ordinary RAM strict
+        # -- a read/write that starts in plain memory and runs off the end into
+        # unmapped space is still rejected.
+        for start, end in hooks:
+            if start <= addr < end:
+                return
+
+        missing = self._memory_map.get_missing_ranges((addr, addr + size))
+        if missing:
+            raise exc(
+                f"{verb} of unmapped data",
+                self.read_register("pc"),
+                address=missing[0][0],
+            )
+
     def _process_read_breakpoint(
         self, addr_var: Varnode, out_var: Varnode, direct=False
     ) -> None:
@@ -277,10 +304,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
                 addr = int.from_bytes(addr_bytes, "little")
 
-        if not self._memory_map.contains_value(addr):
-            raise exceptions.EmulationReadUnmappedFailure(
-                "Read of unmapped data", self.read_register("pc"), address=addr
-            )
+        self._require_mapped(
+            addr,
+            out_var.getSize(),
+            exceptions.EmulationReadUnmappedFailure,
+            "Read",
+            self._mem_read_hooks,
+        )
 
         # Dereference the address to get the original data
         addr_space = self._default_space
@@ -318,24 +348,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
     ) -> None:
         check_hookable_range(start, end, "memory read")
         self._mem_read_hooks[(start, end)] = function
-        self._update_access_breakpoints()
 
     def unhook_memory_read(self, start: int, end: int) -> None:
         if (start, end) in self._mem_read_hooks:
             del self._mem_read_hooks[(start, end)]
-            self._update_access_breakpoints()
 
     def hook_memory_reads(
         self,
         function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         self._mem_reads_hook = function
-        self._update_access_breakpoints()
 
     def unhook_memory_reads(self) -> None:
         if self._mem_reads_hook is not None:
             self._mem_reads_hook = None
-            self._update_access_breakpoints()
 
     def _process_write_breakpoint(
         self, addr_var: Varnode, data_var: Varnode, direct=False
@@ -354,10 +380,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
             elif self.platform.byteorder is platforms.Byteorder.LITTLE:
                 addr = int.from_bytes(addr_bytes, "little")
 
-        if not self._memory_map.contains_value(addr):
-            raise exceptions.EmulationWriteUnmappedFailure(
-                "Write of unmapped data", self.read_register("pc"), address=addr
-            )
+        self._require_mapped(
+            addr,
+            len(data),
+            exceptions.EmulationWriteUnmappedFailure,
+            "Write",
+            self._mem_write_hooks,
+        )
 
         if self._mem_writes_hook is not None:
             self._mem_writes_hook(self, addr, len(data), data)
@@ -376,24 +405,20 @@ class GhidraEmulator(AbstractGhidraEmulator):
     ) -> None:
         check_hookable_range(start, end, "memory write")
         self._mem_write_hooks[(start, end)] = function
-        self._update_access_breakpoints()
 
     def unhook_memory_write(self, start: int, end: int) -> None:
         if (start, end) in self._mem_write_hooks:
             del self._mem_write_hooks[(start, end)]
-            self._update_access_breakpoints()
 
     def hook_memory_writes(
         self,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
         self._mem_writes_hook = function
-        self._update_access_breakpoints()
 
     def unhook_memory_writes(self) -> None:
         if self._mem_writes_hook is not None:
             self._mem_writes_hook = None
-            self._update_access_breakpoints()
 
     def step_instruction(self) -> None:
         if not self.machdef.supports_single_step:

@@ -84,4 +84,5 @@ cpu.rdx.set_label("PTR off")
 cpu.rcx.set(gdata.address)
 cpu.rcx.set_label("PTR msg")
 
-machine.analyze(FieldDetectionAnalysis(platform))
+hinter = smallworld.hinting.Hinter()
+machine.analyze(FieldDetectionAnalysis(platform, hinter))

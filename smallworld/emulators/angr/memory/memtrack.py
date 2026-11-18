@@ -74,17 +74,16 @@ class TrackerMemoryMixin(MemoryMixin):
         addrs = list(self.dirty.keys())
         addrs.sort()
         for addr in addrs:
-            code = False
             size = self.dirty[addr]
             if self.id == "reg":
                 name = reg_name_from_offset(self.state.arch, addr, size)
             else:
                 name = f"0x{addr:x}"
-            if code:
-                log(f"\t{name}: <code [{hex(size)} bytes]>")
-            else:
-                val = self.load(addr, size, disable_actions=True)
-                log(f"\t{name}: {val}")
+            # inspect=False mirrors create_hint(): a SimInspect breakpoint firing
+            # during a pp() load could re-enter defaulting/tracking, the
+            # recursion this class's docstring warns about.
+            val = self.load(addr, size, disable_actions=True, inspect=False)
+            log(f"\t{name}: {val}")
 
     def create_hint(self):
         if self.id == "reg":

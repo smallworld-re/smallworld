@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pathlib
+import pickle
 import re
 import signal
 import struct
@@ -14,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tracemalloc
 import types
 import typing
 import unittest
@@ -24,6 +26,19 @@ import capstone
 import claripy
 import lief
 import unicorn
+from abi.test import (  # noqa: F401 - registers the TestCases
+    ABIArgumentReturnQueryTests,
+    ABIEnumAndFeatureTests,
+    ABIImportGraphTests,
+    ABIMaskValidationTests,
+    ABIPreservationQueryTests,
+    ABIRecordIdentityTests,
+    ABIRegistryLoaderTests,
+    ABIResolveTests,
+    ABISpecialRegisterQueryTests,
+    ABIValidationTests,
+    PlatformDefForPlatformTests,
+)
 from harness.coverage import wrap_python_command
 from harness.framework import (
     CaseRunner,
@@ -64,6 +79,8 @@ from smallworld.analyses.colorizer_read_write import (
     RegDvKey,
     RegisterInfo,
     WRGraph,
+    WriteInfo,
+    dvk_info_match,
 )
 from smallworld.analyses.colorizer_summary import ColorizerSummary
 from smallworld.analyses.crash_triage.printer import CrashTriagePrinter
@@ -101,6 +118,8 @@ from smallworld.instructions import Instruction, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
+from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
+from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
@@ -118,7 +137,12 @@ from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
+from smallworld.state.memory.pe.pe import PEExecutable
 from smallworld.state.memory.stack.amd64 import AMD64Stack
+from smallworld.state.memory.stack.loongarch import LoongArch64Stack, LoongArchStack
+from smallworld.state.memory.stack.m68k import M68KStack
+from smallworld.state.memory.stack.msp430 import MSP430Stack
+from smallworld.state.memory.stack.riscv import RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
@@ -141,6 +165,9 @@ from smallworld.state.models.defaultmmio import (
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
+from smallworld.state.models.loongarch64.systemv.systemv import (
+    LoongArch64SysVCallingContext,
+)
 from smallworld.state.models.m68k.systemv.systemv import M68KSysVCallingContext
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
 from smallworld.state.models.mips64el.systemv.systemv import (
@@ -1953,6 +1980,40 @@ class GhidraMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class PlatformDefMetadataTests(unittest.TestCase):
+    """PlatformDef metadata that silently degrades disassembly/analysis.
+
+    Each of these is pure config on a platform definition (no backend), so
+    assert the values directly.
+    """
+
+    @staticmethod
+    def _pdef(arch):
+        platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        return platforms.PlatformDef.for_platform(platform)
+
+    def test_armv6m_thumb_uses_thumb_capstone_mode(self):
+        # SW-081: the Thumb platform inherited CS_MODE_ARM, so a disassembler
+        # built from capstone_mode decoded ARM instead of Thumb.
+        pdef = self._pdef(platforms.Architecture.ARM_V6M_THUMB)
+        self.assertEqual(pdef.capstone_mode, capstone.CS_MODE_THUMB)
+
+    def test_armv7r_has_v7_ghidra_language_id(self):
+        # SW-164: v7R inherited None, skipping the p-code use/def analysis.
+        pdef = self._pdef(platforms.Architecture.ARM_V7R)
+        self.assertEqual(pdef.ghidra_language_id, "ARM:LE:32:v7")
+
+    def test_loongarch_conditional_branches_include_bnez(self):
+        # SW-165: bnez was missing next to its beqz counterpart.
+        pdef = self._pdef(platforms.Architecture.LOONGARCH64)
+        self.assertIn("bnez", pdef.conditional_branch_mnemonics)
+
+    def test_msp430_conditional_branches_include_jne_jnz(self):
+        # SW-166: jne/jnz (jump-if-not-equal) were missing.
+        pdef = self._pdef(platforms.Architecture.MSP430)
+        self.assertLessEqual({"jne", "jnz"}, pdef.conditional_branch_mnemonics)
+
+
 class GhidraMachdefLanguageIdTests(unittest.TestCase):
     """The SLEIGH language id belongs to PlatformDef, not the machine defs.
 
@@ -3565,6 +3626,64 @@ class SparseIOReadTests(unittest.TestCase):
         self.assertEqual(sio.read(20), b"\x00" * 5 + b"ABCDEFGHIJ" + b"\x00" * 5)
 
 
+class _FakePrStatusNote:
+    """Minimal stand-in for a lief CorePrStatus note (only description.tobytes)."""
+
+    class _Desc:
+        def __init__(self, data):
+            self._data = data
+
+        def tobytes(self):
+            return self._data
+
+    def __init__(self, data):
+        self.description = self._Desc(data)
+
+
+class PrStatusParseTests(unittest.TestCase):
+    """coredump prstatus register extraction (SW-170 seg-reg width, SW-172/171
+    truncation guard wired through pr_regs_size)."""
+
+    @staticmethod
+    def _i386():
+        # Bypass __init__ (which needs a real lief ELF core); _parse_prstatus
+        # needs only these attributes plus the class-level coords/offsets.
+        obj = I386PrStatus.__new__(I386PrStatus)
+        obj._registers = {}
+        obj.platform = platforms.Platform(
+            I386PrStatus.architecture, I386PrStatus.byteorder
+        )
+        obj.platdef = platforms.PlatformDef.for_platform(obj.platform)
+        return obj
+
+    def _full_i386_note(self):
+        # pr_regs_off (72) + pr_regs_size (68) = 140-byte register block.
+        return bytearray(b"\x00" * 140)
+
+    def test_full_note_parses_general_register(self):
+        obj = self._i386()
+        data = self._full_i386_note()
+        data[72 + 0x18 : 72 + 0x18 + 4] = b"\xef\xbe\xad\xde"  # eax = 0xDEADBEEF
+        obj._parse_prstatus(_FakePrStatusNote(bytes(data)))
+        self.assertEqual(obj._registers["eax"], 0xDEADBEEF)
+
+    def test_segment_register_reads_low_two_bytes(self):
+        # SW-170: cs is a 2-byte selector in a 4-byte slot; the high bytes are
+        # padding and must not leak into the (2-byte) CPU register.
+        obj = self._i386()
+        data = self._full_i386_note()
+        data[72 + 0x34 : 72 + 0x34 + 4] = b"\x73\x00\xde\xad"  # selector 0x0073
+        obj._parse_prstatus(_FakePrStatusNote(bytes(data)))
+        self.assertEqual(obj._registers["cs"], 0x0073)
+
+    def test_truncated_note_raises(self):
+        # SW-172: a note shorter than the register block must fail loudly, not
+        # silently slice short byte strings into wrong register values.
+        obj = self._i386()
+        with self.assertRaises(exceptions.ConfigurationError):
+            obj._parse_prstatus(_FakePrStatusNote(b"\x00" * 100))
+
+
 class MemoryToBytesTests(unittest.TestCase):
     """Tests for state.memory.Memory.to_bytes."""
 
@@ -3634,6 +3753,18 @@ class MemoryRangeMergeTests(unittest.TestCase):
             [range(0x1000, 0x1005)],
         )
 
+    def test_ranges_uninitialized_skips_overlapping_segments(self):
+        # SW-177: overlapping segments (a 4-byte value at 0 and a 3-byte value
+        # at 2) have no gap between them; the old code emitted a backwards
+        # range(0x1004, 0x1001) here.
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\xaa" * 4, None)  # [0x1000, 0x1003]
+        memory[2] = state.BytesValue(b"\xbb" * 3, None)  # [0x1002, 0x1004]
+        ranges = memory.get_ranges_uninitialized()
+        self.assertTrue(all(r.start <= r.stop for r in ranges))
+        # Only the tail past the union of the two segments is uninitialized.
+        self.assertEqual(ranges, [range(0x1005, 0x100F)])
+
 
 class CheckedBumpAllocatorTests(unittest.TestCase):
     """Tests for state.memory.heap.CheckedBumpAllocator."""
@@ -3689,6 +3820,26 @@ class CheckedBumpAllocatorTests(unittest.TestCase):
             heap.check_access(None, heap.address + 0x1000 - 2, 4, b"AAAA")
 
 
+class MachineConcretizeTests(unittest.TestCase):
+    """state.Machine.concretize value encoding (SW-114 zero, SW-206 negative)."""
+
+    def test_concretize_zero_int_is_one_byte(self):
+        # bit_length() of 0 is 0, so the old code returned empty bytes;
+        # concretize_symbols already encodes 0 as b"\x00".
+        self.assertEqual(state.Machine().concretize(0), b"\x00")
+
+    def test_concretize_zero_bitvector_is_one_byte(self):
+        self.assertEqual(state.Machine().concretize(claripy.BVV(0, 32)), b"\x00")
+
+    def test_concretize_positive_int_is_minimal_big_endian(self):
+        self.assertEqual(state.Machine().concretize(0x4142), b"\x41\x42")
+
+    def test_concretize_negative_int_raises_configuration_error(self):
+        # to_bytes(..., signed=False) would raise a cryptic OverflowError.
+        with self.assertRaises(exceptions.ConfigurationError):
+            state.Machine().concretize(-1)
+
+
 class MachineReadMemoryTests(unittest.TestCase):
     """Tests for state.Machine.read_memory."""
 
@@ -3716,6 +3867,53 @@ class MachineReadMemoryTests(unittest.TestCase):
         machine.add(memory)
         self.assertEqual(machine.read_memory(0x2000, 4), b"\xef\xbe\xad\xde")
         self.assertEqual(machine.read_memory(0x2001, 2), b"\xbe\xad")
+
+    def test_read_memory_assembles_across_adjacent_values(self):
+        # SW-207: a read spanning two adjacent values must assemble the full
+        # result, not truncate to the first value.
+        machine = state.Machine()
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\xaa\xbb\xcc\xdd", None)  # [0x1000, 0x1004)
+        memory[4] = state.BytesValue(b"\xee\xff\x11\x22", None)  # [0x1004, 0x1008)
+        machine.add(memory)
+        self.assertEqual(machine.read_memory(0x1002, 4), b"\xcc\xdd\xee\xff")
+
+    def test_read_memory_raises_on_hole_after_mapped_start(self):
+        # SW-207: a read that starts inside a value but runs into an unbacked
+        # hole must signal clearly, never return a silent short read.
+        machine = state.Machine()
+        memory = state.memory.Memory(0x1000, 0x10)
+        memory[0] = state.BytesValue(b"\x01\x02\x03\x04", None)  # only [0x1000, 0x1004)
+        machine.add(memory)
+        with self.assertRaises(exceptions.ConfigurationError):
+            machine.read_memory(0x1002, 4)  # 0x1004 is an unbacked hole
+
+
+class FuzzHelperTests(unittest.TestCase):
+    """helpers.py fuzz(): exit-point derivation and public export.
+
+    Covers the raw-bytes exit fallback (SW-075/076) and the missing __all__
+    entry (SW-077).
+    """
+
+    def test_raw_bytes_executable_exit_is_whole_span(self):
+        machine = state.Machine()
+        code = state.memory.code.Executable.from_bytes(b"\x90" * 16, 0x1000)
+        machine.add(code)
+        # Raw-bytes code has no `bounds`; the exit is address + capacity. The
+        # old code raised AttributeError on `code.bounds` here.
+        self.assertEqual(helpers._fuzz_exit_points(machine), [0x1000 + 16])
+
+    def test_no_code_raises_configuration_error(self):
+        machine = state.Machine()
+        with self.assertRaises(exceptions.ConfigurationError):
+            helpers._fuzz_exit_points(machine)
+
+    def test_fuzz_is_exported_from_package(self):
+        import smallworld
+
+        self.assertIn("fuzz", helpers.__all__)
+        self.assertIs(smallworld.fuzz, helpers.fuzz)
 
 
 AARCH64_LE_PLATFORM = platforms.Platform(
@@ -4340,6 +4538,147 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
         ctx.add_argument(9, ArgumentType.FLOAT)  # stack slot B
         self.assertEqual(ctx._arg_offset[9] - ctx._arg_offset[8], 8)
 
+    def test_lp64_stack_floats_reserve_eight_bytes(self):
+        # NEW-009 / NEW-011: every SysV model with 8-byte stack slots passes a
+        # spilled float in a full 8-byte slot (verified against the
+        # loongarch64-linux-gnu / mips64[el]-linux-gnuabi64 / riscv64-linux-gnu /
+        # aarch64-linux-gnu / x86_64-linux-gnu toolchains). Eight float args fill
+        # the FP registers; the 9th and 10th spill and must be 8 bytes apart,
+        # not 4.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+            RiscV64SysVCallingContext,
+            AArch64SysVCallingContext,
+            AMD64SysVCallingContext,
+        ):
+            ctx = cls()
+            for i in range(10):
+                ctx.add_argument(i, ArgumentType.FLOAT)
+            self.assertTrue(ctx._on_stack[8] and ctx._on_stack[9], msg=cls.__name__)
+            self.assertEqual(
+                ctx._arg_offset[9] - ctx._arg_offset[8], 8, msg=cls.__name__
+            )
+
+
+class _RegMemEmulator:
+    """Minimal register+memory mock for set_argument/get_argument tests.
+
+    Unwritten memory reads back as zeroes, so a set/get round-trip only
+    succeeds when both sides agree on the byte position within a stack slot.
+    """
+
+    def __init__(self):
+        self.regs: typing.Dict[str, int] = {}
+        self.mem: typing.Dict[int, int] = {}
+
+    def read_register(self, name):
+        return self.regs.get(name, 0)
+
+    def write_register(self, name, value):
+        self.regs[name] = value
+
+    def read_memory(self, addr, size):
+        return bytes(self.mem.get(addr + i, 0) for i in range(size))
+
+    def write_memory(self, addr, data):
+        for i, b in enumerate(data):
+            self.mem[addr + i] = b
+
+
+class SysVBigEndianStackIntTests(unittest.TestCase):
+    """NEW-010: a 4-byte int spilled to a big-endian n64 stack is the low word
+    of its 8-byte slot, so set_argument must place it at the high-addressed end
+    -- where get_argument (whole-slot read then mask) and the guest read it."""
+
+    SP = 0x7000
+
+    def _roundtrip(self, cls, value):
+        ctx = cls()
+        ctx.set_argument_types([ArgumentType.INT] * 10)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        # arg 8 is the first stack int (eight ints fill a0-a7).
+        self.assertTrue(ctx._on_stack[8], msg=cls.__name__)
+        ctx.set_argument(8, emu, value)
+        return ctx.get_argument(8, ArgumentType.INT, emu)
+
+    def test_mips64_big_endian_stack_int_roundtrips(self):
+        # Discriminating: before the fix set_argument writes the value to the
+        # low-addressed half of the slot while get_argument and the guest read
+        # the high-addressed low word, so the value is silently lost.
+        self.assertEqual(
+            self._roundtrip(MIPS64SysVCallingContext, 0x12345678), 0x12345678
+        )
+
+    def test_mips64el_little_endian_stack_int_roundtrips(self):
+        # Little-endian is unaffected (the value already sits at slot+0).
+        self.assertEqual(
+            self._roundtrip(MIPS64ELSysVCallingContext, 0x12345678), 0x12345678
+        )
+
+
+class ArmHFVfpBackfillTests(unittest.TestCase):
+    """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
+
+    ARM's d(k) register aliases the s-pair s(2k):s(2k+1). A double takes the
+    lowest free even pair; a float takes the lowest free single register,
+    back-filling any hole an aligned double left -- until an argument spills,
+    after which no VFP register may be back-filled.
+    """
+
+    @staticmethod
+    def _place(types):
+        ctx = ArmHFSysVCallingContext()
+        for i, t in enumerate(types):
+            ctx.add_argument(i, t)
+        placed = []
+        for i, t in enumerate(types):
+            if ctx._on_stack[i]:
+                placed.append("stack")
+            elif t == ArgumentType.FLOAT:
+                placed.append(ctx._float_arg_regs[ctx._arg_offset[i]])
+            else:
+                placed.append(ctx._double_arg_regs[ctx._arg_offset[i]])
+        return placed
+
+    def test_float_double_float_backfills_the_alignment_hole(self):
+        # The double takes d1 (s2:s3), leaving s1 free; the trailing float must
+        # back-fill s1, not collide with d1's low half at s2.
+        self.assertEqual(
+            self._place([ArgumentType.FLOAT, ArgumentType.DOUBLE, ArgumentType.FLOAT]),
+            ["s0", "d1", "s1"],
+        )
+
+    def test_double_then_float_skips_the_aliased_pair(self):
+        # d0 occupies s0:s1, so the float takes the next free single, s2.
+        self.assertEqual(
+            self._place([ArgumentType.DOUBLE, ArgumentType.FLOAT]),
+            ["d0", "s2"],
+        )
+
+    def test_run_of_floats_then_double_takes_next_even_pair(self):
+        self.assertEqual(
+            self._place([ArgumentType.FLOAT] * 4 + [ArgumentType.DOUBLE]),
+            ["s0", "s1", "s2", "s3", "d2"],
+        )
+
+    def test_seventeenth_float_spills(self):
+        placed = self._place([ArgumentType.FLOAT] * 17)
+        self.assertEqual(placed[:16], [f"s{i}" for i in range(16)])
+        self.assertEqual(placed[16], "stack")
+
+    def test_no_backfill_past_a_stacked_argument(self):
+        # 15 floats fill s0-s14; the double finds no free even pair (only s15
+        # is free) and spills, which marks every remaining VFP register
+        # unavailable -- so the trailing float cannot back-fill s15.
+        placed = self._place(
+            [ArgumentType.FLOAT] * 15 + [ArgumentType.DOUBLE, ArgumentType.FLOAT]
+        )
+        self.assertEqual(placed[15], "stack")  # the double
+        self.assertEqual(placed[16], "stack")  # float cannot back-fill s15
+
 
 class SysVReturnValueConversionTests(unittest.TestCase):
     """Return-value *read* paths (get_return_value / _read_return_*).
@@ -4371,6 +4710,30 @@ class SysVReturnValueConversionTests(unittest.TestCase):
                 {"f0": int.from_bytes(struct.pack("<d", 42.0), "little")}
             )
             self.assertEqual(ctx._read_return_double(emu), 42.0, msg=cls.__name__)
+
+    def test_lp64_int_stack_args_use_8_byte_slots(self):
+        # SW-197 / NEW-008: LoongArch64 LP64D and MIPS64 n64 pass on-stack
+        # integer arguments in 8-byte slots (verified against
+        # loongarch64-linux-gnu / mips64-linux-gnuabi64 compiler output: the
+        # 9th..11th int args land at sp+0, sp+8, sp+16). A _four_byte_stack_size
+        # of 4 would place them at sp+0, sp+4, sp+8 and misalign every stack int
+        # after the first. Eight ints fill a0-a7; the rest spill.
+        for cls in (
+            LoongArch64SysVCallingContext,
+            MIPS64SysVCallingContext,
+            MIPS64ELSysVCallingContext,
+        ):
+            ctx = cls()
+            types = [ArgumentType.INT] * 11
+            for i, t in enumerate(types):
+                ctx.add_argument(i, t)
+            # a0-a7 in registers, not on the stack.
+            for i in range(8):
+                self.assertFalse(ctx._on_stack[i], msg=f"{cls.__name__} arg{i}")
+            # The three spilled ints occupy consecutive 8-byte slots.
+            spilled_offsets = [ctx._arg_offset[i] for i in range(8, 11)]
+            self.assertTrue(all(ctx._on_stack[i] for i in range(8, 11)))
+            self.assertEqual(spilled_offsets, [0, 8, 16], msg=cls.__name__)
 
     def test_m68k_pointer_return_uses_a0_symmetrically(self):
         # m68k SysV returns pointers in a0; set_return_value wrote a0 but
@@ -4671,6 +5034,21 @@ class SocketRecvModelTests(ModelTestCase):
         n = self.call(recv, fd, self.BUF, 64, 0)
         self.assertEqual(n, len(b"Hello, world!"))
         self.assertEqual(self.emu.read_memory(self.BUF, n), b"Hello, world!")
+
+    def test_recv_peek_leaves_data_queued(self):
+        # SW-203: MSG_PEEK (peek=True) must not consume; a following recv sees
+        # the same bytes.
+        sock = self._bytes_socket(b"payload")
+        peeked, _ = sock.recv(True)
+        consumed, _ = sock.recv(False)
+        self.assertEqual(peeked, b"payload")
+        self.assertEqual(consumed, b"payload")
+
+    def test_recv_without_peek_consumes(self):
+        # Regression: a normal recv consumes, so a second recv sees nothing.
+        sock = self._bytes_socket(b"payload")
+        self.assertEqual(sock.recv(False)[0], b"payload")
+        self.assertEqual(sock.recv(False)[0], b"")
 
     def test_recv_on_unreadable_socket_returns_minus_one(self):
         # SW-048: recv() raises FDIOUnsupported; the model must report -1.
@@ -5202,6 +5580,104 @@ class CallocModelTests(ModelTestCase):
         self.assertEqual(ret, 0)
 
 
+class HeapRoomCheckTests(ModelTestCase):
+    """c99/stdlib.py allocator models return NULL when the heap cannot fit the
+    request, and decide that before building the buffer.
+
+    ``b"\\0" * size`` is an argument expression, so it is charged to host RAM
+    before ``allocate()`` can reject it.  A garbage size therefore took the
+    process out rather than failing the allocation.
+    """
+
+    HEAP_ADDR = 0x60000
+    HEAP_SIZE = 0x1000
+    OVERSIZE = 0x10000  # > HEAP_SIZE, but cheap to materialize if we regress
+    HUGE = 1 << 29
+
+    def _model(self, name: str):
+        model = self.lookup(name)
+        model.heap = BumpAllocator(self.HEAP_ADDR, self.HEAP_SIZE)
+        self.emu.map_memory(self.HEAP_ADDR, self.HEAP_SIZE)
+        return model
+
+    def _assert_null_without_allocating(self, name: str, *args) -> None:
+        """NULL, without ever reaching allocate_bytes -- whose argument is the
+        buffer we are trying not to build."""
+        model = self._model(name)
+        reached: typing.List[tuple] = []
+
+        def spy(*args, **kwargs) -> int:
+            reached.append(args)
+            return 0
+
+        model.heap.allocate_bytes = spy
+        self.assertEqual(self.call(model, *args), 0)
+        self.assertEqual(reached, [], "allocate_bytes reached; buffer already built")
+
+    def test_malloc_returns_null(self):
+        self._assert_null_without_allocating("malloc", self.OVERSIZE)
+
+    def test_calloc_returns_null(self):
+        self._assert_null_without_allocating("calloc", 2, self.OVERSIZE // 2)
+
+    def test_realloc_of_null_returns_null(self):
+        self._assert_null_without_allocating("realloc", 0, self.OVERSIZE)
+
+    def test_allocators_still_succeed_when_there_is_room(self):
+        """The NULL path must not swallow allocations that do fit."""
+        model = self._model("malloc")
+        self.assertEqual(self.call(model, 0x10), self.HEAP_ADDR)
+
+    def test_oversized_malloc_does_not_materialize_the_buffer(self):
+        model = self._model("malloc")
+        tracemalloc.start()
+        try:
+            tracemalloc.reset_peak()
+            self.assertEqual(self.call(model, self.HUGE), 0)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 1 << 20, f"allocated {peak} bytes to refuse {self.HUGE}")
+
+    def test_failed_realloc_keeps_the_old_block(self):
+        """C leaves the original allocation untouched when realloc fails."""
+        model = self._model("realloc")
+        ptr = model.heap.allocate_bytes(b"ABCD", "old")
+        self.emu.write_memory(ptr, b"ABCD")
+        self.assertEqual(self.call(model, ptr, self.OVERSIZE), 0)
+        self.assertIn(ptr - model.heap.address, model.heap)
+        self.assertEqual(self.emu.read_memory(ptr, 4), b"ABCD")
+
+    def test_heap_itself_still_raises_when_full(self):
+        """Only the models return NULL; allocate() keeps its contract for the
+        stack and every other Memory user."""
+        heap = BumpAllocator(self.HEAP_ADDR, self.HEAP_SIZE)
+        with self.assertRaisesRegex(ValueError, "Memory is full"):
+            heap.allocate_bytes(b"\0" * self.OVERSIZE, None)
+
+    def test_has_room_agrees_with_allocate(self):
+        """has_room must refuse exactly what allocate() would have."""
+        cases = [(BumpAllocator, ()), (state.memory.heap.CheckedBumpAllocator, (16,))]
+        for cls, extra in cases:
+            for used in (0, 0x100, 0xF00):
+                for size in (0, 1, 0xFF, 0x100, 0xF00, 0xFFF, 0x1000, 0x1001, 0x10000):
+
+                    def fresh():
+                        h = cls(self.HEAP_ADDR, self.HEAP_SIZE, *extra)
+                        if used:
+                            h.allocate_bytes(b"\0" * used, None)
+                        return h
+
+                    with self.subTest(cls=cls.__name__, used=used, size=size):
+                        predicted = fresh().has_room(size)
+                        try:
+                            fresh().allocate_bytes(b"\0" * size, None)
+                            actual = True
+                        except ValueError:
+                            actual = False
+                        self.assertEqual(predicted, actual)
+
+
 class SnprintfModelTests(ModelTestCase):
     """c99/stdio.py Snprintf: honors the size limit."""
 
@@ -5709,6 +6185,101 @@ class TlsDescFixtureTests(unittest.TestCase):
                 model._address,
                 "resolver unbound by re-relocation",
             )
+
+
+class ElfIgnorePlatformTests(unittest.TestCase):
+    """ElfExecutable(ignore_platform=True, platform=None) must load without
+    dereferencing a None platform in _extract_symbols (SW-083)."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "c99",
+        "fabs",
+        "fabs.amd64.elf",
+    )
+
+    def test_load_without_platform_does_not_crash(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            # ignore_platform=True + platform=None leaves self.platform None; the
+            # MIPS symbol-fixup block used to dereference it unconditionally.
+            elf = ElfExecutable(
+                f, platform=None, ignore_platform=True, user_base=0x100000
+            )
+        self.assertIsNone(elf.platform)
+
+
+class ElfPickleCompatibilityTests(unittest.TestCase):
+    """An ElfExecutable pickled before the TLS fields existed (#447) must
+    unpickle with the defaults of an image that has no thread-locals."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "c99",
+        "fabs",
+        "fabs.amd64.elf",
+    )
+
+    TLS_FIELDS = tuple(ElfExecutable._tls_defaults())
+
+    def test_tls_fields_are_declared(self):
+        # __init__ sets the fields through __dict__, so the class body must
+        # declare each one for mypy, and must not give it a class-level value
+        # that would hide a field missing from an old pickle.
+        annotations = ElfExecutable.__annotations__
+        for name in self.TLS_FIELDS:
+            self.assertIn(name, annotations)
+            self.assertNotIn(name, vars(ElfExecutable))
+
+    def test_old_pickle_gets_tls_defaults(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make amd64` in tests/)")
+        with open(self.ELF, "rb") as f:
+            elf = ElfExecutable(f, user_base=0x100000)
+        # Write a pickle the way a pre-#447 smallworld did: without the fields.
+        getstate = ElfExecutable.__getstate__
+
+        def old_getstate(this):
+            state = getstate(this)
+            for name in self.TLS_FIELDS:
+                del state[name]
+            return state
+
+        with mock.patch.object(ElfExecutable, "__getstate__", old_getstate):
+            data = pickle.dumps(elf)
+        old = pickle.loads(data)
+        # fabs declares no thread-locals, so a fresh load holds the defaults.
+        for name in self.TLS_FIELDS:
+            self.assertEqual(getattr(old, name), getattr(elf, name))
+        self.assertEqual(old.tls_image, b"")
+        # The paths that write TLS state work too.
+        old.bind_tlsdesc_resolver(0x1234)
+        self.assertEqual(old._tlsdesc_resolver, 0x1234)
+        # And a current pickle still round-trips unchanged.
+        new = pickle.loads(pickle.dumps(elf))
+        for name in self.TLS_FIELDS:
+            self.assertEqual(getattr(new, name), getattr(elf, name))
+
+
+class ElfCoreFileMissingPlatformTests(unittest.TestCase):
+    """ElfCoreFile with no resolvable platform must fail with a
+    ConfigurationError, not an assert (SW-169). ignore_platform=True skips the
+    header-derived platform block, so self.platform stays None and the parse
+    needs a real platform to build the PrStatus."""
+
+    CORE = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "elf_core",
+        "elf_core.amd64.elf.core",
+    )
+
+    def test_missing_platform_raises_configuration_error(self):
+        if not os.path.exists(self.CORE):
+            self.skipTest(f"{self.CORE} not built (run `make amd64` in tests/)")
+        with open(self.CORE, "rb") as f:
+            with self.assertRaises(exceptions.ConfigurationError):
+                ElfCoreFile(f, platform=None, ignore_platform=True)
 
 
 class TlsDescObjectFileTests(unittest.TestCase):
@@ -6497,7 +7068,7 @@ class _ModelsRecvSocket(SocketIO):
         self._data = data
         self._peer = peer
 
-    def on_recv(self):
+    def on_recv(self, peek):
         return (self._data, self._peer)
 
 
@@ -6597,6 +7168,46 @@ class AMD64StackInitTests(unittest.TestCase):
         argv = [b"foo\0", b"barbaz\0"]  # 11 string bytes
         s = AMD64Stack.initialize_stack(argv, 0x71000000, 0x1000)
         self.assertEqual(s.get_pointer() % 16, 0)
+
+
+class StackRegionCorrectnessTests(unittest.TestCase):
+    """state/memory/stack correctness fixes (SW-179/180/181/182)."""
+
+    def test_descending_push_returns_absolute_stack_pointer(self):
+        # SW-182: push (and the push_* helpers) return the stack pointer after
+        # the push -- the absolute address of the value -- per the base
+        # Stack.push contract, not the region-relative offset.
+        s = AMD64Stack(0x2000, 0x1000)  # stack_pointer starts at 0x3000
+        ret = s.push_integer(0xAABBCCDD, size=8, label="x")
+        self.assertEqual(ret, s.get_pointer())  # absolute SP
+        self.assertEqual(ret, 0x3000 - 8)  # not the region offset (0xFF8)
+
+    def test_initialize_stack_aligns_argc_over_misaligned_region(self):
+        # SW-179: argc must be 16-aligned even when the region top is not. The
+        # old formula aligned only relative to the region top, so a top of
+        # 0x71001008 (8 mod 16) left argc misaligned.
+        argv = [b"foo\0", b"barbaz\0"]
+        s = AMD64Stack.initialize_stack(argv, 0x71000008, 0x1000)
+        self.assertEqual(s.get_pointer() % 16, 0)
+
+    def test_loongarch_stack_inherits_get_pointer(self):
+        # SW-180: the redundant, divergent get_pointer override is gone; the
+        # stack reports the maintained stack_pointer like every other subclass.
+        self.assertNotIn("get_pointer", LoongArchStack.__dict__)
+        s = LoongArch64Stack(0x2000, 0x1000)
+        s.push_integer(0x1122, size=4, label="x")
+        self.assertEqual(s.get_pointer(), s.stack_pointer)
+
+    def test_unimplemented_stack_messages_name_right_arch(self):
+        # SW-181: the NotImplementedError messages named unrelated arches.
+        for cls, arch in (
+            (M68KStack, "M68K"),
+            (MSP430Stack, "MSP430"),
+            (RISCV64Stack, "RISCV64"),
+            (LoongArchStack, "LoongArch"),
+        ):
+            with self.assertRaisesRegex(NotImplementedError, arch):
+                cls.initialize_stack([])
 
 
 class AMD64TlsDescRelocatorTests(unittest.TestCase):
@@ -6888,6 +7499,64 @@ class FindSubclassCacheTests(unittest.TestCase):
         self.assertEqual(one._address, 0x1000)
         self.assertEqual(two._address, 0x2000)
 
+    def test_cached_miss_skips_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "none", cache_key="marker-none"
+            )
+        # A repeated miss must not call check() again: it answers from the cache.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check, cache_key="marker-none")
+        check.assert_not_called()
+
+    def test_uncached_miss_still_traverses(self):
+        # Without a cache_key nothing is memoized: every call walks the whole tree.
+        check = mock.Mock(return_value=False)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        per_call = check.call_count
+        self.assertGreater(per_call, 0)
+        with self.assertRaises(ValueError):
+            utils.find_subclass(self._Base, check)
+        self.assertEqual(check.call_count, 2 * per_call)
+
+    def test_forget_subclass_misses_reenables_the_traversal(self):
+        with self.assertRaises(ValueError):
+            utils.find_subclass(
+                self._Base, lambda x: x.marker == "c", cache_key="marker-c"
+            )
+
+        class _ImplC(self._Base):
+            marker = "c"
+
+        utils.forget_subclass_misses()
+        found = utils.find_subclass(
+            self._Base, lambda x: x.marker == "c", 0, cache_key="marker-c"
+        )
+        self.assertIsInstance(found, _ImplC)
+
+    def test_model_defined_after_a_miss_is_found(self):
+        late_platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        late_name = "__find_subclass_late_model"
+        with self.assertRaises(ValueError):
+            Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+
+        # Defining the class is all it takes: Model.__init_subclass__ drops the
+        # memoized miss, with no explicit call from the test.
+        class _LateModel(Model):
+            name = late_name
+            platform = late_platform
+            abi = platforms.ABI.SYSTEMV
+
+            def model(self, emulator):
+                pass
+
+        found = Model.lookup(late_name, late_platform, platforms.ABI.SYSTEMV, 0x1000)
+        self.assertIsInstance(found, _LateModel)
+
 
 def _amd64_platform():
     return platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
@@ -6940,6 +7609,189 @@ class UnicornRegisterLabelReadTests(unittest.TestCase):
         # the empty-label-set path that used to return "".
         self.emu.write_register_label("al", "tag")
         self.assertIsNone(self.emu.read_register_label("ah"))
+
+
+class ModelGuestSizeBoundsTests(unittest.TestCase):
+    """Models must test a guest-supplied size before building a buffer of it.
+
+    memset built `bytes([val]) * n` with n straight from the size register, so
+    the fill was charged to host RAM before write_memory could refuse it.
+    Harnessing libjpeg.jinit_c_master_control called memset with
+    n = 463,889,665,536 and the worker was OOM-killed. Driven through a real
+    UnicornEmulator rather than the model mock, since the bound comes from the
+    emulator's memory map.
+    """
+
+    HEAP = 0x60000
+    SIZE = 0x1000
+    HUGE = 463889665536  # the size the libjpeg run actually passed
+
+    def setUp(self):
+        self.plat = _amd64_platform()
+        self.emu = emulators.UnicornEmulator(self.plat)
+        self.emu.map_memory(self.HEAP, self.SIZE)
+
+    def _memset(self, ptr, val, n):
+        model = Model.lookup("memset", self.plat, platforms.ABI.SYSTEMV, 0x10004)
+        for reg, v in zip(["rdi", "rsi", "rdx"], [ptr, val, n]):
+            self.emu.write_register(reg, v)
+        model.model(self.emu)
+
+    def test_memset_with_a_guest_sized_fill_is_refused(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self._memset(self.HEAP, 0x41, self.HUGE)
+
+    def test_memset_within_the_mapped_region_still_works(self):
+        self._memset(self.HEAP, 0x41, 64)
+        self.assertEqual(self.emu.read_memory(self.HEAP, 4), b"AAAA")
+
+    def test_memset_straddling_the_end_of_the_region_is_refused(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self._memset(self.HEAP + self.SIZE - 8, 0x41, 64)
+
+    def test_memset_of_zero_bytes_keeps_its_existing_behaviour(self):
+        """An empty write has always raised; the new guard must not mask it
+        by returning early on size 0."""
+        with self.assertRaisesRegex(ValueError, "memory write cannot be empty"):
+            self._memset(self.HEAP, 0x41, 0)
+
+    def test_a_negative_size_is_not_mapped(self):
+        """Zero is vacuously mapped, but a guard must not call nonsense safe.
+        The underlying range test answers True for an inverted range, so this
+        has to be handled explicitly rather than left to it."""
+        self.assertFalse(self.emu.is_memory_mapped(self.HEAP, -8))
+        self.assertFalse(self.emu.is_memory_mapped(0x900000, -8))
+        self.assertTrue(self.emu.is_memory_mapped(self.HEAP, 0))
+        self.assertTrue(self.emu.is_memory_mapped(0x900000, 0))
+
+    def test_base_implementation_matches_the_unicorn_override(self):
+        """Every non-unicorn engine inherits Emulator.is_memory_mapped, so the
+        two must agree -- including across adjacent and disjoint regions."""
+        from smallworld.emulators.emulator import Emulator
+
+        self.emu.map_memory(self.HEAP + self.SIZE, self.SIZE)  # adjacent
+        self.emu.map_memory(self.HEAP + 0x8000, self.SIZE)  # disjoint
+        for addr in (
+            0x0,
+            self.HEAP - 8,
+            self.HEAP,
+            self.HEAP + self.SIZE - 8,
+            self.HEAP + self.SIZE,
+            self.HEAP + 0x8000,
+        ):
+            for size in (-8, 0, 1, 8, self.SIZE, self.SIZE * 2, 1 << 40):
+                with self.subTest(addr=hex(addr), size=size):
+                    self.assertEqual(
+                        self.emu.is_memory_mapped(addr, size),
+                        Emulator.is_memory_mapped(self.emu, addr, size),
+                    )
+
+    def test_is_memory_mapped_agrees_with_a_per_byte_check(self):
+        for start in (0x0, self.HEAP - 8, self.HEAP, self.HEAP + self.SIZE - 8):
+            for size in (0, 1, 8, self.SIZE, self.SIZE * 2):
+                with self.subTest(start=hex(start), size=size):
+                    brute = all(
+                        self.emu._is_address_mapped(a)
+                        for a in range(start, start + size)
+                    )
+                    self.assertEqual(self.emu.is_memory_mapped(start, size), brute)
+
+
+class UnicornMemoryBoundsTests(unittest.TestCase):
+    """Sized memory operations are bounded by the guest's map, not sys.maxsize.
+
+    A size arriving from an emulated program is unconstrained. unicorn's binding
+    does ``ctypes.create_string_buffer(size)`` before uc_mem_read validates the
+    range, so an unmapped read was charged to host RAM -- zero-filled, so
+    resident -- before anything checked it. Harnessing a libjpeg function this
+    way mapped 432 GiB and was OOM-killed. The label paths were worse: they walk
+    the range a byte at a time, and the write side stores one dict entry per
+    byte.
+    """
+
+    BASE = 0x1000
+    SIZE = 0x1000
+    HUGE = 432 * 1024**3
+    UNMAPPED = 0x900000
+
+    def setUp(self):
+        self.emu = emulators.UnicornEmulator(_amd64_platform())
+        self.emu.map_memory(self.BASE, self.SIZE)
+
+    def test_huge_unmapped_read_never_reaches_the_engine(self):
+        """The buffer is built inside engine.mem_read, so not getting there is
+        the property that matters -- deterministic, unlike watching RSS."""
+        reached = []
+
+        def spy(*args, **kwargs):
+            reached.append(args)
+            return b""
+
+        self.emu.engine.mem_read = spy
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            self.emu.read_memory(self.UNMAPPED, self.HUGE)
+        # _error disassembles the faulting instruction, so a small read at the
+        # pc is expected; what must not happen is the oversized one.
+        self.assertEqual(
+            [a for a in reached if len(a) > 1 and a[1] == self.HUGE],
+            [],
+            "mem_read reached with the huge size; the buffer was built",
+        )
+
+    def test_huge_unmapped_write_never_reaches_the_engine(self):
+        reached = []
+
+        def spy(*args, **kwargs):
+            reached.append(args)
+
+        self.emu.engine.mem_write = spy
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory(self.UNMAPPED, b"A" * 32)
+        self.assertEqual(reached, [])
+
+    def test_label_read_over_a_huge_range_terminates(self):
+        """Used to be a range() walk: 463 billion iterations at this size."""
+        self.emu.write_memory_label(self.BASE, 8, "tag")
+        self.assertEqual(self.emu.read_memory_label(self.BASE, self.HUGE), "tag")
+
+    def test_label_read_still_finds_nothing_outside_the_labeled_bytes(self):
+        self.emu.write_memory_label(self.BASE, 8, "tag")
+        self.assertIsNone(self.emu.read_memory_label(self.BASE + 8, self.HUGE))
+
+    def test_label_write_to_an_unmapped_range_stores_nothing(self):
+        """One dict entry per byte, so this is the bigger bomb of the two."""
+        before = len(self.emu.label.get("mem", {}))
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory_label(self.UNMAPPED, self.HUGE, "tag")
+        self.assertEqual(len(self.emu.label.get("mem", {})), before)
+
+    def test_ordinary_accesses_are_unchanged(self):
+        self.assertEqual(len(self.emu.read_memory(self.BASE, 16)), 16)
+        self.emu.write_memory(self.BASE, b"A" * 8)
+        self.assertEqual(self.emu.read_memory(self.BASE, 8), b"A" * 8)
+        self.assertEqual(self.emu.read_memory(self.BASE, 0), b"")
+
+    def test_access_straddling_the_end_of_a_region_still_fails(self):
+        edge = self.BASE + self.SIZE - 8
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            self.emu.read_memory(edge, 32)
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            self.emu.write_memory(edge, b"A" * 32)
+
+    def test_range_test_agrees_with_a_per_byte_check(self):
+        """The O(log n) form must answer exactly what the old per-byte walk did."""
+        self.emu.map_memory(0x8000, 0x1000)
+        for start in (0x0, 0xFF8, self.BASE, self.BASE + 0xFF0, 0x7FF8, 0x8FF8):
+            for size in (0, 1, 8, 0x1000, 0x2000):
+                with self.subTest(start=hex(start), size=size):
+                    brute = all(
+                        self.emu._is_address_mapped(a)
+                        for a in range(start, start + size)
+                    )
+                    self.assertEqual(
+                        self.emu._is_address_range_mapped((start, start + size)),
+                        brute,
+                    )
 
 
 class UnicornUnsupportedRegisterTests(unittest.TestCase):
@@ -7102,6 +7954,45 @@ class AngrNWBTAnalysisInitTests(unittest.TestCase):
         self.assertEqual(analysis.steps_left, 10)
 
 
+class HinterSendTests(unittest.TestCase):
+    """hinting.Hinter.send(): hot-path serialization guard (SW-078) and
+    exception safety (SW-162)."""
+
+    @staticmethod
+    def _hint():
+        return hinting.Hint(message="hello")
+
+    def test_no_serialization_when_debug_disabled(self):
+        # SW-078: with DEBUG output off, send() must not serialize the hint.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=False
+        ):
+            with mock.patch("smallworld.hinting.hinting.json.dumps") as dumps:
+                hinting.Hinter().send(self._hint())
+        dumps.assert_not_called()
+
+    def test_serializes_when_debug_enabled(self):
+        # Regression: DEBUG on still serializes the hint for the log line.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=True
+        ):
+            with mock.patch("smallworld.hinting.hinting.json.dumps") as dumps:
+                hinting.Hinter().send(self._hint())
+        dumps.assert_called_once()
+
+    def test_keyboard_interrupt_propagates(self):
+        # SW-162: a KeyboardInterrupt raised mid-serialization must propagate,
+        # not be swallowed by the (previously bare) except.
+        with mock.patch(
+            "smallworld.hinting.hinting.logger.isEnabledFor", return_value=True
+        ):
+            with mock.patch(
+                "smallworld.hinting.hinting.json.dumps", side_effect=KeyboardInterrupt
+            ):
+                with self.assertRaises(KeyboardInterrupt):
+                    hinting.Hinter().send(self._hint())
+
+
 class FieldDetectionFilterTests(unittest.TestCase):
     """FieldDetectionFilter must accept a hinter and register with it.
 
@@ -7165,10 +8056,19 @@ class FieldDetectionFilterTests(unittest.TestCase):
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxInterruptDispatcherTests(unittest.TestCase):
-    """Exactly one processor-level InterruptHook dispatcher is registered.
+    """Exactly one processor-level InterruptHook dispatcher is registered, and
+    it fires BOTH the global and per-number handlers.
 
-    The old code registered a second InterruptHook when hook_interrupt()
-    was followed by hook_interrupts(), double-firing handlers.
+    Two properties are checked:
+
+    - Only one InterruptHook is registered no matter which order hook_interrupt
+      / hook_interrupts are called in (the old code registered a second one,
+      double-firing every handler).
+    - A hooked interrupt number runs the global handler AND the per-number
+      handler (global first), matching the InterruptHookable contract as
+      implemented by the Unicorn and Panda backends. The old dispatcher ran the
+      per-number handler *instead of* the global one (SW-072), so a specific
+      hook silently suppressed the catch-all.
     """
 
     def setUp(self):
@@ -7178,13 +8078,16 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.emu = emulators.StyxEmulator(self.platform)
         self.per_calls = []
         self.glob_calls = []
+        self.order = []
 
     def _per_handler(self, emu):
         self.per_calls.append(emu)
+        self.order.append(("per",))
         return True
 
     def _glob_handler(self, emu, intno):
         self.glob_calls.append(intno)
+        self.order.append(("glob", intno))
         return True
 
     def _capture_dispatchers(self, *hook_calls):
@@ -7219,24 +8122,28 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
         self.assertEqual(len(captured), len(interrupt_registrations))
         return captured
 
+    def _assert_both_fire(self, dispatcher):
+        # A hooked interrupt number fires the global handler AND the per-number
+        # handler, global first.
+        dispatcher(object(), 3)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3])
+        self.assertEqual(self.order, [("glob", 3), ("per",)])
+
+        # An unhooked number fires only the global handler (no per-number hook
+        # for it), and does not re-fire the per-number handler.
+        dispatcher(object(), 5)
+        self.assertEqual(self.per_calls, [self.emu])
+        self.assertEqual(self.glob_calls, [3, 5])
+        self.assertEqual(self.order, [("glob", 3), ("per",), ("glob", 5)])
+
     def test_per_number_then_global_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
             lambda: self.emu.hook_interrupt(3, self._per_handler),
             lambda: self.emu.hook_interrupts(self._glob_handler),
         )
         self.assertEqual(len(dispatchers), 1)
-
-        dispatcher = dispatchers[0]
-
-        # A hooked interrupt number fires ONLY the per-number handler, once.
-        dispatcher(object(), 3)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [])
-
-        # An unhooked number falls through to the global handler, once.
-        dispatcher(object(), 5)
-        self.assertEqual(self.per_calls, [self.emu])
-        self.assertEqual(self.glob_calls, [5])
+        self._assert_both_fire(dispatchers[0])
 
     def test_global_then_per_number_registers_single_dispatcher(self):
         dispatchers = self._capture_dispatchers(
@@ -7244,13 +8151,36 @@ class StyxInterruptDispatcherTests(unittest.TestCase):
             lambda: self.emu.hook_interrupt(3, self._per_handler),
         )
         self.assertEqual(len(dispatchers), 1)
+        self._assert_both_fire(dispatchers[0])
 
-        dispatcher = dispatchers[0]
-        dispatcher(object(), 3)
+    def test_per_number_only_still_fires_without_global(self):
+        # With no global hook registered, a hooked number still fires its
+        # per-number handler (and nothing else).
+        dispatchers = self._capture_dispatchers(
+            lambda: self.emu.hook_interrupt(3, self._per_handler),
+        )
+        self.assertEqual(len(dispatchers), 1)
+        dispatchers[0](object(), 3)
         self.assertEqual(self.per_calls, [self.emu])
         self.assertEqual(self.glob_calls, [])
-        dispatcher(object(), 5)
-        self.assertEqual(self.glob_calls, [5])
+
+
+class StyxStubProgramFdTests(unittest.TestCase):
+    """The RawLoader stub tempfile handle is closed once its path is captured.
+
+    Only the path is needed after target_program is set; leaving the handle
+    open leaked a file descriptor until GC (SW-149).
+    """
+
+    def test_stub_handle_closed_but_file_retained(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # Handle is closed (no leaked fd)...
+        self.assertTrue(emu._stub_program.closed)
+        # ...but the file is retained on disk for the loader (delete=False).
+        self.assertTrue(os.path.exists(emu._stub_program.name))
 
 
 class RangeCollectionMissingRangesSignatureTests(unittest.TestCase):
@@ -7390,6 +8320,129 @@ class GhidraDefaultSpaceCacheTests(unittest.TestCase):
         self.assertTrue(emu._default_space.equals(expected))
 
 
+class GhidraMultiByteBoundsCheckTests(unittest.TestCase):
+    """Read/write guards must validate every byte of a multi-byte access.
+
+    The old guard called ``contains_value(addr)``, which only checks the
+    starting byte, so an access beginning inside a region but running off its
+    end straddled into unmapped memory without raising. ``_require_mapped``
+    validates the whole span and reports the first unmapped byte.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.emu = _ghidra_concrete_emulator(platforms.Architecture.X86_64)
+
+    @staticmethod
+    def _map(*ranges):
+        mm = utils.RangeCollection()
+        for r in ranges:
+            mm.add_range(r)
+        return mm
+
+    def _run_with_map(self, mm, fn):
+        # Swap in a private memory map so the shared cached emulator is never
+        # polluted, then restore it.
+        saved = self.emu._memory_map
+        self.emu._memory_map = mm
+        try:
+            return fn(self.emu)
+        finally:
+            self.emu._memory_map = saved
+
+    def test_multibyte_read_straddling_region_end_is_rejected(self):
+        def check(emu):
+            # Fully inside the region: must not raise.
+            emu._require_mapped(
+                0x1000, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+            )
+            # Last mapped byte is 0x1FFF; a 4-byte read from 0x1FFE runs to
+            # 0x2002, off the end of the region.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE, 4, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            # Reports the first unmapped byte, not the (mapped) start address.
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_multibyte_write_straddling_region_end_is_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationWriteUnmappedFailure, "Write"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_access_spanning_a_hole_between_regions_is_rejected(self):
+        def check(emu):
+            # Two regions with a one-page gap; an 8-byte read at the end of the
+            # first region crosses the hole.
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFC, 8, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x4000)), check)
+
+    def test_single_unmapped_byte_still_rejected(self):
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+                emu._require_mapped(
+                    0x3000, 1, exceptions.EmulationReadUnmappedFailure, "Read"
+                )
+
+        self._run_with_map(self._map((0x1000, 0x2000)), check)
+
+    def test_wide_access_into_narrow_hooked_region_is_allowed(self):
+        # An MMIO model registers its region both in the memory map (at its
+        # true, possibly sub-word size) and as a ranged access hook. The model
+        # owns the access, so a wider-than-region load/store beginning inside
+        # the hook must NOT raise -- even though the trailing bytes fall outside
+        # the mapped region. (Regression: the integration corpus signals success
+        # by reading a 1-byte sentinel with a word-sized load.)
+        def check(emu):
+            hook = (0x3000, 0x3001)
+            # 4-byte read starting on the 1-byte hooked region: allowed.
+            emu._require_mapped(
+                0x3000,
+                4,
+                exceptions.EmulationReadUnmappedFailure,
+                "Read",
+                [hook],
+            )
+            # Same for a write.
+            emu._require_mapped(
+                0x3000,
+                8,
+                exceptions.EmulationWriteUnmappedFailure,
+                "Write",
+                [hook],
+            )
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+    def test_wide_access_outside_hooked_region_still_rejected(self):
+        # The exemption keys off the access's starting byte. A read that begins
+        # in plain RAM and runs off its end is rejected even when an unrelated
+        # hooked region exists elsewhere.
+        def check(emu):
+            with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as cm:
+                emu._require_mapped(
+                    0x1FFE,
+                    4,
+                    exceptions.EmulationReadUnmappedFailure,
+                    "Read",
+                    [(0x3000, 0x3001)],
+                )
+            self.assertEqual(cm.exception.address, 0x2000)
+
+        self._run_with_map(self._map((0x1000, 0x2000), (0x3000, 0x3001)), check)
+
+
 class GhidraMips64DelaySlotMnemonicTests(unittest.TestCase):
     """A missing comma fused "bne", "bnez" into one "bnebnez" entry."""
 
@@ -7447,18 +8500,19 @@ class _GhidraFakeConcretePair:
 
 
 class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
-    """read_memory_symbolic must build concrete BVs in platform byte order.
+    """read_memory_symbolic returns a full-width BV holding the byte sequence.
 
-    The old fallback used claripy.BVV(bytes), which always interprets the
-    buffer big-endian, disagreeing with the little-endian interpretation
-    used everywhere else in the ghidra symbolic emulator.
+    Per the documented contract (state.py) it returns the bytes in memory
+    order -- first byte most significant -- so it agrees with angr (the
+    oracle) and the triton emulator, rather than the platform-endianness
+    integer SymZ3 stores internally.
     """
 
     @classmethod
     def setUpClass(cls):
         cls.emu = _ghidra_symbolic_amd64_emulator()
 
-    def test_concrete_fallback_uses_platform_byte_order(self):
+    def test_concrete_fallback_returns_byte_sequence(self):
         emu = self.emu
         data = bytes(range(0x11, 0x19))
         emu.map_memory(0x4000, 0x1000)
@@ -7470,9 +8524,9 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
             emu._read_memory_pair = original
         self.assertFalse(bv.symbolic)
         self.assertEqual(bv.size(), len(data) * 8)
-        self.assertEqual(bv.concrete_value, int.from_bytes(data, "little"))
+        self.assertEqual(bv.concrete_value, int.from_bytes(data, "big"))
 
-    def test_written_memory_reads_back_in_platform_byte_order(self):
+    def test_written_memory_reads_back_as_byte_sequence(self):
         emu = self.emu
         data = b"\x99\x88\x77\x66\x55\x44\x33\x22"
         emu.map_memory(0x5000, 0x1000)
@@ -7480,10 +8534,12 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
         bv = emu.read_memory_symbolic(0x5000, len(data))
         self.assertFalse(bv.symbolic)
         self.assertEqual(bv.size(), len(data) * 8)
-        self.assertEqual(bv.concrete_value, int.from_bytes(data, "little"))
+        self.assertEqual(bv.concrete_value, int.from_bytes(data, "big"))
+        # read_memory_content returns the raw bytes; read_memory_symbolic is
+        # the same bytes in memory order (first byte most significant).
         self.assertEqual(
             bv.concrete_value,
-            int.from_bytes(emu.read_memory_content(0x5000, len(data)), "little"),
+            int.from_bytes(emu.read_memory_content(0x5000, len(data)), "big"),
         )
 
 
@@ -7987,6 +9043,91 @@ class PandaWriteMemoryContentTests(unittest.TestCase):
         self.assertEqual(chunks, [(address, content)])
 
 
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaMips64MmioBoundsTests(unittest.TestCase):
+    """The MIPS64 MMIO guard rejects writes into the reserved [2**32, ...)
+    space, but a write whose exclusive end lands exactly on 2**32 (last byte
+    at 2**32 - 1) stays in normal memory and must be allowed (SW-147)."""
+
+    def setUp(self):
+        self.emu = _PandaEmulator.__new__(_PandaEmulator)
+        self.emu.PAGE_SIZE = _PANDA_PAGE
+        self.emu.platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.emu.mapped_pages = utils.RangeCollection()
+        self.emu.panda_thread = mock.Mock()
+
+    def test_write_ending_exactly_at_2_32_is_allowed(self):
+        address = 2**32 - 4
+        self.emu.write_memory_content(address, b"\x00\x00\x00\x00")
+        self.assertEqual(
+            _panda_write_chunks(self.emu), [(address, b"\x00\x00\x00\x00")]
+        )
+
+    def test_write_ending_past_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32 - 4, b"\x00" * 5)
+
+    def test_write_starting_at_2_32_is_rejected(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.emu.write_memory_content(2**32, b"\x00\x00\x00\x00")
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaRegisterAccessExceptionTests(unittest.TestCase):
+    """read/write_register_content must not swallow BaseException via a bare
+    ``except:`` (SW-146). KeyboardInterrupt/SystemExit propagate; only ordinary
+    errors are wrapped as AnalysisError."""
+
+    def setUp(self):
+        self.emu = _make_bare_panda_emulator()
+        self.emu.cpu = mock.Mock()
+        md = self.emu.panda_thread.machdef
+        md.check_panda_reg.return_value = True
+        # "pc" maps to a distinct reg so a plain register name isn't mistaken
+        # for the program counter and short-circuited.
+        md.panda_reg.side_effect = lambda reg, *a, **k: (
+            "PC_REG" if reg == "pc" else "r1"
+        )
+
+    def test_read_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.read_register_content("r1")
+
+    def test_read_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.get_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.read_register_content("r1")
+
+    def test_write_propagates_keyboardinterrupt(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.emu.write_register_content("r1", 0x1234)
+
+    def test_write_wraps_ordinary_error(self):
+        self.emu.panda_thread.panda.arch.set_reg.side_effect = RuntimeError("boom")
+        with self.assertRaises(exceptions.AnalysisError):
+            self.emu.write_register_content("r1", 0x1234)
+
+
+@unittest.skipUnless(_PANDA_AVAILABLE, "pandare2 not installed")
+class PandaCurrentInstructionUndecodableTests(unittest.TestCase):
+    """current_instruction returns None (not raises) when the bytes at pc don't
+    decode (SW-148). The on_insn callback relies on the falsy return to skip
+    undecodable instructions gracefully, so this pins that contract; the fix
+    only makes the Optional return type honest."""
+
+    def test_undecodable_bytes_return_none(self):
+        emu = _make_bare_panda_emulator()
+        emu.pc = 0x400000
+        emu.read_memory = mock.Mock(return_value=b"\x00" * 15)
+        emu.disassembler = mock.Mock()
+        emu.disassembler.disasm.return_value = []
+        self.assertIsNone(emu.current_instruction())
+
+
 _FUZZFIX_UNICORNAFL_AVAILABLE = importlib.util.find_spec("unicornafl") is not None
 
 
@@ -8292,6 +9433,43 @@ class CrashTriagePrinterUnsatOperandTests(unittest.TestCase):
         self.assertIs(printed[0], expr_unsat)
 
 
+class CrashTriageMemoryMessageTests(unittest.TestCase):
+    """_get_early_hint labels write/fetch crashes correctly (SW-116).
+
+    The MEM_WRITE and MEM_FETCH branches were copy-pasted from MEM_READ and
+    still emitted the "read" message, mislabeling the crash for the user.
+    """
+
+    def _message_for(self, cause):
+        from smallworld.analyses.crash_triage.crash_triage import (
+            CrashResults,
+            CrashTriage,
+        )
+
+        triage = CrashTriage(hinting.Hinter())
+        crash = CrashResults(trace=[0x1000], cause=cause, mem_operands=None)
+        return triage._get_early_hint(crash, None).message.lower()
+
+    def test_write_crash_message_says_write(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        msg = self._message_for(CrashCause.MEM_WRITE)
+        self.assertIn("write", msg)
+        self.assertNotIn("read", msg)
+
+    def test_fetch_crash_message_says_fetch(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        msg = self._message_for(CrashCause.MEM_FETCH)
+        self.assertIn("fetch", msg)
+        self.assertNotIn("read", msg)
+
+    def test_read_crash_message_still_says_read(self):
+        from smallworld.analyses.crash_triage.crash_triage import CrashCause
+
+        self.assertIn("read", self._message_for(CrashCause.MEM_READ))
+
+
 class PointerFinderPointerHintTests(unittest.TestCase):
     """find_the_pointer must put the found operand in PointerHint.pointer.
 
@@ -8505,6 +9683,29 @@ class ColorizerReadWriteFirstObsGuardTests(unittest.TestCase):
         info = node.reads[0].info
         self.assertIsInstance(info, MemoryLvalInfo)
         self.assertEqual(info.addresses, [(3, 0xBEEF0)])
+
+
+class DvkInfoMatchMemoryTests(unittest.TestCase):
+    """dvk_info_match compares the new-value flag for memory lvals too (SW-054),
+    not just for registers -- otherwise a read and write that differ only in
+    `new` get wrongly deduped."""
+
+    @staticmethod
+    def _mem(new, is_new):
+        bsid = object()  # shared instance so dvk.bsid == rw.info.bsid holds
+        dvk = MemLvalDvKey(
+            pc=0x1000, size=4, read=False, new=new, color=None, bsid=bsid
+        )
+        info = MemoryLvalInfo(color=None, is_new=is_new, bsid=bsid, size=4)
+        return dvk, WriteInfo(info=info)
+
+    def test_matches_when_new_flag_agrees(self):
+        dvk, rw = self._mem(new=True, is_new=True)
+        self.assertTrue(dvk_info_match(dvk, rw))
+
+    def test_does_not_match_when_new_flag_differs(self):
+        dvk, rw = self._mem(new=True, is_new=False)
+        self.assertFalse(dvk_info_match(dvk, rw))
 
 
 class ColorizerBigEndianStoreLoadTests(unittest.TestCase):
@@ -9053,6 +10254,46 @@ class PEBaseRelocationTests(unittest.TestCase):
         self.assertEqual(loaded, (original + delta) & 0xFFFFFFFF)
 
 
+class PEMapSectionTests(unittest.TestCase):
+    """PEExecutable._map_section maps the virtual size even when a section's raw
+    (file) size exceeds its page-aligned virtual size (SW-089)."""
+
+    class _Section:
+        def __init__(self, offset, size, virtual_address, virtual_size):
+            self.offset = offset
+            self.size = size
+            self.virtual_address = virtual_address
+            self.virtual_size = virtual_size
+            self.characteristics = 0
+
+    @staticmethod
+    def _pe():
+        pe = PEExecutable.__new__(PEExecutable)
+        state.memory.Memory.__init__(pe, 0x400000, 0x100000)
+        pe._page_size = 0x1000
+        pe.bounds = utils.RangeCollection()
+        return pe
+
+    def test_raw_larger_than_virtual_maps_virtual_size(self):
+        pe = self._pe()
+        # virtual_size 0x10 -> page-aligned 0x1000; raw size 0x2000 exceeds it.
+        # The old code required exact equality and raised ConfigurationError.
+        sect = self._Section(
+            offset=0, size=0x2000, virtual_address=0x1000, virtual_size=0x10
+        )
+        pe._map_section(sect, b"\xaa" * 0x2000)
+        self.assertEqual(len(pe[0x1000].to_bytes()), 0x1000)
+
+    def test_raw_shorter_than_virtual_zero_pads(self):
+        pe = self._pe()
+        # Regression: a section shorter than its virtual size is still padded.
+        sect = self._Section(
+            offset=0, size=0x40, virtual_address=0x2000, virtual_size=0x800
+        )
+        pe._map_section(sect, b"\xbb" * 0x40)
+        self.assertEqual(len(pe[0x2000].to_bytes()), 0x1000)
+
+
 class MemoizingReplacementSolverTests(unittest.TestCase):
     """Regression tests for the hardened crash-triage replacement solver.
 
@@ -9189,6 +10430,628 @@ class StrxfrmStrcollLocaleRefusalTests(unittest.TestCase):
         model.locale = "de_DE.UTF-8"
         with self.assertRaises(UnsupportedModelError):
             model.model(mock.MagicMock())
+
+
+class EmulatorHygieneTests(unittest.TestCase):
+    """Base-class hygiene in smallworld/emulators/emulator.py.
+
+    SW-136: _exit_points must be an instance attribute only, never a misleading
+    class-level shared set. SW-137: satisfiable() must not carry a mutable list
+    default -- the None default holds across the base contract and all three
+    concrete overrides that copy the signature.
+    """
+
+    @staticmethod
+    def _satisfiable_default(cls):
+        import inspect
+
+        return (
+            inspect.signature(cls.satisfiable).parameters["extra_constraints"].default
+        )
+
+    def test_exit_points_not_class_level(self):
+        from smallworld.emulators.emulator import Emulator
+
+        self.assertNotIn("_exit_points", vars(Emulator))
+
+    def test_base_satisfiable_default_is_none(self):
+        from smallworld.emulators.emulator import ConstrainedEmulator
+
+        self.assertIsNone(self._satisfiable_default(ConstrainedEmulator))
+
+    def test_angr_satisfiable_default_is_none(self):
+        from smallworld.emulators.angr.angr import AngrEmulator
+
+        self.assertIsNone(self._satisfiable_default(AngrEmulator))
+
+    def test_triton_satisfiable_default_is_none(self):
+        from smallworld.emulators.triton.symbolic import TritonSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(TritonSymbolicEmulator))
+
+    def test_ghidra_satisfiable_default_is_none(self):
+        # The ghidra symbolic module imports a JVM-bridged z3 binding at load.
+        _ensure_pyghidra_started()
+        from smallworld.emulators.ghidra.symbolic import GhidraSymbolicEmulator
+
+        self.assertIsNone(self._satisfiable_default(GhidraSymbolicEmulator))
+
+
+class LoopDetectionStrandSplitTests(unittest.TestCase):
+    """Every loop iteration's strand is captured, including consecutive and
+    distinct iterations (SW-058).
+
+    The loop head executes at the start of every iteration, so the back-edge
+    occurrence that closes one strand is also the start of the next. The old
+    code discarded that occurrence, so alternating/consecutive iterations were
+    dropped. run() only reads self.traces (it ignores the machine), so the
+    algorithm is driven directly with synthetic pc sequences.
+    """
+
+    def _run(self, *pc_sequences):
+        from smallworld.analyses.loop_detection import LoopDetection
+
+        hinter = _RecordingHinter()
+        analysis = LoopDetection(hinter)
+        analysis.traces = [
+            SimpleNamespace(trace=[SimpleNamespace(pc=pc) for pc in seq])
+            for seq in pc_sequences
+        ]
+        analysis.run(None)
+        return hinter
+
+    def _strands_for(self, hinter, head):
+        from smallworld.hinting.hints import LoopHint
+
+        hints = [h for h in hinter.sent if isinstance(h, LoopHint) and h.head == head]
+        self.assertEqual(len(hints), 1)
+        # Strand order and duplicate-collapsing are not significant; compare as
+        # a set of tuples.
+        return {tuple(s) for s in hints[0].strands}
+
+    def test_distinct_iterations_are_all_captured(self):
+        # head=0x10; two different iteration bodies (0x14, then 0x18). The old
+        # code kept only the first and lost the [0x10, 0x18, 0x10] iteration.
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, H, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, H), (H, B, H)})
+
+    def test_repeated_identical_iterations_dedupe_to_one(self):
+        # Identical iterations still collapse to a single unique strand (the
+        # fix must not over-produce).
+        H, A, B = 0x10, 0x14, 0x18
+        hinter = self._run([H, A, B, H, A, B, H])
+        self.assertEqual(self._strands_for(hinter, H), {(H, A, B, H)})
+
+
+class _FakeReadMemEmulator:
+    """Minimal emulator with the real read_memory contract for the c99 helpers.
+
+    read_memory returns bytes or *raises* on an unmapped/oversized read (never
+    None), and get_memory_map reports the mapped ranges. Records every read
+    size so a test can assert the speculative bulk read was clamped.
+    """
+
+    def __init__(self, ranges, data):
+        self._ranges = list(ranges)  # [(start, end), ...]
+        self._data = dict(data)  # {addr: byte value}
+        self.read_sizes = []
+
+    def get_memory_map(self):
+        return list(self._ranges)
+
+    def _fully_mapped(self, addr, size):
+        return any(s <= addr and addr + size <= e for s, e in self._ranges)
+
+    def read_memory(self, addr, size):
+        self.read_sizes.append(size)
+        if size and not self._fully_mapped(addr, size):
+            raise Exception("unmapped read")
+        return bytes(self._data.get(addr + i, 0) for i in range(size))
+
+
+class C99StrncmpClampReadTests(unittest.TestCase):
+    """strcmp/strncmp clamp their speculative bulk read to the mapped extent so
+    a string near a segment boundary is not read MAX_STRLEN (64 KB) past its
+    region (NEW-002). Results are unchanged; only the wasted, faulting
+    over-read is removed. Asserted on read sizes, not on log output.
+    """
+
+    def test_strcmp_clamps_bulk_read_and_returns_equal(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        # One mapped page with "hi\0" at the start; a MAX_STRLEN read from here
+        # would run 64 KB past the page end.
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {0x1000: ord("h"), 0x1001: ord("i"), 0x1002: 0},
+        )
+        # strcmp routes through _emu_strncmp with n == MAX_STRLEN.
+        self.assertEqual(_emu_strncmp(emu, 0x1000, 0x1000, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+        self.assertLessEqual(max(emu.read_sizes), 0x1000)
+
+    def test_strncmp_mismatch_result_correct_when_clamped(self):
+        from smallworld.state.models.c99.utils import MAX_STRLEN, _emu_strncmp
+
+        emu = _FakeReadMemEmulator(
+            [(0x1000, 0x2000)],
+            {
+                0x1000: ord("h"),
+                0x1001: ord("i"),
+                0x1002: 0,
+                0x1800: ord("h"),
+                0x1801: ord("o"),
+                0x1802: 0,
+            },
+        )
+        # "hi" vs "ho": mismatch at index 1, 'i'(105) - 'o'(111) < 0.
+        self.assertLess(_emu_strncmp(emu, 0x1000, 0x1800, MAX_STRLEN), 0)
+        self.assertNotIn(MAX_STRLEN, emu.read_sizes)
+
+
+class BinjaDatabaseBvCleanupTests(unittest.TestCase):
+    """BinjaDatabase.__init__ must close the BinaryView on every error path
+    (SW-082) and surface a missing platform definition as ConfigurationError
+    (SW-168).
+
+    binaryninja is unavailable, so the module is imported under a stub and
+    load() is patched to return a fake BinaryView whose file.close we observe.
+    """
+
+    def _binja_module(self):
+        # The package __init__ re-exports the BinjaDatabase *class* under the
+        # same dotted name as the submodule, so `import ... as m` would bind the
+        # class. import_module returns the actual module object.
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            return importlib.import_module(
+                "smallworld.state.memory.binjadatabase.BinjaDatabase"
+            )
+
+    @staticmethod
+    def _fake_bv():
+        bv = mock.Mock()
+        bv.entry_point = 0x1000
+        return bv
+
+    def test_bv_closed_when_platform_mismatch_raises(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        wanted = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb", platform=wanted)
+        bv.file.close.assert_called_once()
+
+    def test_bv_closed_when_later_step_raises(self):
+        # A failure after platform detection (here _determine_base) must still
+        # close the BinaryView.
+        m = self._binja_module()
+        bv = self._fake_bv()
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_determine_base", side_effect=ValueError("boom")
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                m.BinjaDatabase("dummy.bndb", ignore_platform=True)
+        bv.file.close.assert_called_once()
+
+    def test_missing_platform_def_becomes_configuration_error(self):
+        m = self._binja_module()
+        bv = self._fake_bv()
+        detected = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with (
+            mock.patch.object(m, "load", return_value=bv),
+            mock.patch.object(
+                m.BinjaDatabase, "_platform_for_bv", return_value=detected
+            ),
+            mock.patch.object(
+                m.PlatformDef, "for_platform", side_effect=ValueError("no def")
+            ),
+        ):
+            with self.assertRaises(exceptions.ConfigurationError):
+                m.BinjaDatabase("dummy.bndb")
+        # The BinaryView is still closed on this path too.
+        bv.file.close.assert_called_once()
+
+
+class VxWorksFunctionEndLookupTests(unittest.TestCase):
+    """get_function_end must find the function even when a same-named
+    non-function symbol (e.g. a data label) precedes it in the table.
+
+    A single name can be shared by several symbols; the old lookup acted on the
+    first match and raised if it happened to be a non-function, hiding the real
+    function that appeared later. VXWorksImage's module imports the commercial
+    ``binaryninja`` package at import time, so it is stubbed here; the method
+    under test is pure Python over ``self._symbols``.
+    """
+
+    @staticmethod
+    def _image(symbols):
+        with mock.patch.dict(sys.modules, {"binaryninja": mock.MagicMock()}):
+            from smallworld.state.memory.vxworks.vxworks import VXWorksImage
+        img = VXWorksImage.__new__(VXWorksImage)
+        img._symbols = symbols
+        return img
+
+    @staticmethod
+    def _sym(name, func_end):
+        return {
+            "name": name,
+            "full_name": name,
+            "short_name": name,
+            "func_end": func_end,
+        }
+
+    def test_returns_function_end_past_leading_data_label(self):
+        # Data label (func_end=None) shares the name and comes first; the real
+        # function follows. The end must still be found.
+        img = self._image([self._sym("handler", None), self._sym("handler", 0x4020)])
+        self.assertEqual(img.get_function_end("handler"), 0x4020)
+
+    def test_unknown_name_raises(self):
+        img = self._image([self._sym("handler", 0x4020)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("nope")
+
+    def test_only_non_function_matches_raises(self):
+        img = self._image([self._sym("label", None)])
+        with self.assertRaises(KeyError):
+            img.get_function_end("label")
+
+
+class FieldDetectionDescribeFieldTests(unittest.TestCase):
+    """_describe_field always labels a tracked field with its declared label,
+    so concrete or composite loaded values are labelled correctly instead of
+    raising or reusing a prior field's label (SW-056). A single bound symbol is
+    substituted with its binding for readability.
+    """
+
+    @staticmethod
+    def _fda(bindings=None):
+        return SimpleNamespace(fda_bindings=bindings or {})
+
+    def _describe(self, fda, label, val):
+        from smallworld.analyses.field_detection.field_analysis import (
+            _describe_field,
+        )
+
+        return _describe_field(fda, label, val)
+
+    def test_concrete_value_keeps_declared_label(self):
+        val = claripy.BVV(0, 64)  # zero variables
+        label, out = self._describe(self._fda(), "msg.a", val)
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, val)
+
+    def test_composite_value_keeps_declared_label(self):
+        val = claripy.BVS("x", 64) + claripy.BVS("y", 64)  # two variables
+        label, out = self._describe(self._fda(), "msg.b", val)
+        self.assertEqual(label, "msg.b")
+        self.assertIs(out, val)
+
+    def test_single_bound_symbol_uses_declared_label_and_substitutes(self):
+        var = claripy.BVS("msg.a_18_64", 64, explicit_name=True)
+        binding = claripy.BVS("bound", 64, explicit_name=True)
+        fda = self._fda({"msg.a_18_64": binding})
+        label, out = self._describe(fda, "msg.a", var)
+        # Declared label, not the variable name; value substituted with binding.
+        self.assertEqual(label, "msg.a")
+        self.assertIs(out, binding)
+
+    def test_unknown_single_variable_keeps_value(self):
+        var = claripy.BVS("mystery", 64, explicit_name=True)
+        label, out = self._describe(self._fda(), "msg.c", var)
+        self.assertEqual(label, "msg.c")
+        self.assertIs(out, var)
+
+
+class FieldDetectionHinterPlumbingTests(unittest.TestCase):
+    """The field-detection analysis family must bind self.hinter through the
+    MRO, and FieldDetectionFilter must be instantiable -- the plumbing SW-057
+    left broken and that the DNS use cases depend on.
+    """
+
+    @staticmethod
+    def _platform():
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_field_detection_analysis_binds_hinter(self):
+        from smallworld.analyses.field_detection import FieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        a = FieldDetectionAnalysis(self._platform(), h)
+        self.assertIs(a.hinter, h)
+
+    def test_forced_field_detection_binds_hinter_and_trace(self):
+        from smallworld.analyses.field_detection import ForcedFieldDetectionAnalysis
+
+        h = hinting.Hinter()
+        trace = [{"pc": 0x1000}]
+        a = ForcedFieldDetectionAnalysis(self._platform(), trace, h)
+        self.assertIs(a.hinter, h)
+        self.assertEqual(a.trace, trace)
+
+    def test_forced_execution_binds_hinter(self):
+        from smallworld.analyses.forced_exec import ForcedExecution
+
+        h = hinting.Hinter()
+        a = ForcedExecution(self._platform(), [{"pc": 1}], h)
+        self.assertIs(a.hinter, h)
+
+    def test_field_detection_filter_is_instantiable(self):
+        from smallworld.analyses.field_detection.field_analysis import (
+            FieldDetectionFilter,
+        )
+
+        h = hinting.Hinter()
+        f = FieldDetectionFilter(h)  # pre-fix: abstract run() -> TypeError
+        self.assertIs(f.hinter, h)
+
+
+class ForcedExecutionEarlyStopTests(unittest.TestCase):
+    """execute() raises AnalysisError when the slice diverges before the trace
+    is fully consumed, instead of silently dropping the rest (SW-117). A stop
+    on the final entry is normal completion and must not raise.
+    """
+
+    class _FakeEmu:
+        def __init__(self, stop_index):
+            self.stop_index = stop_index  # entry whose step() stops, or None
+            self._step = 0
+            self.writes = []
+
+        def write_register_content(self, reg, val):
+            self.writes.append((reg, val))
+
+        def step(self):
+            i = self._step
+            self._step += 1
+            if self.stop_index is not None and i == self.stop_index:
+                raise exceptions.EmulationStop()
+
+    def _make(self, trace, stop_index):
+        # ForcedExecution is the concrete subclass; bypass __init__ (which would
+        # build a real AngrEmulator) and drive the inherited execute() directly.
+        from smallworld.analyses.forced_exec.forced_exec import ForcedExecution
+
+        analysis = ForcedExecution.__new__(ForcedExecution)
+        analysis.trace = trace
+        analysis.emulator = self._FakeEmu(stop_index)
+        return analysis
+
+    def test_early_divergence_raises(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=1)
+        with self.assertRaises(exceptions.AnalysisError):
+            analysis.execute()
+
+    def test_stop_on_final_entry_is_completion(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}, {"pc": 3}], stop_index=2)
+        analysis.execute()  # must not raise
+
+    def test_no_stop_completes(self):
+        analysis = self._make([{"pc": 1}, {"pc": 2}], stop_index=None)
+        analysis.execute()  # must not raise
+
+
+class TrackerMemoryPpInspectTests(unittest.TestCase):
+    """pp() loads with inspect=False so a SimInspect breakpoint can't re-enter
+    defaulting/tracking mid-print -- the recursion the class warns about and
+    that create_hint() already guards against (SW-135)."""
+
+    def test_pp_load_passes_inspect_false(self):
+        from smallworld.emulators.angr.memory.memtrack import TrackerMemoryMixin
+
+        mixin = TrackerMemoryMixin.__new__(TrackerMemoryMixin)
+        mixin.dirty = {0x1000: 4}
+        mixin.id = "mem"  # non-reg -> name via hex(addr), so self.state is unused
+        calls = []
+
+        def fake_load(addr, size, **kwargs):
+            calls.append((addr, size, kwargs))
+            return 0
+
+        mixin.load = fake_load
+        mixin.pp(lambda line: None)
+
+        self.assertEqual(len(calls), 1)
+        self.assertIs(calls[0][2].get("inspect"), False)
+        self.assertIs(calls[0][2].get("disable_actions"), True)
+
+
+class SymbolicMemoryLabelInvariantTests(unittest.TestCase):
+    """Every symbolic-capable emulator must uphold the memory-label invariant
+    (SW-152): labelling mapped-but-unwritten memory leaves the label a free
+    symbol (not pinned to a default 0), while labelling written memory pins it
+    to the content.
+    """
+
+    ADDR = 0x4000
+    # A byte-order-agnostic content value (0x0101...01), so "the label pinned
+    # to the written content" holds regardless of each emulator's internal load
+    # endianness -- the invariant under test is pinned-vs-free, not byte order.
+    WRITTEN = 0x0101010101010101
+
+    def _assert_invariant(self, make_emulator):
+        # Unwritten -> the label stays a free symbol.
+        emu = make_emulator()
+        emu.write_memory_label(self.ADDR, 8, "buf")
+        buf = claripy.BVS("buf", 64, explicit_name=True)
+        self.assertTrue(
+            emu.satisfiable([buf != 0]),
+            "labelled unwritten memory must stay a free symbol, not pin to 0",
+        )
+        # Written first -> the label pins to the written content.
+        emu = make_emulator()
+        emu.write_memory_content(self.ADDR, self.WRITTEN.to_bytes(8, "little"))
+        emu.write_memory_label(self.ADDR, 8, "buf2")
+        buf2 = claripy.BVS("buf2", 64, explicit_name=True)
+        self.assertTrue(emu.satisfiable([buf2 == self.WRITTEN]))
+        self.assertFalse(emu.satisfiable([buf2 != self.WRITTEN]))
+
+    def test_triton(self):
+        def make():
+            emu = emulators.TritonSymbolicEmulator(AMD64_PLATFORM)
+            emu.map_memory(self.ADDR, 0x100)
+            return emu
+
+        self._assert_invariant(make)
+
+    def test_angr(self):
+        def make():
+            emu = emulators.AngrEmulator(AMD64_PLATFORM)
+            emu.map_memory(self.ADDR, 0x100)
+            emu._code.append((0x400000, b"\x90\x90"))  # angr needs some code
+            emu.initialize()
+            return emu
+
+        self._assert_invariant(make)
+
+    def test_ghidra(self):
+        def make():
+            emu = _ghidra_symbolic_amd64_emulator()
+            emu.map_memory(self.ADDR, 0x100)
+            return emu
+
+        self._assert_invariant(make)
+
+
+class SymbolicMemoryReadByteOrderTests(unittest.TestCase):
+    """read_memory_symbolic returns the byte SEQUENCE (first byte most
+    significant) per the documented contract (state.py), not the platform-
+    endianness integer. All symbolic emulators must agree; angr is the oracle.
+    """
+
+    ADDR = 0x6000
+    DATA = b"\x11\x22\x33\x44\x55\x66\x77\x88"  # non-palindromic
+
+    def _read_concrete(self, make):
+        emu = make()
+        emu.write_memory_content(self.ADDR, self.DATA)
+        bv = emu.read_memory_symbolic(self.ADDR, len(self.DATA))
+        self.assertFalse(bv.symbolic)
+        self.assertEqual(bv.size(), len(self.DATA) * 8)
+        return bv.concrete_value
+
+    def _mk_angr(self):
+        emu = emulators.AngrEmulator(AMD64_PLATFORM)
+        emu.map_memory(self.ADDR, 0x100)
+        emu._code.append((0x400000, b"\x90\x90"))
+        emu.initialize()
+        return emu
+
+    def _mk_triton(self):
+        emu = emulators.TritonSymbolicEmulator(AMD64_PLATFORM)
+        emu.map_memory(self.ADDR, 0x100)
+        return emu
+
+    def _mk_ghidra(self):
+        emu = _ghidra_symbolic_amd64_emulator()
+        emu.map_memory(self.ADDR, 0x100)
+        return emu
+
+    def test_read_matches_angr_oracle(self):
+        oracle = self._read_concrete(self._mk_angr)
+        # Documented contract: bytes in memory order, first byte most significant.
+        self.assertEqual(oracle, int.from_bytes(self.DATA, "big"))
+        self.assertEqual(self._read_concrete(self._mk_triton), oracle)
+
+    def _read_n(self, make, data):
+        emu = make()
+        emu.write_memory_content(self.ADDR, data)
+        bv = emu.read_memory_symbolic(self.ADDR, len(data))
+        self.assertFalse(bv.symbolic)
+        return bv.concrete_value
+
+    def test_read_chunked_size_matches_angr_oracle(self):
+        # A 3-byte read is not a native Triton access size, so it exercises the
+        # chunked (power-of-two) read path rather than getMemoryAst directly.
+        data = b"\xaa\xbb\xcc"
+        oracle = int.from_bytes(data, "big")
+        self.assertEqual(self._read_n(self._mk_angr, data), oracle)
+        self.assertEqual(self._read_n(self._mk_triton, data), oracle)
+
+    def test_read_ghidra_matches_oracle(self):
+        self.assertEqual(
+            self._read_concrete(self._mk_ghidra), int.from_bytes(self.DATA, "big")
+        )
+
+    def _assert_labelled_read(self, make):
+        # Writing content then labelling it must leave read_memory_symbolic
+        # returning that same byte sequence -- the label pins to it, and the
+        # write/read round-trip preserves byte order (not just the palindrome
+        # case SymbolicMemoryLabelInvariantTests exercises).
+        oracle = int.from_bytes(self.DATA, "big")
+        emu = make()
+        emu.write_memory_content(self.ADDR, self.DATA)
+        emu.write_memory_label(self.ADDR, len(self.DATA), "buf")
+        buf = emu.read_memory_symbolic(self.ADDR, len(self.DATA))
+        self.assertTrue(buf.symbolic)
+        self.assertTrue(emu.satisfiable([buf == oracle]))
+        self.assertFalse(emu.satisfiable([buf != oracle]))
+
+    def test_labelled_read_matches_angr_oracle(self):
+        self._assert_labelled_read(self._mk_angr)
+        self._assert_labelled_read(self._mk_triton)
+
+    def test_labelled_read_ghidra_matches_oracle(self):
+        self._assert_labelled_read(self._mk_ghidra)
+
+
+class TritonFlagsWidthMaskTests(unittest.TestCase):
+    """flags/eflags/rflags all map onto Triton's single 64-bit eflags register,
+    so narrow reads must be masked to the requested register's width (SW-151).
+    """
+
+    def test_narrow_flag_reads_are_masked(self):
+        emu = emulators.TritonEmulator(AMD64_PLATFORM)
+        emu.write_register("rflags", 0x0000000100000202)
+        self.assertEqual(emu.read_register("rflags"), 0x0000000100000202)
+        self.assertEqual(emu.read_register("eflags"), 0x00000202)  # low 32 bits
+        self.assertEqual(emu.read_register("flags"), 0x0202)  # low 16 bits
+
+
+class HookableChainOverlappingTests(unittest.TestCase):
+    """A memory access spanning several disjoint hooks yields every overlapping
+    hook, so the Q* backends run (chain) all of them, matching ghidra/angr
+    (SW-143). The old single-result path returned only the first."""
+
+    @staticmethod
+    def _noop(emu, addr, size, data):
+        return None
+
+    def test_iter_returns_all_overlapping_read_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_read(0x1000, 0x1004, self._noop)
+        emu.hook_memory_read(0x1008, 0x100C, self._noop)  # disjoint from first
+        # [0x1002, 0x100A) straddles both hooked ranges -> both returned.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1002, 8)), 2)
+        # An access inside only the first hook yields just that one.
+        self.assertEqual(len(emu.iter_memory_read_hooks(0x1000, 2)), 1)
+        # is_memory_read_hooked still returns a single (truthy) result.
+        self.assertIsNotNone(emu.is_memory_read_hooked(0x1002, 8))
+
+    def test_iter_returns_all_overlapping_write_hooks(self):
+        emu = emulators.UnicornEmulator(AMD64_PLATFORM)
+        emu.hook_memory_write(0x2000, 0x2004, self._noop)
+        emu.hook_memory_write(0x2008, 0x200C, self._noop)  # disjoint from first
+        self.assertEqual(len(emu.iter_memory_write_hooks(0x2002, 8)), 2)
 
 
 if __name__ == "__main__":

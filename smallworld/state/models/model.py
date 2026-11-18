@@ -154,6 +154,12 @@ class Model(Hook):
 
     static_space_required: int = 0
 
+    def __init_subclass__(cls, **kwargs):
+        # lookup() memoizes misses; a model defined after a miss (e.g. one a
+        # harness script declares after linking a library) must be findable.
+        super().__init_subclass__(**kwargs)
+        utils.forget_subclass_misses()
+
     @classmethod
     def lookup(
         cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address: int

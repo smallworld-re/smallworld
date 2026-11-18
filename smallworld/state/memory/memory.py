@@ -66,8 +66,17 @@ class Memory(state.Stateful, dict[int, state.Value]):
     def get_size(self) -> int:
         raise NotImplementedError("You probably want get_capacity()")
 
+    def has_room(self, size: int) -> bool:
+        """Whether ``size`` more bytes will fit in this region.
+
+        Separate from :meth:`_is_safe` so a caller can ask before building the
+        buffer it is about to hand over; see the allocator models in
+        ``state/models/c99/stdlib.py``.
+        """
+        return (self.get_used() + size) <= self.get_capacity()
+
     def _is_safe(self, value: state.Value):
-        if (self.get_used() + value.get_size()) > self.get_capacity():
+        if not self.has_room(value.get_size()):
             raise ValueError("Memory is full")
 
     def _write_content(
@@ -350,11 +359,16 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for segment_offset, segment in sorted(self.items()):
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size()
-            if next_segment_start != segment_start:
+            # Only a genuine gap before this segment is uninitialized. When
+            # segments overlap (segment_start < next_segment_start) there is no
+            # gap, so emitting a range here would produce a backwards/empty one.
+            if segment_start > next_segment_start:
                 out.append(range(next_segment_start, segment_start - 1))
-            next_segment_start = segment_end
+            # Keep the furthest end reached so an overlapping segment does not
+            # rewind the cursor.
+            next_segment_start = max(next_segment_start, segment_end)
 
-        if next_segment_start != self.address + self.get_capacity():
+        if next_segment_start < self.address + self.get_capacity():
             out.append(
                 range(next_segment_start, self.address + self.get_capacity() - 1)
             )

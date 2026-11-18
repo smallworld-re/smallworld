@@ -15,9 +15,10 @@ def _platform_def(
 ) -> typing.Optional[PlatformDef]:
     """`PlatformDef.for_platform`, cached and None-tolerant.
 
-    Only reached for an emulator that carries no `platdef` of its own;
-    `for_platform` walks every subclass uncached, so the result is memoized
-    per platform rather than resolved per operand.
+    Only reached for an emulator that carries no `platdef` of its own.
+    `for_platform` memoizes which class matches, but it still builds a new
+    instance on every call and raises on a miss, so the instance (or None)
+    is memoized per platform rather than resolved per operand.
     """
     if platform is None:
         return None

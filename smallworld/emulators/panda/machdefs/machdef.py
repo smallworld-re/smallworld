@@ -40,6 +40,23 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        """Translate a PANDA CPU exception index into a smallworld exception.
+
+        PANDA (like QEMU) surfaces some memory faults as raw CPU exceptions
+        through ``cb_before_handle_exception`` rather than through the
+        instruction-bounds check, so per-arch machine defs override this to
+        classify them (e.g. an unmapped instruction fetch -> an
+        ``EmulationFetchUnmappedFailure`` carrying ``pc``). The default reports
+        a generic error, preserving the prior behaviour for unclassified
+        exceptions.
+
+        Arguments:
+            intno: The PANDA/QEMU exception index.
+            pc: The address the CPU faulted on (the attempted fetch target).
+        """
+        raise exceptions.EmulationError(f"Panda exception {intno} at {hex(pc)}")
+
     def check_panda_reg(self, name: str, panda_obj, panda_cpu) -> bool:
         """Convert a register name to panda cpu field, index, mask
 

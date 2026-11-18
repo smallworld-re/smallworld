@@ -229,7 +229,16 @@ class TritonEmulator(
 
     def read_register_content(self, name: str) -> int:
         reg = self._reg(name)
-        return int(self.ctx.getConcreteRegisterValue(reg))
+        value = int(self.ctx.getConcreteRegisterValue(reg))
+        # Triton exposes a single wide flags register (eflags is 64-bit in
+        # x86-64 mode), so flags/eflags reads come back over-wide. Mask to the
+        # requested register's declared width. Every collapsing alias is
+        # offset 0, and identity-mapped registers already have the right width,
+        # so this is a no-op for everything but the flags aliases.
+        regdef = self.platdef.registers.get(name)
+        if regdef is not None:
+            value &= (1 << (regdef.size * 8)) - 1
+        return value
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -704,11 +713,13 @@ class TritonEmulator(
                 # Chain: an address-specific hook sees what the global hook
                 # produced, so the two compose instead of racing.
                 data = replacement
-        hook = self.is_memory_read_hooked(address, size)
-        if hook is not None:
+        # An access can straddle several disjoint hooks; run every overlapping
+        # one, chaining so each sees the previous hook's output.
+        for hook in self.iter_memory_read_hooks(address, size):
             out = hook(self, address, size, data)
             if out is not None:
                 replacement = self._check_replacement(out, address, size)
+                data = replacement
         if replacement is not None:
             ctx.setConcreteMemoryAreaValue(address, replacement, False)
 
@@ -740,8 +751,7 @@ class TritonEmulator(
         data = int(value).to_bytes(size, self._byteorder())
         if self.all_writes_hook is not None:
             self.all_writes_hook(self, address, size, data)
-        hook = self.is_memory_write_hooked(address, size)
-        if hook is not None:
+        for hook in self.iter_memory_write_hooks(address, size):
             hook(self, address, size, data)
 
     # ------------------------------------------------------------------ thumb

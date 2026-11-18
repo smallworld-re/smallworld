@@ -22,11 +22,16 @@ class AMD64Stack(stack.DescendingStack):
         for i, arg in enumerate(argv):
             arg_size = len(arg)
             total_strings_bytes += arg_size
-            argv_address.append((i, s.address + s.push_bytes(arg, label=f"argv[{i}]")))
+            # push_bytes returns the absolute address of the pushed value.
+            argv_address.append((i, s.push_bytes(arg, label=f"argv[{i}]")))
 
         argc = len(argv)
         total_space = (8 * (argc + 2)) + total_strings_bytes
-        padding = (-total_space) % 16
+        # SysV requires the final RSP (at argc) to be 16-byte aligned. argc will
+        # land at (address + size) - total_space - padding, so pad relative to
+        # the region top rather than to total_space alone -- the latter only
+        # aligns argc when the region top is itself 16-aligned.
+        padding = (s.address + s.size - total_space) % 16
         s.push_bytes(bytes(padding), label="stack alignment padding bytes")
         s.push_integer(0, size=8, label="null terminator of argv array")
         for i, addr in reversed(argv_address):

@@ -40,7 +40,15 @@ class ElfCoreFile(ElfExecutable):
         if parsed_elf is None or parsed_elf.header.file_type.value != ET_CORE:
             raise ConfigurationError("This file is not an ELF core dump (ET_CORE).")
 
-        assert self.platform is not None
+        if self.platform is None:
+            # Reachable via ElfCoreFile(file, platform=None, ignore_platform=True):
+            # the header-derived platform block is skipped, leaving platform None.
+            # Raise the module's configuration error rather than an assert, which
+            # would be stripped under `python -O` and surface as an opaque
+            # AttributeError inside for_platform.
+            raise ConfigurationError(
+                "A platform is required to parse a core dump when ignore_platform is set."
+            )
         self.prstatus = PrStatus.for_platform(self.platform, parsed_elf)
 
     def populate_cpu(self, cpu: CPU) -> None:

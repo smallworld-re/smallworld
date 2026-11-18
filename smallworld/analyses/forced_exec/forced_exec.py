@@ -2,7 +2,8 @@ import logging
 import typing
 
 from ...emulators import AngrEmulator
-from ...exceptions import EmulationStop
+from ...exceptions import AnalysisError, EmulationStop
+from ...hinting import Hinter
 from ...platforms import Platform
 from ...state import Machine
 from ..underlays import AnalysisUnderlay
@@ -35,17 +36,36 @@ class ForcedExecutionUnderlay(AnalysisUnderlay):
 
     """
 
-    def __init__(self, trace: typing.List[typing.Dict[str, int]]):
+    def __init__(self, trace: typing.List[typing.Dict[str, int]], *args, **kwargs):
+        # Cooperative init: forward the remaining arguments (notably the Hinter)
+        # up the MRO so Analysis.__init__ binds self.hinter. Subclasses composed
+        # as underlays (e.g. ForcedFieldDetectionAnalysis) depend on this to get
+        # a hinter; halting the chain here left self.hinter unset.
+        super().__init__(*args, **kwargs)
         self.trace: typing.List[typing.Dict[str, int]] = trace
 
     def execute(self):
-        try:
-            for regs in self.trace:
-                for reg, val in regs.items():
-                    self.emulator.write_register_content(reg, val)
+        # step() raises EmulationStop both on normal completion and on failure
+        # (path divergence in linear mode, active states exhausted). A stop on
+        # the final trace entry is expected completion; a stop on any earlier
+        # entry means the slice diverged before visiting every requested
+        # address, so the rest of the forced trace was dropped -- surface that
+        # rather than silently reporting success.
+        last = len(self.trace) - 1
+        for i, regs in enumerate(self.trace):
+            for reg, val in regs.items():
+                self.emulator.write_register_content(reg, val)
+            try:
                 self.emulator.step()
-        except EmulationStop:
-            pass
+            except EmulationStop as e:
+                if i < last:
+                    raise AnalysisError(
+                        f"Forced execution diverged at trace entry {i} of "
+                        f"{len(self.trace)}; the remaining forced addresses "
+                        "were not visited."
+                    ) from e
+                # Stop on the final entry: the trace was fully consumed.
+                return
 
 
 class ForcedExecution(ForcedExecutionUnderlay):
@@ -63,14 +83,20 @@ class ForcedExecution(ForcedExecutionUnderlay):
     Arguments:
         platform:   The platform you want to emulate
         trace:      The list of program counter addresses you want to visit
+        hinter:     The hinter analyses emit hints through
     """
 
     name = "forced-execution"
     description = "Forced execution using angr"
     version = "0.0.1"
 
-    def __init__(self, platform: Platform, trace: typing.List[typing.Dict[str, int]]):
-        super().__init__(trace)
+    def __init__(
+        self,
+        platform: Platform,
+        trace: typing.List[typing.Dict[str, int]],
+        hinter: Hinter,
+    ):
+        super().__init__(trace, hinter)
         self.platform: Platform = platform
         self.emulator = AngrEmulator(platform)
 

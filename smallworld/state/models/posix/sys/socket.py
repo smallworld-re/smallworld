@@ -552,7 +552,7 @@ class Setsockopt(FDModel):
             return
 
         logger.warning(
-            "Called setsockopt({fd}, {level}, {optname}, {hex(optval)}, {optlen}); Doing nothing"
+            f"Called setsockopt({fd}, {level}, {optname}, {hex(optval)}, {optlen}); Doing nothing"
         )
         self.set_return_value(emulator, 0)
 

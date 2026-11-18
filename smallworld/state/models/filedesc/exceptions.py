@@ -31,12 +31,6 @@ class FDIOInvalid(FDIOError):
     pass
 
 
-class FDIOUnsuported(FDIOError):
-    """Program tried a forbidden operation on a file"""
-
-    pass
-
-
 class FDIOClosed(FDIOError):
     """Program tried to access a closed FD"""
 

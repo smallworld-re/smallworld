@@ -536,6 +536,9 @@ class ARMv6MThumb(ARMv6M):
     """
 
     architecture = Architecture.ARM_V6M_THUMB
+    # Thumb-mode platform: override the ARM-mode Capstone default so a
+    # disassembler built statically from capstone_mode decodes Thumb.
+    capstone_mode = capstone.CS_MODE_THUMB
     # ARMv6-M is Thumb; Ghidra decodes Thumb via the TMode context register
     # within the same SLEIGH language, so this shares ARMv6M's language id.
     ghidra_language_id = "ARM:LE:32:v6"
@@ -552,6 +555,9 @@ class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
     """Platform definition for ARMv7r little-endian"""
 
     architecture = Architecture.ARM_V7R
+    # v7R is instruction-compatible with v7A; without this the p-code use/def
+    # analysis is skipped (ghidra_language_id inherits None from PlatformDef).
+    ghidra_language_id = "ARM:LE:32:v7"
 
 
 class ARMv7A(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):

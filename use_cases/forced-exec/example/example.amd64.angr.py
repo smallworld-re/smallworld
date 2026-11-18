@@ -26,5 +26,6 @@ machine.add(code)
 
 
 ips = list(map(lambda x: {"pc": x}, [0x1007, 0x101C, 0x100E]))
-analysis = smallworld.analyses.forced_exec.ForcedExecution(platform, ips)
+hinter = smallworld.hinting.Hinter()
+analysis = smallworld.analyses.forced_exec.ForcedExecution(platform, ips, hinter)
 analysis.run(machine)

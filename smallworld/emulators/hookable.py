@@ -157,19 +157,32 @@ class QMemoryReadHookable(MemoryReadHookable):
             f"can't unhook memory read range {range_to_hex_str(unh_r)} since its not already hooked"
         )
 
+    def iter_memory_read_hooks(
+        self, address: int, size: int
+    ) -> typing.List[
+        typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
+    ]:
+        # Every read hook whose range overlaps [address, address+size). An
+        # access can straddle several separately-registered (disjoint) hooks;
+        # callers invoke each, chaining the data, so all fire -- matching the
+        # ghidra and angr backends. Ordering between them is unspecified. A
+        # zero-size access has an empty range and matches nothing.
+        access_rng = range(address, address + size)
+        return [
+            hook
+            for rng, hook in self.memory_read_hooks.items()
+            if ranges_overlap(access_rng, rng)
+        ]
+
     def is_memory_read_hooked(
         self, address: int, size: int
     ) -> typing.Optional[
         typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
     ]:
-        # A read of [address, address+size) is hooked if it overlaps a hooked
-        # range. A zero-size access touches no bytes, so its empty range
-        # intersects nothing and matches no hook.
-        access_rng = range(address, address + size)
-        for rng in self.memory_read_hooks:
-            if ranges_overlap(access_rng, rng):
-                return self.memory_read_hooks[rng]
-        return None
+        # Yes/no check: returns some overlapping hook, or None. Callers that
+        # need to run every overlapping hook use iter_memory_read_hooks.
+        hooks = self.iter_memory_read_hooks(address, size)
+        return hooks[0] if hooks else None
 
 
 class QMemoryWriteHookable(MemoryWriteHookable):
@@ -217,17 +230,28 @@ class QMemoryWriteHookable(MemoryWriteHookable):
             f"can't unhook memory write range {range_to_hex_str(unh_r)} since its not already hooked"
         )
 
+    def iter_memory_write_hooks(
+        self, address: int, size: int
+    ) -> typing.List[typing.Callable[[Emulator, int, int, bytes], None]]:
+        # Every write hook whose range overlaps [address, address+size). An
+        # access can straddle several separately-registered (disjoint) hooks;
+        # callers invoke each so all fire -- matching the ghidra and angr
+        # backends. Ordering between them is unspecified. A zero-size access
+        # has an empty range and matches nothing.
+        access_rng = range(address, address + size)
+        return [
+            hook
+            for rng, hook in self.memory_write_hooks.items()
+            if ranges_overlap(access_rng, rng)
+        ]
+
     def is_memory_write_hooked(
         self, address: int, size: int
     ) -> typing.Optional[typing.Callable[[Emulator, int, int, bytes], None]]:
-        # A write of [address, address+size) is hooked if it overlaps a hooked
-        # range. A zero-size access touches no bytes, so its empty range
-        # intersects nothing and matches no hook.
-        access_rng = range(address, address + size)
-        for rng in self.memory_write_hooks:
-            if ranges_overlap(access_rng, rng):
-                return self.memory_write_hooks[rng]
-        return None
+        # Yes/no check: returns some overlapping hook, or None. Callers that
+        # need to run every overlapping hook use iter_memory_write_hooks.
+        hooks = self.iter_memory_write_hooks(address, size)
+        return hooks[0] if hooks else None
 
 
 class QInterruptHookable(InterruptHookable):

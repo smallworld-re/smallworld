@@ -21,6 +21,7 @@ import typing
 import claripy
 
 from ... import exceptions
+from ...utils import RangeCollection
 from .. import emulator
 from . import z3bridge
 from .triton import MemoryAccess, TritonEmulator
@@ -84,6 +85,10 @@ class TritonSymbolicEmulator(
         # fresh symbols — we must not treat that default 0 as a value to bind
         # the label to.
         self._written_registers: typing.Set[str] = set()
+        # The byte ranges the harness has explicitly written. The memory analog
+        # of _written_registers: write_memory_label must not pin a label to
+        # Triton's default 0 for memory that was never written.
+        self._written_memory: RangeCollection = RangeCollection()
 
     # ------------------------------------------------------ symbolic register I/O
 
@@ -178,9 +183,13 @@ class TritonSymbolicEmulator(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
     ) -> None:
         if isinstance(content, claripy.ast.bv.BV):
+            nbytes = content.size() // 8
             self._write_symbolic_memory(address, content)
         else:
+            nbytes = len(content)
             super().write_memory_content(address, content)
+        if nbytes:
+            self._written_memory.add_range((address, address + nbytes))
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         node = self.ctx.getRegisterAst(self._reg(name))
@@ -190,19 +199,28 @@ class TritonSymbolicEmulator(
         with self._direct_access():
             if _is_access_size(size):
                 node = self.ctx.getMemoryAst(MemoryAccess(address, size))
-                return z3bridge.triton_to_claripy(self.ctx, node)
-            # As in _write_symbolic_memory: read in power-of-two chunks and glue
-            # them back together in memory order.
-            parts = [
-                z3bridge.triton_to_claripy(
-                    self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
-                )
-                for offset, chunk in _access_chunks(address, size)
-            ]
+                value = z3bridge.triton_to_claripy(self.ctx, node)
+            else:
+                # Read in power-of-two chunks and glue them into the loaded
+                # (platform-endianness) integer, matching getMemoryAst above.
+                parts = [
+                    z3bridge.triton_to_claripy(
+                        self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
+                    )
+                    for offset, chunk in _access_chunks(address, size)
+                ]
+                if self._byteorder() == "little":
+                    # Chunk 0 holds the least significant bytes; Concat is MSB-first.
+                    parts.reverse()
+                value = claripy.Concat(*parts)
+        # Contract (see state.py): read_memory_symbolic returns the byte
+        # SEQUENCE -- first byte most significant -- not the loaded integer, so
+        # it agrees across emulators (angr is the oracle). getMemoryAst yields
+        # the loaded value in platform endianness, so byte-reverse it on a
+        # little-endian platform to recover memory order.
         if self._byteorder() == "little":
-            # Chunk 0 holds the least significant bytes, and Concat is MSB-first.
-            parts.reverse()
-        return claripy.Concat(*parts)
+            value = claripy.Reverse(value)
+        return value
 
     def _slice(
         self, bv: claripy.ast.bv.BV, base: int, offset: int, size: int
@@ -262,12 +280,22 @@ class TritonSymbolicEmulator(
     ) -> None:
         if label is None:
             return
-        prev = self.read_memory_symbolic(address, size)
         bv = claripy.BVS(label, size * 8, explicit_name=True)
-        if not (prev.symbolic and prev.op == "BVS"):
-            self._user_constraints.append(prev == bv)
+        # Bind the label to the memory's prior value only if the harness
+        # actually wrote it (angr/Ghidra discipline); never-written memory reads
+        # as Triton's default 0, which must stay a free symbol, not get pinned
+        # to 0. Mirrors write_register_label's _written_registers guard.
+        if not self._written_memory.get_missing_ranges((address, address + size)):
+            prev = self.read_memory_symbolic(address, size)
+            if not (prev.symbolic and prev.op == "BVS"):
+                self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
-        self.write_memory_content(address, bv)
+        # ``bv`` is the byte sequence read_memory_symbolic returns (first byte
+        # most significant). write_memory_content lays out the loaded integer in
+        # platform endianness, so byte-reverse on little-endian to keep the
+        # memory bytes -- and thus the round-trip -- in order.
+        stored = claripy.Reverse(bv) if self._byteorder() == "little" else bv
+        self.write_memory_content(address, stored)
 
     # ------------------------------------------------------- ConstrainedEmulator
 
@@ -308,8 +336,10 @@ class TritonSymbolicEmulator(
 
     def satisfiable(
         self,
-        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
     ) -> bool:
+        if extra_constraints is None:
+            extra_constraints = []
         return self._solver(extra_constraints).satisfiable()
 
     def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:

@@ -89,6 +89,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._thread.overrideContextWithDefault()
 
         self._memory_map = utils.RangeCollection()
+        # Byte ranges the harness has explicitly written. write_memory_label
+        # must not pin a label to SymZ3's default 0 for memory that was never
+        # written (mirrors the register-label discipline).
+        self._written_memory = utils.RangeCollection()
 
         # Maps a label name (passed to write_register_label /
         # write_memory_label) to the claripy BVS we minted for it. Used by
@@ -451,8 +455,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         pair = self._read_memory_pair(address, size)
         sym = pair.getRight()
         if sym is not None:
-            return self._sym_to_claripy(sym)
-        return claripy.BVV(self._int_from_bytes(pair.getLeft()), size * 8)
+            value = self._sym_to_claripy(sym)
+        else:
+            value = claripy.BVV(self._int_from_bytes(pair.getLeft()), size * 8)
+        # Contract (see state.py): read_memory_symbolic returns the byte
+        # SEQUENCE -- first byte most significant -- not the loaded integer, so
+        # it agrees across emulators (angr is the oracle). SymZ3 stores and
+        # reconstructs values in platform byte order, so byte-reverse on a
+        # little-endian platform to recover memory order (mirrors triton).
+        if self._byteorder_str() == "little":
+            value = claripy.Reverse(value)
+        return value
 
     def _sym_to_claripy(self, sym) -> claripy.ast.bv.BV:
         """Lift a Java ``SymValueZ3`` into a claripy bitvector via SMT-LIB."""
@@ -491,8 +504,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 )
             sym_value = self._make_sym_value(content, size_bits)
             self._setvar_memory(address, size, concrete_bytes, sym_value)
+            nbytes = size
         else:
-            self._write_concrete_bytes(address, bytes(content))
+            content = bytes(content)
+            self._write_concrete_bytes(address, content)
+            nbytes = len(content)
+        if nbytes:
+            self._written_memory.add_range((address, address + nbytes))
 
     def _read_concrete_bytes_at(self, address: int, size: int) -> bytes:
         """Read ``size`` bytes at ``address`` from the concrete byte side only.
@@ -556,20 +574,29 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     ) -> None:
         if label is None:
             return
-        prev = _collapse_to_concrete(self.read_memory_symbolic(address, size))
         bv = claripy.BVS(label, size * 8, explicit_name=True)
         # Same binding contract as write_register_label: the new label takes
         # on the value previously held at this address, so labelling memory
-        # that was just written concretely pins the label to those bytes.
+        # that was just written concretely pins the label to those bytes. But
+        # only bind if the harness actually wrote it -- never-written memory
+        # reads as SymZ3's default 0, which must stay a free symbol, not get
+        # pinned to 0.
         # We collapse ``prev`` first because SymZ3 returns memory as a
         # byte-level ``Concat`` of ``Extract`` slices; passing that raw to
         # the solver makes Z3 enumerate the structure instead of using the
         # cheap underlying value.
-        if not (prev.symbolic and prev.op == "BVS"):
-            self._user_constraints.append(prev == bv)
+        if not self._written_memory.get_missing_ranges((address, address + size)):
+            prev = _collapse_to_concrete(self.read_memory_symbolic(address, size))
+            if not (prev.symbolic and prev.op == "BVS"):
+                self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self._labeled_memory_ranges.append((address, address + size))
-        self.write_memory_content(address, bv)
+        # ``bv`` is the byte sequence read_memory_symbolic returns (first byte
+        # most significant). write_memory_content stores it in platform byte
+        # order, so byte-reverse on little-endian to keep the memory bytes --
+        # and thus the round-trip -- in order (mirrors the triton emulator).
+        stored = claripy.Reverse(bv) if self._byteorder_str() == "little" else bv
+        self.write_memory_content(address, stored)
 
     # ------------------------------------------------------------------
     # Stepping / running (per-pcode-op pattern from concrete GhidraEmulator)
@@ -1035,8 +1062,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def satisfiable(
         self,
-        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
     ) -> bool:
+        if extra_constraints is None:
+            extra_constraints = []
         return self._solver(extra_constraints).satisfiable()
 
     def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:

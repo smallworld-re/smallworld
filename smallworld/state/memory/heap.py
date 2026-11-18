@@ -104,11 +104,8 @@ class CheckedBumpAllocator(Heap):
         # only grows by allocation sizes); do not subtract the base address.
         return self._current_free_offset
 
-    def _is_safe(self, value: state.Value):
-        if (
-            self.get_used() + value.get_size() + self._guard_size
-        ) > self.get_capacity():
-            raise ValueError("Memory is full")
+    def has_room(self, size: int) -> bool:
+        return (self.get_used() + size + self._guard_size) <= self.get_capacity()
 
     def allocate(self, value: state.Value) -> int:
         self._is_safe(value)

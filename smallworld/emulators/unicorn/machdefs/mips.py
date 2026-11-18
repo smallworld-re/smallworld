@@ -356,7 +356,7 @@ class MIPSMachineDef(UnicornMachineDef):
             raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
 
         else:
-            logger.error("Unexpected MIPS exception number: {intno}")
+            logger.error(f"Unexpected MIPS exception number: {intno}")
             raise EmulationExecExceptionFailure(f"Unhandled exception {intno}", pc)
 
 

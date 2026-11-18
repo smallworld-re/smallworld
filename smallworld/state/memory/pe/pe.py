@@ -175,14 +175,14 @@ class PEExecutable(Executable):
 
         sect_data = image[sect_start:sect_end]
         if len(sect_data) < sect_size:
-            # Section is shorter than what's available in the file;
-            # THis will get zero-padded.
-            pad_size = sect_size - len(sect_data)
-            sect_data += b"\0" * pad_size
-        if len(sect_data) != sect_size:
-            raise ConfigurationError(
-                f"Expected segment of size {sect_size}, but got {len(sect_data)}"
-            )
+            # Section is shorter than its virtual size; zero-pad the remainder.
+            sect_data += b"\0" * (sect_size - len(sect_data))
+        else:
+            # The file-aligned raw size can exceed the page-aligned virtual
+            # size (a tiny/zero VirtualSize section, or file-alignment padding
+            # pushing raw past the page-rounded virtual size). Only the virtual
+            # size is mapped; the extra raw bytes are file padding.
+            sect_data = sect_data[:sect_size]
 
         if 0 != (sect.characteristics & IMAGE_SCN_CNT_CODE):
             # This is a code segment; add it to program bounds
@@ -244,7 +244,7 @@ class PEExecutable(Executable):
 
                         else:
                             raise ConfigurationError(
-                                "Unhandled relocation type {entry.type}"
+                                f"Unhandled relocation type {entry.type}"
                             )
                         # Reset the data
                         val.set_content(bytes(contents))
@@ -258,7 +258,7 @@ class PEExecutable(Executable):
         for e in d.entries:
             if e.is_forwarded:
                 raise NotImplementedError(
-                    "{d.name}.{e.name} is forwarded to {e.forward_information}"
+                    f"{d.name}.{e.name} is forwarded to {e.forward_information}"
                 )
             else:
                 exp = PEExport(

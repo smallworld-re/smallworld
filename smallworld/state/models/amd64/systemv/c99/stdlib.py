@@ -186,4 +186,6 @@ __all__ = [
     "AMD64SysVSystem",
     "AMD64SysVWcstombs",
     "AMD64SysVWctomb",
+    "AMD64SysVTlsGetAddr",
+    "AMD64SysVTlsDescResolve",
 ]

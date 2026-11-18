@@ -26,5 +26,5 @@ class X86MMRRegister(Register):
         elif isinstance(x, tuple):
             s = s + ", ".join(map(lambda v: hex(v), x))
         else:
-            s = s + "External ref {hex(x)}"
+            s = s + f"External ref {hex(x)}"
         return s

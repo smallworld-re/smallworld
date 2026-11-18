@@ -1,28 +1,12 @@
 {
   "nodes": {
-    "libpanda-ng-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1770663360,
-        "narHash": "sha256-2p4U5IMSj4nxMUMt49Zvwgftq7XXW8V4OxYBRvOUM2M=",
-        "owner": "panda-re",
-        "repo": "libpanda-ng",
-        "rev": "3f2a9c6e817267f734015d68ec18d53849731317",
-        "type": "github"
-      },
-      "original": {
-        "owner": "panda-re",
-        "repo": "libpanda-ng",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1789724158,
-        "narHash": "sha256-nlKgrm0dsVhOSopKheVBCcOpiIticufPPVLdVOI0euA=",
+        "lastModified": 1794644783,
+        "narHash": "sha256-3GnIGIy15bMduoS9RnWqKTmsJLWThla42UFtm0S7+us=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "0a3468a402c449992505b6a9fc5b06580141b750",
+        "rev": "5d2b81a7a3be3e2f832879028e4d60abbf58e9a0",
         "type": "github"
       },
       "original": {
@@ -34,40 +18,21 @@
     },
     "panda-ng": {
       "inputs": {
-        "libpanda-ng-src": "libpanda-ng-src",
         "nixpkgs": [
           "nixpkgs"
-        ],
-        "panda-qemu-src": "panda-qemu-src"
+        ]
       },
       "locked": {
-        "lastModified": 1774888919,
-        "narHash": "sha256-NKcs04Todw6kCv1PZx/reLbLsmX9NMouLwhk28c1hwM=",
+        "lastModified": 1794609618,
+        "narHash": "sha256-EelZox+w4BikbT6OGNsrgI6DscbbesRJhqyVHgUQhGk=",
         "owner": "panda-re",
         "repo": "panda-ng",
-        "rev": "fdfbf0a53860ad8460953880814ddae61635a0c8",
+        "rev": "bc42556a9a828a985aa40275e66ac887841c891c",
         "type": "github"
       },
       "original": {
         "owner": "panda-re",
         "repo": "panda-ng",
-        "type": "github"
-      }
-    },
-    "panda-qemu-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1766081023,
-        "narHash": "sha256-TxKoOTS/2fsagOG45W/W8qbqVMI1Jmf/d1Sr4+nZKZY=",
-        "owner": "panda-re",
-        "repo": "qemu",
-        "rev": "e6abc873c29149c160d096fa4df6c3d1f7da6b88",
-        "type": "github"
-      },
-      "original": {
-        "owner": "panda-re",
-        "ref": "wrapup-rebase",
-        "repo": "qemu",
         "type": "github"
       }
     },
@@ -84,11 +49,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789963190,
-        "narHash": "sha256-mj5BLUKECIHv3rwkBXL6xQp45gIBJV7ZOYgT46LXwho=",
+        "lastModified": 1794012432,
+        "narHash": "sha256-zBKFTg7tEGApNt+CEKI5+WNNomD5MZqYNBr+r6/Bmdg=",
         "owner": "pyproject-nix",
         "repo": "build-system-pkgs",
-        "rev": "14b45373ea9a14ed2fcd0abf3ed35c8e3c430020",
+        "rev": "bdbc5f8dd2ad6136bb2ccecb14f6ec343965b194",
         "type": "github"
       },
       "original": {
@@ -104,11 +69,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788394333,
-        "narHash": "sha256-xYOP0Xym1eVGUaHFx+eJEaycFGoiCbst3fZf0xFHP78=",
+        "lastModified": 1793820880,
+        "narHash": "sha256-NUMabnvaL/0Ah9WM9pBMXEp+dQjMSYjezZ/fNjXouLQ=",
         "owner": "pyproject-nix",
         "repo": "pyproject.nix",
-        "rev": "6a8a7881d75b6f98967e7b8069f4ead331384301",
+        "rev": "d43f0e74444c1f266c640fc49ce6ce6fb69d33c3",
         "type": "github"
       },
       "original": {
@@ -136,11 +101,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789383061,
-        "narHash": "sha256-+DkygIVr/+RtXnsjd07BzFFB0ihwmjjLuYh1fyc/bCg=",
+        "lastModified": 1793272761,
+        "narHash": "sha256-3CE1CEwprYlHRlRVkXDkhqec0jjF9Cti7tdk8vVDsCM=",
         "owner": "pyproject-nix",
         "repo": "uv2nix",
-        "rev": "079be4e68c529c4cbc44dbf1afc692e4b30695b3",
+        "rev": "c361746c7d630d98b972378290547c8d35542a7a",
         "type": "github"
       },
       "original": {

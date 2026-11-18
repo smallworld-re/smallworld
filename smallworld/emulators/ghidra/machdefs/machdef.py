@@ -89,5 +89,8 @@ class GhidraMachineDef:
                 lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
-        except:
-            raise ValueError(f"No machine model for {platform}")
+        except ValueError as e:
+            # find_subclass raises ValueError for the no-match case; narrow to
+            # it so a genuine error from the matched MachineDef's __init__ (or
+            # KeyboardInterrupt/SystemExit) propagates instead of being masked.
+            raise ValueError(f"No machine model for {platform}") from e

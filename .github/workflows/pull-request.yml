@@ -157,6 +157,9 @@ jobs:
           python -m pip install coverage '.[emu-unicorn]'
       - name: Run Python 3.9.6 Compatibility Smoke Test
         run: python -m coverage run --parallel-mode tests/python39/python39_compat.py
+      - name: Run ABI Unit Tests On Python 3.9.6
+        working-directory: tests
+        run: python -m coverage run --parallel-mode -m unittest -v abi.test
       - name: Upload Coverage Data
         if: always()
         uses: actions/upload-artifact@v7

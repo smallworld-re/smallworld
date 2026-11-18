@@ -159,6 +159,10 @@ class StyxEmulator(
         self._stub_program.write(b"\x00\x00\x00\x00")
         self._stub_program.flush()
         self._builder.target_program = self._stub_program.name
+        # Only the path is needed from here on; close the handle now so the
+        # file descriptor doesn't leak until GC. delete=False keeps the file
+        # on disk for the loader; __del__ unlinks it by name.
+        self._stub_program.close()
 
         self._proc: typing.Optional[typing.Any] = None
         self._memory_map: utils.RangeCollection = utils.RangeCollection()
@@ -377,6 +381,9 @@ class StyxEmulator(
         # one-shot BlockHook that stops the CPU on the *next* block boundary
         # after the current one.
         self._lazy_build()
+        # Mirror step_instruction/run: clear any stale exit flag before running
+        # so a prior exit-point stop can't leak into this block's translation.
+        self._stopped_for_exit = False
         try:
             from styx_emulator.cpu.hooks import BlockHook
         except ImportError as e:
@@ -538,21 +545,25 @@ class StyxEmulator(
 
     def _install_interrupt_dispatcher(self) -> None:
         # Register exactly one processor-level InterruptHook. At fire time it
-        # dispatches the per-number handler if present, otherwise the global
-        # handler. Both ``interrupt_hooks`` and ``all_interrupts_hook`` are
-        # populated by the ``super()`` calls before this runs, so a single
-        # dispatcher works regardless of which ``hook_*`` was called first and
-        # never double-registers (which would otherwise double-fire handlers).
+        # runs the global handler (if any) and then the per-number handler (if
+        # one is registered for this interrupt). Both fire; they are not
+        # mutually exclusive. This matches the InterruptHookable contract as
+        # implemented by the Unicorn and Panda backends, where the global and
+        # per-number hooks both run on every matching interrupt. ``interrupt_hooks``
+        # and ``all_interrupts_hook`` are populated by the ``super()`` calls
+        # before this runs, so a single dispatcher works regardless of which
+        # ``hook_*`` was called first and never double-registers (which would
+        # otherwise double-fire handlers).
         if self._has_styx_interrupt_hook():
             return
 
         def _cb(_cpu, intno, _self=self):
-            handler = _self.interrupt_hooks.get(int(intno))
+            intno = int(intno)
+            if _self.all_interrupts_hook is not None:
+                _self.all_interrupts_hook(_self, intno)
+            handler = _self.interrupt_hooks.get(intno)
             if handler is not None:
                 handler(_self)
-                return
-            if _self.all_interrupts_hook is not None:
-                _self.all_interrupts_hook(_self, int(intno))
 
         self._register_styx_hook(InterruptHook(_cb))
         self._styx_interrupt_hook_installed = True

@@ -35,6 +35,25 @@ class FDAState:
         self.fda_addr_to_unk_label = dict()
 
 
+def _describe_field(fda, label, val):
+    """Return the (label, value) to display for a tracked field.
+
+    ``label`` is the field's declared label (from ``fda_addr_to_label``); it is
+    always used, so concrete or composite loaded values are labelled correctly
+    instead of raising or reusing a previous iteration's label. When the loaded
+    value is a single bound symbol, its binding is substituted for readability;
+    an unknown single variable is reported.
+    """
+    if len(val.variables) == 1:
+        # Very likely a bound symbol; fetch its binding for a readable value.
+        (var,) = val.variables
+        if var in fda.fda_bindings:
+            val = fda.fda_bindings[var]
+        else:
+            log.error(f"  Unknown variable {var}")
+    return label, val
+
+
 class FieldDetectionMixin(underlays.AnalysisUnderlay):
     """Analysis comparing state labels to field accesses.
 
@@ -404,15 +423,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             log.warning("  Fields:")
             for r in fda.fda_addr_to_label:
                 val = emu.state.memory.load(r.start, r.stop - r.start)
-                if len(val.variables) == 1:
-                    # val is extremely likely a bound symbol.
-                    # Fetch the binding
-                    (label,) = val.variables
-                    if label in fda.fda_bindings:
-                        val = fda.fda_bindings[label]
-                    else:
-                        log.error(f"  Unknown variable {label}")
-
+                label, val = _describe_field(fda, fda.fda_addr_to_label[r], val)
                 log.warning(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
 
         self.emulator.visit_states(state_visitor, stash="deadended")
@@ -434,6 +445,13 @@ class FieldDetectionFilter(analyses.Analysis):
         super().__init__(hinter)
         self.active = True
         self.partial_ranges: dict = dict()
+
+    def run(self, machine):
+        # Passive filter: it is driven by activate()/analyze()/deactivate() and
+        # the FieldEventHints it subscribes to, not by a standalone run(). The
+        # abstract Analysis.run only needs a concrete implementation so the
+        # class can be instantiated.
+        pass
 
     def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.
@@ -511,7 +529,9 @@ class FieldDetectionAnalysis(FieldDetectionMixin, underlays.BasicAnalysisUnderla
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(self, platform: platforms.Platform, hinter: hinting.Hinter):
+        # Bind self.hinter through the MRO; run() sends field hints through it.
+        super().__init__(hinter)
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
 
@@ -526,8 +546,13 @@ class ForcedFieldDetectionAnalysis(
     halt_on_hint = False
 
     def __init__(
-        self, platform: platforms.Platform, trace: typing.List[typing.Dict[str, int]]
+        self,
+        platform: platforms.Platform,
+        trace: typing.List[typing.Dict[str, int]],
+        hinter: hinting.Hinter,
     ):
+        # trace is consumed by ForcedExecutionUnderlay; hinter flows on to
+        # Analysis.__init__ to bind self.hinter.
+        super().__init__(trace, hinter)
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
-        super().__init__(trace)

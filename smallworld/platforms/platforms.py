@@ -114,6 +114,16 @@ class ABI(enum.Enum):
     FASTCALL = "fastcall"
     """Microsoft fastcall."""
 
+    WINDOWS = "windows"
+    """The native Windows (PE) calling convention of the platform: the
+    Microsoft x64 convention on x86-64, cdecl on x86-32."""
+
+    STDCALL = "stdcall"
+    """Microsoft stdcall (x86-32; the callee pops its arguments)."""
+
+    THISCALL = "thiscall"
+    """Microsoft thiscall (x86-32 C++ member functions; ``this`` in ecx)."""
+
     NONE = "none"
     """No ABI"""
 

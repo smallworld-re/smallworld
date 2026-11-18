@@ -502,14 +502,20 @@ def handle_uint(
     fmt += "}"
     res = fmt.format(val)
     if "#" in flags and conv == "o":
+        # Python renders C's "#o" as a two-character "0o" prefix (and formats
+        # zero as "0o0"), whereas C uses a single leading "0" -- and a bare "0"
+        # for the zero value. Rebuild the digits with C semantics, then re-apply
+        # the field width on the side the "-" (left-justify) flag selects. (The
+        # "0" flag can't reach here: it strips "#" above.)
+        digits = "0" if val == 0 else "0" + format(val, "o")
         if width != "":
-            int_width = int(width)
-        else:
-            int_width = 0
-        extend = len(res) == int_width
-        res = res.replace("0o", "0")
-        if extend:
-            res = " " + res
+            pad = int(width) - len(digits)
+            if pad > 0:
+                if "<" in flags:
+                    digits = digits + " " * pad
+                else:
+                    digits = " " * pad + digits
+        res = digits
 
     return res
 

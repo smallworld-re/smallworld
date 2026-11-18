@@ -472,6 +472,7 @@ class LoopHint(hinting.Hint):
 
 
 __all__ = [
+    "DynamicValueHint",
     "DynamicRegisterValueHint",
     "DynamicMemoryValueHint",
     "MemoryUnavailableHint",

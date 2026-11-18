@@ -587,6 +587,17 @@ class Memset(CStdModel):
         assert isinstance(val, int)
         assert isinstance(n, int)
 
+        # `n` is whatever the guest put in the size register. Building the
+        # fill first spends it before write_memory can refuse it: harnessing a
+        # libjpeg function called memset with n = 432 GiB and the worker was
+        # OOM-killed. A mapped range is bounded by real guest memory.
+        if not emulator.is_memory_mapped(ptr, n):
+            raise exceptions.EmulationWriteUnmappedFailure(
+                f"memset of {n} bytes at {ptr:#x} is not mapped",
+                emulator.read_register("pc"),
+                address=ptr,
+            )
+
         data = bytes([val & 0xFF]) * n
         emulator.write_memory(ptr, data)
 

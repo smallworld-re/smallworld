@@ -203,7 +203,8 @@ cpu.rcx.set_label("PTR msg")
 At long last, we're reading to actually run our analysis.
 
 ```python
-machine.analyze(FieldDetectionAnalysis(platform))
+hinter = smallworld.hinting.Hinter()
+machine.analyze(FieldDetectionAnalysis(platform, hinter))
 ```
 
 The code we just wrote can be found in `dns_0.py`
