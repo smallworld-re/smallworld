@@ -72,9 +72,14 @@ class AngrMachineDef:
         the default should be sufficient.
 
         The biggest case to date is to handle
-        user-defined operations in pcode.
-        These are treated as illegal ops by angr,
-        and there is currently no way to intercept their processing.
+        user-defined operations (CALLOTHER) in pcode,
+        which angr's p-code engine refuses to run.
+        An op that ends the block, such as a syscall or a trap,
+        is handled here by rewriting the lifted block;
+        see the helpers in ``pcode_rewrite.py``.
+        An op that only computes a value or does nothing
+        is better handled by an ``angr_engine`` subclass
+        that overrides ``_execute_callother``.
 
         Arguments:
             state: The angr state for which to compute successors
@@ -169,9 +174,7 @@ class GhidraMachineDef(AngrMachineDef):
 
     # angr's own p-code engine, with floating-point operations and
     # partial-register varnodes fixed.
-    angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = (
-        PcodeEngine
-    )
+    angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = PcodeEngine
 
     def __init__(self):
         self._angr_arch = archinfo.ArchPcode(self.pcode_language)

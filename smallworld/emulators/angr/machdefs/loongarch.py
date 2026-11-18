@@ -2,12 +2,12 @@ import enum
 import typing
 
 import angr
-import archinfo
 import pypcode
 
 from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 
 class UpdatedEnumMeta(enum.EnumMeta):
@@ -31,26 +31,14 @@ def handle_nop(irsb, i):
 def handle_sigtrap(irsb, i):
     # This op should terminate this block with SIGTRAP
     next_addr = irsb._ops[i - 1].inputs[0].offset + LOONGARCH_INSN_SIZE
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = list(
-        filter(lambda x: x < next_addr, irsb._instruction_addresses)
-    )
-    irsb.jumpkind = "Ijk_SigTRAP"
+    rewrite_as_syscall(irsb, i, next_addr, jumpkind="Ijk_SigTRAP")
     return i
 
 
 def handle_syscall(irsb, i):
     # This op should terminate this block with a syscall
     next_addr = irsb._ops[i - 1].inputs[0].offset + LOONGARCH_INSN_SIZE
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = list(
-        filter(lambda x: x < next_addr, irsb._instruction_addresses)
-    )
-    irsb.jumpkind = "Ijk_Sys_syscall"
+    rewrite_as_syscall(irsb, i, next_addr)
 
     return i
 
@@ -261,26 +249,7 @@ class LoongArchMachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        # Inject exit points here.
-        assert hasattr(state.scratch, "exit_points")
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        # Fetch or compute the IR block for our state
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            # Someone's already specified an IR block.
-            irsb = kwargs["irsb"]
-        else:
-            # Disable optimization; it doesn't work
-            kwargs["opt_level"] = 0
-
-            # Compute the block from the state.
-            # Pray to the Powers that kwargs are compatible.
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+        irsb = lift_for_rewrite(state, kwargs)
 
         i = 0
         while i < len(irsb._ops):
@@ -313,7 +282,7 @@ class SimCCLoongArchLinux(angr.calling_conventions.SimCC):
     FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
     RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
     RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 8)
-    ARCH = archinfo.ArchPcode("Loongarch:LE:64:lp64d")  # type: ignore
+    ARCH = pcode_arch("Loongarch:LE:64:lp64d")  # type: ignore
 
 
 angr.calling_conventions.register_default_cc(

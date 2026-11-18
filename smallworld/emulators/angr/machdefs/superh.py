@@ -1,8 +1,6 @@
-import functools
 import typing
 
 import angr
-import archinfo
 import pypcode
 
 from ....platforms import Architecture, Byteorder
@@ -17,25 +15,11 @@ from ....platforms.defs.superh import (
     SH2A_STATUS_REGISTER,
 )
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 SH2A_PCODE_LANGUAGE = "SuperH:BE:32:SH-2A"
 SH2_PCODE_LANGUAGE = "SuperH:BE:32:SH-2"
 SH1_PCODE_LANGUAGE = "SuperH:BE:32:SH-1"
-
-
-@functools.lru_cache(maxsize=None)
-def pcode_arch(language: str) -> archinfo.arch.Arch:
-    """One shared ``ArchPcode`` per sleigh language.
-
-    ``archinfo.ArchPcode.__init__`` re-runs ``pypcode.Arch.enumerate()`` and
-    rebuilds the whole register table every time - roughly 8 ms per call, and
-    archinfo does not memoize it.  The ``SimCC`` classes here and in
-    ``superh4.py`` only ever read from ``ARCH``, so sharing one object per
-    language turns ten constructions into five.  That cost is paid during
-    ``import smallworld``, for every user on every platform, because
-    ``machdefs/__init__.py`` imports these modules eagerly.
-    """
-    return archinfo.ArchPcode(language)
 
 
 # ---------------------------------------------------------------------------
@@ -128,33 +112,6 @@ SUPERH_SYSCALL_ARGUMENT_REGISTERS = ("r4", "r5", "r6", "r7", "r0", "r1")
 SUPERH_SYSCALL_RETURN_REGISTER = "r0"
 
 
-def lift_for_rewrite(state: angr.SimState, kwargs: typing.Dict[str, typing.Any]):
-    """Lift the block at ``state``'s PC so it can be inspected and rewritten.
-
-    Mirrors the prologue of :meth:`AngrMachineDef.successors` and of
-    ``machdefs/xtensa.py``: exit points are folded into the lift and removed
-    from ``kwargs`` (which this mutates), because they end up baked into the
-    block handed back to the engine.
-
-    Unlike the Xtensa version this does *not* force ``opt_level=0``.  That line
-    is a no-op for pcode arches - ``angr/engines/pcode/lifter.py`` documents
-    ``opt_level`` as "Unused by P-Code lifter" - and leaving it unset keeps this
-    lift bit-identical to the one the engine would have done on its own.
-    """
-    assert hasattr(state.scratch, "exit_points")
-
-    if kwargs.get("irsb") is not None:
-        # Someone already decided which block to run.
-        return kwargs["irsb"]
-
-    if "extra_stop_points" in kwargs:
-        exit_points = state.scratch.exit_points | set(kwargs.pop("extra_stop_points"))
-    else:
-        exit_points = state.scratch.exit_points
-
-    return state.block(extra_stop_points=exit_points, **kwargs).vex
-
-
 def covers_one_instruction(imark) -> bool:
     """Is this IMARK for a single instruction?
 
@@ -183,41 +140,6 @@ def covers_one_instruction(imark) -> bool:
     model, because the architecture faults instead.
     """
     return len(imark.inputs) == 1
-
-
-def rewrite_as_syscall(irsb, keep: int, next_addr: int) -> None:
-    """Turn ``irsb`` into a block that ends in a syscall at ``next_addr``.
-
-    ``keep`` is the number of leading p-code ops to retain: everything up to and
-    including the trap instruction's IMARK, and nothing of the trap's own
-    semantics.  Ops for *earlier* instructions in the same block must survive -
-    the test blob's `mov #4, r3` sets the syscall number, and truncating one op
-    too early would leave r3 unwritten.
-
-    ``keep`` must include the trap instruction's own IMARK.  Dropping it - which
-    is what a literal port of Xtensa's ``handle_syscall`` does, since there the
-    IMARK is always at ``i - 1`` and the trap is always the whole instruction -
-    leaves a block with zero ops, and angr then hands the syscall a state whose
-    ``_ip`` is still the trap itself.  ``SyscallHookProcedure`` jumps to
-    ``state._ip``, so execution returns to the ``trapa`` and loops forever.
-    Measured: it hangs, it does not error.
-    """
-    assert keep > 0, "syscall rewrite must retain the trap's IMARK"
-    irsb._ops = irsb._ops[0:keep]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    # `_instruction_addresses` is `list[int] | None`: `IRSB.extend()` calls
-    # `_set_attributes` without it, so a block stitched together from several
-    # lifter passes has None here while still carrying the concatenated ops.
-    # The SH-2A caller never reaches this on such a block - `extend()` also
-    # clears `_disassembly`, which it checks first - but the SH-4 caller keys on
-    # a CALLOTHER that survives the concatenation, so guard rather than raise
-    # TypeError from inside successor computation.
-    if irsb._instruction_addresses is not None:
-        irsb._instruction_addresses = [
-            addr for addr in irsb._instruction_addresses if addr < next_addr
-        ]
-    irsb.jumpkind = "Ijk_Sys_syscall"
 
 
 class SimCCSuperHLinuxSyscall(angr.calling_conventions.SimCCSyscall):
