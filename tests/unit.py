@@ -963,6 +963,83 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(a, False)
 
 
+# The platforms each backend's register tests cover, keyed by the suffix of
+# the generated test name. A backend that has no model for a platform says so
+# in its class's `@platform_tests` decorator; every other platform must run.
+UNIT_TEST_PLATFORMS = {
+    "aarch64": (platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE),
+    "amd64": (platforms.Architecture.X86_64, platforms.Byteorder.LITTLE),
+    "amd64_avx512": (platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE),
+    "armv5t": (platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE),
+    "armv6m": (platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE),
+    "armv6m_thumb": (platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE),
+    "armv7m": (platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE),
+    "armv7r": (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE),
+    "armv7a": (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
+    "i386": (platforms.Architecture.X86_32, platforms.Byteorder.LITTLE),
+    "loongarch64": (platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE),
+    "m68k": (platforms.Architecture.M68K, platforms.Byteorder.BIG),
+    "mips": (platforms.Architecture.MIPS32, platforms.Byteorder.BIG),
+    "mipsel": (platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE),
+    "mips64": (platforms.Architecture.MIPS64, platforms.Byteorder.BIG),
+    "mips64el": (platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE),
+    "msp430": (platforms.Architecture.MSP430, platforms.Byteorder.LITTLE),
+    "msp430x": (platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE),
+    "ppc": (platforms.Architecture.POWERPC32, platforms.Byteorder.BIG),
+    "ppc64": (platforms.Architecture.POWERPC64, platforms.Byteorder.BIG),
+    "riscv64": (platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE),
+    "sh1": (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
+    "sh2": (platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG),
+    "sh2a": (platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG),
+    "sh4": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG),
+    "sh4el": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
+    "tricore": (platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE),
+    "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
+}
+
+
+def platform_tests(
+    prefix: str, unsupported: typing.Optional[typing.Mapping[str, str]] = None
+):
+    """Give a test class a `test_<prefix>_<name>` method per platform in
+    UNIT_TEST_PLATFORMS.
+
+    Each method calls the class's `run_test(platform)`. For a platform named
+    in `unsupported`, it instead checks that `run_test` raises ValueError,
+    and the reason becomes the method's docstring.
+    """
+    unsupported = unsupported or {}
+    unknown = set(unsupported) - set(UNIT_TEST_PLATFORMS)
+    if unknown:
+        raise KeyError(f"Not in UNIT_TEST_PLATFORMS: {sorted(unknown)}")
+
+    def make_test(platform, reason):
+        if reason is None:
+
+            def test(self):
+                self.run_test(platform)
+
+        else:
+
+            def test(self):
+                self.assertRaises(ValueError, self.run_test, platform)
+
+            test.__doc__ = reason
+        return test
+
+    def decorate(cls):
+        for name, (architecture, byteorder) in UNIT_TEST_PLATFORMS.items():
+            test = make_test(
+                platforms.Platform(architecture, byteorder), unsupported.get(name)
+            )
+            test.__name__ = test.__qualname__ = f"test_{prefix}_{name}"
+            setattr(cls, test.__name__, test)
+        return cls
+
+    return decorate
+
+
+@platform_tests("cpu")
 class CPUTests(unittest.TestCase):
     def run_test(self, platform):
         pdef = platforms.PlatformDef.for_platform(platform)
@@ -1044,175 +1121,24 @@ class CPUTests(unittest.TestCase):
             msg=f"CPU for {platform} did not include the following registers: {all_regs}",
         )
 
-    def test_cpu_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+
+@platform_tests(
+    "unicorn",
+    unsupported={
+        name: "Not supported by unicorn"
+        for name in (
+            "loongarch64",
+            "msp430",
+            "msp430x",
+            "sh1",
+            "sh2",
+            "sh2a",
+            "sh4",
+            "sh4el",
+            "xtensa",
         )
-        self.run_test(platform)
-
-    def test_cpu_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh1(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh2(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-
+    },
+)
 class UnicornMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1255,163 +1181,13 @@ class UnicornMachdefTests(unittest.TestCase):
             msg=f"Unicorn did not handle the following registers for {platform}: {bad_regs}",
         )
 
-    def test_unicorn_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_unicorn_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh1(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh2(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-
+@platform_tests(
+    "angr",
+    unsupported={
+        name: "Not supported by angr" for name in ("amd64_avx512", "armv7r", "m68k")
+    },
+)
 class AngrMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1466,171 +1242,34 @@ class AngrMachdefTests(unittest.TestCase):
         # be chained so real errors (e.g. a malformed subclass) stay visible.
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
 
-    def test_angr_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_angr_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by angr
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_angr_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by angr
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_angr_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh1(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh2(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-
+# Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so sh2a
+# runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch adds along
+# with the SH-2A instruction set.
+@platform_tests(
+    "panda",
+    unsupported={
+        **{
+            name: "Not supported by Panda"
+            for name in (
+                "amd64_avx512",
+                "armv6m_thumb",
+                "armv7r",
+                "loongarch64",
+                "m68k",
+                "msp430",
+                "msp430x",
+                "ppc64",
+                "riscv64",
+                "xtensa",
+            )
+        },
+        **{
+            name: "The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2."
+            for name in ("sh1", "sh2")
+        },
+    },
+)
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1675,162 +1314,14 @@ class PandaMachdefTests(unittest.TestCase):
         if failure is not None:
             self.fail(f"Not all registers for {platform} handled by Panda:\n{failure}")
 
-    def test_panda_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_panda_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so
-        # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
-        # adds along with the SH-2A instruction set.
-        self.run_test(platform)
-
-    def test_panda_sh1(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
-        )
-        # The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2.
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_sh2(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
-        )
-        # The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2.
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-
+@platform_tests(
+    "ghidra",
+    unsupported={
+        name: "Not supported by ghidra"
+        for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+    },
+)
 class GhidraMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1872,177 +1363,6 @@ class GhidraMachdefTests(unittest.TestCase):
             0,
             msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
         )
-
-    def test_ghidra_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh1(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh2(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
 
 class PlatformDefMetadataTests(unittest.TestCase):
