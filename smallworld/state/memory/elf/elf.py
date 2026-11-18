@@ -82,6 +82,151 @@ EF_SH_SH4_MACHINES = {
     EF_SH4_NOMMU_NOFPU,
 }
 
+# Deriving the architecture from the ELF header.
+#
+# Each detector takes the parsed ELF and the platform the caller requested,
+# if any, and returns the architecture the header describes.
+
+ArchitectureDetector = typing.Callable[
+    [typing.Any, typing.Optional[Platform]], Architecture
+]
+
+
+def _fixed_architecture(architecture: Architecture) -> ArchitectureDetector:
+    """A machine value that names exactly one architecture."""
+    return lambda elf, requested: architecture
+
+
+def _architecture_by_class(
+    elf32: typing.Optional[Architecture],
+    elf64: typing.Optional[Architecture],
+    elf32_unsupported: str = "",
+) -> ArchitectureDetector:
+    """A machine value whose word size is given by the ELF class."""
+
+    def detect(elf, requested):
+        if elf.header.identity_class.value == 1:
+            if elf32 is None:
+                raise ConfigurationError(elf32_unsupported)
+            return elf32
+        elif elf.header.identity_class.value == 2:
+            assert elf64 is not None
+            return elf64
+        else:
+            raise ConfigurationError(
+                f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
+            )
+
+    return detect
+
+
+def _arm_architecture(elf, requested):
+    # Some kind of arm32
+    flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
+
+    # NOTE: ELF stopped numbering ARM version numbers at 5.
+    # This would be fine, except v6 and v7 are absolutely not
+    # binary compatible with v5.
+    if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
+        # This is either ARMv5T or some kind of ARMv6.
+        # We're currently assuming v5T,
+        # unless the user specifically asks for v6.
+        if requested is not None and requested.architecture is Architecture.ARM_V6M:
+            return Architecture.ARM_V6M
+        elif requested is not None and requested.architecture is Architecture.ARM_V5T:
+            return Architecture.ARM_V5T
+        else:
+            log.warning("Ambiguous ARM ABI version; assuming v5t")
+            return Architecture.ARM_V5T
+    elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
+        # This is ARMv7a, as built by gcc.
+        return Architecture.ARM_V7A
+    else:
+        # The file might be a core dump or some uncommon flavor of ARM.
+        # Fallback to a default if flags are missing.
+        log.warning(
+            f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
+            "defaulting to ARM_V7A."
+        )
+        return Architecture.ARM_V7A
+
+
+def _superh_architecture(elf, requested):
+    # Some kind of SuperH.
+    #
+    # NOTE: lief has no SuperH flag enums, so `flags_list` comes back
+    # empty here and we have to read the raw e_flags.
+    mach = elf.header.processor_flag & EF_SH_MACH_MASK
+
+    if mach in EF_SH_SH2A_MACHINES:
+        return Architecture.SUPERH_SH2A_FPU
+    elif mach in EF_SH_SH4_MACHINES:
+        return Architecture.SUPERH_SH4
+    elif mach == EF_SH1:
+        return Architecture.SUPERH_SH1
+    elif mach == EF_SH2:
+        return Architecture.SUPERH_SH2
+    elif mach == EF_SH2E:
+        # SH-2 with a single-precision FPU, which Ghidra has no
+        # language for. SH-2A is a strict superset.
+        log.warning(
+            f"SuperH ISA {hex(mach)} has no SmallWorld model; running it as SH-2A-FPU"
+        )
+        return Architecture.SUPERH_SH2A_FPU
+    elif mach in (EF_SH3, EF_SH3E, EF_SH3_NOMMU):
+        # SH-4 is a superset of these.
+        log.warning(
+            f"SuperH ISA {hex(mach)} has no SmallWorld model; running it as SH-4"
+        )
+        return Architecture.SUPERH_SH4
+    elif mach == EF_SH_UNKNOWN:
+        # No ISA recorded at all - a core dump, or an image linked by a
+        # toolchain that never set the field. Same fallback as the ARM
+        # detector rather than a hard failure.
+        log.warning("SuperH image records no ISA in e_flags; defaulting to SH-4")
+        return Architecture.SUPERH_SH4
+    else:
+        # SH-DSP and friends.
+        raise ConfigurationError(f"Unsupported SuperH ISA in e_flags: {hex(mach)}")
+
+
+# The architecture detector for each e_machine value.
+ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
+    EM_386: _fixed_architecture(Architecture.X86_32),
+    EM_68K: _fixed_architecture(Architecture.M68K),
+    EM_AARCH64: _fixed_architecture(Architecture.AARCH64),
+    EM_ARM: _arm_architecture,
+    EM_LOONGARCH: _architecture_by_class(
+        None, Architecture.LOONGARCH64, "LoongArch32 not supported"
+    ),
+    # TODO: There are more MIPS parameters than just word size
+    EM_MIPS: _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64),
+    EM_PPC: _fixed_architecture(Architecture.POWERPC32),
+    EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
+    EM_RISCV: _architecture_by_class(
+        None, Architecture.RISCV64, "RISC-V 32-bit isn't supported"
+    ),
+    EM_SH: _superh_architecture,
+    EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
+    EM_X86_64: _fixed_architecture(Architecture.X86_64),
+    EM_XTENSA: _fixed_architecture(Architecture.XTENSA),
+}
+
+# Families whose e_machine value cannot tell their members apart well enough,
+# keyed by e_machine. When the caller requests a member of the family, it wins
+# over the member derived from the header: SuperH's ISA field cannot express,
+# say, an SH-2A image the caller wants to run on our SH-4 model.
+REQUESTED_ARCHITECTURE_WINS: typing.Dict[int, typing.FrozenSet[Architecture]] = {
+    EM_SH: frozenset(
+        {
+            Architecture.SUPERH_SH1,
+            Architecture.SUPERH_SH2,
+            Architecture.SUPERH_SH2A_FPU,
+            Architecture.SUPERH_SH4,
+        }
+    ),
+}
+
 # Program header types
 PT_NULL = 0  # Empty/unused program header
 PT_LOAD = 1  # Describes loadable program segment
@@ -301,171 +446,34 @@ class ElfExecutable(Executable):
             )
 
         # Determine arch/mode.  This bit's harder.
-        if elf.header.machine_type.value == EM_X86_64:
-            # amd64
-            architecture = Architecture.X86_64
-        elif elf.header.machine_type.value == EM_AARCH64:
-            # aarch64
-            architecture = Architecture.AARCH64
-        elif elf.header.machine_type.value == EM_386:
-            # i386
-            architecture = Architecture.X86_32
-        elif elf.header.machine_type.value == EM_68K:
-            # m68k
-            architecture = Architecture.M68K
-        elif elf.header.machine_type.value == EM_ARM:
-            # Some kind of arm32
-            flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
+        machine = elf.header.machine_type.value
+        detect = ARCHITECTURE_DETECTORS.get(machine)
+        if detect is None:
+            raise ConfigurationError(f"Unknown value of e_machine: {hex(machine)}")
+        architecture = detect(elf, self.platform)
 
-            # NOTE: ELF stopped numbering ARM version numbers at 5.
-            # This would be fine, except v6 and v7 are absolutely not
-            # binary compatible with v5.
-            if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
-                # This is either ARMv5T or some kind of ARMv6.
-                # We're currently assuming v5T,
-                # unless the user specifically asks for v6.
-                if (
-                    self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V6M
-                ):
-                    architecture = Architecture.ARM_V6M
-                elif (
-                    self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V5T
-                ):
-                    architecture = Architecture.ARM_V5T
-                else:
-                    log.warning("Ambiguous ARM ABI version; assuming v5t")
-                    architecture = Architecture.ARM_V5T
-            elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
-                # This is ARMv7a, as built by gcc.
-                architecture = Architecture.ARM_V7A
-            else:
-                # The file might be a core dump or some uncommon flavor of ARM.
-                # Fallback to a default if flags are missing.
-                log.warning(
-                    f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
-                    "defaulting to ARM_V7A."
-                )
-                architecture = Architecture.ARM_V7A
-        elif elf.header.machine_type.value == EM_SH:
-            # Some kind of SuperH.
-            #
-            # NOTE: lief has no SuperH flag enums, so `flags_list` comes back
-            # empty here and we have to read the raw e_flags.
-            mach = elf.header.processor_flag & EF_SH_MACH_MASK
-
-            if mach in EF_SH_SH2A_MACHINES:
-                architecture = Architecture.SUPERH_SH2A_FPU
-            elif mach in EF_SH_SH4_MACHINES:
-                architecture = Architecture.SUPERH_SH4
-            elif mach == EF_SH1:
-                architecture = Architecture.SUPERH_SH1
-            elif mach == EF_SH2:
-                architecture = Architecture.SUPERH_SH2
-            elif mach == EF_SH2E:
-                # SH-2 with a single-precision FPU, which Ghidra has no
-                # language for. SH-2A is a strict superset.
-                log.warning(
-                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
-                    "running it as SH-2A-FPU"
-                )
-                architecture = Architecture.SUPERH_SH2A_FPU
-            elif mach in (EF_SH3, EF_SH3E, EF_SH3_NOMMU):
-                # SH-4 is a superset of these.
-                log.warning(
-                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
-                    "running it as SH-4"
-                )
-                architecture = Architecture.SUPERH_SH4
-            elif mach == EF_SH_UNKNOWN:
-                # No ISA recorded at all - a core dump, or an image linked by a
-                # toolchain that never set the field. Same fallback as the ARM
-                # branch above rather than a hard failure.
-                log.warning(
-                    "SuperH image records no ISA in e_flags; defaulting to SH-4"
-                )
-                architecture = Architecture.SUPERH_SH4
-            else:
-                # SH-DSP and friends.
-                raise ConfigurationError(
-                    f"Unsupported SuperH ISA in e_flags: {hex(mach)}"
-                )
-
-            # An explicitly requested SuperH platform wins over the derived one:
-            # the ISA field cannot express, say, an SH-2A image the caller wants
-            # to run on our SH-4 model.
-            #
-            # This has to come *after* the derivation, not instead of it.
-            # `_platform_for_ehdr` feeds the "Platform mismatch" guard in
-            # `__init__`, so short-circuiting on `self.platform` made the raise
-            # above unreachable - an SH-DSP image loaded with `platform=SH-4`
-            # was silently accepted - and swallowed every warning here. Say so
-            # out loud when it happens, rather than overriding in silence.
-            if (
-                self.platform is not None
-                and self.platform.architecture != architecture
-                and self.platform.architecture
-                in (
-                    Architecture.SUPERH_SH1,
-                    Architecture.SUPERH_SH2,
-                    Architecture.SUPERH_SH2A_FPU,
-                    Architecture.SUPERH_SH4,
-                )
-            ):
-                log.warning(
-                    f"SuperH image records ISA {hex(mach)} ({architecture}), but "
-                    f"{self.platform.architecture} was requested; using the "
-                    "requested platform"
-                )
-                architecture = self.platform.architecture
-        elif elf.header.machine_type.value == EM_TRICORE:
-            architecture = Architecture.TRICORE
-        elif elf.header.machine_type.value == EM_LOONGARCH:
-            if elf.header.identity_class.value == 1:
-                # 32-bit elf
-                raise ConfigurationError("LoongArch32 not supported")
-            elif elf.header.identity_class.value == 2:
-                # 64-bit elf
-                architecture = Architecture.LOONGARCH64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_MIPS:
-            # Some kind of mips.
-            # TODO: There are more parameters than just word size
-            if elf.header.identity_class.value == 1:
-                # 32-bit ELF
-                architecture = Architecture.MIPS32
-            elif elf.header.identity_class.value == 2:
-                architecture = Architecture.MIPS64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_PPC:
-            # PowerPC 32-bit
-            architecture = Architecture.POWERPC32
-        elif elf.header.machine_type.value == EM_PPC64:
-            # PowerPC 64-bit
-            architecture = Architecture.POWERPC64
-        elif elf.header.machine_type.value == EM_RISCV:
-            # RISC-V
-            if elf.header.identity_class.value == 1:
-                raise ConfigurationError("RISC-V 32-bit isn't supported")
-            elif elf.header.identity_class.value == 2:
-                architecture = Architecture.RISCV64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_XTENSA:
-            architecture = Architecture.XTENSA
-        else:
-            raise ConfigurationError(
-                f"Unknown value of e_machine: {hex(elf.header.machine_type.value)}"
+        # An explicitly requested member of the family wins over the derived
+        # one.
+        #
+        # This has to come *after* the derivation, not instead of it.
+        # `_platform_for_ehdr` feeds the "Platform mismatch" guard in
+        # `__init__`, so short-circuiting on `self.platform` would make the
+        # detector's refusals unreachable - an SH-DSP image loaded with
+        # `platform=SH-4` would be silently accepted - and swallow its
+        # warnings. Say so out loud when it happens, rather than overriding in
+        # silence.
+        family = REQUESTED_ARCHITECTURE_WINS.get(machine, frozenset())
+        if (
+            self.platform is not None
+            and self.platform.architecture != architecture
+            and self.platform.architecture in family
+        ):
+            log.warning(
+                f"ELF header describes {architecture}, but "
+                f"{self.platform.architecture} was requested; using the "
+                "requested platform"
             )
+            architecture = self.platform.architecture
         return Platform(architecture, byteorder)
 
     def _determine_base(self):
