@@ -119,9 +119,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the analyses.
 - `UnicornMachineDef.pc_from_engine()`/`pc_to_engine()`, for machines whose
   program counter register is not the linear pc.
-- `GhidraMachineDef.evaluate_userop()`, for sleigh user ops that Ghidra's
-  emulator does not provide, and `GhidraMachineDef.ram_address_size`, for
-  machines whose RAM offsets are wider than their pointers.
+- `GhidraMachineDef.nop_userops` and `GhidraMachineDef.userops`, for sleigh
+  user ops that Ghidra's emulator does not provide: the first names userops
+  to step over, and the second maps a userop's name to a function of the
+  emulator, the instruction's mnemonic and the userop's arguments that
+  returns its output. `GhidraEmulator` and `GhidraSymbolicEmulator` both use
+  them. `GhidraMachineDef.ram_address_size`, for machines whose RAM offsets
+  are wider than their pointers.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by
