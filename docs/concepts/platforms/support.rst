@@ -395,10 +395,9 @@ Some V850 instructions do not run, or run wrongly:
   temporary when ``trap`` reads only its low halfword. ``GhidraEmulator`` and
   angr run ``trap`` correctly.
 
-V850E2M's FPU runs on Ghidra; the ``floats`` scenario checks single-precision
-``addf.s``. angr's p-code engine implements no floating-point operations, so the
-FPU instructions do not run on angr. On Ghidra, the language gets some
-conversions wrong, without any error:
+V850E2M's FPU runs on Ghidra and angr; the ``floats`` scenario checks
+single-precision ``addf.s`` on both. The language gets some conversions wrong,
+without any error, and both emulators compute the same wrong values:
 
 - The ``cvtf`` conversions from floating point to integer truncate instead of
   rounding as ``FPSR`` selects: ``cvtf.sw`` of 2.7 gives 2, not 3, under the
@@ -455,10 +454,10 @@ A few notes:
   ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
   ``AngrError("Not implemented!")``. SmallWorld supplies its own, in
   ``smallworld/emulators/angr/machdefs/pcode_float.py``, and runs every
-  Pcode-backed architecture with them, though only SH-2A single precision is
-  measured; TriCore and LoongArch64 are untested. Xtensa stays at No: Ghidra's
-  sleigh includes its optional FPU, but SmallWorld's angr machdef for it
-  exposes no floating-point registers. m68k stays at No too: its language
+  Pcode-backed architecture with them, though only SH-2A single precision and
+  V850E2M's ``addf.s`` are measured; TriCore and LoongArch64 are untested.
+  Xtensa stays at No: Ghidra's sleigh includes its optional FPU, but
+  SmallWorld's angr machdef for it exposes no floating-point registers. m68k stays at No too: its language
   holds the FPU registers in the 68881's 80-bit format, which these behaviors
   don't support, so even ``fmove.s`` into an FPU register raises. The behaviors
   follow IEEE 754, rounding to
