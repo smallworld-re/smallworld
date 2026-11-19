@@ -1,12 +1,10 @@
 import typing
 
 import angr
-import archinfo
-import pypcode
 
-from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import pcode_arch
 
 M68K_PCODE_LANGUAGE = "68000:BE:32:default"
 
@@ -26,6 +24,9 @@ class M68KMachineDef(GhidraMachineDef):
     arch = Architecture.M68K
     byteorder = Byteorder.BIG
     pcode_language = M68K_PCODE_LANGUAGE
+
+    # cas and cas2 branch within their own p-code.
+    refuse_pcode_relative_branches = True
 
     _registers: typing.Dict[str, typing.Optional[str]] = {  # type: ignore[assignment]
         **{f"d{i}": f"d{i}" for i in range(0, 8)},
@@ -79,35 +80,6 @@ class M68KMachineDef(GhidraMachineDef):
             return offset + size - narrow, narrow
         return offset, size
 
-    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        # cas and cas2 branch within their own p-code, which angr's p-code
-        # engine doesn't support: it fails an assertion when the compare is
-        # equal, and runs both arms when it is not. Refuse them instead.
-        if kwargs.get("irsb") is None:
-            assert hasattr(state.scratch, "exit_points")
-            if "extra_stop_points" in kwargs:
-                exit_points = state.scratch.exit_points | set(
-                    kwargs.pop("extra_stop_points")
-                )
-            else:
-                exit_points = state.scratch.exit_points
-            kwargs["irsb"] = state.block(extra_stop_points=exit_points, **kwargs).vex
-        address = None
-        for op in kwargs["irsb"]._ops:
-            if op.opcode == pypcode.OpCode.IMARK:
-                address = op.inputs[0].offset
-            elif (
-                op.opcode in (pypcode.OpCode.BRANCH, pypcode.OpCode.CBRANCH)
-                and op.inputs[0].space.name == "const"
-            ):
-                assert address is not None
-                raise exceptions.EmulationExecFailure(
-                    "angr can't run this instruction: it branches within its "
-                    "own p-code (as cas and cas2 do)",
-                    address,
-                )
-        return super().successors(state, **kwargs)
-
 
 class SimCCM68K(angr.calling_conventions.SimCC):
     """m68k System V calling convention.
@@ -125,7 +97,7 @@ class SimCCM68K(angr.calling_conventions.SimCC):
     STACKARG_SP_DIFF = 4
     RETURN_VAL = angr.calling_conventions.SimRegArg("d0", 4)
     RETURN_ADDR = angr.calling_conventions.SimStackArg(0, 4)
-    ARCH = archinfo.ArchPcode(M68K_PCODE_LANGUAGE)  # type: ignore
+    ARCH = pcode_arch(M68K_PCODE_LANGUAGE)  # type: ignore
 
 
 angr.calling_conventions.register_default_cc(M68K_PCODE_LANGUAGE, SimCCM68K)

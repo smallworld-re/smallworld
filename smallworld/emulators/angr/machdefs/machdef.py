@@ -6,6 +6,7 @@ import archinfo
 
 from .... import exceptions, platforms, utils
 from .pcode_float import FloatPcodeEngine
+from .pcode_rewrite import find_pcode_relative_branch, lift_for_rewrite
 
 
 class AngrMachineDef:
@@ -176,5 +177,23 @@ class GhidraMachineDef(AngrMachineDef):
     # partial-register varnodes fixed.
     angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = PcodeEngine
 
+    # Refuse a block containing an instruction that branches within its own
+    # p-code, which angr's p-code engine runs wrongly; see
+    # `find_pcode_relative_branch`. Set by machine definitions whose
+    # languages have such instructions.
+    refuse_pcode_relative_branches: bool = False
+
     def __init__(self):
         self._angr_arch = archinfo.ArchPcode(self.pcode_language)
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        if self.refuse_pcode_relative_branches:
+            kwargs["irsb"] = lift_for_rewrite(state, kwargs)
+            address = find_pcode_relative_branch(kwargs["irsb"])
+            if address is not None:
+                raise exceptions.EmulationExecFailure(
+                    "angr can't run this instruction: it branches within its "
+                    "own p-code",
+                    address,
+                )
+        return super().successors(state, **kwargs)
