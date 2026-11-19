@@ -18,7 +18,7 @@ let
     owner = "AFLplusplus";
     repo = "unicornafl";
     rev = "7b79cd88c61efc1cddef89406aee2fe25ff83d54"; # from aflpp submodule at tagged version v4.34c
-    hash = "sha256-s6ksuSLIk+O1OVnmLpX66VuRGC9YhBIIT8I225mmrZg=";
+    hash = "sha256-zRsgBLlWeLK9pNI3h9M+JH0d5hDQyb+4r1GKrodD9Bc=";
     postFetch = ''
       cp ${./Cargo.lock} $out/Cargo.lock
       sed -i 's/^compatibility/# compatibility/g' $out/pyproject.toml
@@ -36,7 +36,7 @@ ps.buildPythonPackage {
   pyproject = true;
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit src;
-    hash = "sha256-8l29KYpyljnBsdbpuRh/7BhsBM1cIBIWI8Uno1F/kTg=";
+    hash = "sha256-/JSFvKFNRLluVjd74MpJ9yappQMv7hYMsBjlqDjRedY=";
   };
   dontUseCmakeConfigure = true;
   propagatedBuildInputs = [
