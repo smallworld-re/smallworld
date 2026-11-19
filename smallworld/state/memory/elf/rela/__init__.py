@@ -18,6 +18,7 @@ from .superh import (
     SH2AFPUElfRelocator,
     SuperH4BEElfRelocator,
     SuperH4ELElfRelocator,
+    SuperHElfRelocator,
 )
 from .tricore import TriCoreElfRelocator
 from .xtensa import XtensaElfRelocator
@@ -40,6 +41,7 @@ __all__ = [
     "SH2AFPUElfRelocator",
     "SuperH4BEElfRelocator",
     "SuperH4ELElfRelocator",
+    "SuperHElfRelocator",
     "TriCoreElfRelocator",
     "XtensaElfRelocator",
     "ElfRelocator",

@@ -2,6 +2,7 @@ import typing
 
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.superh import (
+    SH2A_ONLY_REGISTERS,
     SH2A_PROGRAM_COUNTER_REGISTER,
     SH2A_REGISTER_ALIASES,
     SH2A_STATUS_REGISTER,
@@ -50,3 +51,27 @@ class SH2AFPUMachineDef(GhidraMachineDef):
         # register covering SH-2A's 512 register banks. It is deliberately absent
         # from the platform definition, so there is nothing to map here.
     }
+
+
+class SH2MachineDef(GhidraMachineDef):
+    """SH-2 on Ghidra's ``SuperH:BE:32:SH-2``, which refuses SH-2A's
+    instructions. It has SH-2A's registers without `tbr` and the FPU."""
+
+    arch = Architecture.SUPERH_SH2
+    byteorder = Byteorder.BIG
+
+    # As for SH-2A: Ghidra folds a delay slot into its branch.
+    supports_single_step = True
+
+    _registers: typing.Dict[str, typing.Optional[str]] = {
+        name: register
+        for name, register in SH2AFPUMachineDef._registers.items()
+        if name not in SH2A_ONLY_REGISTERS
+    }
+
+
+class SH1MachineDef(SH2MachineDef):
+    """SH-1 on Ghidra's ``SuperH:BE:32:SH-1``, which refuses SH-2's
+    instructions."""
+
+    arch = Architecture.SUPERH_SH1

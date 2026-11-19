@@ -194,6 +194,26 @@ _SPECS = {
     # delay slot in inst_next, so pr gets the architectural inst_start+4; that
     # was measured byte-identical on angr, pcode and panda, which is why SH-4
     # needs no skip here even though static_buf's `bsr` call does.
+    "sh1": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
+    "sh2": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
     "sh2a": HookingSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pointer_size=4,

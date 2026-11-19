@@ -280,8 +280,9 @@ MOVW_OP_MOVZ = 2
 
 
 class AArch64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.AARCH64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE)}
+    )
 
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"

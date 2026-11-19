@@ -6,6 +6,7 @@ import pypcode
 from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite
 
 # There is one pcodeop, bcd_add.
 # No.
@@ -45,26 +46,7 @@ class MSP430AbsMachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        # Inject exit points here.
-        assert hasattr(state.scratch, "exit_points")
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        # Fetch or compute the IR block for our state
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            # Someone's already specified an IR block.
-            irsb = kwargs["irsb"]
-        else:
-            # Disable optimization; it doesn't work
-            kwargs["opt_level"] = 0
-
-            # Compute the block from the state.
-            # Pray to the Powers that kwargs are compatible.
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+        irsb = lift_for_rewrite(state, kwargs)
 
         i = 0
         while i < len(irsb._ops):

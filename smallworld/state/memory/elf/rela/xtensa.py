@@ -10,8 +10,9 @@ from .rela import ElfRelocator
 
 
 class XtensaElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.XTENSA
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         # Xtensa doesn't have a dynamic linker.

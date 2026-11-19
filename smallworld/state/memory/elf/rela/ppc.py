@@ -14,8 +14,9 @@ R_PPC_RELATIVE = 22  # Write B + A; ignores the symbol value.
 
 
 class PowerPCElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.POWERPC32
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.POWERPC32, platforms.Byteorder.BIG)}
+    )
     addrsz = 4
 
     def _compute_value(self, rela: ElfRela, elf):
@@ -46,8 +47,9 @@ R_PPC64_ADDR64 = 38  # Write S + A as a 64-bit absolute value.
 
 
 class PowerPC64ElfRelocator(PowerPCElfRelocator):
-    arch = platforms.Architecture.POWERPC64
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.POWERPC64, platforms.Byteorder.BIG)}
+    )
     addrsz = 8
 
     def _compute_value(self, rela: ElfRela, elf):

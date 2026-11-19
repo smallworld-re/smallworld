@@ -61,6 +61,8 @@ RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ASM_AS := ./$(SH_ID)-asm
 SH4EL_ASM_AS := ./$(SH_ID)-asm
 SH2A_ASM_AS := ./$(SH_ID)-asm
+SH2_ASM_AS := ./$(SH_ID)-asm
+SH1_ASM_AS := ./$(SH_ID)-asm
 TRICORE_ASM_AS := ./$(TRICORE_ID)-asm
 XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
@@ -85,6 +87,8 @@ RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ELF_AS := ./$(SH_ID)-elfasm
 SH4EL_ELF_AS := ./$(SH_ID)-elfasm
 SH2A_ELF_AS := ./$(SH_ID)-elfasm
+SH2_ELF_AS := ./$(SH_ID)-elfasm
+SH1_ELF_AS := ./$(SH_ID)-elfasm
 TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
@@ -110,6 +114,8 @@ RISCV64_OBJCOPY := zig objcopy
 SH4_OBJCOPY := $(SH_ID)-objcopy
 SH4EL_OBJCOPY := $(SH_ID)-objcopy
 SH2A_OBJCOPY := $(SH_ID)-objcopy
+SH2_OBJCOPY := $(SH_ID)-objcopy
+SH1_OBJCOPY := $(SH_ID)-objcopy
 TRICORE_OBJCOPY := $(TRICORE_ID)-objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 
@@ -147,6 +153,9 @@ XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
 SH4_ASFLAGS := -big --isa=sh4a
 SH4EL_ASFLAGS := -little --isa=sh4a
 SH2A_ASFLAGS := -big --isa=sh2a
+SH2_ASFLAGS := -big --isa=sh2
+# gas spells SH-1 plain `sh`.
+SH1_ASFLAGS := -big --isa=sh
 
 # objcopy flags
 GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
@@ -206,6 +215,8 @@ RISCV64_EXT := riscv64
 SH4_EXT := sh4
 SH4EL_EXT := sh4el
 SH2A_EXT := sh2a
+SH2_EXT := sh2
+SH1_EXT := sh1
 TRICORE_EXT := tricore
 XTENSA_EXT := xtensa
 
@@ -232,6 +243,12 @@ SH4_SRC_EXT := $(SH4_EXT)
 # NOTE: sh4el uses sh4 source
 SH4EL_SRC_EXT := $(SH4_EXT)
 SH2A_SRC_EXT := $(SH2A_EXT)
+SH2_SRC_EXT := $(SH2_EXT)
+# NOTE: sh1 uses sh2 source, so the SH-1 build keeps that source SH-1-clean:
+# gas refuses an instruction the --isa lacks.
+SH1_SRC_EXT := $(SH2_EXT)
+# ...except for the sh2 sources that test SH-2 additions, which SH-1 lacks.
+SH1_SRC_EXCLUDE := sh2a_delayslot/sh2a_delayslot.sh2.s
 TRICORE_SRC_EXT := $(TRICORE_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
 
@@ -244,7 +261,7 @@ XTENSA_SRC_EXT := $(XTENSA_EXT)
 
 define ASM_TEMPLATE
 
-$(1)_ASM_BIN_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).s)
+$(1)_ASM_BIN_SRCS := $$(filter-out $$($(1)_SRC_EXCLUDE),$$(wildcard */*.$$($(1)_SRC_EXT).s))
 $(1)_ASM_ELF_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).elf.s)
 
 $(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM_BIN_SRCS))
@@ -378,10 +395,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

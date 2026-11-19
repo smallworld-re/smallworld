@@ -186,6 +186,24 @@ _SPECS = {
     # stays None and the loader honours the file's own addresses.
     # fake_return_size is the 4-byte SuperH pointer; the pushed value is never
     # read, because the return address comes from `pr` (aliased ra/lr).
+    "sh1": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
+    "sh2": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
     "sh2a": ExitpointSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pc_register="pc",

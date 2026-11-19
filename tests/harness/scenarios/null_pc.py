@@ -55,6 +55,8 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",

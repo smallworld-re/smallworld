@@ -67,8 +67,9 @@ R_X86_64_NUM = 43  # This and higher aren't valid
 
 
 class AMD64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.X86_64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)}
+    )
 
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"

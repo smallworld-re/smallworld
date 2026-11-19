@@ -13,8 +13,9 @@ R_RISCV_JUMP_SLOT = 5  # Populate a PLT/GOT resolver slot with S + A.
 
 
 class RISCV64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.RISCV64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         if rela.type == R_RISCV_64 or rela.type == R_RISCV_JUMP_SLOT:

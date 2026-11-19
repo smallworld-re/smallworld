@@ -4,7 +4,8 @@ import typing
 import claripy
 import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
-from ghidra.pcode.exec import PcodeExecutorStatePiece
+from ghidra.pcode.emulate import InstructionDecodeException
+from ghidra.pcode.exec import DecodePcodeExecutionException, PcodeExecutorStatePiece
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.pcode import Varnode
 
@@ -461,8 +462,27 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     skip = False
                     self._thread.skipPcodeOp()
                 else:
-                    # Execute the opcode normally
-                    self._thread.stepPcodeOp()
+                    # MERGE NOTE: feature/v850 adds this catch too, for
+                    # DecodePcodeExecutionException only, here and around
+                    # _step_pcode_ops in symbolic.py. When both are merged,
+                    # keep this exception tuple and use it in symbolic.py too.
+                    #
+                    # Execute the opcode normally. The first step of an
+                    # instruction decodes it, which fails if the language
+                    # has no such instruction. Ghidra raises a different
+                    # exception when the instruction decodes but its delay
+                    # slot does not.
+                    try:
+                        self._thread.stepPcodeOp()
+                    except (
+                        DecodePcodeExecutionException,
+                        InstructionDecodeException,
+                    ) as e:
+                        raise exceptions.EmulationExecInvalidFailure(
+                            f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                            pc,
+                            None,
+                        ) from e
 
                 frame = self._thread.getFrame()
 

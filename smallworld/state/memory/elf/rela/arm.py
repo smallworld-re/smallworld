@@ -185,7 +185,7 @@ THUMB_NOP_W = 0xF3AF8000
 
 
 class ArmElfRelocator(ElfRelocator):
-    byteorder = platforms.Byteorder.LITTLE
+    """Shared ARM ELF relocator; each subclass covers one architecture."""
 
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
@@ -1299,20 +1299,30 @@ class ArmElfRelocator(ElfRelocator):
 
 
 class Armv5TElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V5T
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE)}
+    )
 
 
 class Armv6MElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V6M
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE)}
+    )
 
 
 class Armv7MElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7M
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE)}
+    )
 
 
 class Armv7RElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7R
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE)}
+    )
 
 
 class Armv7AElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7A
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE)}
+    )

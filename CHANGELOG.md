@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `AngrEmulator` reads and writes part of a register correctly on p-code
+  architectures. angr's p-code engine looked a register varnode up by the
+  name of the register containing it, losing its offset within it, so an
+  instruction using a big-endian register's low half (SuperH `mulu.w`) used
+  the high half instead. This also fixes SuperH `mov.w Rm,@Rn` and
+  `mov.b Rm,@Rn`, which stored `Rm`'s high bytes, so a halfword store of
+  `0x1234` wrote zero.
+- `GhidraEmulator` reports an instruction its language cannot decode as
+  `EmulationExecInvalidFailure`, as the other backends do, rather than letting
+  Ghidra's `DecodePcodeExecutionException` escape, or its
+  `InstructionDecodeException` for an undecodable delay-slot instruction.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -56,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on angr and passes TestFloat's single-precision functions. SH-4's does not
   yet, because its float instructions branch within the instruction, which
   angr's p-code engine cannot do.
+- `Architecture.SUPERH_SH1` and `Architecture.SUPERH_SH2`, big-endian, on the
+  angr and Ghidra backends, using Ghidra's SH-1 and SH-2 languages. Each
+  refuses the later versions' instructions, as the CPU does, where SH-1 and
+  SH-2 code used to run as SH-2A. The ELF loader recognizes them from
+  `e_flags`.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by
@@ -103,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- SH-1 and SH-2 ELF images (`e_flags` `EF_SH1` and `EF_SH2`) now load as
+  `SUPERH_SH1` and `SUPERH_SH2` rather than `SUPERH_SH2A_FPU`, so they no
+  longer run on Panda or Styx by default. Pass `platform` with
+  `SUPERH_SH2A_FPU` to keep running them as SH-2A.
 - `Value.{get, set}()` changed to `@property` `value`.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.

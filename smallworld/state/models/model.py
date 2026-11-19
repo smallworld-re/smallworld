@@ -288,6 +288,8 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH1
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH2
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
             or self.platform.architecture == platforms.Architecture.TRICORE
         ):

@@ -15,8 +15,9 @@ R_386_NUM = 44  # This and higher aren't valid
 
 
 class I386ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.X86_32
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.X86_32, platforms.Byteorder.LITTLE)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         if rela.type == R_386_GLOB_DAT or rela.type == R_386_JUMP_SLOT:

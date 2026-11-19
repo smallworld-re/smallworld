@@ -27,6 +27,8 @@ _ARCHS = (
     # Triton has no SuperH or Xtensa target, and on PANDA the very same
     # instruction is an interrupt instead, which is what the `interrupt`
     # scenario covers.
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
