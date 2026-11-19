@@ -76,6 +76,10 @@ class PowerPC32VLEMachineDef(GhidraMachineDef):
     byteorder = Byteorder.BIG
     pcode_language = PPC_VLE_PCODE_LANGUAGE
 
+    # Some SPE instructions, such as efscfsi and efsctsiz, branch within their
+    # own p-code.
+    refuse_pcode_relative_branches = True
+
     _registers: typing.Dict[str, typing.Optional[str]] = {  # type: ignore[assignment]
         # The remaining special-purpose registers are not in the language.
         **{name: None for name in PowerPC32VLE().registers},

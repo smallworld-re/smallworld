@@ -7099,6 +7099,30 @@ class PowerPCVLEAngrTests(unittest.TestCase):
         cr0 = emu.read_register_symbolic("cr0") & 0xE
         self.assertEqual(emu.state.solver.eval_upto(cr0, 2), [0x2])
 
+    def test_spe_arithmetic(self):
+        # efsmul r3,r3,r3; efsdiv r3,r3,r4; efssub r3,r3,r4, on the
+        # general registers.
+        def single(value):
+            return int.from_bytes(struct.pack(">f", value), "big")
+
+        for code, registers, expected in (
+            ("10631ac8", {"r3": single(1.5)}, 2.25),
+            ("106322c9", {"r3": single(3.0), "r4": single(2.0)}, 1.5),
+            ("106322c1", {"r3": single(3.0), "r4": single(10.0)}, -7.0),
+        ):
+            with self.subTest(code=code):
+                emu = self.run_code(bytes.fromhex(code), registers)
+                self.assertEqual(emu.read_register("r3"), single(expected))
+
+    def test_spe_branching_instructions_are_refused(self):
+        # efscfsi r3,r3 and efsctsiz r3,r3 branch within their own p-code,
+        # which angr can't run.
+        for code in ("10601ad1", "10601ada"):
+            with self.subTest(code=code):
+                with self.assertRaises(exceptions.EmulationExecFailure) as raised:
+                    self.run_code(bytes.fromhex(code), {"r3": 5})
+                self.assertEqual(raised.exception.pc, 0x1000)
+
     @unittest.expectedFailure
     def test_rlwinm_wrap_around_mask(self):
         # e_rlwinm r14,r4,15,17,7: with MB > ME the mask wraps around and

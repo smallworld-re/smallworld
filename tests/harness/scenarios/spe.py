@@ -18,14 +18,13 @@ _SPECS = build_specs(RawBinarySpec, _ARCHS)
 
 # Blocked upstream: Sleigh lifts efscfsi and efsctsiz with branches inside
 # their own p-code (const-space CBRANCH/BRANCH), which angr's engine cannot
-# take: it fails on "FIXME: Test statement_offset behavior". That needs an
-# angr fix. (The other blocker, angr's missing floating-point operations, is
-# gone: SmallWorld supplies them.) The binary and expected outputs are
-# correct.
+# run, so the VLE machine definition refuses them. That needs an angr fix.
+# (The other blocker, angr's missing floating-point operations, is gone:
+# SmallWorld supplies them.) The binary and expected outputs are correct.
 _SKIP_REASONS = {
     "ppcvle.angr": (
-        "angr's pcode engine cannot take the branches inside efscfsi's and "
-        "efsctsiz's p-code (an upstream angr limitation)"
+        "angr refuses efscfsi and efsctsiz, which branch inside their own "
+        "p-code; angr's pcode engine cannot run that (upstream limitation)"
     ),
 }
 

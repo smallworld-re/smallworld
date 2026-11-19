@@ -105,8 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   memory barriers and cache hints run as no-ops. The ELF loader recognizes VLE
   executables by the section and segment flags binutils sets on VLE code. There
   are no C library models for VLE. The language miscomputes wrap-around
-  `e_rlwinm`/`e_rlwimi` masks (see the platform support notes). The test suite
-  assembles VLE with GNU binutils, since zig's assembler cannot.
+  `e_rlwinm`/`e_rlwimi` masks, and angr refuses the SPE instructions that
+  branch inside their own p-code, such as `efscfsi` (see the platform support
+  notes). The test suite assembles VLE with GNU binutils, since zig's
+  assembler cannot.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

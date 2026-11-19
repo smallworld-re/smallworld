@@ -141,10 +141,12 @@ registers as ``powerpc32``. The e200 has no classic FPU, so the platform has no
     keep. For example, ``e_rlwinm r14,r4,15,17,7`` masks with ``0xfe003fff``
     instead of ``0xff007fff``. Compilers emit such masks for ``x & 0xff00ffff``
     and the like. This is an upstream sleigh bug.
-  - The SPE floating-point instructions (``efs*``) do not run. angr's p-code
-    engine implements no floating-point operations, on any architecture, and
-    cannot take the branches inside the p-code of ``efscfsi`` and
-    ``efsctsiz``.
+  - The SPE floating-point instructions (``efs*``) do not all run.
+    ``efscfsi`` and ``efsctsiz`` branch inside their own p-code, which angr's
+    p-code engine cannot run, so angr refuses a block containing them, or any
+    other instruction that does so, with ``EmulationExecFailure``.
+    ``efsmul``, ``efsdiv`` and ``efssub`` run, checked on single values; the
+    other ``efs*`` instructions are untested on angr.
   - There are no C library models, calling contexts, ``FunctionPointer`` or
     ``ReturnConstant`` for ``powerpc32-vle``; looking one up raises
     ``ValueError``.
