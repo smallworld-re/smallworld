@@ -7,13 +7,13 @@ import claripy
 from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs import X86RealMode
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, PcodeEngine
 
 X86_16_PCODE_LANGUAGE = "x86:LE:16:Real Mode"
 
 
-class X86RealModeEnginePcode(angr.engines.UberEnginePcode):
-    """angr's p-code engine, plus sleigh's `segment`, `LOCK` and `UNLOCK`
+class X86RealModeEnginePcode(PcodeEngine):
+    """SmallWorld's p-code engine, plus sleigh's `segment`, `LOCK` and `UNLOCK`
     user ops.
 
     Real-mode sleigh computes every memory address with `segment(seg, off)`,
