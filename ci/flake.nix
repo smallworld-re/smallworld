@@ -169,8 +169,7 @@
       # VLE tests use GNU binutils' `as -mvle`. Any PowerPC binutils
       # assembles VLE; the bare-metal EABI one is the embedded e200's own.
       # The tools come out prefixed `powerpc-none-eabi-*`.
-      mkPpcVleBinutils =
-        system: (pkgsFor system).pkgsCross.ppc-embedded.buildPackages.binutils-unwrapped;
+      mkPpcVleBinutils = system: (pkgsFor system).pkgsCross.ppc-embedded.buildPackages.binutils-unwrapped;
 
       mkTricoreGcc =
         system:
