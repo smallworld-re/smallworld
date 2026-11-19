@@ -278,6 +278,7 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.ARM_V7M
             or self.platform.architecture == platforms.Architecture.ARM_V7R
             or self.platform.architecture == platforms.Architecture.POWERPC32
+            or self.platform.architecture == platforms.Architecture.POWERPC32_VLE
             or self.platform.architecture == platforms.Architecture.POWERPC64
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'

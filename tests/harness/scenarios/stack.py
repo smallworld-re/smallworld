@@ -249,6 +249,24 @@ _SPECS = {
         stack_arguments=((0x5555, 4),),
         stack_pointer_adjust=-24,
     ),
+    "ppcvle": StackCaseSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        result_register="r3",
+        engines=("angr",),
+        register_arguments=(
+            ("r3", 0x1111),
+            ("r4", 0x01010101),
+            ("r5", 0x2222),
+            ("r6", 0x01010101),
+            ("r7", 0x3333),
+            ("r8", 0x01010101),
+            ("r9", 0x4444),
+            ("r10", 0x01010101),
+        ),
+        stack_arguments=((0x5555, 4),),
+        stack_pointer_adjust=-24,
+    ),
     "ppc64": StackCaseSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
@@ -410,6 +428,7 @@ _STACK_RES = {
     "mipsel": "0xaaaa",
     "ppc": "0xffff",
     "ppc64": "0xffff",
+    "ppcvle": "0xffff",
     "riscv64": "0xffffffff",
     # 0xcccccccc + 0x11111111 + 0x22222222
     "sh1": "0xffffffff",

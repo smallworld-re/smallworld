@@ -98,6 +98,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   results; the platform support docs list them. Test binaries are built with
   GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
   nixpkgs has no V850 platform.
+- `Architecture.POWERPC32_VLE`, PowerPC e200 with the Variable Length
+  Encoding, on the angr backend through pypcode's own e200 p-code language.
+  Upstream Ghidra has no 32-bit e200 language, and Unicorn, PANDA and Capstone
+  have no VLE support. `se_sc` and `e_sc` reach angr's syscall hooks, and the
+  memory barriers and cache hints run as no-ops. The ELF loader recognizes VLE
+  executables by the section and segment flags binutils sets on VLE code. There
+  are no C library models for VLE. The language miscomputes wrap-around
+  `e_rlwinm`/`e_rlwimi` masks, and angr refuses the SPE instructions that
+  branch inside their own p-code, such as `efscfsi` (see the platform support
+  notes). The test suite assembles VLE with GNU binutils, since zig's
+  assembler cannot.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

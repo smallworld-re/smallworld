@@ -43,6 +43,36 @@ class PowerPCElfRelocator(ElfRelocator):
             )
 
 
+# The VLE code relocations, R_PPC_VLE_REL8 through R_PPC_VLE_ADDR20.
+R_PPC_VLE_FIRST = 216
+R_PPC_VLE_LAST = 232
+
+
+class PowerPCVLEElfRelocator(PowerPCElfRelocator):
+    """Relocator for PowerPC VLE.
+
+    VLE uses the standard 32-bit data relocations. Its code relocations
+    (R_PPC_VLE_*) are not supported, so a relocatable object that has any,
+    such as one with an `e_bl` to a global function, cannot be loaded.
+    """
+
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+            )
+        }
+    )
+
+    def _compute_value(self, rela: ElfRela, elf):
+        if R_PPC_VLE_FIRST <= rela.type <= R_PPC_VLE_LAST:
+            raise ConfigurationError(
+                f"VLE code relocations are not supported: {rela.type} "
+                f"for {rela.symbol.name}"
+            )
+        return super()._compute_value(rela, elf)
+
+
 R_PPC64_ADDR64 = 38  # Write S + A as a 64-bit absolute value.
 
 

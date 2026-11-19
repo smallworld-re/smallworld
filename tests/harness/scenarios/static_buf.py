@@ -164,6 +164,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "ppcvle": StaticBufferSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        result_register="r3",
+        model_register="r3",
+        engines=("angr",),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "ppc64": StaticBufferSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",

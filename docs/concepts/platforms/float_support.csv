@@ -18,6 +18,7 @@ m68k,                           No,         Untested,   No Support, No,         
 mips32,                         No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
 powerpc32,                      No,         Untested,   No,         Untested,   No Support
+powerpc32-vle spe,              No,         No,         No Support, No,         No Support
 powerpc64,                      No,         Untested,   No Support, No,         No Support
 riscv64,                        Untested,   Untested,   No Support, No,         No Support
 superh-sh2a-fpu single,         **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support

@@ -55,6 +55,7 @@ _ARCHS = (
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
     "riscv64",
     "sh1",
     "sh2",

@@ -115,6 +115,66 @@ gaps:
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
 
+**powerpc32-vle:** 32-bit PowerPC e200 running the Variable Length Encoding,
+as on the VLE-capable e200 cores in NXP's MPC55xx/56xx/57xx (not the MPC5553
+and MPC5554). VLE re-encodes the PowerPC instruction set in 16- and 32-bit
+instructions with ``e_`` and ``se_`` mnemonics, over the same general-purpose
+registers as ``powerpc32``. The e200 has no classic FPU, so the platform has no
+``f0``-``f31`` or ``fpscr``.
+
+- **angr** runs it on pypcode's own ``PowerPC:BE:32:e200`` language, which
+  pypcode builds on Ghidra's VLE sleigh, rather than on VEX, which has no VLE
+  decoder.
+
+  - ``se_sc`` and ``e_sc`` reach syscall hooks. They follow the Linux PPC32
+    syscall ABI: the number is in ``r0``, up to six arguments are in ``r3`` to
+    ``r8``, and the result is in ``r3``. (``powerpc32`` on angr takes
+    arguments in ``r3`` to ``r10``.)
+  - The memory barriers and cache hints (``msync``, ``mbar``, ``se_isync``,
+    ``tlbsync``, ``dcbf``, ``dcbst``, ``dcbi``, ``dcbt``, ``dcbtst``, ``icbi``
+    and ``icbt``) do nothing. The other privileged and atomic instructions
+    raise an error, including ``dcbz``, ``dcba``, ``stwcx.``, ``wrtee``,
+    ``wrteei``, ``tlbwe``, ``tw`` and the interrupt returns (``se_rfi`` and the
+    like).
+  - The language miscomputes the wrap-around mask of ``e_rlwinm`` and
+    ``e_rlwimi`` when MB > ME: it clears bits MB and ME, which the mask should
+    keep. For example, ``e_rlwinm r14,r4,15,17,7`` masks with ``0xfe003fff``
+    instead of ``0xff007fff``. Compilers emit such masks for ``x & 0xff00ffff``
+    and the like. This is an upstream sleigh bug.
+  - The SPE floating-point instructions (``efs*``) do not all run.
+    ``efscfsi`` and ``efsctsiz`` branch inside their own p-code, which angr's
+    p-code engine cannot run, so angr refuses a block containing them, or any
+    other instruction that does so, with ``EmulationExecFailure``.
+    ``efsmul``, ``efsdiv`` and ``efssub`` run, checked on single values; the
+    other ``efs*`` instructions are untested on angr.
+  - There are no C library models, calling contexts, ``FunctionPointer`` or
+    ``ReturnConstant`` for ``powerpc32-vle``; looking one up raises
+    ``ValueError``.
+
+- **Ghidra:** upstream Ghidra, including 12.1.2, the version SmallWorld's nix
+  environment provides, has no 32-bit e200 language. Its only VLE languages are
+  the 64-bit Power ISA 3.0 ones, whose registers and arithmetic are 64-bit.
+- **Unicorn and PANDA** (QEMU) have no VLE decoder, and Capstone cannot
+  disassemble VLE, so analyses that disassemble with Capstone do not work on it.
+
+The ELF header doesn't distinguish VLE from standard PowerPC code, so the ELF
+loader reads the VLE flags binutils sets: ``SHF_PPC_VLE`` on code sections and
+``PF_PPC_VLE`` on segments, so an image without section headers is recognized
+too. VLE's own code relocations (``R_PPC_VLE_*``) are not supported, so load a
+linked executable rather than an object file.
+
+The platform decodes VLE for the whole run. Several e200 cores can also run
+standard PowerPC code in pages not marked VLE, but SmallWorld does not switch
+encodings by region. The register-register instructions (primary opcode 31,
+such as ``add``, ``cmpw``, ``lwzx`` and ``mfspr``) are encoded alike, but
+branches, immediate-form arithmetic and D-form loads and stores are not
+(``addi`` reads as ``e_lha``, ``b`` as ``se_li``), so standard code is
+misdecoded. The loader loads a file that mixes both as ``powerpc32-vle`` and
+logs a warning; pass ``platform`` to choose ``powerpc32`` instead.
+
+The test suite assembles VLE with GNU binutils (``as -mvle``), since zig's LLVM
+assembler has no VLE support.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.

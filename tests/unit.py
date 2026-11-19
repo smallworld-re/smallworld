@@ -132,6 +132,7 @@ from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
+    PowerPCVLEElfRelocator,
 )
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
 from smallworld.state.memory.elf.rela.v850 import V850ElfRelocator
@@ -988,6 +989,7 @@ UNIT_TEST_PLATFORMS = {
     "msp430x": (platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE),
     "ppc": (platforms.Architecture.POWERPC32, platforms.Byteorder.BIG),
     "ppc64": (platforms.Architecture.POWERPC64, platforms.Byteorder.BIG),
+    "ppcvle": (platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG),
     "riscv64": (platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE),
     "sh1": (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
     "sh2": (platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG),
@@ -1127,20 +1129,23 @@ class CPUTests(unittest.TestCase):
 @platform_tests(
     "unicorn",
     unsupported={
-        name: "Not supported by unicorn"
-        for name in (
-            "loongarch32",
-            "loongarch64",
-            "msp430",
-            "msp430x",
-            "sh1",
-            "sh2",
-            "sh2a",
-            "sh4",
-            "sh4el",
-            "v850",
-            "xtensa",
-        )
+        **{
+            name: "Not supported by unicorn"
+            for name in (
+                "loongarch32",
+                "loongarch64",
+                "msp430",
+                "msp430x",
+                "sh1",
+                "sh2",
+                "sh2a",
+                "sh4",
+                "sh4el",
+                "v850",
+                "xtensa",
+            )
+        },
+        "ppcvle": "Unicorn has no VLE decoder",
     },
 )
 class UnicornMachdefTests(unittest.TestCase):
@@ -1305,6 +1310,7 @@ class M68KAngrTests(unittest.TestCase):
                 "msp430",
                 "msp430x",
                 "ppc64",
+                "ppcvle",
                 "riscv64",
                 "v850",
                 "xtensa",
@@ -1364,8 +1370,11 @@ class PandaMachdefTests(unittest.TestCase):
 @platform_tests(
     "ghidra",
     unsupported={
-        name: "Not supported by ghidra"
-        for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+        **{
+            name: "Not supported by ghidra"
+            for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+        },
+        "ppcvle": "Upstream Ghidra has no 32-bit e200 language",
     },
 )
 class GhidraMachdefTests(unittest.TestCase):
@@ -6864,6 +6873,17 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
         # R_PPC_ABS32 == 1
         self.assertEqual(self._value(PowerPCElfRelocator(), 1), self.BE32)
 
+    def test_powerpc_vle_r_ppc_abs32(self):
+        # R_PPC_ABS32 == 1; VLE uses the standard data relocations.
+        self.assertEqual(self._value(PowerPCVLEElfRelocator(), 1), self.BE32)
+
+    def test_powerpc_vle_code_relocation_refused(self):
+        # R_PPC_VLE_REL24 == 218
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "VLE code relocations"
+        ):
+            self._value(PowerPCVLEElfRelocator(), 218)
+
     def test_powerpc64_r_ppc64_addr64(self):
         # R_PPC64_ADDR64 == 38
         self.assertEqual(self._value(PowerPC64ElfRelocator(), 38), self.BE64)
@@ -6908,6 +6928,255 @@ class ElfRelocatorPlatformTests(unittest.TestCase):
             relocator_class,
             self.platform(platforms.Architecture.M68K, platforms.Byteorder.BIG),
         )
+
+
+POWERPC32_PLATFORM = platforms.Platform(
+    platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+)
+POWERPC32_VLE_PLATFORM = platforms.Platform(
+    platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+)
+
+
+def _build_ppc32_executable(
+    section_flags: typing.Optional[int], segment_flags: int
+) -> bytes:
+    """Build a minimal big-endian ELF32 PowerPC executable.
+
+    It has one PT_LOAD with `segment_flags` and, unless `section_flags` is
+    None, a `.text` section with those flags and a `.shstrtab`.
+    """
+    base = 0x10000
+    text_offset = 0x100
+    text = bytes.fromhex("44004400")  # se_nop; se_nop
+    shstrtab = b"\0.text\0.shstrtab\0"
+    shstrtab_offset = text_offset + len(text)
+    shoff = (shstrtab_offset + len(shstrtab) + 3) & ~3
+
+    if section_flags is None:
+        shdrs = b""
+        shnum = shstrndx = 0
+        shoff = 0
+    else:
+        SHT_PROGBITS, SHT_STRTAB = 1, 3
+
+        def shdr(name, typ, flags, addr, offset, size):
+            return struct.pack(
+                ">IIIIIIIIII", name, typ, flags, addr, offset, size, 0, 0, 1, 0
+            )
+
+        shdrs = b"".join(
+            [
+                shdr(0, 0, 0, 0, 0, 0),
+                shdr(
+                    1,
+                    SHT_PROGBITS,
+                    section_flags,
+                    base + text_offset,
+                    text_offset,
+                    len(text),
+                ),
+                shdr(7, SHT_STRTAB, 0, 0, shstrtab_offset, len(shstrtab)),
+            ]
+        )
+        shnum, shstrndx = 3, 2
+
+    ident = b"\x7fELF" + bytes([1, 2, 1]) + bytes(9)
+    ehdr = ident + struct.pack(
+        ">HHIIIIIHHHHHH",
+        2,  # ET_EXEC
+        20,  # EM_PPC
+        1,
+        base + text_offset,
+        52,  # e_phoff
+        shoff,
+        0,
+        52,
+        32,
+        1,
+        40,
+        shnum,
+        shstrndx,
+    )
+    end = text_offset + len(text)
+    phdr = struct.pack(">IIIIIIII", 1, 0, base, base, end, end, segment_flags, 4)
+    image = bytearray(ehdr + phdr)
+    image += bytes(text_offset - len(image)) + text + shstrtab
+    if shdrs:
+        image += bytes(shoff - len(image)) + shdrs
+    return bytes(image)
+
+
+class PowerPCVLEElfDetectionTests(unittest.TestCase):
+    """The ELF header doesn't distinguish VLE; the loader reads the VLE
+    flags on sections and on segments."""
+
+    SHF_ALLOC_EXEC = 0x6
+    SHF_PPC_VLE = 0x10000000
+    PF_R_X = 0x5
+    PF_PPC_VLE = 0x10000000
+
+    def load(self, image, platform=None):
+        return ElfExecutable(io.BytesIO(image), platform=platform)
+
+    def test_vle_section_detected(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC | self.SHF_PPC_VLE, self.PF_R_X | self.PF_PPC_VLE
+        )
+        self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_standard_file_detected(self):
+        image = _build_ppc32_executable(self.SHF_ALLOC_EXEC, self.PF_R_X)
+        self.assertEqual(self.load(image).platform, POWERPC32_PLATFORM)
+
+    def test_vle_segment_without_section_headers_detected(self):
+        image = _build_ppc32_executable(None, self.PF_R_X | self.PF_PPC_VLE)
+        self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_vle_file_refuses_standard_platform(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC | self.SHF_PPC_VLE, self.PF_R_X | self.PF_PPC_VLE
+        )
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "mismatch"):
+            self.load(image, POWERPC32_PLATFORM)
+
+    def test_mixed_file_defaults_to_vle(self):
+        # The segment is marked VLE, but the code section is not.
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC, self.PF_R_X | self.PF_PPC_VLE
+        )
+        with self.assertLogs("smallworld.state.memory.elf.elf", "WARNING"):
+            self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_mixed_file_honours_requested_platform(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC, self.PF_R_X | self.PF_PPC_VLE
+        )
+        for platform in (POWERPC32_PLATFORM, POWERPC32_VLE_PLATFORM):
+            with self.assertLogs("smallworld.state.memory.elf.elf", "WARNING"):
+                self.assertEqual(self.load(image, platform).platform, platform)
+
+
+class PowerPCVLEAngrTests(unittest.TestCase):
+    """VLE code on angr, which runs it on pypcode's e200 language. Each code
+    blob was assembled with GNU as -mvle."""
+
+    def run_code(self, code, registers, hook=None):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(POWERPC32_VLE_PLATFORM)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        machine.add(state.memory.RawMemory.from_bytes(b"\x00" * 0x10, 0x2000))
+        cpu.pc.set(0x1000)
+        for name, value in registers.items():
+            getattr(cpu, name).set(value)
+        emu = emulators.AngrEmulator(POWERPC32_VLE_PLATFORM)
+        if hook is not None:
+            emu.hook_syscalls(hook)
+        emu.add_exit_point(0x1000 + len(code))
+        machine.emulate(emu)
+        return emu
+
+    def test_byte_and_halfword_register_parts(self):
+        # se_stb r4,0(r3); se_sth r4,2(r3); se_extzb r5; se_extsh r6;
+        # se_cmph r6,r7. Big-endian sleigh reads a register's low byte or
+        # half partway into it; angr's engine used to read its start.
+        emu = self.run_code(
+            bytes.fromhex("9043b14300c500f60e76"),
+            {
+                "r3": 0x2000,
+                "r4": 0x11223344,
+                "r5": 0x55667788,
+                "r6": 0x1234FFFE,
+                "r7": 0x7FFFFFFE,
+            },
+        )
+        self.assertEqual(emu.read_memory(0x2000, 4), b"\x44\x00\x33\x44")
+        self.assertEqual(emu.read_register("r5"), 0x88)
+        self.assertEqual(emu.read_register("r6"), 0xFFFFFFFE)
+        # The low halves are both -2: equal, so cr0's LT, GT and EQ bits are
+        # EQ alone. (SO copies xer_so, which nothing set, so it's symbolic.)
+        cr0 = emu.read_register_symbolic("cr0") & 0xE
+        self.assertEqual(emu.state.solver.eval_upto(cr0, 2), [0x2])
+
+    def test_spe_arithmetic(self):
+        # efsmul r3,r3,r3; efsdiv r3,r3,r4; efssub r3,r3,r4, on the
+        # general registers.
+        def single(value):
+            return int.from_bytes(struct.pack(">f", value), "big")
+
+        for code, registers, expected in (
+            ("10631ac8", {"r3": single(1.5)}, 2.25),
+            ("106322c9", {"r3": single(3.0), "r4": single(2.0)}, 1.5),
+            ("106322c1", {"r3": single(3.0), "r4": single(10.0)}, -7.0),
+        ):
+            with self.subTest(code=code):
+                emu = self.run_code(bytes.fromhex(code), registers)
+                self.assertEqual(emu.read_register("r3"), single(expected))
+
+    def test_spe_branching_instructions_are_refused(self):
+        # efscfsi r3,r3 and efsctsiz r3,r3 branch within their own p-code,
+        # which angr can't run.
+        for code in ("10601ad1", "10601ada"):
+            with self.subTest(code=code):
+                with self.assertRaises(exceptions.EmulationExecFailure) as raised:
+                    self.run_code(bytes.fromhex(code), {"r3": 5})
+                self.assertEqual(raised.exception.pc, 0x1000)
+
+    @unittest.expectedFailure
+    def test_rlwinm_wrap_around_mask(self):
+        # e_rlwinm r14,r4,15,17,7: with MB > ME the mask wraps around and
+        # keeps bits 17-31 and 0-7, 0xFF007FFF. pypcode's e200 sleigh
+        # computes 0xFE003FFF, clearing bits MB and ME. Upstream bug,
+        # documented in support.rst; this passes once pypcode fixes it.
+        emu = self.run_code(bytes.fromhex("748e7c4f"), {"r4": 0xFFFFFFFF})
+        self.assertEqual(emu.read_register("r14"), 0xFF007FFF)
+
+    def test_barrier_and_cache_userops_do_nothing(self):
+        # msync; mbar 0; mbar 1; se_isync; dcbf, dcbst, dcbt, dcbtst, dcbi
+        # and icbi at 0(r3); se_li r3,5
+        emu = self.run_code(
+            bytes.fromhex(
+                "7c0004ac7c0006ac7c2006ac00017c0018ac7c00186c"
+                "7c001a2c7c0019ec7c001bac7c001fac4853"
+            ),
+            {"r3": 0x2000},
+        )
+        self.assertEqual(emu.read_register("r3"), 5)
+
+    def test_dcbz_still_raises(self):
+        # dcbz 0,r3 clears memory, so it is not dropped as a no-op.
+        with self.assertRaises(exceptions.EmulationError):
+            self.run_code(bytes.fromhex("7c001fec"), {"r3": 0x2000})
+
+    def test_se_sc_and_e_sc_resume_after_the_trap(self):
+        # se_li r0,4; se_sc; se_li r3,7; e_sc; se_li r4,9
+        calls = []
+
+        def hook(emu, number):
+            calls.append((number, emu.read_register("r3")))
+
+        emu = self.run_code(
+            bytes.fromhex("4840000248737c0000484894"), {"r3": 1, "r4": 0}, hook
+        )
+        # se_sc resumes 2 bytes on, so se_li r3,7 runs before e_sc, and e_sc
+        # resumes 4 bytes on, at se_li r4,9.
+        self.assertEqual(calls, [(4, 1), (4, 7)])
+        self.assertEqual(emu.read_register("r4"), 9)
+
+    def test_16_bit_branches_and_long_immediates(self):
+        #     se_bl f; e_li r4,0x7ffff; e_add16i r5,r4,-16; se_b end
+        # f:  se_cmpi r3,5; se_beq 1f; se_li r3,0; se_blr
+        # 1:  se_li r3,1; se_blr
+        # end: se_nop
+        code = bytes.fromhex("e906709f3fff1ca4fff0e8072a53e60348030004481300044400")
+        for arg, result in ((5, 1), (4, 0)):
+            emu = self.run_code(code, {"r3": arg})
+            self.assertEqual(emu.read_register("r3"), result)
+            # se_bl links past itself, 2 bytes on.
+            self.assertEqual(emu.read_register("lr"), 0x1002)
+            self.assertEqual(emu.read_register("r4"), 0x7FFFF)
+            self.assertEqual(emu.read_register("r5"), 0x7FFEF)
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):

@@ -137,6 +137,9 @@ class PowerPCPlatformDef(PlatformDef):
     # - r31 is the base (frame) pointer
     general_purpose_registers = [f"r{i}" for i in range(3, 31)]
 
+    # Whether the core has the classic floating-point unit (f0-f31, fpscr).
+    has_fpu = True
+
     @property
     def registers(self) -> typing.Dict[str, RegisterDef]:
         return self._registers
@@ -185,40 +188,6 @@ class PowerPCPlatformDef(PlatformDef):
             "bp": RegisterAliasDef(
                 name="bp", parent="r31", size=self.address_size, offset=0
             ),
-            # Floating Point Registers
-            # Always 8 bytes, regardless of self.address_size.
-            "f0": RegisterDef(name="f0", size=8),
-            "f1": RegisterDef(name="f1", size=8),
-            "f2": RegisterDef(name="f2", size=8),
-            "f3": RegisterDef(name="f3", size=8),
-            "f4": RegisterDef(name="f4", size=8),
-            "f5": RegisterDef(name="f5", size=8),
-            "f6": RegisterDef(name="f6", size=8),
-            "f7": RegisterDef(name="f7", size=8),
-            "f8": RegisterDef(name="f8", size=8),
-            "f9": RegisterDef(name="f9", size=8),
-            "f10": RegisterDef(name="f10", size=8),
-            "f11": RegisterDef(name="f11", size=8),
-            "f12": RegisterDef(name="f12", size=8),
-            "f13": RegisterDef(name="f13", size=8),
-            "f14": RegisterDef(name="f14", size=8),
-            "f15": RegisterDef(name="f15", size=8),
-            "f16": RegisterDef(name="f16", size=8),
-            "f17": RegisterDef(name="f17", size=8),
-            "f18": RegisterDef(name="f18", size=8),
-            "f19": RegisterDef(name="f19", size=8),
-            "f20": RegisterDef(name="f20", size=8),
-            "f21": RegisterDef(name="f21", size=8),
-            "f22": RegisterDef(name="f22", size=8),
-            "f23": RegisterDef(name="f23", size=8),
-            "f24": RegisterDef(name="f24", size=8),
-            "f25": RegisterDef(name="f25", size=8),
-            "f26": RegisterDef(name="f26", size=8),
-            "f27": RegisterDef(name="f27", size=8),
-            "f28": RegisterDef(name="f28", size=8),
-            "f29": RegisterDef(name="f29", size=8),
-            "f30": RegisterDef(name="f30", size=8),
-            "f31": RegisterDef(name="f31", size=8),
             # *** Pointer Registers ***
             # Program Counter.
             # Not really a register; nothing can access it directly
@@ -245,8 +214,6 @@ class PowerPCPlatformDef(PlatformDef):
             "cr7": RegisterDef(name="cr7", size=1),
             # Integer Exception Register
             # "xer": RegisterDef(name="xer", size=4),
-            # Floating Point Status and Control Register
-            "fpscr": RegisterDef(name="fpscr", size=4),
             # TODO: This only focuses on the user-facing registrers.
             # ppc has a huge number of privileged registers.
             # Extend this as needed.
@@ -579,6 +546,47 @@ class PowerPCPlatformDef(PlatformDef):
             "spr_zpr": RegisterDef(name="spr_zpr", size=self.address_size),
             "msr": RegisterDef(name="msr", size=self.address_size),
         }
+        if self.has_fpu:
+            self._registers.update(
+                {
+                    # Floating Point Registers
+                    # Always 8 bytes, regardless of self.address_size.
+                    "f0": RegisterDef(name="f0", size=8),
+                    "f1": RegisterDef(name="f1", size=8),
+                    "f2": RegisterDef(name="f2", size=8),
+                    "f3": RegisterDef(name="f3", size=8),
+                    "f4": RegisterDef(name="f4", size=8),
+                    "f5": RegisterDef(name="f5", size=8),
+                    "f6": RegisterDef(name="f6", size=8),
+                    "f7": RegisterDef(name="f7", size=8),
+                    "f8": RegisterDef(name="f8", size=8),
+                    "f9": RegisterDef(name="f9", size=8),
+                    "f10": RegisterDef(name="f10", size=8),
+                    "f11": RegisterDef(name="f11", size=8),
+                    "f12": RegisterDef(name="f12", size=8),
+                    "f13": RegisterDef(name="f13", size=8),
+                    "f14": RegisterDef(name="f14", size=8),
+                    "f15": RegisterDef(name="f15", size=8),
+                    "f16": RegisterDef(name="f16", size=8),
+                    "f17": RegisterDef(name="f17", size=8),
+                    "f18": RegisterDef(name="f18", size=8),
+                    "f19": RegisterDef(name="f19", size=8),
+                    "f20": RegisterDef(name="f20", size=8),
+                    "f21": RegisterDef(name="f21", size=8),
+                    "f22": RegisterDef(name="f22", size=8),
+                    "f23": RegisterDef(name="f23", size=8),
+                    "f24": RegisterDef(name="f24", size=8),
+                    "f25": RegisterDef(name="f25", size=8),
+                    "f26": RegisterDef(name="f26", size=8),
+                    "f27": RegisterDef(name="f27", size=8),
+                    "f28": RegisterDef(name="f28", size=8),
+                    "f29": RegisterDef(name="f29", size=8),
+                    "f30": RegisterDef(name="f30", size=8),
+                    "f31": RegisterDef(name="f31", size=8),
+                    # Floating Point Status and Control Register
+                    "fpscr": RegisterDef(name="fpscr", size=4),
+                }
+            )
 
 
 class PowerPC32(PowerPCPlatformDef):
@@ -587,6 +595,39 @@ class PowerPC32(PowerPCPlatformDef):
 
     address_size = 4
     capstone_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
+
+
+class PowerPC32VLE(PowerPCPlatformDef):
+    """32-bit PowerPC e200, decoding the Variable Length Encoding.
+
+    VLE re-encodes the 32-bit PowerPC instruction set in 16- and 32-bit
+    instructions, under new mnemonics (``e_`` and ``se_``), over the same
+    registers. The register-register instructions (primary opcode 31, such
+    as ``add``, ``cmpw``, ``lwzx`` and ``mfspr``) keep their encodings, but
+    branches, immediate-form arithmetic and D-form loads and stores do not.
+    So standard code, which several e200 cores can run beside VLE, is
+    misdecoded on this platform.
+
+    The e200 has no classic floating-point unit; cores with floating point
+    have the embedded (SPE/EFPU) unit, which works on the GPRs instead.
+    """
+
+    architecture = Architecture.POWERPC32_VLE
+    ghidra_language_id = "PowerPC:BE:32:e200"
+
+    address_size = 4
+    has_fpu = False
+
+    # Capstone has no VLE decoder, and its PowerPC decoder reads VLE as
+    # unrelated standard instructions.
+    capstone_arch = -1
+    capstone_mode = -1
+
+    # The mnemonic sets serve capstone-based analyses, which cannot decode
+    # VLE.
+    conditional_branch_mnemonics: typing.Set[str] = set()
+    compare_branch_mnemonics: typing.Set[str] = set()
+    compare_mnemonics: typing.Set[str] = set()
 
 
 class PowerPC64(PowerPCPlatformDef):

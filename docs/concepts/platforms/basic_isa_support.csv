@@ -17,6 +17,7 @@ mips64r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 msp430,             **Yes**,    **Yes**,    No Support, No,         No Support
 msp430x,            **Yes**,    **Yes**,    No Support, No,         No Support
 powerpc32,          **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+powerpc32-vle,      **Yes**,    No,         No Support, No,         No Support
 powerpc64,          **Yes**,    **Yes**,    No,         No,         No Support
 riscv64,            **Yes**,    **Yes**,    No Support, No,         **Yes**
 superh-sh1,         **Yes**,    **Yes**,    No,         No,         No Support

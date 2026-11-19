@@ -47,6 +47,11 @@ _V850_RH850_WARNING = (
     "or run as different V850 instructions"
 )
 
+# PowerPC-specific flag values, marking code in the Variable Length Encoding:
+# on a section in sh_flags, and on a segment in p_flags.
+SHF_PPC_VLE = 0x10000000
+PF_PPC_VLE = 0x10000000
+
 # SuperH-specific flag values.
 #
 # EM_SH covers every SuperH generation, and they are not binary compatible with
@@ -226,6 +231,49 @@ def _v800_architecture(elf, requested):
     )
 
 
+def _ppc_architecture(elf, requested):
+    # PowerPC 32-bit. The header doesn't distinguish VLE; its code is flagged
+    # in the section headers and the program headers instead. Either may be
+    # missing (a stripped image has no section headers), so both are read.
+    vle_code = any(section.flags & SHF_PPC_VLE for section in elf.sections) or any(
+        segment.raw_flags & PF_PPC_VLE for segment in elf.segments
+    )
+    if any(section.size > 0 for section in elf.sections):
+        standard_code = any(
+            section.flags & SHF_EXECINSTR
+            and not section.flags & SHF_PPC_VLE
+            and section.size > 0
+            for section in elf.sections
+        )
+    else:
+        standard_code = any(
+            segment.raw_flags & PF_X and not segment.raw_flags & PF_PPC_VLE
+            for segment in elf.segments
+            if segment.type.value & 0xFFFFFFFF == PT_LOAD
+        )
+    if vle_code and standard_code:
+        # A file mixing VLE and standard code, as several e200 cores run.
+        # Each platform decodes one encoding for the whole run, so the caller
+        # picks which code to run; VLE is the default, since it is usually
+        # most of such a file.
+        if requested is not None and requested.architecture in (
+            Architecture.POWERPC32,
+            Architecture.POWERPC32_VLE,
+        ):
+            architecture = requested.architecture
+        else:
+            architecture = Architecture.POWERPC32_VLE
+        log.warning(
+            "PowerPC image mixes VLE and standard code; running it as "
+            f"{architecture}, so code in the other encoding will be "
+            "misdecoded"
+        )
+        return architecture
+    elif vle_code:
+        return Architecture.POWERPC32_VLE
+    return Architecture.POWERPC32
+
+
 # The architecture detector for each e_machine value.
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
@@ -237,7 +285,7 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     ),
     # TODO: There are more MIPS parameters than just word size
     EM_MIPS: _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64),
-    EM_PPC: _fixed_architecture(Architecture.POWERPC32),
+    EM_PPC: _ppc_architecture,
     EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
     EM_RISCV: _architecture_by_class(
         None, Architecture.RISCV64, "RISC-V 32-bit isn't supported"

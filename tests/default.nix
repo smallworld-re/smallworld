@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  ppcVleBinutils,
   superHBinutils,
   tricoreGcc,
   v850Binutils,
@@ -20,6 +21,7 @@ stdenv.mkDerivation {
     zig
     qemu-user
     gdb
+    ppcVleBinutils
     superHBinutils
     tricoreGcc
     v850Binutils
@@ -55,6 +57,9 @@ stdenv.mkDerivation {
     ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
     ln -sf asm_wrapper.sh v850-elf-asm
     ln -sf elf_wrapper.sh v850-elf-elfasm
+    # zig cannot assemble PowerPC VLE; GNU as does, given -mvle.
+    ln -sf asm_wrapper.sh powerpc-none-eabi-asm
+    ln -sf elf_wrapper.sh powerpc-none-eabi-elfasm
 
     make -j$(nproc)
     cd elf_core

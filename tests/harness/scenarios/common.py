@@ -188,6 +188,18 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=("unicorn", "angr", "pcode"),
     ),
+    # PowerPC e200 running VLE code. Only angr runs it, on pypcode's own
+    # e200 language: Unicorn, PANDA and Styx have no VLE decoder, and
+    # upstream Ghidra has no 32-bit e200 language.
+    "ppcvle": ArchInfo(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr",),
+    ),
     "riscv64": ArchInfo(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",
