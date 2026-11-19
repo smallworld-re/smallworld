@@ -129,6 +129,42 @@
       # this cpu variant", so a test source cannot silently drift generations.
       mkSuperHBinutils = system: (pkgsFor system).pkgsCross.sh4.buildPackages.binutils-unwrapped;
 
+      # nixpkgs has no V850 platform (lib.systems rejects the CPU type), so
+      # there is no pkgsCross toolchain, and LLVM has no V850 target. Build
+      # GNU binutils for `v850-elf` from nixpkgs' own binutils source instead;
+      # every V850 test is assembly, so no compiler is needed. The tools come
+      # out prefixed `v850-elf-*`, and `as -mv850e1`/`-mv850e2`/`-mv850e2v3`
+      # pick the core and reject instructions it lacks.
+      mkV850Binutils =
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        pkgs.stdenv.mkDerivation {
+          pname = "v850-elf-binutils";
+          inherit (pkgs.binutils-unwrapped) version src;
+          nativeBuildInputs = [
+            pkgs.bison
+            pkgs.flex
+            pkgs.perl
+            pkgs.texinfo
+          ];
+          buildInputs = [ pkgs.zlib ];
+          configureFlags = [
+            "--target=v850-elf"
+            "--disable-gdb"
+            "--disable-gdbserver"
+            "--disable-gprofng"
+            "--disable-libctf"
+            "--disable-multilib"
+            "--disable-nls"
+            "--disable-sim"
+            "--disable-werror"
+            "--with-system-zlib"
+          ];
+          enableParallelBuilding = true;
+        };
+
       mkTricoreGcc =
         system:
         let
@@ -194,9 +230,15 @@
           xtensaGcc = mkXtensaGcc system;
           tricoreGcc = mkTricoreGcc system;
           superHBinutils = mkSuperHBinutils system;
+          v850Binutils = mkV850Binutils system;
 
           tests = pkgs.callPackage ../tests {
-            inherit superHBinutils tricoreGcc xtensaGcc;
+            inherit
+              superHBinutils
+              tricoreGcc
+              v850Binutils
+              xtensaGcc
+              ;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
           };
 

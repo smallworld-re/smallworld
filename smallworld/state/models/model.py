@@ -282,6 +282,9 @@ class Model(Hook):
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             return emulator.read_register("lr")
+        elif self.platform.architecture == platforms.Architecture.V850:
+            # v850: jarl leaves the return address in 'lp'
+            return emulator.read_register("lp")
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64

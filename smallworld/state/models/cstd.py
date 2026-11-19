@@ -1021,6 +1021,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             emulator.write_register("lr", address)
+        elif self.platform.architecture == platforms.Architecture.V850:
+            # v850: jarl leaves the return address in 'lp'
+            emulator.write_register("lp", address)
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64

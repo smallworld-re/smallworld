@@ -41,6 +41,7 @@ RISCV64_ID := riscv64-linux-gnu.2.40
 # endianness come from per-platform ASFLAGS below.
 SH_ID := sh4-unknown-linux-gnu
 TRICORE_ID := tricore-elf
+V850_ID := v850-elf
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
@@ -68,6 +69,7 @@ SH2A_ASM_AS := ./$(SH_ID)-asm
 SH2_ASM_AS := ./$(SH_ID)-asm
 SH1_ASM_AS := ./$(SH_ID)-asm
 TRICORE_ASM_AS := ./$(TRICORE_ID)-asm
+V850_ASM_AS := ./$(V850_ID)-asm
 XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
 # Assembler Commands for ELF
@@ -95,6 +97,7 @@ SH2A_ELF_AS := ./$(SH_ID)-elfasm
 SH2_ELF_AS := ./$(SH_ID)-elfasm
 SH1_ELF_AS := ./$(SH_ID)-elfasm
 TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
+V850_ELF_AS := ./$(V850_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands
@@ -123,6 +126,7 @@ SH2A_OBJCOPY := $(SH_ID)-objcopy
 SH2_OBJCOPY := $(SH_ID)-objcopy
 SH1_OBJCOPY := $(SH_ID)-objcopy
 TRICORE_OBJCOPY := $(TRICORE_ID)-objcopy
+V850_OBJCOPY := $(V850_ID)-objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 
 # C compiler commands
@@ -162,6 +166,10 @@ SH2A_ASFLAGS := -big --isa=sh2a
 SH2_ASFLAGS := -big --isa=sh2
 # gas spells SH-1 plain `sh`.
 SH1_ASFLAGS := -big --isa=sh
+# GCC's ELF ABI (EM_V850, with the core in e_flags) rather than gas's RH850
+# default (EM_V800). V850E1 is the oldest core Ghidra's language models, so
+# the tests use only instructions every modelled core has.
+V850_ASFLAGS := -mgcc-abi -mv850e1
 
 # objcopy flags
 GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
@@ -225,6 +233,7 @@ SH2A_EXT := sh2a
 SH2_EXT := sh2
 SH1_EXT := sh1
 TRICORE_EXT := tricore
+V850_EXT := v850
 XTENSA_EXT := xtensa
 
 # Arch-specific source extensions
@@ -258,6 +267,7 @@ SH1_SRC_EXT := $(SH2_EXT)
 # ...except for the sh2 sources that test SH-2 additions, which SH-1 lacks.
 SH1_SRC_EXCLUDE := sh2a_delayslot/sh2a_delayslot.sh2.s
 TRICORE_SRC_EXT := $(TRICORE_EXT)
+V850_SRC_EXT := $(V850_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
 
 # **********************
@@ -403,10 +413,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

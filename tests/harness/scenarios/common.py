@@ -272,6 +272,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=4,
         engines=("angr", "panda", "pcode"),
     ),
+    "v850": ArchInfo(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        arg_register="r6",
+        result_register="r10",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
     "xtensa": ArchInfo(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

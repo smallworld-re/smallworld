@@ -16,10 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the high half instead. This also fixes SuperH `mov.w Rm,@Rn` and
   `mov.b Rm,@Rn`, which stored `Rm`'s high bytes, so a halfword store of
   `0x1234` wrote zero.
-- `GhidraEmulator` reports an instruction its language cannot decode as
-  `EmulationExecInvalidFailure`, as the other backends do, rather than letting
-  Ghidra's `DecodePcodeExecutionException` escape, or its
-  `InstructionDecodeException` for an undecodable delay-slot instruction.
+- `GhidraEmulator` and `GhidraSymbolicEmulator` report an instruction their
+  language cannot decode as `EmulationExecInvalidFailure`, as the other
+  backends do, rather than letting Ghidra's `DecodePcodeExecutionException`
+  escape, or its `InstructionDecodeException` for an undecodable delay-slot
+  instruction.
+- The ELF loader reports a machine type LIEF does not know as an unknown
+  `e_machine` value, rather than failing with an `AttributeError`, and loads
+  such an image when given a platform with `ignore_platform`.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -85,6 +89,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   even though sleigh widens them to 4 bytes. `cas`/`cas2` are refused, and
   traps, syscalls, the BCD instructions and the FPU aren't supported; see the
   platform support notes.
+- `Architecture.V850`, Renesas V850E1, V850E2 and V850E2M, on the angr and
+  Ghidra backends, using Ghidra's V850 language. The ELF loader loads GCC-ABI
+  (`EM_V850`) images, applying the common relocation types in relocatable
+  objects, and refuses RH850-ABI (`EM_V800`) ones. RH850's additional
+  instructions are not modelled, and a few of them run as different V850
+  instructions. Some V850 instructions stop emulation or compute wrong
+  results; the platform support docs list them. Test binaries are built with
+  GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
+  nixpkgs has no V850 platform.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

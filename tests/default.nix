@@ -6,6 +6,7 @@
   qemu-user,
   superHBinutils,
   tricoreGcc,
+  v850Binutils,
   xtensaGcc,
   pkgsCross,
   x86_64_glibc_path,
@@ -21,6 +22,7 @@ stdenv.mkDerivation {
     gdb
     superHBinutils
     tricoreGcc
+    v850Binutils
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
   ];
@@ -51,6 +53,8 @@ stdenv.mkDerivation {
     # elf_wrapper.sh mirrors that choice onto `ld` as -EB/-EL.
     ln -sf asm_wrapper.sh sh4-unknown-linux-gnu-asm
     ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh v850-elf-asm
+    ln -sf elf_wrapper.sh v850-elf-elfasm
 
     make -j$(nproc)
     cd elf_core

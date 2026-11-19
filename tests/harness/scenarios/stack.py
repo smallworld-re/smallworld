@@ -362,6 +362,19 @@ _SPECS = {
         ),
         stack_arguments=((0xCCCCCCCC, 4),),
     ),
+    "v850": StackCaseSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r6", 0x11111111),
+            ("r7", 0x01010101),
+            ("r8", 0x22222222),
+            ("r9", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
     "xtensa": StackCaseSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -405,6 +418,7 @@ _STACK_RES = {
     "sh4": "0xffffffff",
     "sh4el": "0xffffffff",
     "tricore": "0xffffffff",
+    "v850": "0xffffffff",
 }
 
 

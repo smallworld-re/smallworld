@@ -63,6 +63,7 @@ _ARCHS = (
     "ppc64",
     "riscv64",
     "tricore",
+    "v850",
     "xtensa",
 )
 
@@ -101,6 +102,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
         "stack_pointer_adjust": 8,
     },
     "tricore": {"entry_offset": 0x38},
+    # main is the last instruction; mc91 keeps lp on the stack itself.
+    "v850": {"entry_offset": 0x2A},
     "xtensa": {"stack_items": (_fake_return("xtensa"),)},
 }
 

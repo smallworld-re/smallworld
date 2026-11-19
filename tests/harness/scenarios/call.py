@@ -30,6 +30,7 @@ _ARCHS = (
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
     "xtensa",
 )
 
@@ -72,6 +73,8 @@ _STACKS = {
     "sh4": _stack("sh4", fake_return_size=None),
     "sh4el": _stack("sh4el", fake_return_size=None),
     "tricore": _stack("tricore", fake_return_size=None),
+    # V850 also returns through a register, lp.
+    "v850": _stack("v850", fake_return_size=None),
 }
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
@@ -79,6 +82,7 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 }
 _PER_ARCH["i386"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
+_PER_ARCH["v850"]["entry_offset"] = 0x14
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
 # PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.

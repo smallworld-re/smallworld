@@ -260,6 +260,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "v850": StaticBufferSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        model_register="r10",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

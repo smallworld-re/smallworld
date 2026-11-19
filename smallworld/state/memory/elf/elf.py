@@ -21,10 +21,12 @@ EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
+EM_V800 = 36  # NEC V800; the RH850 ELF ABI, which GNU as uses by default
 EM_ARM = 40  # ARM 32-bit
 EM_SH = 42  # Renesas/Hitachi SuperH; all generations
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
+EM_V850 = 87  # NEC/Renesas V850, the GCC ELF ABI
 EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
 EM_RISCV = 243  # RISC-V
@@ -34,6 +36,16 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+
+# V850-specific flag values: the field naming the core, and its value for
+# V850E3v5.
+EF_V850_ARCH = 0xF0000000
+E_V850E3V5_ARCH = 0x60000000
+
+_V850_RH850_WARNING = (
+    "running it as V850E2M. RH850-only instructions fail to decode, "
+    "or run as different V850 instructions"
+)
 
 # SuperH-specific flag values.
 #
@@ -190,6 +202,30 @@ def _superh_architecture(elf, requested):
         raise ConfigurationError(f"Unsupported SuperH ISA in e_flags: {hex(mach)}")
 
 
+def _v850_architecture(elf, requested):
+    # SmallWorld's V850 model has no RH850 (V850E3v5) instructions. Most
+    # RH850-only instructions fail to decode, but RH850 reused some encodings
+    # that V850 decodes as other instructions, so those run wrongly without
+    # failing: `loop` runs as `mulhi`, `synci` as `mov`, `ld.dw`/`st.dw` as
+    # `ld.bu` plus a stray halfword, the 17-bit-displacement branches as
+    # `ld.hu`, and `dbhvtrap`/`dbcp` as `divh`. See support.rst. GCC-ABI
+    # images record their core, so warn only for RH850 code; V850E2V3 is the
+    # V850E2M modelled.
+    if elf.header.processor_flag & EF_V850_ARCH == E_V850E3V5_ARCH:
+        log.warning(f"EM_V850 image flagged as V850E3v5 (RH850); {_V850_RH850_WARNING}")
+    return Architecture.V850
+
+
+def _v800_architecture(elf, requested):
+    # V850 and RH850 images built for the RH850 ABI, GNU as's default. Its
+    # relocations are numbered differently from the GCC ABI's, and it does not
+    # record which core the code is for.
+    raise ConfigurationError(
+        "EM_V800 (RH850 ABI) images are not supported; "
+        "build V850 code for the GCC ABI (EM_V850) instead"
+    )
+
+
 # The architecture detector for each e_machine value.
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
@@ -208,6 +244,8 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     ),
     EM_SH: _superh_architecture,
     EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
+    EM_V800: _v800_architecture,
+    EM_V850: _v850_architecture,
     EM_X86_64: _fixed_architecture(Architecture.X86_64),
     EM_XTENSA: _fixed_architecture(Architecture.XTENSA),
 }
@@ -446,7 +484,10 @@ class ElfExecutable(Executable):
             )
 
         # Determine arch/mode.  This bit's harder.
-        machine = elf.header.machine_type.value
+        #
+        # LIEF gives a plain int, not an ARCH, for a machine type it doesn't
+        # know; `int` accepts both, and the lookup refuses the unknown ones.
+        machine = int(elf.header.machine_type)
         detect = ARCHITECTURE_DETECTORS.get(machine)
         if detect is None:
             raise ConfigurationError(f"Unknown value of e_machine: {hex(machine)}")
@@ -932,7 +973,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     jmpreloff,
                     baseaddr,
@@ -973,7 +1014,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1014,7 +1055,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1041,7 +1082,7 @@ class ElfExecutable(Executable):
                         is_rela,
                         elf.header.identity_class.value,
                         elf.header.identity_data.value,
-                        elf.header.machine_type.value,
+                        int(elf.header.machine_type),
                         image,
                         section.offset,
                         baseaddr,

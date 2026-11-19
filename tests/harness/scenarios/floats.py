@@ -49,6 +49,9 @@ _VARIANTS = (
     ("sh4.angr", _SH4_ANGR_PR),
     ("sh4el.pcode", None),
     ("sh4el.angr", _SH4_ANGR_PR),
+    # V850E2M's FPU, which works on the general registers.
+    ("v850.pcode", None),
+    ("v850.angr", None),
 )
 
 SCENARIO_INFO = ScenarioInfo(

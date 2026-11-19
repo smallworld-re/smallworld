@@ -14,6 +14,7 @@ from .riscv import RISCV64
 from .superh import SH1, SH2, SH2AFPU
 from .superh4 import SuperH4BE, SuperH4EL
 from .tricore import TriCore
+from .v850 import V850
 from .xtensa import XTensaBE, XTensaEL
 
 __all__ = __cpu__ + [
@@ -44,6 +45,7 @@ __all__ = __cpu__ + [
     "SuperH4BE",
     "SuperH4EL",
     "TriCore",
+    "V850",
     "XTensaBE",
     "XTensaEL",
 ]

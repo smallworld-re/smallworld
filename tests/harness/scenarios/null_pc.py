@@ -62,6 +62,7 @@ _ARCHS = (
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
     "xtensa",
 )
 

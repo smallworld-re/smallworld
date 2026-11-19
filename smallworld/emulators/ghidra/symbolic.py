@@ -17,7 +17,13 @@ from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-fou
 from ghidra.pcode.emu.symz3.state import (
     SymZ3PcodeEmulator,  # type: ignore[import-not-found]
 )
-from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
+from ghidra.pcode.emulate import (  # type: ignore[import-not-found]
+    InstructionDecodeException,
+)
+from ghidra.pcode.exec import (  # type: ignore[import-not-found]
+    DecodePcodeExecutionException,
+    PcodeExecutorStatePiece,
+)
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
 from java.lang import String as JString  # type: ignore[import-not-found]
@@ -627,7 +633,21 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if pc in self._function_hooks:
             self._function_hooks[pc](self)
         else:
-            self._step_pcode_ops()
+            # The first step of an instruction decodes it, which fails if the
+            # language has no such instruction. Ghidra raises a different
+            # exception when the instruction decodes but its delay slot does
+            # not.
+            try:
+                self._step_pcode_ops()
+            except (
+                DecodePcodeExecutionException,
+                InstructionDecodeException,
+            ) as e:
+                raise exceptions.EmulationExecInvalidFailure(
+                    f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                    pc,
+                    None,
+                ) from e
 
         # Cache invalidation: anything we ran may have changed preconditions.
         self._cached_preconditions = None

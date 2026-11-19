@@ -319,6 +319,96 @@ hook:
   no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
   is architecturally prohibited on SuperH anyway, but assemblers accept it.
 
+**V850:** *v850* is Renesas V850E1, V850E2 and V850E2M, little-endian, on angr
+and Ghidra. Both use Ghidra's ``V850:LE:32:default`` language, which pip's
+pypcode also ships, so angr's V850 support works in a pip install. Unicorn,
+QEMU (and so Panda) and Styx have no V850 model.
+
+That language covers the three cores in one, including V850E2M's FPU, with no
+way to select a core: it accepts V850E2 and V850E2M instructions in V850E1 code.
+GNU binutils calls V850E2M's instruction set V850E2V3 (``-mv850e2v3``).
+
+It does not model RH850 (V850E3v5), and SmallWorld has no RH850 platform. Most
+RH850-only instructions fail to decode, but some reuse encodings that V850
+decodes as other instructions, and run as those without any error:
+
+- ``loop`` runs as ``mulhi``, and ``synci`` as ``mov``, both writing ``r0``.
+- ``ld.dw`` and ``st.dw`` are six bytes long. Their first four run as an
+  ``ld.bu`` into ``r0``, with the second halfword as its displacement, and the
+  last halfword then runs as an instruction of its own: a ``nop`` when it is
+  zero, otherwise whatever it decodes as, which may swallow the following
+  instruction's first halfword and leave decoding out of step.
+- The 17-bit-displacement forms of ``br`` and the conditional branches run as
+  ``ld.hu`` into ``r0``, so the branch is never taken.
+- ``dbhvtrap`` runs as ``divh r0, r28``, and ``dbcp`` as ``divh r0, r29``,
+  which zeroes ``r29`` on Ghidra and raises an error on angr.
+
+The ELF loader refuses ``EM_V800`` images, built for Renesas's RH850 ABI, which
+is GNU as's default for V850 code as well as RH850. Its relocations are numbered differently from the
+GCC ABI's, and it does not record which core the code is for. Build V850 code
+for the GCC ABI (``-mgcc-abi``) instead. ``EM_V850`` images, built for the GCC
+ABI, record their core, and load without a warning unless it is V850E3v5.
+
+Relocatable objects load with their absolute (``ABS32``), ``hi()``/``lo()``
+(``HI16_S``, ``HI16``, ``LO16``, ``LO16_S1``) and branch (``9_PCREL``,
+``22_PCREL``) relocations applied. Other relocation types, including the
+small-data ones relative to ``gp``, ``ep`` or ``r0``, stop the load with an
+error.
+
+Some V850 instructions do not run, or run wrongly:
+
+- ``di``, ``ei``, ``halt``, ``synce``, ``syncm``, ``syncp`` and the saturating
+  arithmetic instructions (``satadd``, ``satsub``, ``satsubi``, ``satsubr``)
+  lift to p-code user operations. angr's machine definition implements them:
+  ``di`` and ``ei`` only set and clear ``PSW.ID``, the sync instructions do
+  nothing, ``halt`` stops emulation after it, and the saturating instructions
+  clamp an overflowing result. On Ghidra they stop emulation with
+  an error, after the instruction's earlier p-code has run: ``satadd`` has
+  already written the unsaturated sum and the flags, and ``di`` has set
+  ``PSW.ID``.
+- ``rmtrap`` runs as ``divh r0, ep``, without any error on Ghidra, where it
+  zeroes ``ep``; angr raises an error.
+- The language computes ``bsw``, ``bsh`` and ``hsw`` wrong, without any error:
+  it shifts each byte or halfword before widening it, so the shifted bits are
+  lost. For ``0x11223344``, Ghidra gives ``0x11``, ``0x33`` and ``0x1122``
+  instead of ``0x44332211``, ``0x22114433`` and ``0x33441122``, and angr gives a
+  different wrong result (``0x44``, ``0x44`` and ``0x3344``) because of the
+  sub-register bug below.
+- The language computes the two-operand ``divh reg1, reg2`` as an unsigned
+  division by all 32 bits of ``reg1``, not a signed division by its low
+  halfword, on both emulators: -7 divided by -3 gives 0, with Z set, instead of
+  2. The three-operand ``divh`` is correct.
+- On angr, ``sch0l``, ``sch0r``, ``sch1l`` and ``sch1r`` raise an
+  ``AssertionError``, and ``reti`` returning from an exception (``PSW.EP`` set)
+  leaves ``pc`` and ``PSW`` unchanged when run, and stops with "Path diverged"
+  when stepped. Their p-code branches within the instruction, which angr's
+  p-code engine does not handle. Ghidra runs them correctly.
+- angr's p-code engine computes signed division and remainder as unsigned, so
+  ``div``, the three-operand ``divh`` and ``divq`` give wrong results on angr
+  when an operand is negative: ``div`` of -7 by 3 gives ``0x55555553``,
+  remainder 0, instead of -2, remainder -1. It also reads a register operand
+  that starts partway into a register from the register's start. Both affect
+  angr's other p-code ISAs too; Ghidra gets both right.
+- ``trap`` stops ``GhidraSymbolicEmulator`` with a Z3 sort-mismatch error, after
+  ``EIPC``, ``EIPSW`` and ``EIIC`` have been written, and before ``pc``
+  changes. Ghidra's symbolic extension, SymZ3, returns the whole of a p-code
+  temporary when ``trap`` reads only its low halfword. ``GhidraEmulator`` and
+  angr run ``trap`` correctly.
+
+V850E2M's FPU runs on Ghidra and angr; the ``floats`` scenario checks
+single-precision ``addf.s`` on both. The language gets some conversions wrong,
+without any error, and both emulators compute the same wrong values:
+
+- The ``cvtf`` conversions from floating point to integer truncate instead of
+  rounding as ``FPSR`` selects: ``cvtf.sw`` of 2.7 gives 2, not 3, under the
+  default round-to-nearest. ``trncf``, ``ceilf`` and ``floorf`` are correct.
+- The conversions from unsigned integers to floating point treat their operand
+  as signed: ``cvtf.uws`` of ``0xc0000000`` gives -1073741824.0, not
+  3221225472.0.
+
+The ``roundf`` instructions, which GNU as accepts only with ``-mextension``, do
+not decode.
+
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
 Our emulation support depends on Ghidra's hardware model,
@@ -364,10 +454,10 @@ A few notes:
   ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
   ``AngrError("Not implemented!")``. SmallWorld supplies its own, in
   ``smallworld/emulators/angr/machdefs/pcode_float.py``, and runs every
-  Pcode-backed architecture with them, though only SH-2A single precision is
-  measured; TriCore and LoongArch64 are untested. Xtensa stays at No: Ghidra's
-  sleigh includes its optional FPU, but SmallWorld's angr machdef for it
-  exposes no floating-point registers. m68k stays at No too: its language
+  Pcode-backed architecture with them, though only SH-2A single precision and
+  V850E2M's ``addf.s`` are measured; TriCore and LoongArch64 are untested.
+  Xtensa stays at No: Ghidra's sleigh includes its optional FPU, but
+  SmallWorld's angr machdef for it exposes no floating-point registers. m68k stays at No too: its language
   holds the FPU registers in the 68881's 80-bit format, which these behaviors
   don't support, so even ``fmove.s`` into an FPU register raises. The behaviors
   follow IEEE 754, rounding to

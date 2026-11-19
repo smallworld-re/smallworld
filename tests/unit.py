@@ -134,6 +134,7 @@ from smallworld.state.memory.elf.rela.ppc import (
     PowerPCElfRelocator,
 )
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
+from smallworld.state.memory.elf.rela.v850 import V850ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
@@ -994,6 +995,7 @@ UNIT_TEST_PLATFORMS = {
     "sh4": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG),
     "sh4el": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
     "tricore": (platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE),
+    "v850": (platforms.Architecture.V850, platforms.Byteorder.LITTLE),
     "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
 }
 
@@ -1136,6 +1138,7 @@ class CPUTests(unittest.TestCase):
             "sh2a",
             "sh4",
             "sh4el",
+            "v850",
             "xtensa",
         )
     },
@@ -1303,6 +1306,7 @@ class M68KAngrTests(unittest.TestCase):
                 "msp430x",
                 "ppc64",
                 "riscv64",
+                "v850",
                 "xtensa",
             )
         },
@@ -8128,6 +8132,35 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
         )
 
 
+class GhidraUndecodableInstructionTests(unittest.TestCase):
+    """Both Ghidra emulators report an instruction their language cannot
+    decode as EmulationExecInvalidFailure, rather than letting Ghidra's
+    DecodePcodeExecutionException escape. RH850's rotl is not in Ghidra's
+    V850 language."""
+
+    CODE = 0x1000
+    ROTL = bytes.fromhex("e337c438")  # rotl 3, r6, r7
+
+    def _check(self, emulator_class):
+        _ensure_pyghidra_started()
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        emu = emulator_class(platform)
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, self.ROTL)
+        emu.write_register("pc", self.CODE)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            emu.step_instruction()
+        self.assertEqual(ctx.exception.pc, self.CODE)
+
+    def test_concrete(self):
+        self._check(emulators.ghidra.GhidraEmulator)
+
+    def test_symbolic(self):
+        self._check(emulators.ghidra.GhidraSymbolicEmulator)
+
+
 class GhidraSymbolicStoreTrackingTests(unittest.TestCase):
     """STOREs of user-symbolic values must be tracked for later reads.
 
@@ -9818,6 +9851,230 @@ class LoongArch32ElfRelocatorTests(unittest.TestCase):
             exceptions.ConfigurationError, "Valid, but unsupported"
         ):
             self._value(2)
+
+
+class AngrV850UserOpTests(unittest.TestCase):
+    """angr runs the V850 instructions whose p-code calls user operations:
+    di, ei and the sync instructions do nothing more, halt stops emulation,
+    and the saturating instructions clamp an overflowing result."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.V850, platforms.Byteorder.LITTLE
+    )
+    MOV_R7_R9 = "0748"  # mov r7, r9
+
+    def _run(self, code: str, **regs: int):
+        code_bytes = bytes.fromhex(code)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        cpu.pc.set(0x1000)
+        for name in ("r6", "r7", "r8", "r9", "psw"):
+            getattr(cpu, name).set(regs.get(name, 0))
+        emulator = emulators.AngrEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1000 + len(code_bytes))
+        return machine.emulate(emulator).get_cpu()
+
+    def test_satadd_clamps_positive_overflow(self):
+        # satadd r6, r7; mov r7, r9: the next instruction sees the clamp.
+        cpu = self._run("c638" + self.MOV_R7_R9, r6=1, r7=0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r9.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.psw.get() & 0x14, 0x14)  # SAT and OV
+
+    def test_satadd_clamps_negative_overflow(self):
+        cpu = self._run("c638", r6=0xFFFFFFFF, r7=0x80000000)
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_satadd_without_overflow(self):
+        cpu = self._run("c638", r6=3, r7=5)
+        self.assertEqual(cpu.r7.get(), 8)
+        self.assertEqual(cpu.psw.get() & 0x14, 0)
+
+    def test_satadd_three_operands(self):
+        cpu = self._run("e63fba43", r6=1, r7=0x7FFFFFFF)  # satadd r6, r7, r8
+        self.assertEqual(cpu.r8.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satadd_twice_in_one_block(self):
+        cpu = self._run("c638c638", r6=1, r7=0x7FFFFFFE)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satsub_clamps(self):
+        cpu = self._run("a638", r6=1, r7=0x80000000)  # satsub r6, r7
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_di_and_ei(self):
+        self.assertEqual(self._run("e0076001").psw.get(), 0x20)  # di sets ID
+        self.assertEqual(self._run("e0876001", psw=0x20).psw.get(), 0)  # ei
+
+    def test_synce(self):
+        self.assertEqual(self._run("1d00").pc.get(), 0x1002)
+
+    def test_halt_stops(self):
+        cpu = self._run("e0072001" + self.MOV_R7_R9, r7=5)
+        self.assertEqual(cpu.pc.get(), 0x1004)
+        self.assertEqual(cpu.r9.get(), 0)
+
+
+class V850ElfRelocatorTests(unittest.TestCase):
+    """V850 GCC-ABI relocations patch the same bytes GNU ld does.
+
+    The instructions and expected results come from a GNU as object linked
+    with binutils 2.46's ld: code at 0x10000, ``value`` at 0x20000, ``far`` at
+    0x48000 (a low halfword with bit 15 set, so ``hi()`` rounds up), ``near``
+    at 0x1001a and ``helper`` at 0x1001c.
+    """
+
+    class _Elf:
+        def __init__(self, address: int, code: bytes):
+            self.address = address
+            self.code = code
+
+        def read_int(self, address, size, byteorder):
+            start = address - self.address
+            return int.from_bytes(self.code[start : start + size], byteorder.value)
+
+    def _value(self, type_, offset, insn, symbol, addend=0, is_rela=True):
+        rela = ElfRela(
+            is_rela=is_rela,
+            offset=offset,
+            type=type_,
+            symbol=_make_symbol(value=symbol, baseaddr=0),
+            addend=addend,
+        )
+        return V850ElfRelocator()._compute_value(
+            rela, self._Elf(offset, bytes.fromhex(insn))
+        )
+
+    def test_hi16_s_rounds_up(self):
+        # movhi hi(far), r0, r6
+        self.assertEqual(self._value(3, 0x10002, "0000", 0x47FF0, 0x10).hex(), "0500")
+
+    def test_lo16(self):
+        # movea lo(far), r6, r6
+        self.assertEqual(self._value(5, 0x10006, "0000", 0x47FF0, 0x10).hex(), "0080")
+
+    def test_hi16(self):
+        # movhi hi0(value), r0, r8
+        self.assertEqual(self._value(4, 0x1000A, "0000", 0x20000).hex(), "0200")
+
+    def test_lo16_s1_keeps_bit_0(self):
+        # ld.w lo(value)[r6], r7: bit 0 of the displacement field is opcode.
+        self.assertEqual(self._value(37, 0x1000E, "0100", 0x20000).hex(), "0100")
+
+    def test_22_pcrel(self):
+        # jarl helper, lp
+        self.assertEqual(self._value(2, 0x10010, "80ff0000", 0x1001C).hex(), "80ff0c00")
+
+    def test_9_pcrel(self):
+        # bne near
+        self.assertEqual(self._value(1, 0x10014, "8a05", 0x1001A).hex(), "ba05")
+
+    def test_abs32(self):
+        # ptr: .word value
+        self.assertEqual(self._value(6, 0x20004, "00000000", 0x20000).hex(), "00000200")
+
+    def test_pcrel_out_of_range(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "out of range"):
+            self._value(1, 0x10014, "8a05", 0x10114)
+
+    def test_lo16_s1_odd(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "odd"):
+            self._value(37, 0x1000E, "0100", 0x20001)
+
+    def test_rel_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "REL relocation"):
+            self._value(6, 0x20004, "00000000", 0x20000, is_rela=False)
+
+    def test_unsupported_type(self):
+        # R_V850_SDA_16_16_OFFSET needs __gp, which the loader does not provide.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "unsupported"):
+            self._value(9, 0x10002, "0000", 0x20000)
+
+    def test_invalid_type(self):
+        # R_V810_WLO, an EM_V800 relocation, is past the GCC ABI's table.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "Invalid"):
+            self._value(0x34, 0x10002, "0000", 0x20000)
+
+
+class ElfV800Tests(unittest.TestCase):
+    """The loader refuses EM_V800 (RH850 ABI) images. An EM_V850 one flagged
+    as V850E3v5 loads as V850, with a warning that RH850-only instructions
+    are not modelled."""
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _image(self, flags: int, machine: int) -> io.BytesIO:
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, machine)  # e_machine
+        struct.pack_into("<I", image, 36, flags)  # e_flags
+        return io.BytesIO(bytes(image))
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v800_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "EM_V800"):
+            Executable.from_elf(self._image(0, machine=36))  # EM_V800
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_rh850(self):
+        image = self._image(0x60000000, machine=87)  # EM_V850, V850E3v5
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(image)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+        self.assertIn(
+            "EM_V850 image flagged as V850E3v5 (RH850)", "\n".join(logs.output)
+        )
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_loads_as_v850(self):
+        # The test binaries are built for V850E1 (core field 0x20000000).
+        with self.assertNoLogs(level="WARNING"):
+            with self.PATH.open("rb") as f:
+                code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_v850e2v3(self):
+        # V850E2V3 is binutils' name for the V850E2M that SmallWorld models.
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<I", image, 36, 0x40000000)  # e_flags
+        with self.assertNoLogs(level="WARNING"):
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+
+
+class ElfUnknownMachineTests(unittest.TestCase):
+    """A machine type LIEF doesn't know is reported, not an AttributeError.
+
+    LIEF gives such a type as a plain int rather than an ARCH. 0x9080 is
+    EM_CYGNUS_V850, the number early Cygnus toolchains used for V850.
+    """
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _image(self) -> io.BytesIO:
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, 0x9080)  # e_machine
+        return io.BytesIO(bytes(image))
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_refused(self):
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "Unknown value of e_machine: 0x9080"
+        ):
+            Executable.from_elf(self._image())
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_loads_with_ignore_platform(self):
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        code = Executable.from_elf(
+            self._image(), platform=platform, ignore_platform=True
+        )
+        self.assertEqual(code.platform, platform)
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):

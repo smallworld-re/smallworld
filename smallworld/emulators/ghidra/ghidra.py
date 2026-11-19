@@ -462,11 +462,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     skip = False
                     self._thread.skipPcodeOp()
                 else:
-                    # MERGE NOTE: feature/v850 adds this catch too, for
-                    # DecodePcodeExecutionException only, here and around
-                    # _step_pcode_ops in symbolic.py. When both are merged,
-                    # keep this exception tuple and use it in symbolic.py too.
-                    #
                     # Execute the opcode normally. The first step of an
                     # instruction decodes it, which fails if the language
                     # has no such instruction. Ghidra raises a different
