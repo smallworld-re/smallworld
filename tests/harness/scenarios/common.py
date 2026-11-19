@@ -114,7 +114,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="d0",
         stack_pointer_register="sp",
         pointer_size=4,
-        engines=("unicorn", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
     ),
     "mips": ArchInfo(
         platform=PlatformSpec("MIPS32", "BIG"),

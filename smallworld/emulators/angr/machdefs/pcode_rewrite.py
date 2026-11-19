@@ -15,6 +15,7 @@ import typing
 
 import angr
 import archinfo
+import pypcode
 
 
 @functools.lru_cache(maxsize=None)
@@ -86,3 +87,26 @@ def rewrite_as_syscall(
             addr for addr in irsb._instruction_addresses if addr < next_addr
         ]
     irsb.jumpkind = jumpkind
+
+
+def find_pcode_relative_branch(irsb) -> typing.Optional[int]:
+    """The address of the first instruction in ``irsb`` that branches within
+    its own p-code, or None.
+
+    Sleigh lowers an instruction with an if/else in its semantics to a
+    ``BRANCH`` or ``CBRANCH`` whose target is in the constant space: an
+    offset into the instruction's own p-code. angr's p-code engine can't run
+    those; it fails an assertion when the branch is taken, and runs both
+    arms when it isn't.
+    """
+    address = None
+    for op in irsb._ops:
+        if op.opcode == pypcode.OpCode.IMARK:
+            address = op.inputs[0].offset
+        elif (
+            op.opcode in (pypcode.OpCode.BRANCH, pypcode.OpCode.CBRANCH)
+            and op.inputs[0].space.name == "const"
+        ):
+            assert address is not None
+            return address
+    return None

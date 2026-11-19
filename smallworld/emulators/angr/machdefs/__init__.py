@@ -8,6 +8,7 @@ from .arm import (
 )
 from .i386 import i386MachineDef
 from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
+from .m68k import M68KMachineDef
 from .machdef import AngrMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
@@ -30,6 +31,7 @@ __all__ = [
     "i386MachineDef",
     "LoongArch32MachineDef",
     "LoongArch64MachineDef",
+    "M68KMachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
