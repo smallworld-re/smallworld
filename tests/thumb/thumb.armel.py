@@ -38,8 +38,12 @@ for arch in [
     emulator = smallworld.emulators.UnicornEmulator(platform)
     machine = smallworld.state.Machine()
     cpu: ARM = smallworld.state.cpus.CPU.for_platform(platform)
+    # Keep the rejects alive: the order follows register addresses, and a
+    # new CPU built in a freed one's memory can repeat its order forever.
+    rejected = []
     while not is_cpu_register_order_bad(cpu):
         # reroll until we get a CPU instance where when we iterate over registers, we get CPSR before PC
+        rejected.append(cpu)
         cpu = smallworld.state.cpus.CPU.for_platform(platform)
     code = smallworld.state.memory.code.Executable.from_filepath(
         "thumb/thumb.armel.bin", address=0x1000
