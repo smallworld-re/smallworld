@@ -787,6 +787,48 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 # and the next iteration's stepPcodeOp() executes the
                 # CBRANCH normally on the concrete side.
                 self._maybe_fork_on_symbolic_cbranch(op)
+            elif self.machdef.is_nop_userop(op):
+                skip = True
+            elif self.machdef.userop(op) is not None:
+                self._run_userop(op)
+                skip = True
+
+    def _run_userop(self, op) -> None:
+        """Run a userop SmallWorld implements, in place of Ghidra's emulator.
+
+        The implementations are concrete only, so this refuses a userop whose
+        arguments depend on a symbolic input.
+        """
+        userop = self.machdef.userop(op)
+        assert userop is not None
+        state = self._thread.getState()
+        args = []
+        for var in op.getInputs()[1:]:
+            if var.isConstant():
+                args.append(int(var.getOffset()) & ((1 << (var.getSize() * 8)) - 1))
+                continue
+            pair = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+            sym = pair.getRight()
+            if sym is not None and self._sym_references_user_input(sym):
+                raise exceptions.SymbolicValueError(
+                    f"{self.machdef.userop_name(op)} has a symbolic argument, "
+                    "and SmallWorld runs it only on concrete values"
+                )
+            args.append(self._int_from_bytes(self.bytes_java_to_py(pair.getLeft())))
+        mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
+        result = userop(self, mnemonic, args)
+        out_var = op.getOutput()
+        if out_var is not None:
+            assert result is not None
+            bits = out_var.getSize() * 8
+            result &= (1 << bits) - 1
+            data = result.to_bytes(out_var.getSize(), self._byteorder_str())
+            state.setVar(
+                out_var,
+                JPair.of(
+                    self.bytes_py_to_java(data), self._make_sym_value(result, bits)
+                ),
+            )
 
     def step_block(self) -> None:
         raise NotImplementedError("Block stepping not supported for symbolic emulator")

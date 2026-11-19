@@ -291,35 +291,30 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 address=missing[0][0],
             )
 
-    def _process_userop(self, op: typing.Any) -> bool:
-        """Evaluate a user op the machine definition models.
-
-        Returns:
-            True if the op was evaluated, and must be skipped
-        """
-        name = self.machdef.language.getUserDefinedOpName(
-            int(op.getInput(0).getOffset())
-        )
-        state = self._thread.getState()
+    def _run_userop(self, op) -> None:
+        """Run a userop SmallWorld implements, in place of Ghidra's emulator."""
+        userop = self.machdef.userop(op)
+        assert userop is not None
         byteorder: typing.Literal["little", "big"] = (
             "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
         )
-        inputs = [
-            int.from_bytes(
-                state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT), byteorder
-            )
-            for var in op.getInputs()[1:]
-        ]
-        result = self.machdef.evaluate_userop(str(name), inputs)
-        if result is None:
-            return False
+        state = self._thread.getState()
+        args = []
+        for var in op.getInputs()[1:]:
+            mask = (1 << (var.getSize() * 8)) - 1
+            if var.isConstant():
+                args.append(int(var.getOffset()) & mask)
+            else:
+                data = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+                args.append(int.from_bytes(self.bytes_java_to_py(data), byteorder))
+        mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
+        result = userop(self, mnemonic, args)
         out_var = op.getOutput()
-        if out_var is None:
-            return True
-        size = out_var.getSize()
-        value = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
-        state.setVar(out_var, self.bytes_py_to_java(value))
-        return True
+        if out_var is not None:
+            assert result is not None
+            size = out_var.getSize()
+            data = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
+            state.setVar(out_var, self.bytes_py_to_java(data))
 
     def _process_read_breakpoint(
         self, addr_var: Varnode, out_var: Varnode, direct=False
@@ -580,9 +575,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         skip = True
 
                     # This is not a memory access.  No need to break
-                elif opcode == op.CALLOTHER:
-                    # This is a user op; the machine may model it.
-                    skip = self._process_userop(op)
+                elif self.machdef.is_nop_userop(op):
+                    skip = True
+                elif self.machdef.userop(op) is not None:
+                    self._run_userop(op)
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

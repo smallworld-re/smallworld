@@ -7,6 +7,9 @@ from ghidra.program.model.lang import Language, LanguageID, Register
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
 
+Userop = typing.Callable[[typing.Any, str, typing.Sequence[int]], typing.Optional[int]]
+"""A userop SmallWorld runs itself: ``(emulator, mnemonic, args) -> output``."""
+
 
 class GhidraMachineDef:
     """Container class for ghdra architecture-specific definitions"""
@@ -53,6 +56,18 @@ class GhidraMachineDef:
     # differs from the platform's pointer size (`PlatformDef.address_size`).
     ram_address_size: typing.Optional[int] = None
 
+    # Userops the emulator steps over instead of running,
+    # for SLEIGH that calls a userop Ghidra's emulator can't run
+    # on this language.
+    nop_userops: typing.FrozenSet[str] = frozenset()
+
+    # Userops SmallWorld runs itself, for SLEIGH that calls a userop Ghidra's
+    # emulator can't run on this language. Each maps to a function taking the
+    # emulator, the instruction's mnemonic and the userop's arguments as
+    # unsigned integers, and returning its output's value, or None for a
+    # userop with no output.
+    userops: typing.Mapping[str, Userop] = {}
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):
@@ -73,20 +88,25 @@ class GhidraMachineDef:
         assert reg is not None, name
         return reg
 
-    def evaluate_userop(
-        self, name: str, inputs: typing.List[int]
-    ) -> typing.Optional[int]:
-        """Evaluate a sleigh user op that Ghidra's emulator does not provide.
+    def userop_name(self, op) -> typing.Optional[str]:
+        """The name of the userop this p-code op calls, if it calls one."""
+        if op.getOpcode() != op.CALLOTHER:
+            return None
+        return str(self.language.getUserDefinedOpName(int(op.getInput(0).getOffset())))
 
-        Arguments:
-            name: The user op's name
-            inputs: The values of its inputs, after the op index
+    def is_nop_userop(self, op) -> bool:
+        """Whether this p-code op calls one of `nop_userops`."""
+        if not self.nop_userops:
+            return False
+        return self.userop_name(op) in self.nop_userops
 
-        Returns:
-            The value of its output (any int, for an op without one), or None
-            to leave the op to Ghidra
-        """
-        return None
+    def userop(self, op) -> typing.Optional["Userop"]:
+        """The implementation of the userop this p-code op calls, if SmallWorld
+        has one."""
+        if not self.userops:
+            return None
+        name = self.userop_name(op)
+        return None if name is None else self.userops.get(name)
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

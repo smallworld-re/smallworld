@@ -2,6 +2,14 @@ import typing
 
 from ....platforms import Architecture, Byteorder
 from .i386 import i386MachineDef
+from .machdef import Userop
+
+
+def _segment(emu: typing.Any, mnemonic: str, args: typing.Sequence[int]) -> int:
+    """``segment(base, offset)``: real-mode address computation, as the
+    processor spec defines it."""
+    base, offset = args
+    return (base << 4) + offset
 
 
 class X86RealModeMachineDef(i386MachineDef):
@@ -30,11 +38,8 @@ class X86RealModeMachineDef(i386MachineDef):
         "eip": None,
     }
 
-    def evaluate_userop(
-        self, name: str, inputs: typing.List[int]
-    ) -> typing.Optional[int]:
-        if name == "segment":
-            # Real-mode address computation, as the processor spec defines it.
-            base, offset = inputs
-            return (base << 4) + offset
-        return None
+    # LOCK and UNLOCK bracket a locked instruction; a single-threaded
+    # emulator has nothing to lock.
+    nop_userops = frozenset({"LOCK", "UNLOCK"})
+
+    userops: typing.Mapping[str, Userop] = {"segment": _segment}
