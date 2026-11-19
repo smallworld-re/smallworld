@@ -93,6 +93,15 @@ _SPECS = {
         ),
         puts_address=0x1001,
     ),
+    "la32": HookingSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="a0"),
+    ),
     "la64": HookingSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pointer_size=8,

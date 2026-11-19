@@ -290,6 +290,17 @@ angr.calling_conventions.register_default_cc(
 )
 
 
+class SimCCLoongArch32Linux(SimCCLoongArchLinux):
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 4)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 4)
+    ARCH = pcode_arch("Loongarch:LE:32:ilp32d")
+
+
+angr.calling_conventions.register_default_cc(
+    "Loongarch:LE:32:ilp32d", SimCCLoongArch32Linux
+)
+
+
 class SimCCLoongArchLinuxSyscall(angr.calling_conventions.SimCCSyscall):
     ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5"]
     FP_ARG_REGS: typing.List[str] = []
@@ -313,9 +324,24 @@ angr.calling_conventions.register_syscall_cc(
 )
 
 
+class SimCCLoongArch32LinuxSyscall(SimCCLoongArchLinuxSyscall):
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 4)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 4)
+
+
+angr.calling_conventions.register_syscall_cc(
+    "Loongarch:LE:32:ilp32d", "default", SimCCLoongArch32LinuxSyscall
+)
+
+
+class LoongArch32MachineDef(LoongArchMachineDef):
+    arch = Architecture.LOONGARCH32
+    pcode_language = "Loongarch:LE:32:ilp32d"
+
+
 class LoongArch64MachineDef(LoongArchMachineDef):
     arch = Architecture.LOONGARCH64
     pcode_language = "Loongarch:LE:64:lp64d"
 
 
-__all__ = ["LoongArch64MachineDef"]
+__all__ = ["LoongArch32MachineDef", "LoongArch64MachineDef"]

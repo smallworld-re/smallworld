@@ -84,6 +84,16 @@ _SPECS = {
         stack_pointer_register="esp",
         model_address=0x1000,
     ),
+    "la32": StaticBufferSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        model_register="a0",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "la64": StaticBufferSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",

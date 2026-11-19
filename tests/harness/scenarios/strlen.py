@@ -40,6 +40,7 @@ _ARCHS = (
     "armel",
     "armhf",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mips",

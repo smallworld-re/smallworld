@@ -7,7 +7,7 @@ from .arm import (
     ARMv7MMachineDef,
 )
 from .i386 import i386MachineDef
-from .loongarch import LoongArch64MachineDef
+from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
 from .machdef import AngrMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
@@ -28,6 +28,7 @@ __all__ = [
     "ARMv6MThumbMachineDef",
     "ARMv7MMachineDef",
     "i386MachineDef",
+    "LoongArch32MachineDef",
     "LoongArch64MachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",

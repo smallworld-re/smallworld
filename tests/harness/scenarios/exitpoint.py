@@ -87,6 +87,14 @@ _SPECS = {
         stack_pointer_register="esp",
         fake_return_size=4,
     ),
+    "la32": ExitpointSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        link_register="ra",
+    ),
     "la64": ExitpointSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",

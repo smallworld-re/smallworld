@@ -72,6 +72,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refuses the later versions' instructions, as the CPU does, where SH-1 and
   SH-2 code used to run as SH-2A. The ELF loader recognizes them from
   `e_flags`.
+- `Architecture.LOONGARCH32`, 32-bit LoongArch, on angr and Ghidra through
+  Ghidra's `Loongarch:LE:32:ilp32d` language. It decodes LA32R and LA32S
+  code, and also accepts some LoongArch64-only instructions. Some instructions
+  stop emulation, and the language computes `rotr.w`, `rotri.w`, `bstrins.w`
+  and `bytepick.w` wrong; the platform support docs list both. ELF32
+  `EM_LOONGARCH` images now load as this platform instead of being refused,
+  with `R_LARCH_32` relocations. There are no System V ABI models for it yet.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

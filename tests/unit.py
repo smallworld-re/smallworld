@@ -124,7 +124,10 @@ from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrSta
 from smallworld.state.memory.elf.rela import ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
-from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
+from smallworld.state.memory.elf.rela.loongarch import (
+    LoongArch32ElfRelocator,
+    LoongArch64ElfRelocator,
+)
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
@@ -973,6 +976,7 @@ UNIT_TEST_PLATFORMS = {
     "armv7r": (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE),
     "armv7a": (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
     "i386": (platforms.Architecture.X86_32, platforms.Byteorder.LITTLE),
+    "loongarch32": (platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE),
     "loongarch64": (platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE),
     "m68k": (platforms.Architecture.M68K, platforms.Byteorder.BIG),
     "mips": (platforms.Architecture.MIPS32, platforms.Byteorder.BIG),
@@ -1123,6 +1127,7 @@ class CPUTests(unittest.TestCase):
     unsupported={
         name: "Not supported by unicorn"
         for name in (
+            "loongarch32",
             "loongarch64",
             "msp430",
             "msp430x",
@@ -1251,6 +1256,7 @@ class AngrMachdefTests(unittest.TestCase):
                 "amd64_avx512",
                 "armv6m_thumb",
                 "armv7r",
+                "loongarch32",
                 "loongarch64",
                 "m68k",
                 "msp430",
@@ -6756,6 +6762,10 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
         # R_68K_32 == 1
         self.assertEqual(self._value(M68KElfRelocator(), 1), self.BE32)
 
+    def test_loongarch32_r_larch_32(self):
+        # R_LARCH_32 == 1
+        self.assertEqual(self._value(LoongArch32ElfRelocator(), 1), self.LE32)
+
     def test_loongarch64_r_larch_64(self):
         # R_LARCH_64 == 2
         self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
@@ -9695,6 +9705,79 @@ def _build_two_text_relocatable() -> bytes:
     image.extend(b"\0" * (shoff - len(image)))
     image.extend(shdrs)
     return bytes(image)
+
+
+class ElfLoongArch32Tests(unittest.TestCase):
+    """A 32-bit EM_LOONGARCH image loads as LoongArch32."""
+
+    PATH = BINARIES_TESTS_DIR / "elf" / "elf.la32.elf"
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_loads_as_loongarch32(self):
+        with self.PATH.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.LOONGARCH32)
+        self.assertEqual(code.entrypoint, code.get_symbol_value("_start"))
+
+
+class LoongArch32ElfRelocatorTests(unittest.TestCase):
+    """LoongArch32 relocations are word-sized; R_LARCH_64 is not one of them."""
+
+    class _Elf(_FakeElf):
+        # Serves REL addends, recording the width each read asked for.
+        def __init__(self, address: int = 0, addend: int = 0):
+            super().__init__(address)
+            self.addend = addend
+            self.read_sizes: list = []
+
+        def read_int(self, address, size, byteorder):
+            self.read_sizes.append(size)
+            return self.addend
+
+    def _value(self, type_, *, value=0, baseaddr=0, addend=0, is_rela=True, elf=None):
+        rela = ElfRela(
+            is_rela=is_rela,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=value, baseaddr=baseaddr),
+            addend=addend,
+        )
+        return LoongArch32ElfRelocator()._compute_value(rela, elf or self._Elf())
+
+    def test_r_larch_32(self):
+        # R_LARCH_32 == 1: S + A, as a 32-bit word.
+        self.assertEqual(
+            self._value(1, value=0x1000, baseaddr=0x400000, addend=0x10),
+            (0x401010).to_bytes(4, "little"),
+        )
+
+    def test_r_larch_jump_slot(self):
+        # R_LARCH_JUMP_SLOT == 5: also S + A, as a 32-bit word.
+        self.assertEqual(
+            self._value(5, value=0x1000, baseaddr=0x400000),
+            (0x401000).to_bytes(4, "little"),
+        )
+
+    def test_r_larch_relative_wraps_to_32_bits(self):
+        # R_LARCH_RELATIVE == 3: B + A, reduced modulo 2**32.
+        elf = self._Elf(address=0xFFFFFFF0)
+        self.assertEqual(
+            self._value(3, addend=0x20, elf=elf), (0x10).to_bytes(4, "little")
+        )
+
+    def test_rel_addends_are_read_as_words(self):
+        for type_ in (1, 3, 5):
+            with self.subTest(type=type_):
+                elf = self._Elf(address=0x400000, addend=0x8)
+                self._value(type_, is_rela=False, elf=elf)
+                self.assertEqual(elf.read_sizes, [4])
+
+    def test_r_larch_64_is_unsupported(self):
+        # R_LARCH_64 == 2 has no meaning in a 32-bit image.
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "Valid, but unsupported"
+        ):
+            self._value(2)
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):

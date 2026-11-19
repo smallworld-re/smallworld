@@ -1566,8 +1566,10 @@ class ABIEnumAndFeatureTests(unittest.TestCase):
 
 class PlatformDefForPlatformTests(unittest.TestCase):
     def test_miss_chains_the_cause(self):
+        # x86-64 has no big-endian form, so this stays a miss as platforms
+        # are added.
         platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE
+            platforms.Architecture.X86_64, platforms.Byteorder.BIG
         )
         for _ in range(2):  # the second call is a memoized miss
             with self.assertRaisesRegex(ValueError, "No platform definition") as ctx:

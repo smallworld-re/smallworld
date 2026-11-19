@@ -15,6 +15,14 @@ class LoongArchStack(stack.DescendingStack):
         raise NotImplementedError("Stack initialization not implemented for LoongArch")
 
 
+class LoongArch32Stack(LoongArchStack):
+    """A stack for a LoongArch 32-bit CPU"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE
+    )
+
+
 class LoongArch64Stack(LoongArchStack):
     """A stack for a LoongArch 64-bit CPU"""
 

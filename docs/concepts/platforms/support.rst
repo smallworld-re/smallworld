@@ -39,6 +39,64 @@ It appears to support up to arm-v7 application code,
 but its privileged features are a mash-up of v6, v7, A-series, and M-series.  
 Support for privileged operations is unknown.
 
+**la32:** 32-bit LoongArch, on Ghidra and angr. Both run Ghidra's
+``Loongarch:LE:32:ilp32d`` language, the one with the double-precision FPU's
+8-byte registers; angr runs it through its p-code engine, as pypcode ships it.
+ilp32f and soft-float binaries run on it too, but floating-point arithmetic
+only runs on Ghidra: angr has no p-code floating point (see the floating-point
+notes below), so on angr only soft-float code and FPR moves work. Unicorn,
+PANDA and Capstone have no LoongArch32 support, and SmallWorld has no Styx
+machine definition for it.
+
+That language is not either published LoongArch32 variant. It is
+LoongArch64's base instruction set without the 64-bit-wide operations, so it
+decodes LA32R (reduced) and LA32S (standard) code, both subsets of it, but it
+also decodes a few instructions that only LoongArch64 has, where real
+LoongArch32 hardware would raise an exception. ``pcaddu18i`` and
+``ldptr.w``/``stptr.w`` execute. The CRC instructions stop emulation with an
+error on both emulators, because SmallWorld implements none of the p-code user
+operations they lift to. The bounds-checked load/store instructions
+(``ldgt``/``ldle``/``stgt``/``stle``) and ``asrtgt.d``/``asrtle.d`` lift to a
+comparison that branches around such a user operation: Ghidra executes them
+normally when the check passes and stops only when it fails, while angr raises
+when it lifts any block containing one, whether or not the check would pass.
+
+Some LA32R instructions also stop emulation, for the same reason:
+``rdtimel.w``, ``rdtimeh.w``, ``rdcntid.w``, ``cpucfg`` and ``preld`` on both
+emulators, and the ``dbar`` and ``ibar`` barriers on Ghidra only (angr treats
+them as no-ops). Compilers emit ``dbar`` for atomics and fences, so such code
+cannot run on Ghidra.
+
+The language also gets some LA32R instructions wrong. Both emulators run its
+p-code, so both compute the same wrong value without raising an error:
+
+- ``rotr.w`` and ``rotri.w`` shift arithmetically, so rotating a value with
+  bit 31 set fills the top with ones: ``0x80000000`` rotated right by 1 gives
+  ``0xc0000000`` instead of ``0x40000000``. Rotating a value with bit 31 clear
+  is correct.
+- ``bstrins.w`` inserts the wrong bits at the wrong position: with ``a0 = -1``
+  and ``t2 = 2``, ``bstrins.w a0, t2, 11, 4`` gives ``0xffffff00`` instead of
+  ``0xfffff02f``.
+- ``bytepick.w`` takes its bytes from the wrong ends of its operands:
+  ``bytepick.w`` with ``rj = 0xedcba987``, ``rk = 0xfffffff9`` and ``sa = 1``
+  gives ``0xffcba987`` instead of ``0xfffff9ed``. LLVM emits it for funnel
+  shifts such as ``(a << 8) | (b >> 24)``.
+
+These are bugs in Ghidra's LoongArch sleigh; LoongArch64's ``rotr.w``,
+``bstrins.w`` and ``bytepick.w`` lift the same way.
+
+angr's p-code engine has two bugs of its own that affect LoongArch32, as they
+do its other p-code ISAs; Ghidra computes both correctly. It reads a register
+operand that starts partway into a register from the register's start, so
+``revb.2h`` gives ``0x44444444`` for ``0x11223344`` instead of ``0x22114433``.
+It computes signed remainders as unsigned, so ``mod.w`` of -7 by 2 gives 1
+instead of -1.
+
+The test suite assembles LoongArch32 with zig. zig has no LoongArch32 libc, and
+its LLVM has no 32-bit LoongArch CPU model to compile C for, so the tests are
+assembly only; exitpoint and unmapped have hand-written stand-ins. There are no
+System V ABI models for LoongArch32 yet.
+
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
