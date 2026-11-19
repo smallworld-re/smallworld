@@ -1,8 +1,6 @@
-import enum
 import typing
 
 import angr
-import archinfo
 import claripy
 import pypcode
 
@@ -18,6 +16,7 @@ from ....platforms.defs.v850 import (
     V850_SYSTEM_REGISTERS,
 )
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 V850_PCODE_LANGUAGE = "V850:LE:32:default"
 
@@ -25,14 +24,12 @@ V850_PCODE_LANGUAGE = "V850:LE:32:default"
 _PSW_OV = 1 << 2
 
 
-class V850UserOp(enum.IntEnum):
-    """The p-code user operations Ghidra's V850 language lifts to."""
-
-    SATURATE = 0
-    DISABLE_IRQ = 1
-    ENABLE_IRQ = 2
-    HALT = 3
-    SYNCHRONIZE = 4
+# The p-code user operations Ghidra's V850 language lifts to, by name; their
+# numbers follow declaration order in the sleigh, so they could shift.
+_SATURATE = "__saturate"
+_HALT = "__halt"
+# di and ei have already set PSW.ID, and there is nothing to synchronize with.
+_NO_OPS = frozenset({"__disable_irq", "__enable_irq", "__synchronize"})
 
 
 def _end_block_after(irsb, i, jumpkind: str) -> int:
@@ -50,13 +47,8 @@ def _end_block_after(irsb, i, jumpkind: str) -> int:
     while end < len(irsb._ops) and irsb._ops[end].opcode != pypcode.OpCode.IMARK:
         end += 1
 
-    irsb._ops = irsb._ops[0:end]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = [
-        a for a in irsb._instruction_addresses if a < next_addr
-    ]
-    irsb.jumpkind = jumpkind
+    # Keep the whole instruction, not just its IMARK.
+    rewrite_as_syscall(irsb, end, next_addr, jumpkind=jumpkind)
     return next_addr
 
 
@@ -73,21 +65,15 @@ def _rewrite_v850_userops(irsb) -> typing.Optional[str]:
             i += 1
             continue
 
-        opnum = op.inputs[0].offset
-        if opnum in (
-            V850UserOp.DISABLE_IRQ,
-            V850UserOp.ENABLE_IRQ,
-            V850UserOp.SYNCHRONIZE,
-        ):
-            # di and ei have already set PSW.ID, and there is nothing to
-            # synchronize with.
+        name = op.inputs[0].getUserDefinedOpName()
+        if name in _NO_OPS:
             irsb._ops.pop(i)
-        elif opnum == V850UserOp.HALT:
+        elif name == _HALT:
             # halt waits for an interrupt, which never comes; stop here.
             irsb._ops.pop(i)
             _end_block_after(irsb, i - 1, "Ijk_Exit")
             return None
-        elif opnum == V850UserOp.SATURATE:
+        elif name == _SATURATE:
             # The instruction has written its wrapped result and set PSW.OV;
             # clamp the result once the block has run. Ending the block here
             # leaves that as the last thing the block does.
@@ -96,7 +82,7 @@ def _rewrite_v850_userops(irsb) -> typing.Optional[str]:
             _end_block_after(irsb, i - 1, "Ijk_Boring")
             return register
         else:
-            raise EmulationError(f"Undefined user op {hex(opnum)}")
+            raise EmulationError(f"Undefined user op {name}")
 
     return None
 
@@ -127,20 +113,7 @@ class V850MachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        assert hasattr(state.scratch, "exit_points")
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            irsb = kwargs["irsb"]
-        else:
-            kwargs["opt_level"] = 0
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
-
+        irsb = lift_for_rewrite(state, kwargs)
         saturate = _rewrite_v850_userops(irsb)
 
         kwargs["irsb"] = irsb
@@ -162,7 +135,7 @@ class SimCCV850(angr.calling_conventions.SimCC):
     FP_ARG_REGS: typing.List[str] = []
     RETURN_VAL = angr.calling_conventions.SimRegArg(V850_RETURN_VALUE_REGISTER, 4)
     RETURN_ADDR = angr.calling_conventions.SimRegArg(V850_RETURN_ADDRESS_REGISTER, 4)
-    ARCH = archinfo.ArchPcode(V850_PCODE_LANGUAGE)  # type: ignore
+    ARCH = pcode_arch(V850_PCODE_LANGUAGE)  # type: ignore
 
 
 angr.calling_conventions.register_default_cc(V850_PCODE_LANGUAGE, SimCCV850)
