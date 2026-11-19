@@ -9,10 +9,6 @@ from .pcode_rewrite import pcode_arch
 M68K_PCODE_LANGUAGE = "68000:BE:32:default"
 
 
-# MERGE NOTE: feature/angr-pcode-float gives angr's p-code engine the float
-# operations, which the m68k FPU needs; once it is merged, measure the m68k
-# FPU on angr and update the m68k row of float_support.csv and the no-float
-# list in support.rst.
 class M68KMachineDef(GhidraMachineDef):
     """angr machine definition for the m68k (68040), using Ghidra's p-code.
 

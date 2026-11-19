@@ -104,7 +104,9 @@ gaps:
   engine can't run, so angr refuses a block containing them.
 - ``trap``, ``trapv``, ``chk``, ``bkpt`` and the BCD instructions (``abcd``,
   ``sbcd``, ``nbcd``) raise, so syscall hooks never fire.
-- The FPU doesn't run (see the float support notes below).
+- The FPU doesn't run: its registers are in the 68881's 80-bit format, which
+  angr's floating-point operations don't support (see the float support notes
+  below).
 - ``sfc``, ``dfc`` and ``tc`` read back at their real widths, but the language
   holds them in 4 bytes, so a ``movec`` that reads one into a register gives a
   partly symbolic value.
@@ -365,7 +367,10 @@ A few notes:
   Pcode-backed architecture with them, though only SH-2A single precision is
   measured; TriCore and LoongArch64 are untested. Xtensa stays at No: Ghidra's
   sleigh includes its optional FPU, but SmallWorld's angr machdef for it
-  exposes no floating-point registers. The behaviors follow IEEE 754, rounding to
+  exposes no floating-point registers. m68k stays at No too: its language
+  holds the FPU registers in the 68881's 80-bit format, which these behaviors
+  don't support, so even ``fmove.s`` into an FPU register raises. The behaviors
+  follow IEEE 754, rounding to
   nearest, ties to even. A comparison with a NaN is unordered, so
   ``FLOAT_NOTEQUAL`` is true and the others false, and ``-0`` equals ``+0``;
   Ghidra's p-code reference says ``FLOAT_NOTEQUAL`` is false on a NaN. Where
