@@ -1,13 +1,12 @@
 import typing
 
 import angr
-import archinfo
 import pypcode
 
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs import PowerPC32VLE
 from .machdef import GhidraMachineDef
-from .superh import lift_for_rewrite, rewrite_as_syscall
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 PPC_VLE_PCODE_LANGUAGE = "PowerPC:BE:32:e200"
 
@@ -141,7 +140,7 @@ class SimCCPowerPC32VLE(angr.calling_conventions.SimCC):
     RETURN_VAL = angr.calling_conventions.SimRegArg("r3", 4)
     OVERFLOW_RETURN_VAL = angr.calling_conventions.SimRegArg("r4", 4)
     RETURN_ADDR = angr.calling_conventions.SimRegArg("lr", 4)
-    ARCH = archinfo.ArchPcode(PPC_VLE_PCODE_LANGUAGE)  # type: ignore
+    ARCH = pcode_arch(PPC_VLE_PCODE_LANGUAGE)  # type: ignore
 
 
 class SimCCPowerPC32VLESyscall(angr.calling_conventions.SimCCSyscall):
@@ -159,7 +158,7 @@ class SimCCPowerPC32VLESyscall(angr.calling_conventions.SimCCSyscall):
     # state._ip, which the rewrite already set past the trap. See
     # `SimCCSuperHLinuxSyscall`.
     RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 4)
-    ARCH = archinfo.ArchPcode(PPC_VLE_PCODE_LANGUAGE)  # type: ignore
+    ARCH = pcode_arch(PPC_VLE_PCODE_LANGUAGE)  # type: ignore
 
     @classmethod
     def _match(cls, arch, args, sp_data):
