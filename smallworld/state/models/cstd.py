@@ -93,8 +93,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
     # An eight-byte value in a pair of argument registers that finds only the
     # last register free goes wholly on the stack on most ABIs.  RiscV ilp32
-    # splits it: the low word in that register, the high word on the stack.
-    _split_eight_byte_args: bool = False
+    # splits it: its first word in memory order in that register, the second
+    # in the next four-byte stack slot.  On little-endian RiscV the register
+    # holds the low word; on a big-endian ABI it would hold the high word.
+    _eight_byte_args_split: bool = False
 
     def __init__(self):
         self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
@@ -471,12 +473,12 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             self._int_reg_offset += 1
 
         if (
-            self._split_eight_byte_args
+            self._eight_byte_args_split
             and self._eight_byte_reg_size == 2
             and self._int_reg_offset == len(self._eight_byte_arg_regs) - 1
         ):
-            # Only the last register is free: the low word goes in it, and
-            # the high word in the next four-byte stack slot.
+            # Only the last register is free: the first word goes in it, and
+            # the second in the next four-byte stack slot.
             self._on_stack.append(False)
             self._arg_offset.append(self._int_reg_offset)
             self._arg_layout.append(_SPLIT)
@@ -929,15 +931,22 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         index: int,
         emulator: emulators.Emulator,
     ) -> int:
-        # An eight-byte value split between the last argument register (low
-        # word) and the stack (high word); only RiscV ilp32 does this.
-        lo = emulator.read_register(self._eight_byte_arg_regs[self._arg_offset[index]])
+        # An eight-byte value split between the last argument register and
+        # the stack; see _eight_byte_args_split. The register holds the first
+        # word in memory order, so which is the high word follows the byte
+        # order.
+        reg_word = (
+            emulator.read_register(self._eight_byte_arg_regs[self._arg_offset[index]])
+            & self._int_inv_mask
+        )
         addr = emulator.read_register(self.platdef.sp_register)
         data = emulator.read_memory(addr + self._split_stack_offset[index], 4)
-        hi = int.from_bytes(
+        stack_word = int.from_bytes(
             data, "big" if self.platform.byteorder == Byteorder.BIG else "little"
         )
-        return (hi << 32) | (lo & self._int_inv_mask)
+        if self.platform.byteorder == Byteorder.BIG:
+            return (reg_word << 32) | stack_word
+        return (stack_word << 32) | reg_word
 
     def _write_split(
         self: typing.Union["CStdCallingContext", "VariadicContext"],
@@ -945,15 +954,19 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         value: int,
         emulator: emulators.Emulator,
     ) -> None:
+        hi = (value >> 32) & self._int_inv_mask
+        lo = value & self._int_inv_mask
+        if self.platform.byteorder == Byteorder.BIG:
+            reg_word, stack_word = hi, lo
+        else:
+            reg_word, stack_word = lo, hi
         emulator.write_register(
-            self._eight_byte_arg_regs[self._arg_offset[index]],
-            value & self._int_inv_mask,
+            self._eight_byte_arg_regs[self._arg_offset[index]], reg_word
         )
         addr = emulator.read_register(self.platdef.sp_register)
-        hi = (value >> 32) & self._int_inv_mask
         emulator.write_memory(
             addr + self._split_stack_offset[index],
-            hi.to_bytes(
+            stack_word.to_bytes(
                 4, "big" if self.platform.byteorder == Byteorder.BIG else "little"
             ),
         )
@@ -1377,9 +1390,10 @@ class VariadicContext:
         self._soft_float = parent._soft_float or parent._variadic_soft_float
         self._fp_shares_int_regs = parent._fp_shares_int_regs
         self._fp_falls_back_to_int_regs = parent._fp_falls_back_to_int_regs
-        # A variadic eight-byte value that finds only the last register free
-        # is aligned past it, onto the stack, so it is never split.
-        self._split_eight_byte_args = False
+        # Where variadic eight-byte values are aligned to an even register,
+        # as on RiscV ilp32, one never finds only the last register free, so
+        # the split applies only where they aren't.
+        self._eight_byte_args_split = parent._eight_byte_args_split
         self._align_eight_byte_regs = (
             parent._align_eight_byte_regs
             if parent._variadic_align_eight_byte_regs is None

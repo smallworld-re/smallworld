@@ -63,7 +63,7 @@ class RiscV32SysVCallingContext(CStdCallingContext):
     # left, a fixed one is split between a7 and the stack.
     _align_eight_byte_regs = False
     _variadic_align_eight_byte_regs = True
-    _split_eight_byte_args = True
+    _eight_byte_args_split = True
     # A floating-point argument with no FP register left goes in integer
     # registers while any are free.
     _fp_falls_back_to_int_regs = True
