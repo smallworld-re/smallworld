@@ -382,26 +382,18 @@ class GhidraEmulator(AbstractGhidraEmulator):
         """Run a userop SmallWorld implements, in place of Ghidra's emulator."""
         userop = self.machdef.userop(op)
         assert userop is not None
-        byteorder: typing.Literal["little", "big"] = (
-            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
-        )
-        state = self._thread.getState()
         args = []
         for var in op.getInputs()[1:]:
-            mask = (1 << (var.getSize() * 8)) - 1
             if var.isConstant():
-                args.append(int(var.getOffset()) & mask)
+                args.append(int(var.getOffset()) & ((1 << (var.getSize() * 8)) - 1))
             else:
-                data = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
-                args.append(int.from_bytes(self.bytes_java_to_py(data), byteorder))
+                args.append(self._read_varnode(var))
         mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
         result = userop(self, mnemonic, args)
         out_var = op.getOutput()
         if out_var is not None:
             assert result is not None
-            size = out_var.getSize()
-            data = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
-            state.setVar(out_var, self.bytes_py_to_java(data))
+            self._write_varnode(out_var, result)
 
     def _process_read_breakpoint(
         self,
