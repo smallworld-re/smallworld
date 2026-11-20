@@ -7,7 +7,7 @@ import pypcode
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.riscv import RISCV_FPR_ABI_NAMES, RISCV_GPR_ABI_NAMES
 from .machdef import AngrMachineDef, GhidraMachineDef
-from .superh import lift_for_rewrite, pcode_arch, rewrite_as_syscall
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 # angr has no default calling convention for RISCV64
 # Let's fix that.

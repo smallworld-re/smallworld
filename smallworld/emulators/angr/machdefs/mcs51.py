@@ -2,7 +2,6 @@ import enum
 import logging
 import typing
 
-import angr
 import claripy
 import pypcode
 from angr.errors import AngrError
@@ -38,7 +37,7 @@ from ....platforms.defs.mcs51 import (
     mcs51_take_interrupt,
     mcs51_unmapped_paging_message,
 )
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, PcodeEngine
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +237,8 @@ def _instructions(irsb) -> typing.List[typing.Tuple[int, typing.List[typing.Any]
     return instructions
 
 
-class MCS51EnginePcode(angr.engines.UberEnginePcode):
-    """angr's p-code engine, with the 8051's address spaces on a flat map.
+class MCS51EnginePcode(PcodeEngine):
+    """SmallWorld's p-code engine, with the 8051's address spaces on a flat map.
 
     It also keeps two kinds of state current that Ghidra's 8051 language
     leaves out: the parity flag, which the hardware derives from the
