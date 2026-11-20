@@ -14,21 +14,29 @@ _ARCHS = (
     "armel",
     "armhf",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mcs51",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
     "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -52,32 +60,43 @@ _STACKS = {
     "armel": _stack("armel"),
     "armhf": _stack("armhf"),
     "i386": _stack("i386", argument_size=4, pointer_adjust=4),
+    "la32": _stack("la32"),
     "la64": _stack("la64"),
     "m68k": _stack("m68k"),
     # The 8051's foo never returns, so no fake return address is needed.
     "mcs51": _stack("mcs51", fake_return_size=None),
     "mips": _stack("mips"),
     "mipsel": _stack("mipsel"),
+    "micromips": _stack("micromips"),
+    "micromipsel": _stack("micromipsel"),
     "mips64": _stack("mips64"),
     "mips64el": _stack("mips64el"),
     "ppc": _stack("ppc"),
+    "ppcvle": _stack("ppcvle"),
     "ppc64": _stack("ppc64"),
     "riscv32": _stack("riscv32"),
     "riscv64": _stack("riscv64"),
     # SuperH leaves the return address in pr rather than on the stack, so like
     # tricore it needs no synthetic return slot; the sh binaries still touch the
     # stack (sts.l pr,@-r15), so sp itself must be valid.
+    "sh1": _stack("sh1", fake_return_size=None),
+    "sh2": _stack("sh2", fake_return_size=None),
     "sh2a": _stack("sh2a", fake_return_size=None),
     "sh4": _stack("sh4", fake_return_size=None),
     "sh4el": _stack("sh4el", fake_return_size=None),
     "tricore": _stack("tricore", fake_return_size=None),
+    # V850 also returns through a register, lp.
+    "v850": _stack("v850", fake_return_size=None),
+    "x86_16": _stack("x86_16", fake_return=0xFFFF, argument_size=2, pointer_adjust=2),
 }
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
     arch: {"stack": stack} for arch, stack in _STACKS.items()
 }
 _PER_ARCH["i386"]["arg_register"] = None
+_PER_ARCH["x86_16"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
+_PER_ARCH["v850"]["entry_offset"] = 0x14
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
 # PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
@@ -148,7 +167,7 @@ SCENARIO_INFO = ScenarioInfo(
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            "mcs51": {"sixteenbit": True},
+            **{arch: {"sixteenbit": True} for arch in ("mcs51", "x86_16")},
         },
     ),
     run_factory=assert_outputs(_call_expectations),

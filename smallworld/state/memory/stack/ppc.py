@@ -23,6 +23,18 @@ class PowerPC32Stack(PowerPCStack):
     )
 
 
+class PowerPC32VLEStack(PowerPCStack):
+    """A stack for a PPC 32-bit CPU running VLE code"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+    )
+
+    def get_alignment(self) -> int:
+        # The PowerPC EABI, which e200 toolchains use, aligns the stack to 8.
+        return 8
+
+
 class PowerPC64Stack(PowerPCStack):
     """A stack for a PPC 64-bit CPU"""
 

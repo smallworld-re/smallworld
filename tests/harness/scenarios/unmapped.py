@@ -68,6 +68,11 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="esp",
     ),
+    "la32": UnmappedSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "la64": UnmappedSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -97,6 +102,16 @@ _SPECS = {
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
+    ),
+    "micromips": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
     ),
     "mips64": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
@@ -151,6 +166,17 @@ _SPECS = {
         pc_register="pc",
         engines=("angr", "pcode", "panda"),
     ),
+    # unmapped.sh2.elf.s builds for both SH-1 and SH-2.
+    "sh1": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
+    "sh2": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "sh4": UnmappedSpec(
         platform=PlatformSpec("SUPERH_SH4", "BIG"),
         pc_register="pc",
@@ -165,6 +191,12 @@ _SPECS = {
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
         engines=("angr", "panda", "pcode"),
+    ),
+    # unmapped.v850.elf.s loads at 0x100000, its linker's default.
+    "v850": UnmappedSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
     ),
 }
 

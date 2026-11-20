@@ -5,7 +5,7 @@ import typing
 
 import claripy
 
-from .. import platforms, utils
+from .. import exceptions, platforms, utils
 
 
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
@@ -472,6 +472,45 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """
 
         pass
+
+    def get_isa_mode(self) -> int:
+        """Read which instruction set the CPU is running, on a platform with
+        two (see :class:`.IsaBit`).
+
+        Returns:
+            1 for the alternate instruction set (Thumb, microMIPS), 0 for the
+            standard one: the bit 0 of a jump target that selects it.
+
+        Raises:
+            ConfigurationError: if the platform has one instruction set.
+            UnsupportedRegisterError: if this emulator runs only one of them.
+        """
+        self._check_isa_bit()
+        return self.read_register("isa_mode")
+
+    def set_isa_mode(self, mode: int) -> None:
+        """Choose the instruction set the CPU runs next, on a platform with
+        two (see :class:`.IsaBit`).
+
+        Arguments:
+            mode: 1 for the alternate instruction set, 0 for the standard one.
+
+        Raises:
+            ConfigurationError: if the platform has one instruction set.
+            UnsupportedRegisterError: if this emulator runs only one of them.
+        """
+        self._check_isa_bit()
+        self.write_register("isa_mode", mode)
+
+    def _check_isa_bit(self) -> None:
+        # The defaults above use the isa_mode pseudo-register, for platforms
+        # with no architectural register holding the mode; an emulator whose
+        # platforms keep it elsewhere overrides them.
+        platdef = platforms.PlatformDef.for_platform(self.platform)
+        if platdef.isa_bit is platforms.IsaBit.NONE:
+            raise exceptions.ConfigurationError(
+                f"{self.platform} has one instruction set"
+            )
 
     def get_thumb(self) -> bool:
         """For applicable platforms, checks if the CPU is in ARM or Thumb mode.

@@ -2,7 +2,6 @@ import enum
 import typing
 
 import angr
-import archinfo
 import pypcode
 
 from ....exceptions import EmulationError
@@ -17,6 +16,7 @@ from ....platforms.defs.tricore import (
     TRICORE_STATUS_REGISTER,
 )
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch
 
 
 class UpdatedEnumMeta(enum.EnumMeta):
@@ -146,20 +146,8 @@ class TriCoreMachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        assert hasattr(state.scratch, "exit_points")
         globals_map = typing.cast(typing.MutableMapping[str, typing.Any], state.globals)
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            irsb = kwargs["irsb"]
-        else:
-            kwargs["opt_level"] = 0
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+        irsb = lift_for_rewrite(state, kwargs)
 
         saved_return_address = getattr(state.regs, TRICORE_RETURN_ADDRESS_REGISTER)
         ra_stack = list(globals_map.get("tricore_ra_stack", ()))
@@ -186,7 +174,7 @@ class SimCCTriCore(angr.calling_conventions.SimCC):
     FP_ARG_REGS: typing.List[str] = []
     RETURN_VAL = angr.calling_conventions.SimRegArg(TRICORE_RETURN_VALUE_REGISTER, 4)
     RETURN_ADDR = angr.calling_conventions.SimRegArg(TRICORE_RETURN_ADDRESS_REGISTER, 4)
-    ARCH = archinfo.ArchPcode("tricore:LE:32:default")  # type: ignore
+    ARCH = pcode_arch("tricore:LE:32:default")  # type: ignore
 
 
 angr.calling_conventions.register_default_cc("tricore:LE:32:default", SimCCTriCore)

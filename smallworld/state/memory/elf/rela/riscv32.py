@@ -10,7 +10,9 @@ R_RISCV_TLS_TPREL32 = 10  # Write the symbol's offset from the thread pointer.
 class RISCV32ElfRelocator(RISCV64ElfRelocator):
     """RV64's relocations, at 32 bits."""
 
-    arch = platforms.Architecture.RISCV32
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE)}
+    )
 
     _width = 4
     _absolute = R_RISCV_32

@@ -5,8 +5,9 @@ from .rela import ElfRelocator
 
 
 class TriCoreElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.TRICORE
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         raise ConfigurationError(

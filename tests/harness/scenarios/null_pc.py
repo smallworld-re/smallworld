@@ -47,28 +47,39 @@ _ARCHS = (
     "armel",
     "armhf",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mcs51",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
     "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
 _SPECS = build_specs(
     NullPcSpec,
     _ARCHS,
-    per_arch={"mcs51": {"fake_return": 0xFFFF, "fake_return_size": 2}},
+    per_arch={
+        arch: {"fake_return": 0xFFFF, "fake_return_size": 2}
+        for arch in ("mcs51", "x86_16")
+    },
 )
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.

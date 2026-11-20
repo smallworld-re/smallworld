@@ -69,6 +69,46 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         pass
 
+    def pc_from_engine(self, engine: typing.Any, value: int) -> int:
+        """Convert the engine's program counter register to SmallWorld's pc.
+
+        Arguments:
+            engine: The Unicorn engine
+            value: The contents of the register that `pc` maps to
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the engine's program counter register.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The value to write to the register that `pc` maps to
+        """
+        return pc
+
+    def pc_to_start(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the address emu_start() begins at.
+
+        Unicorn takes some execution modes from the low bit of the start
+        address, as it does when the pc register is written, so this is
+        `pc_to_engine()` unless a machine's pc register is not the address.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The address to pass to emu_start()
+        """
+        return self.pc_to_engine(engine, pc)
+
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt
 

@@ -7,6 +7,7 @@ from typing import Literal, Mapping, Sequence
 
 from .common import (
     PlatformSpec,
+    concrete,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -93,7 +94,7 @@ def _print_result(cpu, spec: RawBinarySpec) -> None:
     if spec.print_mode == "register":
         print(register)
         return
-    print(hex(register.get()))
+    print(hex(concrete(register.get())))
 
 
 def run_integer_case(

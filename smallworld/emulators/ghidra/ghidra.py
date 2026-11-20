@@ -4,7 +4,8 @@ import typing
 import claripy
 import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
-from ghidra.pcode.exec import PcodeExecutorStatePiece
+from ghidra.pcode.emulate import InstructionDecodeException
+from ghidra.pcode.exec import DecodePcodeExecutionException, PcodeExecutorStatePiece
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.pcode import Varnode
 
@@ -63,6 +64,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
 
@@ -110,9 +112,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
             typing.Tuple[typing.Any, int, typing.Optional[int], int]
         ] = []
         if self.machdef.address_spaces is None:
-            self._spaces.append(
-                (self._default_space, 0, None, self.platdef.address_size)
-            )
+            # An offset into the default space is as wide as a pointer,
+            # unless the machine says otherwise (x86-16's linear addresses).
+            width = self.machdef.ram_address_size or self.platdef.address_size
+            self._spaces.append((self._default_space, 0, None, width))
         else:
             factory = self.machdef.language.getAddressFactory()
             for name, base, size in self.machdef.address_spaces:
@@ -168,6 +171,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
 
         # Get the thread's register state
         state = self._thread.getState()
@@ -189,6 +196,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
             return
         if not isinstance(value, int):
             raise TypeError("Pcode emulator can't support symbolic values")
+        if reg.isProcessorContext():
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            value = self.machdef.pc_to_engine(self._thread, value)
 
         state = self._thread.getState()
 
@@ -366,6 +378,31 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 address=missing[0][0],
             )
 
+    def _run_userop(self, op) -> None:
+        """Run a userop SmallWorld implements, in place of Ghidra's emulator."""
+        userop = self.machdef.userop(op)
+        assert userop is not None
+        byteorder: typing.Literal["little", "big"] = (
+            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+        )
+        state = self._thread.getState()
+        args = []
+        for var in op.getInputs()[1:]:
+            mask = (1 << (var.getSize() * 8)) - 1
+            if var.isConstant():
+                args.append(int(var.getOffset()) & mask)
+            else:
+                data = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+                args.append(int.from_bytes(self.bytes_java_to_py(data), byteorder))
+        mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
+        result = userop(self, mnemonic, args)
+        out_var = op.getOutput()
+        if out_var is not None:
+            assert result is not None
+            size = out_var.getSize()
+            data = (result & ((1 << (size * 8)) - 1)).to_bytes(size, byteorder)
+            state.setVar(out_var, self.bytes_py_to_java(data))
+
     def _process_read_breakpoint(
         self,
         addr_var: Varnode,
@@ -437,21 +474,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         size = var.getSize()
         data = (value & ((1 << (size * 8)) - 1)).to_bytes(size, self._byteorder_name())
         self._thread.getState().setVar(var, self.bytes_py_to_java(data))
-
-    def _process_userop(self, op) -> bool:
-        # Mirrors the angr backend's userop tables: look the op up, by name,
-        # in the machine's GhidraUserOp enum and let its handler perform it.
-        # Returns whether the table has it; one it lacks runs as Ghidra runs
-        # it.
-        assert self.machdef.userops is not None
-        opnum = int(op.getInputs()[0].getOffset())
-        userop = self.machdef.userops.named(
-            self.machdef.language.getUserDefinedOpName(opnum)
-        )
-        if userop is None:
-            return False
-        userop.handler(self, op)
-        return True
 
     def hook_memory_read(
         self,
@@ -597,8 +619,22 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     skip = False
                     self._thread.skipPcodeOp()
                 else:
-                    # Execute the opcode normally
-                    self._thread.stepPcodeOp()
+                    # Execute the opcode normally. The first step of an
+                    # instruction decodes it, which fails if the language
+                    # has no such instruction. Ghidra raises a different
+                    # exception when the instruction decodes but its delay
+                    # slot does not.
+                    try:
+                        self._thread.stepPcodeOp()
+                    except (
+                        DecodePcodeExecutionException,
+                        InstructionDecodeException,
+                    ) as e:
+                        raise exceptions.EmulationExecInvalidFailure(
+                            f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                            pc,
+                            None,
+                        ) from e
 
                 frame = self._thread.getFrame()
 
@@ -629,15 +665,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
                             self._note_memory_write(
                                 out_space[1] + out.getOffset(), out.getSize()
                             )
-                if (
-                    opcode == op.CALLOTHER
-                    and self.machdef.userops is not None
-                    and self._process_userop(op)
-                ):
-                    # A user-defined operation; the machine definition's
-                    # handler performed it in place of the op.
-                    skip = True
-                elif opcode == op.STORE:
+                if opcode == op.STORE:
                     # This is a STORE opcode; could trigger a "write" hook
                     space_var, addr_var, data_var = op.getInputs()
                     space = self._mapped_space(space_var.getAddress().getOffset())
@@ -721,6 +749,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
                         )
 
                     # This is not a memory access.  No need to break
+                elif self.machdef.is_nop_userop(op):
+                    skip = True
+                elif self.machdef.userop(op) is not None:
+                    self._run_userop(op)
+                    skip = True
 
         if self._tracks_writes:
             self._update_derived_state()

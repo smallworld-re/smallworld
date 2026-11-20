@@ -71,6 +71,9 @@ class MIPSN64PlatformDef(PlatformDef):
     capstone_arch = capstone.CS_ARCH_MIPS
     capstone_mode = capstone.CS_MODE_MIPS64
 
+    # See MIPSO32PlatformDef: MIPS64's language decodes jalx too.
+    ghidra_context_writing_mnemonics = frozenset({"jalx"})
+
     conditional_branch_mnemonics = {
         # Conditional branch
         "beq",

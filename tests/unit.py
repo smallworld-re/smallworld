@@ -76,6 +76,7 @@ from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     AddressMaskingTests,
     AddressOnlyReadsCapstoneFallbackTests,
     AddressRoleTests,
+    DecodeStateTests,
     GetCmpInfoDegradationTests,
     GhidraMachdefRegisterAliasTests,
     InstructionFetchesTests,
@@ -135,27 +136,34 @@ from smallworld.hinting.hints import (
     RegisterPointerHint,
     TraceExecutionHint,
 )
-from smallworld.instructions import Instruction, RegisterOperand
+from smallworld.instructions import (
+    Instruction,
+    RegisterOperand,
+    x86RealModeInstruction,
+    x86RealModeMemoryReferenceOperand,
+)
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.state.memory.code import Executable
 from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
+from smallworld.state.memory.elf.rela import ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
-from smallworld.state.memory.elf.rela.loongarch import LoongArch64ElfRelocator
-from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
-from smallworld.state.memory.elf.rela.mips import (
-    MIPS64ELElfRelocator,
-    MIPS64ElfRelocator,
-    MIPSElfRelocator,
+from smallworld.state.memory.elf.rela.loongarch import (
+    LoongArch32ElfRelocator,
+    LoongArch64ElfRelocator,
 )
+from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
+from smallworld.state.memory.elf.rela.mips import MIPSElfRelocator
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
+    PowerPCVLEElfRelocator,
 )
 from smallworld.state.memory.elf.rela.riscv32 import RISCV32ElfRelocator
 from smallworld.state.memory.elf.rela.riscv64 import RISCV64ElfRelocator
+from smallworld.state.memory.elf.rela.v850 import V850ElfRelocator
 from smallworld.state.memory.elf.structs import ElfRela, ElfSymbol
 from smallworld.state.memory.heap import BumpAllocator
 from smallworld.state.memory.heap import BumpAllocator as _AnalysesBumpAllocator
@@ -992,6 +1000,93 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(a, False)
 
 
+# The platforms each backend's register tests cover, keyed by the suffix of
+# the generated test name. A backend that has no model for a platform says so
+# in its class's `@platform_tests` decorator; every other platform must run.
+UNIT_TEST_PLATFORMS = {
+    "aarch64": (platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE),
+    "amd64": (platforms.Architecture.X86_64, platforms.Byteorder.LITTLE),
+    "amd64_avx512": (platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE),
+    "armv5t": (platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE),
+    "armv6m": (platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE),
+    "armv6m_thumb": (platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE),
+    "armv7m": (platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE),
+    "armv7r": (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE),
+    "armv7a": (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
+    "i386": (platforms.Architecture.X86_32, platforms.Byteorder.LITTLE),
+    "loongarch32": (platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE),
+    "loongarch64": (platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE),
+    "m68k": (platforms.Architecture.M68K, platforms.Byteorder.BIG),
+    "micromips": (platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG),
+    "micromipsel": (
+        platforms.Architecture.MIPS32_MICROMIPS,
+        platforms.Byteorder.LITTLE,
+    ),
+    "mips": (platforms.Architecture.MIPS32, platforms.Byteorder.BIG),
+    "mipsel": (platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE),
+    "mips64": (platforms.Architecture.MIPS64, platforms.Byteorder.BIG),
+    "mips64el": (platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE),
+    "msp430": (platforms.Architecture.MSP430, platforms.Byteorder.LITTLE),
+    "msp430x": (platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE),
+    "ppc": (platforms.Architecture.POWERPC32, platforms.Byteorder.BIG),
+    "ppc64": (platforms.Architecture.POWERPC64, platforms.Byteorder.BIG),
+    "ppcvle": (platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG),
+    "riscv32": (platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE),
+    "riscv64": (platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE),
+    "sh1": (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
+    "sh2": (platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG),
+    "sh2a": (platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG),
+    "sh4": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG),
+    "sh4el": (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
+    "tricore": (platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE),
+    "v850": (platforms.Architecture.V850, platforms.Byteorder.LITTLE),
+    "x86_16": (platforms.Architecture.X86_16, platforms.Byteorder.LITTLE),
+    "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
+}
+
+
+def platform_tests(
+    prefix: str, unsupported: typing.Optional[typing.Mapping[str, str]] = None
+):
+    """Give a test class a `test_<prefix>_<name>` method per platform in
+    UNIT_TEST_PLATFORMS.
+
+    Each method calls the class's `run_test(platform)`. For a platform named
+    in `unsupported`, it instead checks that `run_test` raises ValueError,
+    and the reason becomes the method's docstring.
+    """
+    unsupported = unsupported or {}
+    unknown = set(unsupported) - set(UNIT_TEST_PLATFORMS)
+    if unknown:
+        raise KeyError(f"Not in UNIT_TEST_PLATFORMS: {sorted(unknown)}")
+
+    def make_test(platform, reason):
+        if reason is None:
+
+            def test(self):
+                self.run_test(platform)
+
+        else:
+
+            def test(self):
+                self.assertRaises(ValueError, self.run_test, platform)
+
+            test.__doc__ = reason
+        return test
+
+    def decorate(cls):
+        for name, (architecture, byteorder) in UNIT_TEST_PLATFORMS.items():
+            test = make_test(
+                platforms.Platform(architecture, byteorder), unsupported.get(name)
+            )
+            test.__name__ = test.__qualname__ = f"test_{prefix}_{name}"
+            setattr(cls, test.__name__, test)
+        return cls
+
+    return decorate
+
+
+@platform_tests("cpu")
 class CPUTests(unittest.TestCase):
     def run_test(self, platform):
         pdef = platforms.PlatformDef.for_platform(platform)
@@ -1073,169 +1168,220 @@ class CPUTests(unittest.TestCase):
             msg=f"CPU for {platform} did not include the following registers: {all_regs}",
         )
 
-    def test_cpu_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+
+class X86RealModeTests(unittest.TestCase):
+    platform = platforms.Platform(
+        platforms.Architecture.X86_16, platforms.Byteorder.LITTLE
+    )
+
+    def test_stack_segment(self):
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x9C00, 0x2000)
+        stack.push_integer(0x1234, 2, None)
+        self.assertEqual(stack.get_pointer(), 0xBBFE)
+        self.assertEqual(stack.get_segment(), 0x09C0)
+        self.assertEqual(stack.get_offset(), 0x1FFE)
+
+    def test_stack_must_fit_a_segment(self):
+        for address, size in ((0x9C08, 0x1000), (0x10000, 0x10010)):
+            with self.assertRaises(ValueError):
+                state.memory.stack.Stack.for_platform(self.platform, address, size)
+
+    def test_unicorn_pc_is_linear(self):
+        emu = emulators.UnicornEmulator(self.platform)
+        emu.write_register("cs", 0x07C0)
+        emu.write_register("pc", 0x7C05)
+        self.assertEqual(emu.read_register("ip"), 5)
+        self.assertEqual(emu.read_register("pc"), 0x7C05)
+        with self.assertRaises(exceptions.AnalysisError):
+            # Beyond the 64 KiB segment at 0x7c00
+            emu.write_register("pc", 0x17C00)
+
+    def test_cpu_applies_pc_after_ip(self):
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        self.assertEqual(cpu.ss.get(), 0)
+        cpu.cs.set(0x07C0)
+        cpu.ip.set(0x1234)
+        cpu.pc.set(0x7C05)
+        emu = emulators.UnicornEmulator(self.platform)
+        cpu.apply(emu)
+        self.assertEqual(emu.read_register("ip"), 5)
+        self.assertEqual(emu.read_register("pc"), 0x7C05)
+
+    def test_empty_full_segment_stack_offset(self):
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x10000, 0x10000)
+        self.assertEqual(stack.get_offset(), 0)
+
+    def _emulator(self, engine):
+        return {
+            "unicorn": emulators.UnicornEmulator,
+            "angr": emulators.AngrEmulator,
+            "pcode": emulators.GhidraEmulator,
+        }[engine](self.platform)
+
+    def _run(self, engine, code, cs, stack_items=(), memory=(), registers=None):
+        """Run `code` at cs:0, with `stack_items` (2-byte words, first on
+        top) at 2000:0ff0 - ..., and return the final CPU state."""
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        machine.add(cpu)
+        executable = state.memory.code.Executable.from_bytes(code, address=cs << 4)
+        machine.add(executable)
+        for address, content in memory:
+            machine.add(state.memory.RawMemory.from_bytes(content, address))
+        stack = state.memory.stack.Stack.for_platform(self.platform, 0x20000, 0x1000)
+        machine.add(stack)
+        for item in reversed(stack_items):
+            stack.push_integer(item, 2, None)
+        cpu.cs.set(cs)
+        cpu.ss.set(stack.get_segment())
+        cpu.sp.set(stack.get_offset())
+        for name, value in (registers or {}).items():
+            getattr(cpu, name).set(value)
+        cpu.pc.set(executable.address)
+        return machine, cpu, executable
+
+    def _final(self, machine, emulator):
+        out = machine.emulate(emulator).get_cpu()
+
+        def value(register):
+            content = register.get()
+            if isinstance(content, claripy.ast.bv.BV):
+                return content.concrete_value if content.concrete else content
+            return content
+
+        return out, value
+
+    def test_hook_returns_through_ss_and_cs(self):
+        # call +0xfd (to cs:0100); mov ax,1; the model at cs:0100 returns to
+        # the mov through ss:sp and cs, which are both non-zero.
+        code = b"\xe8\xfd\x00\xb8\x01\x00" + b"\x90" * 0x10
+
+        class Nop(state.models.Model):
+            name = "nop"
+            platform = X86RealModeTests.platform
+            abi = platforms.ABI.NONE
+
+            def model(self, emulator):
+                pass
+
+        for engine in ("unicorn", "angr", "pcode"):
+            with self.subTest(engine=engine):
+                machine, cpu, code_memory = self._run(
+                    engine, code, 0x1000, registers={"ax": 0}
+                )
+                machine.add(Nop(code_memory.address + 0x100))
+                emulator = self._emulator(engine)
+                emulator.add_exit_point(code_memory.address + 6)
+                out, value = self._final(machine, emulator)
+                self.assertEqual(value(out.ax), 1)
+                self.assertEqual(value(out.pc), 0x10006)
+                self.assertEqual(value(out.sp), 0x1000)
+
+    def test_angr_lock_is_a_nop(self):
+        # xchg ax,[bx], which sleigh brackets in LOCK() and UNLOCK()
+        machine, cpu, code = self._run(
+            "angr",
+            b"\x87\x07",
+            0x1000,
+            memory=((0x10010, b"\x34\x12"),),
+            registers={"ax": 0x5678, "bx": 0x10, "ds": 0x1000},
         )
-        self.run_test(platform)
+        emulator = self._emulator("angr")
+        emulator.add_exit_point(code.address + 2)
+        out, value = self._final(machine, emulator)
+        self.assertEqual(value(out.ax), 0x1234)
 
-    def test_cpu_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    def test_angr_refuses_unaligned_code_segment(self):
+        machine, cpu, code = self._run("angr", b"\x90\x90", 0x07C0)
+        emulator = self._emulator("angr")
+        emulator.add_exit_point(code.address + 2)
+        with self.assertRaises(exceptions.ConfigurationError):
+            machine.emulate(emulator)
+
+    # A far return to 2000:0005, where mov ax,7 is; int3 fills the rest of
+    # that segment's start, so landing anywhere else faults.
+    _FAR_TARGET = ((0x20000, b"\xcc" * 5 + b"\xb8\x07\x00"),)
+
+    def _far_return(self, engine, code, stack_items):
+        machine, cpu, executable = self._run(
+            engine, code, 0x1000, stack_items, self._FAR_TARGET, {"ax": 0}
         )
-        self.run_test(platform)
+        emulator = self._emulator(engine)
+        emulator.add_exit_point(0x20008)
+        out, value = self._final(machine, emulator)
+        self.assertEqual(value(out.ax), 7)
+        self.assertEqual(value(out.cs), 0x2000)
+        self.assertEqual(value(out.pc), 0x20008)
 
-    def test_cpu_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    def test_iret_unicorn(self):
+        self._far_return("unicorn", b"\xcf", (0x0005, 0x2000, 0x0002))
 
-    def test_cpu_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    @unittest.expectedFailure
+    def test_retf_unicorn(self):
+        # Unicorn 2.1.4 loads the new cs but keeps the old ip on a far
+        # return while a memory-read hook is installed, as UnicornEmulator's
+        # always is.
+        self._far_return("unicorn", b"\xcb", (0x0005, 0x2000))
 
-    def test_cpu_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    @unittest.expectedFailure
+    def test_iret_angr(self):
+        # Real-mode sleigh returns from iret to the popped ip, without cs.
+        self._far_return("angr", b"\xcf", (0x0005, 0x2000, 0x0002))
 
-    def test_cpu_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    def test_instruction_operands(self):
+        instruction = Instruction.from_bytes(b"\x8b\x40\x04", 0x10000, self.platform)
+        self.assertIsInstance(instruction, x86RealModeInstruction)
+        (operand,) = [
+            op
+            for op in instruction.reads
+            if isinstance(op, x86RealModeMemoryReferenceOperand)
+        ]
 
-    def test_cpu_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+        emu = emulators.UnicornEmulator(self.platform)
+        emu.write_register("ds", 0x2000)
+        emu.write_register("ss", 0x3000)
+        emu.write_register("es", 0x4000)
+        emu.write_register("bx", 0xFFF0)
+        emu.write_register("si", 0x20)
+        emu.write_register("bp", 0x10)
+        # [bx+si+4] wraps within ds.
+        self.assertEqual(operand.address(emu), 0x20014)
 
-    def test_cpu_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_riscv32(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_cpu_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_cpu_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+        for raw, address in (
+            (b"\x8b\x46\x02", 0x30012),  # [bp+2] is in ss
+            (b"\x26\x8a\x07", 0x4FFF0),  # es:[bx]
+        ):
+            with self.subTest(raw=raw.hex()):
+                (operand,) = [
+                    op
+                    for op in Instruction.from_bytes(raw, 0x10000, self.platform).reads
+                    if isinstance(op, x86RealModeMemoryReferenceOperand)
+                ]
+                self.assertEqual(operand.address(emu), address)
 
 
+@platform_tests(
+    "unicorn",
+    unsupported={
+        **{
+            name: "Not supported by unicorn"
+            for name in (
+                "loongarch32",
+                "loongarch64",
+                "msp430",
+                "msp430x",
+                "sh1",
+                "sh2",
+                "sh2a",
+                "sh4",
+                "sh4el",
+                "v850",
+                "xtensa",
+            )
+        },
+        "ppcvle": "Unicorn has no VLE decoder",
+    },
+)
 class UnicornMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1278,155 +1424,11 @@ class UnicornMachdefTests(unittest.TestCase):
             msg=f"Unicorn did not handle the following registers for {platform}: {bad_regs}",
         )
 
-    def test_unicorn_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_unicorn_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_unicorn_riscv32(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_unicorn_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_unicorn_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
-
-
+@platform_tests(
+    "angr",
+    unsupported={name: "Not supported by angr" for name in ("amd64_avx512", "armv7r")},
+)
 class AngrMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1481,163 +1483,47 @@ class AngrMachdefTests(unittest.TestCase):
         # be chained so real errors (e.g. a malformed subclass) stay visible.
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
 
-    def test_angr_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_angr_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+class M68KAngrTests(unittest.TestCase):
+    platform = platforms.Platform(platforms.Architecture.M68K, platforms.Byteorder.BIG)
 
-    def test_angr_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by angr
-        self.assertRaises(ValueError, self.run_test, platform)
+    # cas.l d1,d2,(a0); seq d3; nop
+    CAS = bytes.fromhex("0ed0008157c34e71")
 
-    def test_angr_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    def _cas(self, d1):
+        emu = emulators.AngrEmulator(self.platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, self.CAS)
+        emu.map_memory(0x2000, 0x1000)
+        emu.write_memory_content(0x2000, bytes.fromhex("11223344"))
+        for name, value in (("a0", 0x2000), ("d1", d1), ("d2", 0x55667788), ("d3", 0)):
+            emu.write_register(name, value)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(self.CAS))
+        try:
+            emu.run()
+        except exceptions.EmulationStop:
+            pass
+        return emu
 
-    def test_angr_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    def test_cas_is_refused(self):
+        # cas branches within its own p-code, which angr can't run
+        for d1 in (0x11223344, 0x11223345):
+            with self.subTest(d1=hex(d1)):
+                with self.assertRaises(exceptions.EmulationExecFailure) as raised:
+                    self._cas(d1)
+                self.assertEqual(raised.exception.pc, 0x1000)
 
-    def test_angr_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by angr
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_angr_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_riscv32(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_angr_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_angr_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
+    @unittest.expectedFailure
+    def test_cas(self):
+        for d1, memory, d3 in (
+            (0x11223344, "55667788", 0xFF),
+            (0x11223345, "11223344", 0),
+        ):
+            with self.subTest(d1=hex(d1)):
+                emu = self._cas(d1)
+                self.assertEqual(emu.read_memory_content(0x2000, 4).hex(), memory)
+                self.assertEqual(emu.read_register("d3") & 0xFF, d3)
 
 
 class PandaSetupFailureTests(unittest.TestCase):
@@ -1680,6 +1566,40 @@ os._exit(1)
         self.assertIn(b"configure_cpu failed", result.stdout)
 
 
+# Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so sh2a
+# runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch adds along
+# with the SH-2A instruction set.
+@platform_tests(
+    "panda",
+    unsupported={
+        **{
+            name: "Not supported by Panda"
+            for name in (
+                "amd64_avx512",
+                "armv6m_thumb",
+                "armv7r",
+                "loongarch32",
+                "loongarch64",
+                "m68k",
+                "micromips",
+                "micromipsel",
+                "msp430",
+                "msp430x",
+                "ppc64",
+                "ppcvle",
+                "riscv32",
+                "riscv64",
+                "v850",
+                "x86_16",
+                "xtensa",
+            )
+        },
+        **{
+            name: "The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2."
+            for name in ("sh1", "sh2")
+        },
+    },
+)
 class PandaMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1724,154 +1644,17 @@ class PandaMachdefTests(unittest.TestCase):
         if failure is not None:
             self.fail(f"Not all registers for {platform} handled by Panda:\n{failure}")
 
-    def test_panda_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
-    def test_panda_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_riscv32(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_panda_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so
-        # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
-        # adds along with the SH-2A instruction set.
-        self.run_test(platform)
-
-    def test_panda_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_panda_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_panda_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
-
-
+@platform_tests(
+    "ghidra",
+    unsupported={
+        **{
+            name: "Not supported by ghidra"
+            for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
+        },
+        "ppcvle": "Upstream Ghidra has no 32-bit e200 language",
+    },
+)
 class GhidraMachdefTests(unittest.TestCase):
     def run_test(self, platform):
         platdef = platforms.PlatformDef.for_platform(platform)
@@ -1913,171 +1696,6 @@ class GhidraMachdefTests(unittest.TestCase):
             0,
             msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
         )
-
-    def test_ghidra_aarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_amd64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_amd64_avx512(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_armv5t(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv6m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv6m_thumb(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_armv7m(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv7a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_armv7r(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
-        # Not supported by ghidra
-        self.assertRaises(ValueError, self.run_test, platform)
-
-    def test_ghidra_i386(self):
-        platform = platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_loongarch64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_m68k(self):
-        platform = platforms.Platform(
-            platforms.Architecture.M68K, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mipsel(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_mips64el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_msp430(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_msp430x(self):
-        platform = platforms.Platform(
-            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_ppc(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_ppc64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_riscv32(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_riscv64(self):
-        platform = platforms.Platform(
-            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh2a(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh4(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
-        )
-        self.run_test(platform)
-
-    def test_ghidra_sh4el(self):
-        platform = platforms.Platform(
-            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_tricore(self):
-        platform = platforms.Platform(
-            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
-
-    def test_ghidra_xtensa(self):
-        platform = platforms.Platform(
-            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
-        )
-        self.run_test(platform)
 
 
 class PlatformDefMetadataTests(unittest.TestCase):
@@ -4536,6 +4154,53 @@ class AngrMipsRegisterMapTests(unittest.TestCase):
         self.run_test(platforms.Byteorder.LITTLE)
 
 
+class AngrPcodeSubRegisterTests(unittest.TestCase):
+    """angr's p-code engine used a register varnode that starts partway into
+    its register as if it started at the beginning: a big-endian low byte
+    was read from the high byte, and a little-endian high half from the low
+    half. PcodeEngine fixes this by overriding a private angr method, so an
+    angr upgrade that stops calling it would bring the bug back silently."""
+
+    def step(self, platform, code, registers):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        machine.add(state.memory.RawMemory.from_bytes(b"\x00" * 0x10, 0x2000))
+        cpu.pc.set(0x1000)
+        for name, value in registers.items():
+            getattr(cpu, name).set(value)
+        emu = emulators.AngrEmulator(platform)
+        emu.add_exit_point(0x1000 + len(code))
+        machine.emulate(emu)
+        return emu
+
+    def test_superh_big_endian_low_byte(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+        )
+        # extu.b r4,r5 reads r4's last byte.
+        emu = self.step(platform, bytes.fromhex("654c"), {"r4": 0x123456AB})
+        self.assertEqual(emu.read_register("r5"), 0xAB)
+        # mov.b r4,@r2 stores r4's last byte.
+        emu = self.step(
+            platform, bytes.fromhex("2240"), {"r4": 0x112233CC, "r2": 0x2000}
+        )
+        self.assertEqual(emu.read_memory(0x2000, 1), b"\xcc")
+
+    def test_tricore_little_endian_high_half(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
+        )
+        # st.q [a11]-0xe5,d12 stores d12's high half.
+        emu = self.step(
+            platform,
+            bytes.fromhex("89bc1bca"),
+            {"d12": 0xBEEF1234, "a11": 0x2000 + 0xE5},
+        )
+        self.assertEqual(emu.read_memory(0x2000, 2), b"\xef\xbe")
+
+
 class UnicornPPC64InitTests(unittest.TestCase):
     """PPC64MachineDef.__init__ used `super(...)` without calling __init__."""
 
@@ -4994,7 +4659,7 @@ class SysVFloatArgPlacementTests(unittest.TestCase):
 
 
 class GhidraUserOpTests(unittest.TestCase):
-    """Ghidra machine definitions' userop tables are matched by name."""
+    """Ghidra machine definitions name their userops as the languages do."""
 
     @classmethod
     def setUpClass(cls):
@@ -5002,7 +4667,7 @@ class GhidraUserOpTests(unittest.TestCase):
         # with the SymZ3 extension for the symbolic emulator.
         _ensure_pyghidra_started()
 
-    def test_tables_match_the_languages_names(self):
+    def test_userops_are_the_languages_names(self):
         from smallworld.emulators.ghidra.machdefs import GhidraMachineDef
 
         for arch, byteorder in (
@@ -5019,33 +4684,25 @@ class GhidraUserOpTests(unittest.TestCase):
                     language.getUserDefinedOpName(i)
                     for i in range(language.getNumberOfUserDefinedOpNames())
                 }
-                for member in machdef.userops:
-                    self.assertIn(member.short_name, names)
-                    self.assertIs(machdef.userops.named(member.short_name), member)
-                self.assertIsNone(machdef.userops.named("no such op"))
+                self.assertTrue(machdef.nop_userops | set(machdef.userops))
+                self.assertLessEqual(machdef.nop_userops | set(machdef.userops), names)
 
     def test_angr_mcs51_table_matches_by_the_same_names(self):
         from smallworld.emulators.angr.machdefs.mcs51 import (
             MCS51UserOp as AngrMCS51UserOp,
         )
-        from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51UserOp
+        from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51MachineDef
 
+        machdef = MCS51MachineDef()
         self.assertEqual(
             {member.short_name for member in AngrMCS51UserOp},
-            {member.short_name for member in MCS51UserOp},
+            machdef.nop_userops | set(machdef.userops),
         )
         for member in AngrMCS51UserOp:
             self.assertIs(AngrMCS51UserOp.named(member.short_name), member)
         self.assertIsNone(AngrMCS51UserOp.named("no such op"))
 
-    def test_only_skips(self):
-        from smallworld.emulators.ghidra.machdefs.mcs51 import MCS51UserOp
-        from smallworld.emulators.ghidra.machdefs.riscv import RISCVUserOp
-
-        self.assertTrue(RISCVUserOp.only_skips())
-        self.assertFalse(MCS51UserOp.only_skips())
-
-    def test_symbolic_emulator_takes_a_table_that_only_skips(self):
+    def test_symbolic_emulator_takes_nop_userops(self):
         emulators.GhidraSymbolicEmulator(
             platforms.Platform(
                 platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
@@ -6919,6 +6576,30 @@ class ElfPickleTests(unittest.TestCase):
                     )
 
 
+class ElfSuperHPlatformTests(unittest.TestCase):
+    """The ELF loader derives SH-1 and SH-2 from e_flags. The scenarios that
+    load these images pass the platform explicitly, so nothing else checks
+    the derivation."""
+
+    def run_test(self, name, architecture):
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "exitpoint", name
+        )
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built (run `make` in tests/)")
+        with open(path, "rb") as f:
+            elf = ElfExecutable(f)
+        self.assertEqual(
+            elf.platform, platforms.Platform(architecture, platforms.Byteorder.BIG)
+        )
+
+    def test_sh1(self):
+        self.run_test("exitpoint.sh1.elf", platforms.Architecture.SUPERH_SH1)
+
+    def test_sh2(self):
+        self.run_test("exitpoint.sh2.elf", platforms.Architecture.SUPERH_SH2)
+
+
 class ElfProcessorFlagsTests(unittest.TestCase):
     """ElfExecutable keeps the header's e_flags as processor_flags."""
 
@@ -8040,6 +7721,10 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
         # R_68K_32 == 1
         self.assertEqual(self._value(M68KElfRelocator(), 1), self.BE32)
 
+    def test_loongarch32_r_larch_32(self):
+        # R_LARCH_32 == 1
+        self.assertEqual(self._value(LoongArch32ElfRelocator(), 1), self.LE32)
+
     def test_loongarch64_r_larch_64(self):
         # R_LARCH_64 == 2
         self.assertEqual(self._value(LoongArch64ElfRelocator(), 2), self.LE64)
@@ -8054,19 +7739,60 @@ class ElfRelocatorSignedAddendMaskingTests(unittest.TestCase):
 
     def test_mips32_r_mips_32(self):
         # R_MIPS_32 == 2, big-endian 32-bit
-        self.assertEqual(self._value(MIPSElfRelocator(), 2), self.BE32)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+                    )
+                ),
+                2,
+            ),
+            self.BE32,
+        )
 
     def test_mips64_r_mips_64(self):
         # R_MIPS_64 == 18, big-endian 64-bit
-        self.assertEqual(self._value(MIPS64ElfRelocator(), 18), self.BE64)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+                    )
+                ),
+                18,
+            ),
+            self.BE64,
+        )
 
     def test_mips64el_r_mips_64(self):
         # R_MIPS_64 == 18, little-endian 64-bit
-        self.assertEqual(self._value(MIPS64ELElfRelocator(), 18), self.LE64)
+        self.assertEqual(
+            self._value(
+                ElfRelocator.for_platform(
+                    platforms.Platform(
+                        platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+                    )
+                ),
+                18,
+            ),
+            self.LE64,
+        )
 
     def test_powerpc_r_ppc_abs32(self):
         # R_PPC_ABS32 == 1
         self.assertEqual(self._value(PowerPCElfRelocator(), 1), self.BE32)
+
+    def test_powerpc_vle_r_ppc_abs32(self):
+        # R_PPC_ABS32 == 1; VLE uses the standard data relocations.
+        self.assertEqual(self._value(PowerPCVLEElfRelocator(), 1), self.BE32)
+
+    def test_powerpc_vle_code_relocation_refused(self):
+        # R_PPC_VLE_REL24 == 218
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "VLE code relocations"
+        ):
+            self._value(PowerPCVLEElfRelocator(), 218)
 
     def test_powerpc64_r_ppc64_addr64(self):
         # R_PPC64_ADDR64 == 38
@@ -8170,6 +7896,296 @@ class PowerPC64ObjectRelocationTests(unittest.TestCase):
             ),
             ((0x48000001 | ((0x10000 - self.P) & 0x03FFFFFC))).to_bytes(4, "big"),
         )
+
+
+class ElfRelocatorPlatformTests(unittest.TestCase):
+    """A relocator may cover several platforms; for_platform hands it the one
+    it was selected for."""
+
+    def platform(self, architecture, byteorder):
+        return platforms.Platform(architecture, byteorder)
+
+    def test_family_relocator_gets_its_platform(self):
+        for architecture, byteorder in (
+            (platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG),
+            (platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE),
+            (platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE),
+        ):
+            platform = self.platform(architecture, byteorder)
+            with self.subTest(platform=platform):
+                relocator = ElfRelocator.for_platform(platform)
+                self.assertEqual(relocator.platform, platform)
+                self.assertEqual(relocator.arch, architecture)
+                self.assertEqual(relocator.byteorder, byteorder)
+
+    def test_single_platform_relocator_needs_no_platform(self):
+        relocator = M68KElfRelocator()
+        self.assertEqual(
+            relocator.platform,
+            self.platform(platforms.Architecture.M68K, platforms.Byteorder.BIG),
+        )
+
+    def test_family_relocator_needs_a_platform(self):
+        relocator_class = type(
+            ElfRelocator.for_platform(
+                self.platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+            )
+        )
+        self.assertRaises(ValueError, relocator_class)
+        self.assertRaises(
+            ValueError,
+            relocator_class,
+            self.platform(platforms.Architecture.M68K, platforms.Byteorder.BIG),
+        )
+
+
+POWERPC32_PLATFORM = platforms.Platform(
+    platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+)
+POWERPC32_VLE_PLATFORM = platforms.Platform(
+    platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+)
+
+
+def _build_ppc32_executable(
+    section_flags: typing.Optional[int], segment_flags: int
+) -> bytes:
+    """Build a minimal big-endian ELF32 PowerPC executable.
+
+    It has one PT_LOAD with `segment_flags` and, unless `section_flags` is
+    None, a `.text` section with those flags and a `.shstrtab`.
+    """
+    base = 0x10000
+    text_offset = 0x100
+    text = bytes.fromhex("44004400")  # se_nop; se_nop
+    shstrtab = b"\0.text\0.shstrtab\0"
+    shstrtab_offset = text_offset + len(text)
+    shoff = (shstrtab_offset + len(shstrtab) + 3) & ~3
+
+    if section_flags is None:
+        shdrs = b""
+        shnum = shstrndx = 0
+        shoff = 0
+    else:
+        SHT_PROGBITS, SHT_STRTAB = 1, 3
+
+        def shdr(name, typ, flags, addr, offset, size):
+            return struct.pack(
+                ">IIIIIIIIII", name, typ, flags, addr, offset, size, 0, 0, 1, 0
+            )
+
+        shdrs = b"".join(
+            [
+                shdr(0, 0, 0, 0, 0, 0),
+                shdr(
+                    1,
+                    SHT_PROGBITS,
+                    section_flags,
+                    base + text_offset,
+                    text_offset,
+                    len(text),
+                ),
+                shdr(7, SHT_STRTAB, 0, 0, shstrtab_offset, len(shstrtab)),
+            ]
+        )
+        shnum, shstrndx = 3, 2
+
+    ident = b"\x7fELF" + bytes([1, 2, 1]) + bytes(9)
+    ehdr = ident + struct.pack(
+        ">HHIIIIIHHHHHH",
+        2,  # ET_EXEC
+        20,  # EM_PPC
+        1,
+        base + text_offset,
+        52,  # e_phoff
+        shoff,
+        0,
+        52,
+        32,
+        1,
+        40,
+        shnum,
+        shstrndx,
+    )
+    end = text_offset + len(text)
+    phdr = struct.pack(">IIIIIIII", 1, 0, base, base, end, end, segment_flags, 4)
+    image = bytearray(ehdr + phdr)
+    image += bytes(text_offset - len(image)) + text + shstrtab
+    if shdrs:
+        image += bytes(shoff - len(image)) + shdrs
+    return bytes(image)
+
+
+class PowerPCVLEElfDetectionTests(unittest.TestCase):
+    """The ELF header doesn't distinguish VLE; the loader reads the VLE
+    flags on sections and on segments."""
+
+    SHF_ALLOC_EXEC = 0x6
+    SHF_PPC_VLE = 0x10000000
+    PF_R_X = 0x5
+    PF_PPC_VLE = 0x10000000
+
+    def load(self, image, platform=None):
+        return ElfExecutable(io.BytesIO(image), platform=platform)
+
+    def test_vle_section_detected(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC | self.SHF_PPC_VLE, self.PF_R_X | self.PF_PPC_VLE
+        )
+        self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_standard_file_detected(self):
+        image = _build_ppc32_executable(self.SHF_ALLOC_EXEC, self.PF_R_X)
+        self.assertEqual(self.load(image).platform, POWERPC32_PLATFORM)
+
+    def test_vle_segment_without_section_headers_detected(self):
+        image = _build_ppc32_executable(None, self.PF_R_X | self.PF_PPC_VLE)
+        self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_vle_file_refuses_standard_platform(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC | self.SHF_PPC_VLE, self.PF_R_X | self.PF_PPC_VLE
+        )
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "mismatch"):
+            self.load(image, POWERPC32_PLATFORM)
+
+    def test_mixed_file_defaults_to_vle(self):
+        # The segment is marked VLE, but the code section is not.
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC, self.PF_R_X | self.PF_PPC_VLE
+        )
+        with self.assertLogs("smallworld.state.memory.elf.elf", "WARNING"):
+            self.assertEqual(self.load(image).platform, POWERPC32_VLE_PLATFORM)
+
+    def test_mixed_file_honours_requested_platform(self):
+        image = _build_ppc32_executable(
+            self.SHF_ALLOC_EXEC, self.PF_R_X | self.PF_PPC_VLE
+        )
+        for platform in (POWERPC32_PLATFORM, POWERPC32_VLE_PLATFORM):
+            with self.assertLogs("smallworld.state.memory.elf.elf", "WARNING"):
+                self.assertEqual(self.load(image, platform).platform, platform)
+
+
+class PowerPCVLEAngrTests(unittest.TestCase):
+    """VLE code on angr, which runs it on pypcode's e200 language. Each code
+    blob was assembled with GNU as -mvle."""
+
+    def run_code(self, code, registers, hook=None):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(POWERPC32_VLE_PLATFORM)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        machine.add(state.memory.RawMemory.from_bytes(b"\x00" * 0x10, 0x2000))
+        cpu.pc.set(0x1000)
+        for name, value in registers.items():
+            getattr(cpu, name).set(value)
+        emu = emulators.AngrEmulator(POWERPC32_VLE_PLATFORM)
+        if hook is not None:
+            emu.hook_syscalls(hook)
+        emu.add_exit_point(0x1000 + len(code))
+        machine.emulate(emu)
+        return emu
+
+    def test_byte_and_halfword_register_parts(self):
+        # se_stb r4,0(r3); se_sth r4,2(r3); se_extzb r5; se_extsh r6;
+        # se_cmph r6,r7. Big-endian sleigh reads a register's low byte or
+        # half partway into it; angr's engine used to read its start.
+        emu = self.run_code(
+            bytes.fromhex("9043b14300c500f60e76"),
+            {
+                "r3": 0x2000,
+                "r4": 0x11223344,
+                "r5": 0x55667788,
+                "r6": 0x1234FFFE,
+                "r7": 0x7FFFFFFE,
+            },
+        )
+        self.assertEqual(emu.read_memory(0x2000, 4), b"\x44\x00\x33\x44")
+        self.assertEqual(emu.read_register("r5"), 0x88)
+        self.assertEqual(emu.read_register("r6"), 0xFFFFFFFE)
+        # The low halves are both -2: equal, so cr0's LT, GT and EQ bits are
+        # EQ alone. (SO copies xer_so, which nothing set, so it's symbolic.)
+        cr0 = emu.read_register_symbolic("cr0") & 0xE
+        self.assertEqual(emu.state.solver.eval_upto(cr0, 2), [0x2])
+
+    def test_spe_arithmetic(self):
+        # efsmul r3,r3,r3; efsdiv r3,r3,r4; efssub r3,r3,r4, on the
+        # general registers.
+        def single(value):
+            return int.from_bytes(struct.pack(">f", value), "big")
+
+        for code, registers, expected in (
+            ("10631ac8", {"r3": single(1.5)}, 2.25),
+            ("106322c9", {"r3": single(3.0), "r4": single(2.0)}, 1.5),
+            ("106322c1", {"r3": single(3.0), "r4": single(10.0)}, -7.0),
+        ):
+            with self.subTest(code=code):
+                emu = self.run_code(bytes.fromhex(code), registers)
+                self.assertEqual(emu.read_register("r3"), single(expected))
+
+    def test_spe_branching_instructions_are_refused(self):
+        # efscfsi r3,r3 and efsctsiz r3,r3 branch within their own p-code,
+        # which angr can't run.
+        for code in ("10601ad1", "10601ada"):
+            with self.subTest(code=code):
+                with self.assertRaises(exceptions.EmulationExecFailure) as raised:
+                    self.run_code(bytes.fromhex(code), {"r3": 5})
+                self.assertEqual(raised.exception.pc, 0x1000)
+
+    @unittest.expectedFailure
+    def test_rlwinm_wrap_around_mask(self):
+        # e_rlwinm r14,r4,15,17,7: with MB > ME the mask wraps around and
+        # keeps bits 17-31 and 0-7, 0xFF007FFF. pypcode's e200 sleigh
+        # computes 0xFE003FFF, clearing bits MB and ME. Upstream bug,
+        # documented in support.rst; this passes once pypcode fixes it.
+        emu = self.run_code(bytes.fromhex("748e7c4f"), {"r4": 0xFFFFFFFF})
+        self.assertEqual(emu.read_register("r14"), 0xFF007FFF)
+
+    def test_barrier_and_cache_userops_do_nothing(self):
+        # msync; mbar 0; mbar 1; se_isync; dcbf, dcbst, dcbt, dcbtst, dcbi
+        # and icbi at 0(r3); se_li r3,5
+        emu = self.run_code(
+            bytes.fromhex(
+                "7c0004ac7c0006ac7c2006ac00017c0018ac7c00186c"
+                "7c001a2c7c0019ec7c001bac7c001fac4853"
+            ),
+            {"r3": 0x2000},
+        )
+        self.assertEqual(emu.read_register("r3"), 5)
+
+    def test_dcbz_still_raises(self):
+        # dcbz 0,r3 clears memory, so it is not dropped as a no-op.
+        with self.assertRaises(exceptions.EmulationError):
+            self.run_code(bytes.fromhex("7c001fec"), {"r3": 0x2000})
+
+    def test_se_sc_and_e_sc_resume_after_the_trap(self):
+        # se_li r0,4; se_sc; se_li r3,7; e_sc; se_li r4,9
+        calls = []
+
+        def hook(emu, number):
+            calls.append((number, emu.read_register("r3")))
+
+        emu = self.run_code(
+            bytes.fromhex("4840000248737c0000484894"), {"r3": 1, "r4": 0}, hook
+        )
+        # se_sc resumes 2 bytes on, so se_li r3,7 runs before e_sc, and e_sc
+        # resumes 4 bytes on, at se_li r4,9.
+        self.assertEqual(calls, [(4, 1), (4, 7)])
+        self.assertEqual(emu.read_register("r4"), 9)
+
+    def test_16_bit_branches_and_long_immediates(self):
+        #     se_bl f; e_li r4,0x7ffff; e_add16i r5,r4,-16; se_b end
+        # f:  se_cmpi r3,5; se_beq 1f; se_li r3,0; se_blr
+        # 1:  se_li r3,1; se_blr
+        # end: se_nop
+        code = bytes.fromhex("e906709f3fff1ca4fff0e8072a53e60348030004481300044400")
+        for arg, result in ((5, 1), (4, 0)):
+            emu = self.run_code(code, {"r3": arg})
+            self.assertEqual(emu.read_register("r3"), result)
+            # se_bl links past itself, 2 bytes on.
+            self.assertEqual(emu.read_register("lr"), 0x1002)
+            self.assertEqual(emu.read_register("r4"), 0x7FFFF)
+            self.assertEqual(emu.read_register("r5"), 0x7FFEF)
 
 
 class AMD64TlsBlockOffsetRelocationTests(unittest.TestCase):
@@ -9394,6 +9410,35 @@ class GhidraSymbolicMemoryBVWidthTests(unittest.TestCase):
         )
 
 
+class GhidraUndecodableInstructionTests(unittest.TestCase):
+    """Both Ghidra emulators report an instruction their language cannot
+    decode as EmulationExecInvalidFailure, rather than letting Ghidra's
+    DecodePcodeExecutionException escape. RH850's rotl is not in Ghidra's
+    V850 language."""
+
+    CODE = 0x1000
+    ROTL = bytes.fromhex("e337c438")  # rotl 3, r6, r7
+
+    def _check(self, emulator_class):
+        _ensure_pyghidra_started()
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        emu = emulator_class(platform)
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, self.ROTL)
+        emu.write_register("pc", self.CODE)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            emu.step_instruction()
+        self.assertEqual(ctx.exception.pc, self.CODE)
+
+    def test_concrete(self):
+        self._check(emulators.ghidra.GhidraEmulator)
+
+    def test_symbolic(self):
+        self._check(emulators.ghidra.GhidraSymbolicEmulator)
+
+
 class GhidraSymbolicStoreTrackingTests(unittest.TestCase):
     """STOREs of user-symbolic values must be tracked for later reads.
 
@@ -10052,6 +10097,68 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
         fuzz_with_file.assert_called_once()
         emulator = fuzz_with_file.call_args.args[1]
         self.assertEqual(emulator.get_exit_points(), {0x1008, 0x2010})
+
+
+@unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
+class UnicornFuzzCustomCallbackTests(unittest.TestCase):
+    """The fuzzing callback ``Machine._fuzz_with_unicorn`` hands
+    ``uc_afl_fuzz_custom`` for microMIPS, whose start pc needs its ISA bit,
+    must report what ``uc_afl_fuzz`` reports for the same run: a run a hook
+    stopped is ``UC_ERR_OK``, a fault is its error. ``uc_afl_fuzz_custom`` is
+    mocked out, and the callback it would have been given is driven
+    directly."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LW_V0_ZERO = bytes.fromhex("fc400000")  # lw v0, 0(zero): an unmapped read
+
+    def _result(self, first_insn=bytes(4), setup=lambda emulator: None) -> int:
+        import unicornafl
+
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        cpu.pc.set_content(0x1000)
+        machine.add(cpu)
+        machine.add(
+            state.memory.code.Executable.from_bytes(
+                first_insn + bytes(12), address=0x1000
+            )
+        )
+        emulator = emulators.UnicornEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1010)
+        setup(emulator)
+
+        with mock.patch.object(unicornafl, "uc_afl_fuzz_custom") as fuzz:
+            machine.fuzz_with_file(emulator, lambda *_args: None, "/nonexistent")
+        run = fuzz.call_args.kwargs["fuzzing_callback"]
+        return run(emulator.engine, None)
+
+    def test_clean_run(self):
+        import unicorn
+
+        self.assertEqual(self._result(), unicorn.UC_ERR_OK)
+
+    def test_hook_stop_is_not_a_crash(self):
+        import unicorn
+
+        def stop(_emulator):
+            raise exceptions.EmulationStop("stop")
+
+        result = self._result(setup=lambda e: e.hook_instruction(0x1008, stop))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_leaving_a_bound_is_not_a_crash(self):
+        import unicorn
+
+        result = self._result(setup=lambda e: e.add_bound(0x1000, 0x1008))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_fault_reports_its_error(self):
+        import unicorn
+
+        result = self._result(first_insn=self.LW_V0_ZERO)
+        self.assertEqual(result, unicorn.UC_ERR_READ_UNMAPPED)
 
 
 @unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
@@ -11023,6 +11130,896 @@ def _build_two_text_relocatable() -> bytes:
     image.extend(b"\0" * (shoff - len(image)))
     image.extend(shdrs)
     return bytes(image)
+
+
+class ElfLoongArch32Tests(unittest.TestCase):
+    """A 32-bit EM_LOONGARCH image loads as LoongArch32."""
+
+    PATH = BINARIES_TESTS_DIR / "elf" / "elf.la32.elf"
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_loads_as_loongarch32(self):
+        with self.PATH.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.LOONGARCH32)
+        self.assertEqual(code.entrypoint, code.get_symbol_value("_start"))
+
+
+class LoongArch32ElfRelocatorTests(unittest.TestCase):
+    """LoongArch32 relocations are word-sized; R_LARCH_64 is not one of them."""
+
+    class _Elf(_FakeElf):
+        # Serves REL addends, recording the width each read asked for.
+        def __init__(self, address: int = 0, addend: int = 0):
+            super().__init__(address)
+            self.addend = addend
+            self.read_sizes: list = []
+
+        def read_int(self, address, size, byteorder):
+            self.read_sizes.append(size)
+            return self.addend
+
+    def _value(self, type_, *, value=0, baseaddr=0, addend=0, is_rela=True, elf=None):
+        rela = ElfRela(
+            is_rela=is_rela,
+            offset=0x2000,
+            type=type_,
+            symbol=_make_symbol(value=value, baseaddr=baseaddr),
+            addend=addend,
+        )
+        return LoongArch32ElfRelocator()._compute_value(rela, elf or self._Elf())
+
+    def test_r_larch_32(self):
+        # R_LARCH_32 == 1: S + A, as a 32-bit word.
+        self.assertEqual(
+            self._value(1, value=0x1000, baseaddr=0x400000, addend=0x10),
+            (0x401010).to_bytes(4, "little"),
+        )
+
+    def test_r_larch_jump_slot(self):
+        # R_LARCH_JUMP_SLOT == 5: also S + A, as a 32-bit word.
+        self.assertEqual(
+            self._value(5, value=0x1000, baseaddr=0x400000),
+            (0x401000).to_bytes(4, "little"),
+        )
+
+    def test_r_larch_relative_wraps_to_32_bits(self):
+        # R_LARCH_RELATIVE == 3: B + A, reduced modulo 2**32.
+        elf = self._Elf(address=0xFFFFFFF0)
+        self.assertEqual(
+            self._value(3, addend=0x20, elf=elf), (0x10).to_bytes(4, "little")
+        )
+
+    def test_rel_addends_are_read_as_words(self):
+        for type_ in (1, 3, 5):
+            with self.subTest(type=type_):
+                elf = self._Elf(address=0x400000, addend=0x8)
+                self._value(type_, is_rela=False, elf=elf)
+                self.assertEqual(elf.read_sizes, [4])
+
+    def test_r_larch_64_is_unsupported(self):
+        # R_LARCH_64 == 2 has no meaning in a 32-bit image.
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "Valid, but unsupported"
+        ):
+            self._value(2)
+
+
+class AngrV850UserOpTests(unittest.TestCase):
+    """angr runs the V850 instructions whose p-code calls user operations:
+    di, ei and the sync instructions do nothing more, halt stops emulation,
+    and the saturating instructions clamp an overflowing result."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.V850, platforms.Byteorder.LITTLE
+    )
+    MOV_R7_R9 = "0748"  # mov r7, r9
+
+    def _run(self, code: str, **regs: int):
+        code_bytes = bytes.fromhex(code)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        cpu.pc.set(0x1000)
+        for name in ("r6", "r7", "r8", "r9", "psw"):
+            getattr(cpu, name).set(regs.get(name, 0))
+        emulator = emulators.AngrEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1000 + len(code_bytes))
+        return machine.emulate(emulator).get_cpu()
+
+    def test_satadd_clamps_positive_overflow(self):
+        # satadd r6, r7; mov r7, r9: the next instruction sees the clamp.
+        cpu = self._run("c638" + self.MOV_R7_R9, r6=1, r7=0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r9.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.psw.get() & 0x14, 0x14)  # SAT and OV
+
+    def test_satadd_clamps_negative_overflow(self):
+        cpu = self._run("c638", r6=0xFFFFFFFF, r7=0x80000000)
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_satadd_without_overflow(self):
+        cpu = self._run("c638", r6=3, r7=5)
+        self.assertEqual(cpu.r7.get(), 8)
+        self.assertEqual(cpu.psw.get() & 0x14, 0)
+
+    def test_satadd_three_operands(self):
+        cpu = self._run("e63fba43", r6=1, r7=0x7FFFFFFF)  # satadd r6, r7, r8
+        self.assertEqual(cpu.r8.get(), 0x7FFFFFFF)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satadd_twice_in_one_block(self):
+        cpu = self._run("c638c638", r6=1, r7=0x7FFFFFFE)
+        self.assertEqual(cpu.r7.get(), 0x7FFFFFFF)
+
+    def test_satsub_clamps(self):
+        cpu = self._run("a638", r6=1, r7=0x80000000)  # satsub r6, r7
+        self.assertEqual(cpu.r7.get(), 0x80000000)
+
+    def test_di_and_ei(self):
+        self.assertEqual(self._run("e0076001").psw.get(), 0x20)  # di sets ID
+        self.assertEqual(self._run("e0876001", psw=0x20).psw.get(), 0)  # ei
+
+    def test_synce(self):
+        self.assertEqual(self._run("1d00").pc.get(), 0x1002)
+
+    def test_halt_stops(self):
+        cpu = self._run("e0072001" + self.MOV_R7_R9, r7=5)
+        self.assertEqual(cpu.pc.get(), 0x1004)
+        self.assertEqual(cpu.r9.get(), 0)
+
+
+class V850ElfRelocatorTests(unittest.TestCase):
+    """V850 GCC-ABI relocations patch the same bytes GNU ld does.
+
+    The instructions and expected results come from a GNU as object linked
+    with binutils 2.46's ld: code at 0x10000, ``value`` at 0x20000, ``far`` at
+    0x48000 (a low halfword with bit 15 set, so ``hi()`` rounds up), ``near``
+    at 0x1001a and ``helper`` at 0x1001c.
+    """
+
+    class _Elf:
+        def __init__(self, address: int, code: bytes):
+            self.address = address
+            self.code = code
+
+        def read_int(self, address, size, byteorder):
+            start = address - self.address
+            return int.from_bytes(self.code[start : start + size], byteorder.value)
+
+    def _value(self, type_, offset, insn, symbol, addend=0, is_rela=True):
+        rela = ElfRela(
+            is_rela=is_rela,
+            offset=offset,
+            type=type_,
+            symbol=_make_symbol(value=symbol, baseaddr=0),
+            addend=addend,
+        )
+        return V850ElfRelocator()._compute_value(
+            rela, self._Elf(offset, bytes.fromhex(insn))
+        )
+
+    def test_hi16_s_rounds_up(self):
+        # movhi hi(far), r0, r6
+        self.assertEqual(self._value(3, 0x10002, "0000", 0x47FF0, 0x10).hex(), "0500")
+
+    def test_lo16(self):
+        # movea lo(far), r6, r6
+        self.assertEqual(self._value(5, 0x10006, "0000", 0x47FF0, 0x10).hex(), "0080")
+
+    def test_hi16(self):
+        # movhi hi0(value), r0, r8
+        self.assertEqual(self._value(4, 0x1000A, "0000", 0x20000).hex(), "0200")
+
+    def test_lo16_s1_keeps_bit_0(self):
+        # ld.w lo(value)[r6], r7: bit 0 of the displacement field is opcode.
+        self.assertEqual(self._value(37, 0x1000E, "0100", 0x20000).hex(), "0100")
+
+    def test_22_pcrel(self):
+        # jarl helper, lp
+        self.assertEqual(self._value(2, 0x10010, "80ff0000", 0x1001C).hex(), "80ff0c00")
+
+    def test_9_pcrel(self):
+        # bne near
+        self.assertEqual(self._value(1, 0x10014, "8a05", 0x1001A).hex(), "ba05")
+
+    def test_abs32(self):
+        # ptr: .word value
+        self.assertEqual(self._value(6, 0x20004, "00000000", 0x20000).hex(), "00000200")
+
+    def test_pcrel_out_of_range(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "out of range"):
+            self._value(1, 0x10014, "8a05", 0x10114)
+
+    def test_lo16_s1_odd(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "odd"):
+            self._value(37, 0x1000E, "0100", 0x20001)
+
+    def test_rel_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "REL relocation"):
+            self._value(6, 0x20004, "00000000", 0x20000, is_rela=False)
+
+    def test_unsupported_type(self):
+        # R_V850_SDA_16_16_OFFSET needs __gp, which the loader does not provide.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "unsupported"):
+            self._value(9, 0x10002, "0000", 0x20000)
+
+    def test_invalid_type(self):
+        # R_V810_WLO, an EM_V800 relocation, is past the GCC ABI's table.
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "Invalid"):
+            self._value(0x34, 0x10002, "0000", 0x20000)
+
+
+class ElfV800Tests(unittest.TestCase):
+    """The loader refuses EM_V800 (RH850 ABI) images. An EM_V850 one flagged
+    as V850E3v5 loads as V850, with a warning that RH850-only instructions
+    are not modelled."""
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _image(self, flags: int, machine: int) -> io.BytesIO:
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, machine)  # e_machine
+        struct.pack_into("<I", image, 36, flags)  # e_flags
+        return io.BytesIO(bytes(image))
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v800_refused(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "EM_V800"):
+            Executable.from_elf(self._image(0, machine=36))  # EM_V800
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_rh850(self):
+        image = self._image(0x60000000, machine=87)  # EM_V850, V850E3v5
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(image)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+        self.assertIn(
+            "EM_V850 image flagged as V850E3v5 (RH850)", "\n".join(logs.output)
+        )
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_loads_as_v850(self):
+        # The test binaries are built for V850E1 (core field 0x20000000).
+        with self.assertNoLogs(level="WARNING"):
+            with self.PATH.open("rb") as f:
+                code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_v850_flagged_v850e2v3(self):
+        # V850E2V3 is binutils' name for the V850E2M that SmallWorld models.
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<I", image, 36, 0x40000000)  # e_flags
+        with self.assertNoLogs(level="WARNING"):
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        self.assertEqual(code.platform.architecture, platforms.Architecture.V850)
+
+
+class ElfUnknownMachineTests(unittest.TestCase):
+    """A machine type LIEF doesn't know is reported, not an AttributeError.
+
+    LIEF gives such a type as a plain int rather than an ARCH. 0x9080 is
+    EM_CYGNUS_V850, the number early Cygnus toolchains used for V850.
+    """
+
+    PATH = BINARIES_TESTS_DIR / "exitpoint" / "exitpoint.v850.elf"
+
+    def _image(self) -> io.BytesIO:
+        image = bytearray(self.PATH.read_bytes())
+        struct.pack_into("<H", image, 18, 0x9080)  # e_machine
+        return io.BytesIO(bytes(image))
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_refused(self):
+        with self.assertRaisesRegex(
+            exceptions.ConfigurationError, "Unknown value of e_machine: 0x9080"
+        ):
+            Executable.from_elf(self._image())
+
+    @unittest.skipUnless(PATH.exists(), _BINARIES_SKIP_REASON)
+    def test_loads_with_ignore_platform(self):
+        platform = platforms.Platform(
+            platforms.Architecture.V850, platforms.Byteorder.LITTLE
+        )
+        code = Executable.from_elf(
+            self._image(), platform=platform, ignore_platform=True
+        )
+        self.assertEqual(code.platform, platform)
+
+
+class MicroMIPSIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register: Ghidra keeps it in the ISA_MODE decode
+    context and an odd pc selects microMIPS; backends that run only microMIPS
+    do not support it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _ghidra(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraEmulator(self.PLATFORM)
+
+    def test_ghidra_starts_in_micromips(self):
+        self.assertEqual(self._ghidra().read_register("isa_mode"), 1)
+
+    def test_ghidra_isa_mode_round_trips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+        emu.write_register("isa_mode", 1)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_odd_pc_selects_micromips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_even_pc_keeps_isa_mode(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_ghidra_isa_mode_out_of_range(self):
+        emu = self._ghidra()
+        for value in (2, -1):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    emu.write_register("isa_mode", value)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_unicorn_isa_mode_unsupported(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+    def test_angr_isa_mode_unsupported(self):
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+    def test_ghidra_get_and_set_isa_mode(self):
+        emu = self._ghidra()
+        self.assertEqual(emu.get_isa_mode(), 1)
+        emu.set_isa_mode(0)
+        self.assertEqual(emu.get_isa_mode(), 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_single_isa_backends_refuse_set_isa_mode(self):
+        for emu in (
+            emulators.UnicornEmulator(self.PLATFORM),
+            emulators.AngrEmulator(self.PLATFORM),
+        ):
+            with self.subTest(emulator=type(emu).__name__):
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.set_isa_mode(0)
+
+    def test_isa_mode_needs_two_instruction_sets(self):
+        emu = emulators.UnicornEmulator(
+            platforms.Platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_model_hooks_the_even_address(self):
+        class Nop(state.models.Model):
+            name = "nop"
+            platform = MicroMIPSIsaModeTests.PLATFORM
+            abi = platforms.ABI.NONE
+
+            def model(self, emulator):
+                pass
+
+        self.assertEqual(Nop(0x1001)._address, 0x1000)
+
+    def test_unicorn_odd_pc_reads_back_even(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def _angr(self, platform=None):
+        emu = emulators.AngrEmulator(platform or self.PLATFORM)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))  # addiu v0,zero,5
+        emu.write_register("v0", 0)
+        return emu
+
+    def test_angr_odd_pc_reads_back_even(self):
+        # Written before initialization, which applies it, and after.
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        emu.write_register("pc", 0x1003)
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_angr_concrete_bv_pc_reads_back_even(self):
+        emu = self._angr()
+        emu.initialize()
+        emu.write_register("pc", claripy.BVV(0x1001, 32))
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def test_angr_runs_from_odd_pc(self):
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.add_exit_point(0x1004)
+        emu.run()
+        self.assertEqual(emu.read_register("v0"), 5)
+
+    def test_angr_mips32_pc_unchanged(self):
+        mips32 = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        emu = self._angr(mips32)
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1001)
+
+
+class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register and an odd pc on the symbolic Ghidra
+    emulator, which handles them as the concrete one does."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _emu(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraSymbolicEmulator(self.PLATFORM)
+
+    def test_starts_in_micromips(self):
+        self.assertEqual(self._emu().read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_round_trips(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+        emu.write_register_content("isa_mode", 1)
+        self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_reads_as_concrete_bv(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        value = emu.read_register_symbolic("isa_mode")
+        self.assertFalse(value.symbolic)
+        self.assertEqual(value.concrete_value, 0)
+
+    def test_symbolic_isa_mode_rejected(self):
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self._emu().write_register_content("isa_mode", claripy.BVS("mode", 8))
+
+    def test_odd_pc_selects_micromips(self):
+        for value in (0x1001, claripy.BVV(0x1001, 32)):
+            with self.subTest(value=value):
+                emu = self._emu()
+                emu.write_register_content("isa_mode", 0)
+                emu.write_register_content("pc", value)
+                self.assertEqual(emu.read_register_content("pc"), 0x1000)
+                self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_even_pc_keeps_isa_mode(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        emu.write_register_content("pc", 0x1000)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+
+    def test_runs_micromips_from_odd_pc(self):
+        emu = self._emu()
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))
+        emu.write_register_content("v0", 0)
+        emu.write_register_content("pc", 0x1001)
+        emu.step()
+        self.assertEqual(emu.read_register_content("v0"), 5)
+
+
+class MicroMIPSAngrMIPS32JumpTests(unittest.TestCase):
+    """angr runs microMIPS only, so it warns, once, when the code jumps into
+    standard MIPS32 code."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LOGGER = "smallworld.emulators.angr.machdefs.micromips"
+
+    # jr t9 with a nop in its delay slot, at 0x1000.
+    JR_T9 = bytes.fromhex("00190f3c" "00000000") + bytes(24)
+
+    def _run(self, code: bytes, registers, exit_point: int, target=None) -> None:
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, 0x2000)
+        emu.write_code(0x1000, code)
+        # 0x2000: addiu v0, zero, 5, unless given other code.
+        emu.write_code(0x2000, target or bytes.fromhex("30400005") + bytes(12))
+        for name, value in registers.items():
+            emu.write_register(name, value)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(exit_point)
+        emu.run()
+
+    def test_jump_to_even_address_warns_once(self):
+        # Two jumps to even addresses: 0x1000 to 0x2000, whose jr t8 goes back
+        # to 0x1010.
+        back = bytes.fromhex("00180f3c" "00000000") + bytes(8)
+        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+            self._run(self.JR_T9, {"t9": 0x2000, "t8": 0x1010}, 0x1014, back)
+        self.assertEqual(len(logs.output), 1)
+
+    def test_jump_to_odd_address_is_quiet(self):
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(self.JR_T9, {"t9": 0x2001, "v0": 0}, 0x2004)
+
+    def test_return_to_exit_point_is_quiet(self):
+        # jrc ra, to a harness's even exit address.
+        code = bytes.fromhex("45bf") + bytes(14)
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(code, {"ra": 0x3000}, 0x3000)
+
+    def test_calling_convention_is_o32(self):
+        import angr
+
+        cc = angr.calling_conventions.DEFAULT_CC["MIPS:BE:32:micro"]["Linux"]
+        self.assertTrue(issubclass(cc, angr.calling_conventions.SimCCO32))
+        self.assertEqual(cc.CALLER_SAVED_REGS, ["t9", "gp"])
+        self.assertEqual(cc.FP_ARG_REGS, [])
+
+
+class MicroMIPSAngrJalxTests(unittest.TestCase):
+    """Decoding a jalx leaves sleigh's context saying standard MIPS32 starts
+    at its target; angr's microMIPS engine must not keep decoding with it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    JALX = bytes.fromhex("f0000800")  # jalx 0x2000
+    NOP16 = bytes.fromhex("0c00")
+
+    @staticmethod
+    def _addiu_v0(value: int) -> bytes:
+        return bytes.fromhex("3040") + value.to_bytes(2, "big")
+
+    def _image(self) -> bytes:
+        image = bytearray(self.NOP16 * 0x1008)
+        # 0x1000: jalx 0x2000, with a 16-bit nop in its delay slot.
+        image[0:4] = self.JALX
+        # 0x1ff8: a block that starts below the jalx target and runs into it.
+        image[0x1000:0x1004] = self._addiu_v0(7)
+        # 0x3000: microMIPS well above the jalx target.
+        image[0x2000:0x2004] = self._addiu_v0(5)
+        return bytes(image)
+
+    def _emulator(self):
+        image = self._image()
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, len(image))
+        emu.write_code(0x1000, image)
+        emu.write_register("v0", 0)
+        return emu
+
+    def _run(self, emu, start: int, stop: int) -> int:
+        emu.write_register("pc", start)
+        emu.add_exit_point(stop)
+        emu.run()
+        return emu.read_register("v0")
+
+    def _lifter_context(self, emu):
+        import angr
+
+        arch = emu.proj.arch
+        return angr.engines.pcode.lifter.PcodeLifter.get_lifter(arch).context
+
+    def test_jalx_does_not_reach_a_later_emulator(self):
+        self._run(self._emulator(), 0x1000, 0x2000)
+        self.assertEqual(self._run(self._emulator(), 0x3000, 0x3004), 5)
+
+    def test_jalx_target_decodes_as_micromips(self):
+        self.assertEqual(self._run(self._emulator(), 0x1000, 0x2004), 7)
+
+    def test_block_running_into_jalx_target(self):
+        emu = self._emulator()
+        emu.initialize()
+        # Lift the jalx without running it; the factory bounds blocks by pc.
+        emu.write_register("pc", 0x1000)
+        emu.state.block(0x1000).vex
+        self.assertEqual(self._run(emu, 0x1FF8, 0x2004), 7)
+
+    def test_jalx_lifted_outside_the_engine(self):
+        emu = self._emulator()
+        emu.initialize()
+        self._lifter_context(emu).translate(self.JALX + self.NOP16, 0x1000)
+        self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
+
+
+class MicroMIPSSysVModelTests(unittest.TestCase):
+    """microMIPS uses MIPS32's o32 calling convention, so the System V C and
+    POSIX models exist for it as for MIPS32, and behave the same."""
+
+    BYTEORDERS = (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
+
+    @staticmethod
+    def _platform(arch, byteorder):
+        return platforms.Platform(arch, byteorder)
+
+    def _micro(self, byteorder):
+        return self._platform(platforms.Architecture.MIPS32_MICROMIPS, byteorder)
+
+    def test_lookups(self):
+        sysv = platforms.ABI.SYSTEMV
+        for byteorder in self.BYTEORDERS:
+            platform = self._micro(byteorder)
+            with self.subTest(byteorder=byteorder.name):
+                for name in ("strlen", "malloc", "printf", "open", "sigaction"):
+                    model = state.models.Model.lookup(name, platform, sysv, 0x2000)
+                    self.assertEqual(model.platform, platform)
+                context = state.models.cstd.CStdCallingContext.for_platform_and_abi(
+                    platform, sysv
+                )
+                self.assertNotIsInstance(context, state.models.Model)
+                self.assertEqual(context.platform, platform)
+                state.models.errno.ErrnoResolver.for_platform(platform, sysv)
+
+    def _call_llabs(self, platform, value: int):
+        # Calls the model directly, on registers set up as a caller would.
+        emu = emulators.UnicornEmulator(platform)
+        model = state.models.Model.lookup(
+            "llabs", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        for register in ("a0", "a1", "a2", "a3", "v0", "v1"):
+            emu.write_register(register, 0)
+        model.set_argument(0, emu, value)
+        model.model(emu)
+        return emu.read_register("v0"), emu.read_register("v1")
+
+    def test_eight_byte_return_matches_mips32(self):
+        value = -0x123456789  # llabs gives 0x123456789, spanning v0 and v1
+        for byteorder in self.BYTEORDERS:
+            with self.subTest(byteorder=byteorder.name):
+                mips32 = self._platform(platforms.Architecture.MIPS32, byteorder)
+                self.assertEqual(
+                    self._call_llabs(self._micro(byteorder), value),
+                    self._call_llabs(mips32, value),
+                )
+
+    def _run_strlen(self, platform, engine):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        # jalr t9, with a 32-bit nop in its delay slot.
+        code = bytes.fromhex("03f90f3c" "00000000")
+        if platform.byteorder == platforms.Byteorder.LITTLE:
+            code = b"".join(code[i : i + 2][::-1] for i in range(0, len(code), 2))
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        trampolines = state.memory.Memory(0x2000, 0x10)
+        trampolines[0] = state.BytesValue(bytes(0x10), None)
+        machine.add(trampolines)
+        string = state.memory.Memory(0x3000, 0x10)
+        string[0] = state.BytesValue(b"hello\0".ljust(0x10, b"\0"), None)
+        machine.add(string)
+        machine.add(
+            state.models.Model.lookup("strlen", platform, platforms.ABI.SYSTEMV, 0x2000)
+        )
+        cpu.pc.set(0x1000)
+        cpu.t9.set(0x2001)  # a pointer to microMIPS code
+        cpu.a0.set(0x3000)
+        cpu.v0.set(0)
+        machine.add_exit_point(0x1008)
+        return machine.emulate(engine(platform)).get_cpu()
+
+    def test_strlen_model_runs(self):
+        _ensure_pyghidra_started()
+        engines = (
+            emulators.UnicornEmulator,
+            emulators.GhidraEmulator,
+            emulators.AngrEmulator,
+        )
+        for byteorder in self.BYTEORDERS:
+            for engine in engines:
+                with self.subTest(byteorder=byteorder.name, engine=engine.__name__):
+                    cpu = self._run_strlen(self._micro(byteorder), engine)
+                    self.assertEqual(cpu.v0.get(), 5)
+                    self.assertEqual(cpu.pc.get(), 0x1008)
+
+    def test_model_pickles(self):
+        platform = self._micro(platforms.Byteorder.BIG)
+        model = state.models.Model.lookup(
+            "strlen", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        copied = pickle.loads(pickle.dumps(model))
+        self.assertIs(type(copied), type(model))
+        self.assertEqual(copied.platform, platform)
+
+
+class UnicornDelaySlotFaultTests(unittest.TestCase):
+    """Unicorn reports a branch's fetch fault as a read fault in its delay
+    slot. Telling the two apart needs the instruction that ran before the
+    fault, which on microMIPS can be 2 or 4 bytes long."""
+
+    # Each case: (architecture, code as big-endian halfwords or words,
+    # expected failure, offset of the pc it reports).
+    CASES = {
+        # The halfword 0x4599 inside this addiu decodes as jr16 $t9, and t9
+        # is unmapped; the fault is still the lw's read of a0.
+        "addiu_then_load": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "31004599" "fc440000" "0c000c00",  # addiu t0,zero,0x4599; lw v0,0(a0)
+            exceptions.EmulationReadUnmappedFailure,
+            4,
+        ),
+        "jr": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "00190f3c" "00000000" "0c000c00",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+        "jr16": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "0c00" "4599" "0c00" "0c000c00",  # nop16; jr16 t9; nop16
+            exceptions.EmulationFetchUnmappedFailure,
+            2,
+        ),
+        "mips32_jr": (
+            platforms.Architecture.MIPS32,
+            "03200008" "00000000" "00000000",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+    }
+
+    @staticmethod
+    def _code(arch, hexcode: str, byteorder) -> bytes:
+        code = bytes.fromhex(hexcode)
+        if byteorder == platforms.Byteorder.BIG:
+            return code
+        # Little-endian microMIPS stores each halfword little-endian.
+        unit = 2 if arch == platforms.Architecture.MIPS32_MICROMIPS else 4
+        return b"".join(code[i : i + unit][::-1] for i in range(0, len(code), unit))
+
+    def _fault(self, name: str, byteorder, step: bool):
+        arch, hexcode, _, _ = self.CASES[name]
+        code = self._code(arch, hexcode, byteorder)
+        emu = emulators.UnicornEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code + bytes(0x20))
+        for register in ("t9", "a0", "v0", "t0"):
+            emu.write_register(register, 0)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(code))
+        with self.assertRaises(exceptions.EmulationError) as caught:
+            if step:
+                for _ in range(len(code)):
+                    emu.step()
+            else:
+                emu.run()
+        return caught.exception
+
+    def test_faults(self):
+        for name, (_, _, expected, offset) in self.CASES.items():
+            for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+                for step in (False, True):
+                    with self.subTest(case=name, byteorder=byteorder.name, step=step):
+                        fault = self._fault(name, byteorder, step)
+                        self.assertIs(type(fault), expected)
+                        self.assertEqual(fault.pc, 0x1000 + offset)
+
+
+class ElfMicroMIPSSymbolTests(unittest.TestCase):
+    """A microMIPS code symbol's value carries the ISA bit, whichever table it
+    comes from, and so do relocated pointers to the code."""
+
+    LINK_ELF = BINARIES_TESTS_DIR / "link_elf"
+    LIB_BASE = 0x800000
+    FOO = 0x10260  # foo's address in the library, as .symtab records it
+
+    def _load(self, name: str, user_base=None) -> ElfExecutable:
+        path = self.LINK_ELF / name
+        if not path.exists():
+            self.skipTest(f"{path} not built (run `make micromips` in tests/)")
+        with path.open("rb") as f:
+            return ElfExecutable(f, user_base=user_base)
+
+    def _word(self, elf: ElfExecutable, symbol: str) -> int:
+        return elf.read_int(elf.get_symbol_value(symbol), 4, elf.platform.byteorder)
+
+    def test_symbol_tables_agree(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # .dynsym has the ISA bit set and .symtab does not; both
+                # load with it.
+                self.assertEqual(
+                    lib.get_symbol_value("foo"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def test_pointer_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                self.assertEqual(
+                    self._word(lib, "fooptr"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def test_linked_import_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                exe = self._load(f"micromips_import.{ext}.elf")
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # Unresolved, the import stays null.
+                self.assertEqual(self._word(exe, "fooref"), 0)
+                exe.link_elf(lib)
+                self.assertEqual(
+                    self._word(exe, "fooref"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def _relocate(self, type_: int, value: int) -> int:
+        symbol = _make_symbol(value=value, baseaddr=0x400000)
+        rela = ElfRela(is_rela=True, offset=0x2000, type=type_, symbol=symbol, addend=0)
+        relocator = MIPSElfRelocator(
+            platforms.Platform(
+                platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+            )
+        )
+        value = relocator._compute_value(rela, _FakeElf())
+        return int.from_bytes(value, "big")
+
+    def test_relocations_keep_isa_bit(self):
+        # R_MIPS_32, R_MIPS_REL32 and the GOT's R_MIPS_JUMP_SLOT.
+        for type_ in (2, 3, 127):
+            with self.subTest(type=type_):
+                self.assertEqual(self._relocate(type_, 0x1001), 0x401001)
+                self.assertEqual(self._relocate(type_, 0x1000), 0x401000)
+
+
+class ElfMicroMIPSTests(unittest.TestCase):
+    """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
+    keeps the ISA bit; standard MIPS32 functions in such an image warn."""
+
+    MICRO = BINARIES_TESTS_DIR / "elf" / "elf.micromips.elf"
+    STANDARD = BINARIES_TESTS_DIR / "elf" / "elf.mips.elf"
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_static_image_has_no_got_to_miss(self):
+        with self.assertNoLogs("smallworld.state.memory.elf.elf", level="ERROR"):
+            with self.MICRO.open("rb") as f:
+                Executable.from_elf(f)
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_micromips_image(self):
+        with self.MICRO.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertEqual(code.entrypoint, code.get_symbol_value("__start"))
+        self.assertEqual(code.entrypoint & 1, 1)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_mips32_image(self):
+        with self.STANDARD.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.MIPS32)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_standard_function_in_micromips_image_warns(self):
+        # Flag a standard MIPS32 image as microMIPS: __start lacks STO_MICROMIPS.
+        image = bytearray(self.STANDARD.read_bytes())
+        flags = struct.unpack_from(">I", image, 36)[0]
+        struct.pack_into(">I", image, 36, flags | 0x02000000)  # EF_MIPS_MICROMIPS
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertIn("standard MIPS32 functions", "\n".join(logs.output))
+        self.assertIn("__start", "\n".join(logs.output))
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):
@@ -12536,6 +13533,408 @@ class MCS51SharedHelperTests(unittest.TestCase):
         self.assertEqual((sp, paged), (0x01, False))
         self.assertEqual(idata, {0x00: 0x34, 0x01: 0x12})
         self.assertEqual(sfrs[0x88], 0xFF & ~source.cleared)
+
+
+class AngrPcodeFloatTests(unittest.TestCase):
+    """SmallWorld's floating-point p-code behaviors for angr."""
+
+    @staticmethod
+    def _behavior(name):
+        from pypcode import OpCode
+
+        from smallworld.emulators.angr.machdefs.pcode_float import FLOAT_BEHAVIORS
+
+        return FLOAT_BEHAVIORS.get_behavior_for_opcode(getattr(OpCode, name))
+
+    @staticmethod
+    def _f(value, size=8):
+        fmt = {4: "<f", 8: "<d"}[size]
+        return int.from_bytes(struct.pack(fmt, value), "little")
+
+    @staticmethod
+    def _unf(bits, size=8):
+        fmt = {4: "<f", 8: "<d"}[size]
+        return struct.unpack(fmt, bits.to_bytes(size, "little"))[0]
+
+    def _unary(self, name, size_out, size_in, value):
+        result = self._behavior(name).evaluate_unary(
+            size_out, size_in, claripy.BVV(value, size_in * 8)
+        )
+        return result.concrete_value
+
+    def _binary(self, name, size_out, size_in, a, b):
+        result = self._behavior(name).evaluate_binary(
+            size_out, size_in, claripy.BVV(a, size_in * 8), claripy.BVV(b, size_in * 8)
+        )
+        return result.concrete_value
+
+    def test_add_single(self):
+        self.assertEqual(
+            self._binary("FLOAT_ADD", 4, 4, self._f(2.2, 4), self._f(1.1, 4)),
+            0x40533334,
+        )
+
+    def test_divide_by_zero(self):
+        self.assertEqual(
+            self._unf(self._binary("FLOAT_DIV", 8, 8, self._f(-1.0), self._f(0.0))),
+            -math.inf,
+        )
+        # 0/0 is the canonical NaN.
+        self.assertEqual(
+            self._binary("FLOAT_DIV", 8, 8, self._f(0.0), self._f(0.0)),
+            0x7FF8000000000000,
+        )
+
+    def test_comparisons_follow_ieee(self):
+        nan, one = self._f(math.nan), self._f(1.0)
+        for name in ("FLOAT_EQUAL", "FLOAT_LESS", "FLOAT_LESSEQUAL"):
+            self.assertEqual(self._binary(name, 1, 8, one, nan), 0, name)
+            self.assertEqual(self._binary(name, 1, 8, nan, nan), 0, name)
+        self.assertEqual(self._binary("FLOAT_NOTEQUAL", 1, 8, nan, nan), 1)
+        self.assertEqual(
+            self._binary("FLOAT_EQUAL", 1, 8, self._f(-0.0), self._f(0.0)), 1
+        )
+
+    def test_round_ties_up_exactly(self):
+        for value, expected in (
+            (2.5, 3.0),
+            (-2.5, -2.0),
+            (0.49999999999999994, 0.0),
+            (-0.5, 0.0),
+            (2.0**52 + 1, 2.0**52 + 1),
+        ):
+            result = self._unf(self._unary("FLOAT_ROUND", 8, 8, self._f(value)))
+            self.assertEqual(result, expected, value)
+        # A zero result is +0.0.
+        self.assertEqual(self._unary("FLOAT_ROUND", 8, 8, self._f(-0.25)), 0)
+
+    def test_ceil_floor_keep_sign_of_zero(self):
+        self.assertEqual(self._unary("FLOAT_CEIL", 8, 8, self._f(-0.5)), self._f(-0.0))
+        self.assertEqual(self._unary("FLOAT_FLOOR", 8, 8, self._f(-0.0)), self._f(-0.0))
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_FLOOR", 4, 4, self._f(-3.7, 4)), 4), -4.0
+        )
+
+    def test_trunc(self):
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(-7.9)), 0xFFFFFFF9)
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(math.nan)), 0)
+        # Out of range, it saturates to the output's signed range.
+        self.assertEqual(self._unary("FLOAT_TRUNC", 4, 8, self._f(1e20)), 0x7FFFFFFF)
+        self.assertEqual(self._unary("FLOAT_TRUNC", 1, 8, self._f(-128.9)), 0x80)
+        self.assertEqual(
+            self._unary("FLOAT_TRUNC", 4, 4, self._f(-math.inf, 4)), 0x80000000
+        )
+        self.assertEqual(self._unary("FLOAT_TRUNC", 8, 8, self._f(math.inf)), 2**63 - 1)
+
+    def test_neg_abs_change_only_sign(self):
+        nan = 0x7FA00001
+        self.assertEqual(self._unary("FLOAT_NEG", 4, 4, nan), 0xFFA00001)
+        self.assertEqual(self._unary("FLOAT_ABS", 4, 4, 0xFFA00001), nan)
+        self.assertEqual(self._unary("FLOAT_NEG", 8, 8, self._f(0.0)), 1 << 63)
+
+    def test_int2float_rounds_once(self):
+        # Rounded to double first, 2**60 + 2**36 + 1 becomes a tie in single
+        # precision and rounds down; rounded once, it rounds up.
+        value = (1 << 60) + (1 << 36) + 1
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_INT2FLOAT", 4, 8, value), 4),
+            float((1 << 60) + (1 << 37)),
+        )
+        self.assertEqual(
+            self._unf(self._unary("FLOAT_INT2FLOAT", 8, 4, 0xFFFFFFFB)), -5.0
+        )
+
+    def test_symbolic_solve(self):
+        x = claripy.BVS("x", 32)
+        total = self._behavior("FLOAT_ADD").evaluate_binary(
+            4, 4, x, claripy.BVV(self._f(1.0, 4), 32)
+        )
+        solver = claripy.Solver()
+        solver.add(total == self._f(3.5, 4))
+        self.assertEqual(self._unf(solver.eval(x, 1)[0], 4), 2.5)
+
+    def test_symbolic_round(self):
+        x = claripy.BVS("x", 64)
+        result = self._behavior("FLOAT_ROUND").evaluate_unary(8, 8, x)
+        solver = claripy.Solver()
+        solver.add(x == self._f(-2.5))
+        self.assertEqual(self._unf(solver.eval(result, 1)[0]), -2.0)
+
+    def _solve(self, name, size_out, size_in, *values):
+        # Pinning the operands with == lets angr evaluate the result through
+        # claripy's constant folding, not just Z3.
+        import angr
+
+        state = angr.SimState(arch="AMD64")
+        operands = []
+        for value in values:
+            x = state.solver.BVS("x", size_in * 8)
+            state.solver.add(x == value)
+            operands.append(x)
+        behavior = self._behavior(name)
+        if len(operands) == 1:
+            result = behavior.evaluate_unary(size_out, size_in, *operands)
+        else:
+            result = behavior.evaluate_binary(size_out, size_in, *operands)
+        return state.solver.eval_upto(result, 2)
+
+    def test_symbolic_divide_by_zero(self):
+        zero, negative_zero = self._f(0.0), self._f(-0.0)
+        self.assertEqual(
+            self._solve("FLOAT_DIV", 8, 8, zero, zero), [0x7FF8000000000000]
+        )
+        self.assertEqual(
+            self._solve("FLOAT_DIV", 8, 8, self._f(math.nan), zero),
+            [0x7FF8000000000000],
+        )
+        self.assertEqual(
+            self._solve("FLOAT_DIV", 8, 8, self._f(math.inf), negative_zero),
+            [self._f(-math.inf)],
+        )
+
+    def test_symbolic_int2float_rounds_once(self):
+        value = (1 << 60) + (1 << 36) + 1
+        self.assertEqual(
+            self._solve("FLOAT_INT2FLOAT", 4, 8, value),
+            [self._f(float((1 << 60) + (1 << 37)), 4)],
+        )
+        self.assertEqual(
+            self._solve("FLOAT_INT2FLOAT", 4, 8, -value & (2**64 - 1)),
+            [self._f(-float((1 << 60) + (1 << 37)), 4)],
+        )
+
+    def test_symbolic_trunc_saturates(self):
+        self.assertEqual(self._solve("FLOAT_TRUNC", 4, 8, self._f(-1e20)), [0x80000000])
+        self.assertEqual(self._solve("FLOAT_TRUNC", 4, 8, self._f(math.nan)), [0])
+
+    def test_symbolic_matches_concrete(self):
+        # Pinning the operands to a range, not with ==, makes Z3 solve them
+        # rather than claripy fold them.
+        import angr
+
+        unary = ["FLOAT_NEG", "FLOAT_ABS", "FLOAT_SQRT", "FLOAT_CEIL"]
+        unary += ["FLOAT_FLOOR", "FLOAT_ROUND", "FLOAT_NAN"]
+        binary = ["FLOAT_ADD", "FLOAT_SUB", "FLOAT_MULT", "FLOAT_DIV"]
+        binary += ["FLOAT_EQUAL", "FLOAT_NOTEQUAL", "FLOAT_LESS", "FLOAT_LESSEQUAL"]
+        cases = []
+        for size in (4, 8):
+            values = [self._f(v, size) for v in (-2.5, -0.0, math.nan)]
+            # Z3 takes seconds over these in double precision; one value each.
+            slow = {"FLOAT_SQRT", "FLOAT_ROUND"} if size == 8 else set()
+            cases += [
+                (name, 1 if name == "FLOAT_NAN" else size, size, (v,))
+                for name in unary
+                for v in (values[:1] if name in slow else values)
+            ]
+            pairs = list(zip(values, values[1:] + values[:1]))
+            cases += [
+                (name, 1 if "EQUAL" in name or "LESS" in name else size, size, p)
+                for name in binary
+                for p in pairs
+            ]
+            cases += [("FLOAT_TRUNC", 4, size, (v,)) for v in values]
+            cases += [("FLOAT_FLOAT2FLOAT", 12 - size, size, (v,)) for v in values]
+        # test_symbolic_int2float_rounds_once covers single precision, which
+        # Z3 takes seconds over.
+        cases += [
+            ("FLOAT_INT2FLOAT", 8, 8, (v,))
+            for v in (2**64 - 5, (1 << 60) + (1 << 36) + 1)
+        ]
+
+        for name, size_out, size_in, values in cases:
+            behavior = self._behavior(name)
+            state = angr.SimState(arch="AMD64")
+            operands = []
+            for value in values:
+                x = state.solver.BVS("x", size_in * 8)
+                state.solver.add(x.UGE(value), x.ULE(value))
+                operands.append(x)
+            if len(values) == 1:
+                symbolic = behavior.evaluate_unary(size_out, size_in, *operands)
+                concrete = self._unary(name, size_out, size_in, *values)
+            else:
+                symbolic = behavior.evaluate_binary(size_out, size_in, *operands)
+                concrete = self._binary(name, size_out, size_in, *values)
+            self.assertEqual(
+                state.solver.eval_upto(symbolic, 2),
+                [concrete],
+                (name, size_out, size_in, [hex(v) for v in values]),
+            )
+
+    def test_symbolic_half_precision_refused(self):
+        x = claripy.BVS("x", 16)
+        with self.assertRaises(exceptions.EmulationError):
+            self._behavior("FLOAT_ADD").evaluate_binary(2, 2, x, x)
+
+    def test_unsupported_format(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self._binary("FLOAT_ADD", 10, 10, 1, 1)
+
+    def test_every_pcode_machine_runs_floats(self):
+        # Each p-code machine's engine must keep the float behaviors.
+        from smallworld.emulators.angr.machdefs import machdef
+        from smallworld.emulators.angr.machdefs.pcode_float import FloatPcodeEngine
+
+        pending = [machdef.GhidraMachineDef]
+        while pending:
+            cls = pending.pop()
+            pending += cls.__subclasses__()
+            with self.subTest(machdef=cls.__name__):
+                self.assertTrue(issubclass(cls.angr_engine, FloatPcodeEngine))
+
+
+class AngrPcodeFloatGhidraDifferentialTests(unittest.TestCase):
+    """angr's floating-point p-code behaviors agree with the arithmetic Ghidra's
+    emulator runs, except where Ghidra's departs from IEEE 754 or leaves a
+    result IEEE 754 does not define."""
+
+    @classmethod
+    def setUpClass(cls):
+        _ensure_pyghidra_started()
+
+    def test_against_ghidra(self):
+        import fractions
+        import random
+
+        import jpype
+        from ghidra.pcode.exec import BytesPcodeArithmetic
+        from ghidra.program.model.pcode import PcodeOp
+        from pypcode import OpCode
+
+        from smallworld.emulators.angr.machdefs.pcode_float import FLOAT_BEHAVIORS
+
+        # PcodeEmulator's arithmetic. For operands of at most 8 bytes it
+        # calls OpBehavior's long overloads, which differ from the BigInteger
+        # ones.
+        arithmetic = BytesPcodeArithmetic.LITTLE_ENDIAN
+        formats = {2: "<e", 4: "<f", 8: "<d"}
+
+        def encode(value, size):
+            try:
+                packed = struct.pack(formats[size], value)
+            except OverflowError:
+                packed = struct.pack(formats[size], math.copysign(math.inf, value))
+            return int.from_bytes(packed, "little")
+
+        def decode(bits, size):
+            return struct.unpack(formats[size], bits.to_bytes(size, "little"))[0]
+
+        def ghidra(name, size_out, size_in, operands):
+            code = getattr(PcodeOp, name)
+            arrays = [
+                jpype.JArray(jpype.JByte)(
+                    [b - 256 if b > 127 else b for b in v.to_bytes(size_in, "little")]
+                )
+                for v in operands
+            ]
+            if len(arrays) == 1:
+                result = arithmetic.unaryOp(code, size_out, size_in, arrays[0])
+            else:
+                result = arithmetic.binaryOp(
+                    code, size_out, size_in, arrays[0], size_in, arrays[1]
+                )
+            return int.from_bytes(bytes(b & 0xFF for b in result), "little")
+
+        comparisons = {
+            "FLOAT_EQUAL",
+            "FLOAT_NOTEQUAL",
+            "FLOAT_LESS",
+            "FLOAT_LESSEQUAL",
+        }
+
+        def deliberate(name, size_out, size_in, operands, ours, theirs):
+            """Whether a mismatch is one support.rst documents."""
+            if name == "FLOAT_TRUNC":
+                # Out of range; IEEE 754 leaves the result open.
+                x = decode(operands[0], size_in)
+                bound = 2.0 ** (size_out * 8 - 1)
+                return not -bound <= x < bound
+            if name in comparisons or name == "FLOAT_NAN":
+                return False
+            if name == "FLOAT_INT2FLOAT":
+                # Ghidra rounds through a double.
+                value = operands[0] - (operands[0] >> (size_in * 8 - 1) << size_in * 8)
+                return abs(value) >= 1 << 53 and theirs == encode(
+                    float(value), size_out
+                )
+            if math.isnan(decode(ours, size_out)):
+                # NaN results differ in their bits, and Ghidra's FLOAT_NEG
+                # and FLOAT_ABS do not keep a NaN's payload.
+                return math.isnan(decode(theirs, size_out))
+            if name in ("FLOAT_MULT", "FLOAT_DIV", "FLOAT_FLOAT2FLOAT"):
+                # Ghidra flushes half- and single-precision results between
+                # half the least subnormal and the least subnormal to zero.
+                magnitude = (1 << size_out * 8 - 1) - 1
+                return (
+                    size_out < 8 and theirs & magnitude == 0 and ours & magnitude == 1
+                )
+            if name == "FLOAT_ROUND":
+                # Ghidra computes floor(x + 0.5) in floating point.
+                x = decode(operands[0], size_in)
+                exact = math.floor(fractions.Fraction(x) + fractions.Fraction(1, 2))
+                return math.floor(x + 0.5) != exact
+            return False
+
+        rng = random.Random(1)
+        edge = [0.0, -0.0, 1.0, -1.0, 0.5, -0.5, 2.5, -2.5, 3.7, -3.7, 1e-310]
+        edge += [1e300, -1e300, 1e20, 2.0**52 + 1, 0.49999999999999994]
+        edge += [2.0**-150 * (1 + 2.0**-20), 2.0**-25 * (1 + 2.0**-20)]
+        edge += [2.0**31, -(2.0**31) - 0.5, 127.9, -128.9, math.inf, -math.inf]
+        edge += [math.nan]
+        unary = ["FLOAT_NEG", "FLOAT_ABS", "FLOAT_SQRT", "FLOAT_CEIL"]
+        unary += ["FLOAT_FLOOR", "FLOAT_ROUND", "FLOAT_NAN"]
+        binary = ["FLOAT_ADD", "FLOAT_SUB", "FLOAT_MULT", "FLOAT_DIV"]
+        binary += sorted(comparisons)
+
+        cases = [
+            # A subnormal product Ghidra flushes to zero.
+            ("FLOAT_MULT", 4, 4, (0x1, 0x3F000001)),
+            # Rounded through a double, this rounds down.
+            ("FLOAT_INT2FLOAT", 4, 8, ((1 << 60) + (1 << 36) + 1,)),
+            # Signalling NaNs.
+            ("FLOAT_NEG", 4, 4, (0x7FA00001,)),
+            ("FLOAT_ADD", 4, 4, (0x7FA00001, encode(1.0, 4))),
+        ]
+        for size in (2, 4, 8):
+            values = [encode(v, size) for v in edge]
+            values += [rng.getrandbits(size * 8) for _ in range(20)]
+            for name in unary:
+                out = 1 if name == "FLOAT_NAN" else size
+                cases += [(name, out, size, (v,)) for v in values]
+            for name in binary:
+                out = 1 if name in comparisons else size
+                pairs = list(zip(values, rng.sample(values, len(values))))
+                pairs += [(v, v) for v in values]
+                cases += [(name, out, size, pair) for pair in pairs]
+            for out in (1, 2, 4, 8):
+                cases += [("FLOAT_TRUNC", out, size, (v,)) for v in values]
+            for other in (2, 4, 8):
+                if other != size:
+                    cases += [("FLOAT_FLOAT2FLOAT", other, size, (v,)) for v in values]
+            for width in (1, 2, 4, 8):
+                ints = [0, 1, (1 << width * 8) - 1, 1 << (width * 8 - 1)]
+                ints += [rng.getrandbits(width * 8) for _ in range(4)]
+                cases += [("FLOAT_INT2FLOAT", size, width, (v,)) for v in ints]
+
+        mismatches = []
+        for name, size_out, size_in, operands in cases:
+            expected = ghidra(name, size_out, size_in, operands)
+
+            ours = FLOAT_BEHAVIORS.get_behavior_for_opcode(getattr(OpCode, name))
+            bvs = [claripy.BVV(v, size_in * 8) for v in operands]
+            if len(bvs) == 1:
+                actual = ours.evaluate_unary(size_out, size_in, *bvs)
+            else:
+                actual = ours.evaluate_binary(size_out, size_in, *bvs)
+            actual = actual.concrete_value
+
+            if actual != expected and not deliberate(
+                name, size_out, size_in, operands, actual, expected
+            ):
+                mismatches.append(
+                    (name, size_out, size_in, [hex(v) for v in operands], hex(actual))
+                )
+        self.assertEqual(mismatches, [])
 
 
 if __name__ == "__main__":

@@ -91,6 +91,15 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=4,
         engines=_ENGINES_ALL,
     ),
+    "la32": ArchInfo(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="a0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
     "la64": ArchInfo(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -107,7 +116,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="d0",
         stack_pointer_register="sp",
         pointer_size=4,
-        engines=("unicorn", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
     ),
     "mips": ArchInfo(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -126,6 +135,24 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+    ),
+    "micromips": ArchInfo(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": ArchInfo(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("unicorn", "angr", "pcode"),
     ),
     "mips64": ArchInfo(
         platform=PlatformSpec("MIPS64", "BIG"),
@@ -201,6 +228,18 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=4,
         engines=("unicorn", "angr", "pcode"),
     ),
+    # PowerPC e200 running VLE code. Only angr runs it, on pypcode's own
+    # e200 language: Unicorn, PANDA and Styx have no VLE decoder, and
+    # upstream Ghidra has no 32-bit e200 language.
+    "ppcvle": ArchInfo(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr",),
+    ),
     "riscv64": ArchInfo(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",
@@ -225,6 +264,26 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         # Styx's SuperH2A core is SH-2A specific; panda runs on the QEMU SH-2A
         # instruction port from nix/patches/panda-qemu-sh2a.patch.
         engines=("angr", "pcode", "panda", "styx"),
+    ),
+    # SH-1 and SH-2 run on Ghidra's own languages for them, which refuse the
+    # later versions' instructions. Styx and PANDA model only SH-2A and SH-4.
+    "sh1": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
+    "sh2": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
     ),
     "sh4": ArchInfo(
         platform=PlatformSpec("SUPERH_SH4", "BIG"),
@@ -264,6 +323,26 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=("angr", "panda", "pcode"),
+    ),
+    "v850": ArchInfo(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        arg_register="r6",
+        result_register="r10",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
+    # Real mode, with every segment register at 0: the tests load at linear
+    # 0x1000, so pc, ip and every pointer coincide.
+    "x86_16": ArchInfo(
+        platform=PlatformSpec("X86_16", "LITTLE"),
+        pc_register="pc",
+        arg_register="di",
+        result_register="ax",
+        stack_pointer_register="sp",
+        pointer_size=2,
+        engines=("unicorn", "angr", "pcode"),
     ),
     "xtensa": ArchInfo(
         platform=PlatformSpec("XTENSA", "LITTLE"),
@@ -388,6 +467,19 @@ def make_emulator(smallworld, platform, engine: str):
         cpu_model = engine[len("styx") :].lstrip("-") or None
         return smallworld.emulators.StyxEmulator(platform, cpu_model=cpu_model)
     return getattr(smallworld.emulators, _EMULATOR_NAMES[engine])(platform)
+
+
+def concrete(value):
+    """``value`` as an int if it is a concrete bitvector.
+
+    angr leaves registers the harness never set symbolic, so a register
+    alias over a written low half and an unset high half (``ax`` in
+    ``eax`` on x86-16) comes back as a concrete bitvector rather than an
+    int.
+    """
+    if getattr(value, "concrete", False) and hasattr(value, "concrete_value"):
+        return value.concrete_value
+    return value
 
 
 def set_register(cpu, name: str, value: int) -> None:

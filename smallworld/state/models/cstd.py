@@ -608,6 +608,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 self.platform.architecture
                 in [
                     platforms.Architecture.MIPS32,
+                    platforms.Architecture.MIPS32_MICROMIPS,
                     platforms.Architecture.MIPS64,
                 ]
                 and index == 0
@@ -1151,13 +1152,20 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             emulator.write_register("lr", address)
+        elif self.platform.architecture == platforms.Architecture.V850:
+            # v850: jarl leaves the return address in 'lp'
+            emulator.write_register("lp", address)
         elif (
-            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            self.platform.architecture == platforms.Architecture.LOONGARCH32
+            or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV32
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH1
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH2
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
         ):
             # mips32, mips64, riscv32, riscv64 and superh: branch to register 'ra'.  On

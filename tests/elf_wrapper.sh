@@ -20,6 +20,13 @@ case " $* " in
   *" -little "* | *" --little "*) ld_endian="-EL" ;;
 esac
 
+# V850's `ld` defaults to the RH850 ABI and refuses GCC-ABI objects, so
+# restate the ABI the assembler was given.
+ld_emulation=""
+case " $* " in
+  *" -mgcc-abi "*) ld_emulation="-m v850" ;;
+esac
+
 echo "$as $args"
 $as $args
 
@@ -28,6 +35,6 @@ if [ "$as" = "tricore-elf-as" ]; then
   echo "$ld -T $linkerscript $tmp_file -o $out_file"
   $ld -T "$linkerscript" "$tmp_file" -o "$out_file"
 else
-  echo "$ld $ld_endian $tmp_file -o $out_file"
-  $ld $ld_endian "$tmp_file" -o "$out_file"
+  echo "$ld $ld_endian $ld_emulation $tmp_file -o $out_file"
+  $ld $ld_endian $ld_emulation "$tmp_file" -o "$out_file"
 fi

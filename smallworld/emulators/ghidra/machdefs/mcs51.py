@@ -31,31 +31,23 @@ from ....platforms.defs.mcs51 import (
     mcs51_take_interrupt,
     mcs51_unmapped_paging_message,
 )
-from .machdef import GhidraMachineDef, GhidraUserOp, handle_nop
+from .machdef import GhidraMachineDef, Userop
 
 logger = logging.getLogger(__name__)
 
 
-def handle_decimal_adjust(emulator, op):
+def _decimal_adjust(emulator, mnemonic, args) -> int:
     # DA A: adjust the accumulator after a BCD addition.  The op returns only
     # the new accumulator; the carry it may set lives in PSW.
+    (acc,) = args
     psw = emulator.read_register("psw")
     acc, carry = mcs51_decimal_adjust(
-        emulator._read_varnode(op.getInputs()[1]),
+        acc,
         bool(psw & MCS51_PSW_CARRY),
         bool(psw & MCS51_PSW_AUX_CARRY),
     )
     emulator.write_register("psw", (psw | MCS51_PSW_CARRY) if carry else psw)
-    emulator._write_varnode(op.getOutput(), acc & 0xFF)
-
-
-class MCS51UserOp(GhidraUserOp):
-    # Numbered in declaration order, as in Ghidra 12.1.2; matched by name.
-    # Ghidra builds the 8051 with
-    # BIT_OPS = "BIT_ADDRS", which declares only these two; the bit-access
-    # ops (get, set, set_bit_value, clr) exist only under "PCODEOPS".
-    DECIMAL_ADJUST = 0x00, "decimal_adjust", handle_decimal_adjust, "Decimal Adjust"
-    NOP = 0x01, "nop", handle_nop, "No Operation"
+    return acc & 0xFF
 
 
 class MCS51MachineDef(GhidraMachineDef):
@@ -63,7 +55,11 @@ class MCS51MachineDef(GhidraMachineDef):
     byteorder = Byteorder.BIG
 
     address_spaces = MCS51_ADDRESS_SPACES
-    userops = MCS51UserOp
+    # Ghidra builds the 8051 with BIT_OPS = "BIT_ADDRS", which declares only
+    # these two userops; the bit-access ops (get, set, set_bit_value, clr)
+    # exist only under "PCODEOPS".
+    nop_userops = frozenset({"nop"})
+    userops: typing.Mapping[str, Userop] = {"decimal_adjust": _decimal_adjust}
 
     def __init__(self):
         super().__init__()

@@ -17,8 +17,9 @@ R_RISCV_TLS_TPREL64 = 11  # Write the symbol's offset from the thread pointer.
 
 
 class RISCV64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.RISCV64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE)}
+    )
 
     # The width of an address, and the relocations of that width; RV32
     # overrides them.

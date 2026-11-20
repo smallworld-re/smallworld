@@ -18,7 +18,6 @@ from typing import Dict, Mapping, Optional, Tuple
 
 from ..common import PlatformSpec
 from .base import (
-    ANGR_NO_FP,
     ENTRY_F32_BINARY,
     ENTRY_F32_UNARY,
     ENTRY_F64_BINARY,
@@ -158,16 +157,32 @@ _SH2A_NO_DOUBLE = (
 
 
 def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
-    if func.startswith("f64") and engine in {"pcode", "styx"} and arch == "sh2a":
+    if (
+        func.startswith("f64")
+        and engine in {"pcode", "angr", "styx"}
+        and arch == "sh2a"
+    ):
         return _SH2A_NO_DOUBLE
     if func in {"f32_mul", "f32_div"} and engine == "pcode":
         return GHIDRA_FLUSHES_SUBNORMALS
     return None
 
 
+# angr's p-code engine cannot take a branch between the p-code ops of one
+# instruction: it resumes the instruction partway through and fails its own
+# "FIXME: Test statement_offset behavior" assertion. SH-4's arithmetic is an
+# if/else on FPSCR_PR, so every function fails that way. SH-2A's has no branch.
+# This harness sets FPSCR with lds, so FPSCR_PR is concrete; the floats
+# scenario writes fpscr directly, and fails earlier, with FPSCR_PR
+# unconstrained.
+_ANGR_NO_PCODE_BRANCH = (
+    "angr's p-code engine cannot branch within an instruction, and SH-4's "
+    "floating-point instructions branch on FPSCR_PR"
+)
+
 SUPPORT = ArchSupport(
     specs=SPECS,
-    variant_skips={f"{arch}.angr": ANGR_NO_FP for arch in SPECS},
+    variant_skips={f"{arch}.angr": _ANGR_NO_PCODE_BRANCH for arch in ("sh4", "sh4el")},
     function_skip=function_skip,
 )
 

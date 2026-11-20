@@ -69,10 +69,12 @@ R_X86_64_NUM = 43  # This and higher aren't valid
 
 
 class AMD64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.X86_64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)}
+    )
 
-    def __init__(self) -> None:
+    def __init__(self, platform: typing.Optional[platforms.Platform] = None) -> None:
+        super().__init__(platform)
         # Addresses of the TLS-descriptor pairs this relocator has written.
         # Their resolver word is null at load and filled in by
         # bind_tls_descriptor_resolver once a model library is linked.

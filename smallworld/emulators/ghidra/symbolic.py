@@ -17,7 +17,13 @@ from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-fou
 from ghidra.pcode.emu.symz3.state import (
     SymZ3PcodeEmulator,  # type: ignore[import-not-found]
 )
-from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
+from ghidra.pcode.emulate import (  # type: ignore[import-not-found]
+    InstructionDecodeException,
+)
+from ghidra.pcode.exec import (  # type: ignore[import-not-found]
+    DecodePcodeExecutionException,
+    PcodeExecutorStatePiece,
+)
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
 from java.lang import String as JString  # type: ignore[import-not-found]
@@ -82,13 +88,8 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
-        # This emulator addresses only the language's default space, and
-        # runs none of the user operations a machine definition implements;
-        # one whose table only skips operations runs as it did without it.
-        userops = self.machdef.userops
-        if self.machdef.address_spaces is not None or (
-            userops is not None and not userops.only_skips()
-        ):
+        # This emulator addresses only the language's default space.
+        if self.machdef.address_spaces is not None:
             raise exceptions.ConfigurationError(
                 f"GhidraSymbolicEmulator does not support {platform}"
             )
@@ -97,6 +98,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
         # Context configuration isn't auto-propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
         # Byte ranges the harness has explicitly written. write_memory_label
@@ -308,6 +310,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
@@ -329,6 +335,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            return claripy.BVV(
+                self.machdef.read_context(self._thread, reg),
+                self._expected_register_size(name) * 8,
+            )
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         sym = pair.getRight()
@@ -354,6 +365,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            if not isinstance(value, int):
+                raise exceptions.SymbolicValueError(
+                    f"Context register {name} cannot hold a symbolic value"
+                )
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            if isinstance(value, claripy.ast.bv.BV) and not value.symbolic:
+                # A concrete pc takes the int path, so pc_to_engine sees its
+                # low bit; a symbolic one has no bit to act on.
+                value = value.concrete_value
+            if isinstance(value, int):
+                value = self.machdef.pc_to_engine(self._thread, value)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()
@@ -637,7 +662,21 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if pc in self._function_hooks:
             self._function_hooks[pc](self)
         else:
-            self._step_pcode_ops()
+            # The first step of an instruction decodes it, which fails if the
+            # language has no such instruction. Ghidra raises a different
+            # exception when the instruction decodes but its delay slot does
+            # not.
+            try:
+                self._step_pcode_ops()
+            except (
+                DecodePcodeExecutionException,
+                InstructionDecodeException,
+            ) as e:
+                raise exceptions.EmulationExecInvalidFailure(
+                    f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                    pc,
+                    None,
+                ) from e
 
         # Cache invalidation: anything we ran may have changed preconditions.
         self._cached_preconditions = None
@@ -777,6 +816,48 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 # and the next iteration's stepPcodeOp() executes the
                 # CBRANCH normally on the concrete side.
                 self._maybe_fork_on_symbolic_cbranch(op)
+            elif self.machdef.is_nop_userop(op):
+                skip = True
+            elif self.machdef.userop(op) is not None:
+                self._run_userop(op)
+                skip = True
+
+    def _run_userop(self, op) -> None:
+        """Run a userop SmallWorld implements, in place of Ghidra's emulator.
+
+        The implementations are concrete only, so this refuses a userop whose
+        arguments depend on a symbolic input.
+        """
+        userop = self.machdef.userop(op)
+        assert userop is not None
+        state = self._thread.getState()
+        args = []
+        for var in op.getInputs()[1:]:
+            if var.isConstant():
+                args.append(int(var.getOffset()) & ((1 << (var.getSize() * 8)) - 1))
+                continue
+            pair = state.getVar(var, PcodeExecutorStatePiece.Reason.INSPECT)
+            sym = pair.getRight()
+            if sym is not None and self._sym_references_user_input(sym):
+                raise exceptions.SymbolicValueError(
+                    f"{self.machdef.userop_name(op)} has a symbolic argument, "
+                    "and SmallWorld runs it only on concrete values"
+                )
+            args.append(self._int_from_bytes(self.bytes_java_to_py(pair.getLeft())))
+        mnemonic = str(self._thread.getInstruction().getMnemonicString()).lower()
+        result = userop(self, mnemonic, args)
+        out_var = op.getOutput()
+        if out_var is not None:
+            assert result is not None
+            bits = out_var.getSize() * 8
+            result &= (1 << bits) - 1
+            data = result.to_bytes(out_var.getSize(), self._byteorder_str())
+            state.setVar(
+                out_var,
+                JPair.of(
+                    self.bytes_py_to_java(data), self._make_sym_value(result, bits)
+                ),
+            )
 
     def step_block(self) -> None:
         raise NotImplementedError("Block stepping not supported for symbolic emulator")

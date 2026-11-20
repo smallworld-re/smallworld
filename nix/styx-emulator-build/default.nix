@@ -19,6 +19,7 @@
   pkg-config,
   protobuf,
   stdenv,
+  zstd,
 }:
 let
   rawSrc = fetchFromGitHub {
@@ -69,7 +70,7 @@ ps.buildPythonPackage {
     postPatch = ''
       cp ${./Cargo.lock} Cargo.lock
     '';
-    hash = "sha256-lrjjvAdlQ17zdcw7J0uo6OZPeoqQ0sR/yuTyZV3msTI=";
+    hash = "sha256-8HhBRmolfHxOSlyZfcZXoLmRgBSJzxGvjkUL0AodYj8=";
   };
 
   # Inject our pinned Cargo.lock into the unpacked source tree. cargoSetupHook
@@ -132,6 +133,11 @@ ps.buildPythonPackage {
 
   dontUseCmakeConfigure = true;
 
+  # On macOS maturin's wheel audit rejects the extension's link against Nix's
+  # libiconv and wants to vendor it into the wheel. Store paths are stable, so
+  # there is nothing to repair; skip the audit.
+  maturinBuildFlags = lib.optionals stdenv.hostPlatform.isDarwin [ "--auditwheel=skip" ];
+
   nativeBuildInputs = [
     rustPlatform.cargoSetupHook
     rustPlatform.maturinBuildHook
@@ -142,6 +148,22 @@ ps.buildPythonPackage {
     pkg-config
     protobuf
   ];
+
+  # nixpkgs' cargoSetupHook now exports `ZSTD_SYS_USE_PKG_CONFIG=1`, so the
+  # `zstd-sys` crate links the system libzstd instead of compiling its bundled
+  # copy, and fails its build script if pkg-config cannot find one.
+  buildInputs = [ zstd ];
+
+  # With nixpkgs' current GCC the C/C++ parts of the extension emit calls to
+  # libatomic's 16-byte helpers (`__atomic_compare_exchange_16` and friends)
+  # instead of inlining them, and nothing on the link line pulls libatomic
+  # in. The wheel still links - undefined symbols are allowed in a shared
+  # object - and then fails at `import styx_emulator`. clang resolves these
+  # from compiler-rt, so this is only wanted for GCC.
+  env.NIX_LDFLAGS = lib.optionalString stdenv.cc.isGNU "-latomic";
+
+  # Catch that class of breakage at build time rather than in the test suite.
+  pythonImportsCheck = [ "styx_emulator" ];
 
   PROTOC = "${protobuf}/bin/protoc";
   PROTOC_INCLUDE = "${protobuf}/include";

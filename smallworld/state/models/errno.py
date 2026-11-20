@@ -567,6 +567,16 @@ class MIPSELErrnoResolver(MIPSErrnoResolver):
     # mipsel uses the MIPS errno list
 
 
+class MicroMIPSBEErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.BIG)
+    # microMIPS uses the MIPS errno list
+
+
+class MicroMIPSELErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.LITTLE)
+    # microMIPS uses the MIPS errno list
+
+
 class MIPS64BEErrnoResolver(MIPSErrnoResolver):
     platform = Platform(Architecture.MIPS64, Byteorder.BIG)
     # mips64 uses the MIPS errno list

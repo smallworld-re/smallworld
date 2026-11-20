@@ -20,20 +20,37 @@ class ElfRelocator:
     Each platform defines its own set of relocation types,
     defining how symbol values can update an image at link-time.
 
+    A relocator covers every platform in `supported_platforms`;
+    an architecture family whose members relocate alike
+    shares one relocator.
 
+    Arguments:
+        platform: The platform to relocate for. It may be omitted
+            when the relocator covers only one platform.
     """
 
-    @property
-    @abc.abstractmethod
-    def arch(self) -> platforms.Architecture:
-        """The architecture ID"""
-        raise NotImplementedError("This is an abstract method")
+    supported_platforms: typing.FrozenSet[platforms.Platform] = frozenset()
+
+    def __init__(self, platform: typing.Optional[platforms.Platform] = None):
+        if platform is None:
+            if len(self.supported_platforms) != 1:
+                raise ValueError(
+                    f"{type(self).__name__} covers several platforms; pass one"
+                )
+            (platform,) = self.supported_platforms
+        elif platform not in self.supported_platforms:
+            raise ValueError(f"{type(self).__name__} does not cover {platform}")
+        self.platform = platform
 
     @property
-    @abc.abstractmethod
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
+        return self.platform.architecture
+
+    @property
     def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        raise NotImplementedError("This is an abstract method.")
+        return self.platform.byteorder
 
     @abc.abstractmethod
     def _compute_value(self, rela: ElfRela, elf: elf.ElfExecutable) -> bytes:
@@ -136,9 +153,7 @@ class ElfRelocator:
     def for_platform(cls, platform: platforms.Platform):
         try:
             return utils.find_subclass(
-                cls,
-                lambda x: x.arch == platform.architecture
-                and x.byteorder == platform.byteorder,
+                cls, lambda x: platform in x.supported_platforms, platform
             )
         except ValueError as e:
             # find_subclass raises ValueError only for the no-match case;

@@ -93,6 +93,14 @@ _SPECS = {
         stack_pointer_register="esp",
         fake_return_size=4,
     ),
+    "la32": ExitpointSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        link_register="ra",
+    ),
     "la64": ExitpointSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -139,6 +147,30 @@ _SPECS = {
         mid_exit_offset=8,
         link_register="ra",
         entrypoint_registers=("t9",),
+    ),
+    "micromips": ExitpointSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=2,
+        # The mid exit lands on main's final jrc. Unicorn runs a microMIPS
+        # compact branch even when a hook stops emulation on it, so on Unicorn
+        # stop one instruction earlier, on the addiusp before it.
+        mid_exit_offset_overrides={"unicorn": 4},
+        link_register="ra",
+    ),
+    "micromipsel": ExitpointSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=2,
+        # The mid exit lands on main's final jrc. Unicorn runs a microMIPS
+        # compact branch even when a hook stops emulation on it, so on Unicorn
+        # stop one instruction earlier, on the addiusp before it.
+        mid_exit_offset_overrides={"unicorn": 4},
+        link_register="ra",
     ),
     "mips64": ExitpointSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
@@ -213,6 +245,24 @@ _SPECS = {
     # stays None and the loader honours the file's own addresses.
     # fake_return_size is the 4-byte SuperH pointer; the pushed value is never
     # read, because the return address comes from `pr` (aliased ra/lr).
+    "sh1": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
+    "sh2": ExitpointSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        mid_exit_offset=4,
+        fake_return_size=4,
+        link_register="pr",
+    ),
     "sh2a": ExitpointSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pc_register="pc",
@@ -248,6 +298,15 @@ _SPECS = {
         mid_exit_offset=2,
         fake_return_size=4,
         link_register="ra",
+    ),
+    "v850": ExitpointSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        engines=("angr", "pcode"),
+        mid_exit_offset=2,
+        fake_return_size=4,
+        link_register="lp",
     ),
 }
 
@@ -359,6 +418,14 @@ def _run_exit_test(
 
 
 def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
+    from smallworld import platforms
+
+    if platforms.PlatformDef.for_platform(code.platform).isa_bit is not (
+        platforms.IsaBit.NONE
+    ):
+        # main's symbol value carries the ISA bit; the code is at the even
+        # address.
+        entrypoint &= ~1
     main_size = code.get_capacity() if spec.raw_binary else code.get_symbol_size("main")
     return (
         entrypoint

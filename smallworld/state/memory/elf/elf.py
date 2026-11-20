@@ -5,7 +5,7 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform
+from ....platforms import Architecture, Byteorder, IsaBit, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
@@ -21,10 +21,12 @@ EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
+EM_V800 = 36  # NEC V800; the RH850 ELF ABI, which GNU as uses by default
 EM_ARM = 40  # ARM 32-bit
 EM_SH = 42  # Renesas/Hitachi SuperH; all generations
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
+EM_V850 = 87  # NEC/Renesas V850, the GCC ELF ABI
 EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
 EM_RISCV = 243  # RISC-V
@@ -34,6 +36,26 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+
+# V850-specific flag values: the field naming the core, and its value for
+# V850E3v5.
+EF_V850_ARCH = 0xF0000000
+E_V850E3V5_ARCH = 0x60000000
+
+_V850_RH850_WARNING = (
+    "running it as V850E2M. RH850-only instructions fail to decode, "
+    "or run as different V850 instructions"
+)
+
+# PowerPC-specific flag values, marking code in the Variable Length Encoding:
+# on a section in sh_flags, and on a segment in p_flags.
+SHF_PPC_VLE = 0x10000000
+PF_PPC_VLE = 0x10000000
+
+# MIPS-specific flag values
+EF_MIPS_MICROMIPS = 0x02000000  # ASE: the image contains microMIPS code
+STO_MIPS_ISA = 0xC0  # st_other: the bits that say which MIPS ISA a symbol is
+STO_MICROMIPS = 0x80  # st_other: this symbol is microMIPS code
 
 # SuperH-specific flag values.
 #
@@ -80,6 +102,232 @@ EF_SH_SH4_MACHINES = {
     EF_SH4_NOFPU,
     EF_SH4A_NOFPU,
     EF_SH4_NOMMU_NOFPU,
+}
+
+# Deriving the architecture from the ELF header.
+#
+# Each detector takes the parsed ELF and the platform the caller requested,
+# if any, and returns the architecture the header describes.
+
+ArchitectureDetector = typing.Callable[
+    [typing.Any, typing.Optional[Platform]], Architecture
+]
+
+
+def _fixed_architecture(architecture: Architecture) -> ArchitectureDetector:
+    """A machine value that names exactly one architecture."""
+    return lambda elf, requested: architecture
+
+
+def _architecture_by_class(
+    elf32: typing.Optional[Architecture],
+    elf64: typing.Optional[Architecture],
+    elf32_unsupported: str = "",
+) -> ArchitectureDetector:
+    """A machine value whose word size is given by the ELF class."""
+
+    def detect(elf, requested):
+        if elf.header.identity_class.value == 1:
+            if elf32 is None:
+                raise ConfigurationError(elf32_unsupported)
+            return elf32
+        elif elf.header.identity_class.value == 2:
+            assert elf64 is not None
+            return elf64
+        else:
+            raise ConfigurationError(
+                f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
+            )
+
+    return detect
+
+
+def _arm_architecture(elf, requested):
+    # Some kind of arm32
+    flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
+
+    # NOTE: ELF stopped numbering ARM version numbers at 5.
+    # This would be fine, except v6 and v7 are absolutely not
+    # binary compatible with v5.
+    if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
+        # This is either ARMv5T or some kind of ARMv6.
+        # We're currently assuming v5T,
+        # unless the user specifically asks for v6.
+        if requested is not None and requested.architecture is Architecture.ARM_V6M:
+            return Architecture.ARM_V6M
+        elif requested is not None and requested.architecture is Architecture.ARM_V5T:
+            return Architecture.ARM_V5T
+        else:
+            log.warning("Ambiguous ARM ABI version; assuming v5t")
+            return Architecture.ARM_V5T
+    elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
+        # This is ARMv7a, as built by gcc.
+        return Architecture.ARM_V7A
+    else:
+        # The file might be a core dump or some uncommon flavor of ARM.
+        # Fallback to a default if flags are missing.
+        log.warning(
+            f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
+            "defaulting to ARM_V7A."
+        )
+        return Architecture.ARM_V7A
+
+
+def _superh_architecture(elf, requested):
+    # Some kind of SuperH.
+    #
+    # NOTE: lief has no SuperH flag enums, so `flags_list` comes back
+    # empty here and we have to read the raw e_flags.
+    mach = elf.header.processor_flag & EF_SH_MACH_MASK
+
+    if mach in EF_SH_SH2A_MACHINES:
+        return Architecture.SUPERH_SH2A_FPU
+    elif mach in EF_SH_SH4_MACHINES:
+        return Architecture.SUPERH_SH4
+    elif mach == EF_SH1:
+        return Architecture.SUPERH_SH1
+    elif mach == EF_SH2:
+        return Architecture.SUPERH_SH2
+    elif mach == EF_SH2E:
+        # SH-2 with a single-precision FPU, which Ghidra has no
+        # language for. SH-2A is a strict superset.
+        log.warning(
+            f"SuperH ISA {hex(mach)} has no SmallWorld model; running it as SH-2A-FPU"
+        )
+        return Architecture.SUPERH_SH2A_FPU
+    elif mach in (EF_SH3, EF_SH3E, EF_SH3_NOMMU):
+        # SH-4 is a superset of these.
+        log.warning(
+            f"SuperH ISA {hex(mach)} has no SmallWorld model; running it as SH-4"
+        )
+        return Architecture.SUPERH_SH4
+    elif mach == EF_SH_UNKNOWN:
+        # No ISA recorded at all - a core dump, or an image linked by a
+        # toolchain that never set the field. Same fallback as the ARM
+        # detector rather than a hard failure.
+        log.warning("SuperH image records no ISA in e_flags; defaulting to SH-4")
+        return Architecture.SUPERH_SH4
+    else:
+        # SH-DSP and friends.
+        raise ConfigurationError(f"Unsupported SuperH ISA in e_flags: {hex(mach)}")
+
+
+def _v850_architecture(elf, requested):
+    # SmallWorld's V850 model has no RH850 (V850E3v5) instructions. Most
+    # RH850-only instructions fail to decode, but RH850 reused some encodings
+    # that V850 decodes as other instructions, so those run wrongly without
+    # failing: `loop` runs as `mulhi`, `synci` as `mov`, `ld.dw`/`st.dw` as
+    # `ld.bu` plus a stray halfword, the 17-bit-displacement branches as
+    # `ld.hu`, and `dbhvtrap`/`dbcp` as `divh`. See support.rst. GCC-ABI
+    # images record their core, so warn only for RH850 code; V850E2V3 is the
+    # V850E2M modelled.
+    if elf.header.processor_flag & EF_V850_ARCH == E_V850E3V5_ARCH:
+        log.warning(f"EM_V850 image flagged as V850E3v5 (RH850); {_V850_RH850_WARNING}")
+    return Architecture.V850
+
+
+def _v800_architecture(elf, requested):
+    # V850 and RH850 images built for the RH850 ABI, GNU as's default. Its
+    # relocations are numbered differently from the GCC ABI's, and it does not
+    # record which core the code is for.
+    raise ConfigurationError(
+        "EM_V800 (RH850 ABI) images are not supported; "
+        "build V850 code for the GCC ABI (EM_V850) instead"
+    )
+
+
+def _ppc_architecture(elf, requested):
+    # PowerPC 32-bit. The header doesn't distinguish VLE; its code is flagged
+    # in the section headers and the program headers instead. Either may be
+    # missing (a stripped image has no section headers), so both are read.
+    vle_code = any(section.flags & SHF_PPC_VLE for section in elf.sections) or any(
+        segment.raw_flags & PF_PPC_VLE for segment in elf.segments
+    )
+    if any(section.size > 0 for section in elf.sections):
+        standard_code = any(
+            section.flags & SHF_EXECINSTR
+            and not section.flags & SHF_PPC_VLE
+            and section.size > 0
+            for section in elf.sections
+        )
+    else:
+        standard_code = any(
+            segment.raw_flags & PF_X and not segment.raw_flags & PF_PPC_VLE
+            for segment in elf.segments
+            if segment.type.value & 0xFFFFFFFF == PT_LOAD
+        )
+    if vle_code and standard_code:
+        # A file mixing VLE and standard code, as several e200 cores run.
+        # Each platform decodes one encoding for the whole run, so the caller
+        # picks which code to run; VLE is the default, since it is usually
+        # most of such a file.
+        if requested is not None and requested.architecture in (
+            Architecture.POWERPC32,
+            Architecture.POWERPC32_VLE,
+        ):
+            architecture = requested.architecture
+        else:
+            architecture = Architecture.POWERPC32_VLE
+        log.warning(
+            "PowerPC image mixes VLE and standard code; running it as "
+            f"{architecture}, so code in the other encoding will be "
+            "misdecoded"
+        )
+        return architecture
+    elif vle_code:
+        return Architecture.POWERPC32_VLE
+    return Architecture.POWERPC32
+
+
+def _mips_architecture(elf, requested):
+    # Some kind of MIPS.
+    # TODO: There are more parameters than just word size
+    architecture = _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64)(
+        elf, requested
+    )
+    if (
+        architecture == Architecture.MIPS32
+        and elf.header.processor_flag & EF_MIPS_MICROMIPS
+    ):
+        ElfExecutable._warn_mixed_micromips(elf)
+        return Architecture.MIPS32_MICROMIPS
+    return architecture
+
+
+# The architecture detector for each e_machine value.
+ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
+    EM_386: _fixed_architecture(Architecture.X86_32),
+    EM_68K: _fixed_architecture(Architecture.M68K),
+    EM_AARCH64: _fixed_architecture(Architecture.AARCH64),
+    EM_ARM: _arm_architecture,
+    EM_LOONGARCH: _architecture_by_class(
+        Architecture.LOONGARCH32, Architecture.LOONGARCH64
+    ),
+    EM_MIPS: _mips_architecture,
+    EM_PPC: _ppc_architecture,
+    EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
+    EM_RISCV: _architecture_by_class(Architecture.RISCV32, Architecture.RISCV64),
+    EM_SH: _superh_architecture,
+    EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
+    EM_V800: _v800_architecture,
+    EM_V850: _v850_architecture,
+    EM_X86_64: _fixed_architecture(Architecture.X86_64),
+    EM_XTENSA: _fixed_architecture(Architecture.XTENSA),
+}
+
+# Families whose e_machine value cannot tell their members apart well enough,
+# keyed by e_machine. When the caller requests a member of the family, it wins
+# over the member derived from the header: SuperH's ISA field cannot express,
+# say, an SH-2A image the caller wants to run on our SH-4 model.
+REQUESTED_ARCHITECTURE_WINS: typing.Dict[int, typing.FrozenSet[Architecture]] = {
+    EM_SH: frozenset(
+        {
+            Architecture.SUPERH_SH1,
+            Architecture.SUPERH_SH2,
+            Architecture.SUPERH_SH2A_FPU,
+            Architecture.SUPERH_SH4,
+        }
+    ),
 }
 
 # Program header types
@@ -260,7 +508,25 @@ class ElfExecutable(Executable):
         if elf.entrypoint is not None and elf.entrypoint != 0:
             # Check if the entrypoint is valid (falls within the image)
             entrypoint = self._rebase_file(elf.entrypoint)
-            if not self.bounds.contains_value(entrypoint):
+            address = entrypoint
+            if (
+                self.platform is not None
+                and PlatformDef.for_platform(self.platform).isa_bit is not IsaBit.NONE
+            ):
+                # Bit 0 of a code address selects the instruction set; the
+                # code itself is at the even address.
+                address &= ~1
+            if (
+                self.platform is not None
+                and self.platform.architecture == Architecture.MIPS32_MICROMIPS
+                and not entrypoint & 1
+            ):
+                log.warning(
+                    "The ELF entrypoint is standard MIPS32 code, but runs "
+                    "start in microMIPS; set isa_mode to 0 before running "
+                    "it (Ghidra only)"
+                )
+            if not self.bounds.contains_value(address):
                 if (
                     self.platform is not None
                     and self.platform.architecture == Architecture.POWERPC64
@@ -301,164 +567,37 @@ class ElfExecutable(Executable):
             )
 
         # Determine arch/mode.  This bit's harder.
-        if elf.header.machine_type.value == EM_X86_64:
-            # amd64
-            architecture = Architecture.X86_64
-        elif elf.header.machine_type.value == EM_AARCH64:
-            # aarch64
-            architecture = Architecture.AARCH64
-        elif elf.header.machine_type.value == EM_386:
-            # i386
-            architecture = Architecture.X86_32
-        elif elf.header.machine_type.value == EM_68K:
-            # m68k
-            architecture = Architecture.M68K
-        elif elf.header.machine_type.value == EM_ARM:
-            # Some kind of arm32
-            flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
+        #
+        # LIEF gives a plain int, not an ARCH, for a machine type it doesn't
+        # know; `int` accepts both, and the lookup refuses the unknown ones.
+        machine = int(elf.header.machine_type)
+        detect = ARCHITECTURE_DETECTORS.get(machine)
+        if detect is None:
+            raise ConfigurationError(f"Unknown value of e_machine: {hex(machine)}")
+        architecture = detect(elf, self.platform)
 
-            # NOTE: ELF stopped numbering ARM version numbers at 5.
-            # This would be fine, except v6 and v7 are absolutely not
-            # binary compatible with v5.
-            if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
-                # This is either ARMv5T or some kind of ARMv6.
-                # We're currently assuming v5T,
-                # unless the user specifically asks for v6.
-                if (
-                    self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V6M
-                ):
-                    architecture = Architecture.ARM_V6M
-                elif (
-                    self.platform is not None
-                    and self.platform.architecture is Architecture.ARM_V5T
-                ):
-                    architecture = Architecture.ARM_V5T
-                else:
-                    log.warning("Ambiguous ARM ABI version; assuming v5t")
-                    architecture = Architecture.ARM_V5T
-            elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
-                # This is ARMv7a, as built by gcc.
-                architecture = Architecture.ARM_V7A
-            else:
-                # The file might be a core dump or some uncommon flavor of ARM.
-                # Fallback to a default if flags are missing.
-                log.warning(
-                    f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
-                    "defaulting to ARM_V7A."
-                )
-                architecture = Architecture.ARM_V7A
-        elif elf.header.machine_type.value == EM_SH:
-            # Some kind of SuperH.
-            #
-            # NOTE: lief has no SuperH flag enums, so `flags_list` comes back
-            # empty here and we have to read the raw e_flags.
-            mach = elf.header.processor_flag & EF_SH_MACH_MASK
-
-            if mach in EF_SH_SH2A_MACHINES:
-                architecture = Architecture.SUPERH_SH2A_FPU
-            elif mach in EF_SH_SH4_MACHINES:
-                architecture = Architecture.SUPERH_SH4
-            elif mach in (EF_SH1, EF_SH2, EF_SH2E):
-                # SH-2A is a strict superset of these.
-                log.warning(
-                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
-                    "running it as SH-2A-FPU"
-                )
-                architecture = Architecture.SUPERH_SH2A_FPU
-            elif mach in (EF_SH3, EF_SH3E, EF_SH3_NOMMU):
-                # SH-4 is a superset of these.
-                log.warning(
-                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
-                    "running it as SH-4"
-                )
-                architecture = Architecture.SUPERH_SH4
-            elif mach == EF_SH_UNKNOWN:
-                # No ISA recorded at all - a core dump, or an image linked by a
-                # toolchain that never set the field. Same fallback as the ARM
-                # branch above rather than a hard failure.
-                log.warning(
-                    "SuperH image records no ISA in e_flags; defaulting to SH-4"
-                )
-                architecture = Architecture.SUPERH_SH4
-            else:
-                # SH-DSP and friends.
-                raise ConfigurationError(
-                    f"Unsupported SuperH ISA in e_flags: {hex(mach)}"
-                )
-
-            # An explicitly requested SuperH platform wins over the derived one:
-            # the ISA field cannot express, say, an SH-2A image the caller wants
-            # to run on our SH-4 model.
-            #
-            # This has to come *after* the derivation, not instead of it.
-            # `_platform_for_ehdr` feeds the "Platform mismatch" guard in
-            # `__init__`, so short-circuiting on `self.platform` made the raise
-            # above unreachable - an SH-DSP image loaded with `platform=SH-4`
-            # was silently accepted - and swallowed every warning here. Say so
-            # out loud when it happens, rather than overriding in silence.
-            if (
-                self.platform is not None
-                and self.platform.architecture != architecture
-                and self.platform.architecture
-                in (
-                    Architecture.SUPERH_SH2A_FPU,
-                    Architecture.SUPERH_SH4,
-                )
-            ):
-                log.warning(
-                    f"SuperH image records ISA {hex(mach)} ({architecture}), but "
-                    f"{self.platform.architecture} was requested; using the "
-                    "requested platform"
-                )
-                architecture = self.platform.architecture
-        elif elf.header.machine_type.value == EM_TRICORE:
-            architecture = Architecture.TRICORE
-        elif elf.header.machine_type.value == EM_LOONGARCH:
-            if elf.header.identity_class.value == 1:
-                # 32-bit elf
-                raise ConfigurationError("LoongArch32 not supported")
-            elif elf.header.identity_class.value == 2:
-                # 64-bit elf
-                architecture = Architecture.LOONGARCH64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_MIPS:
-            # Some kind of mips.
-            # TODO: There are more parameters than just word size
-            if elf.header.identity_class.value == 1:
-                # 32-bit ELF
-                architecture = Architecture.MIPS32
-            elif elf.header.identity_class.value == 2:
-                architecture = Architecture.MIPS64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_PPC:
-            # PowerPC 32-bit
-            architecture = Architecture.POWERPC32
-        elif elf.header.machine_type.value == EM_PPC64:
-            # PowerPC 64-bit
-            architecture = Architecture.POWERPC64
-        elif elf.header.machine_type.value == EM_RISCV:
-            # RISC-V
-            if elf.header.identity_class.value == 1:
-                architecture = Architecture.RISCV32
-            elif elf.header.identity_class.value == 2:
-                architecture = Architecture.RISCV64
-            else:
-                raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
-                )
-        elif elf.header.machine_type.value == EM_XTENSA:
-            architecture = Architecture.XTENSA
-        else:
-            raise ConfigurationError(
-                f"Unknown value of e_machine: {hex(elf.header.machine_type.value)}"
+        # An explicitly requested member of the family wins over the derived
+        # one.
+        #
+        # This has to come *after* the derivation, not instead of it.
+        # `_platform_for_ehdr` feeds the "Platform mismatch" guard in
+        # `__init__`, so short-circuiting on `self.platform` would make the
+        # detector's refusals unreachable - an SH-DSP image loaded with
+        # `platform=SH-4` would be silently accepted - and swallow its
+        # warnings. Say so out loud when it happens, rather than overriding in
+        # silence.
+        family = REQUESTED_ARCHITECTURE_WINS.get(machine, frozenset())
+        if (
+            self.platform is not None
+            and self.platform.architecture != architecture
+            and self.platform.architecture in family
+        ):
+            log.warning(
+                f"ELF header describes {architecture}, but "
+                f"{self.platform.architecture} was requested; using the "
+                "requested platform"
             )
+            architecture = self.platform.architecture
         return Platform(architecture, byteorder)
 
     def _determine_base(self):
@@ -501,6 +640,30 @@ class ElfExecutable(Executable):
                 # We (probably) cannot move the image without problems.
                 raise ConfigurationError("Base address defined for fixed-position ELF")
         log.debug(f"Address: {self.address:x}")
+
+    @staticmethod
+    def _warn_mixed_micromips(elf) -> None:
+        """Warn if a microMIPS image also has standard MIPS32 functions.
+
+        Only the Ghidra backend switches between the two encodings, and the
+        header flag says only that some of the code is microMIPS. Function
+        symbols say which is which; a stripped image has none to check.
+        """
+        standard = sorted(
+            sym.name
+            for sym in elf.symbols
+            if sym.type == lief.ELF.Symbol.TYPE.FUNC
+            and sym.value != 0
+            and sym.other & STO_MIPS_ISA != STO_MICROMIPS
+        )
+        if standard:
+            shown = ", ".join(standard[:5]) + (", ..." if len(standard) > 5 else "")
+            log.warning(
+                "ELF image mixes microMIPS and standard MIPS32 code; loading it "
+                "as MIPS32_MICROMIPS. Only the Ghidra backend switches between "
+                "the two; on angr and Unicorn these standard MIPS32 functions "
+                f"will not run correctly: {shown}"
+            )
 
     def _rebase_file(self, val: int):
         # Rebase an offset from file-relative to image-relative
@@ -785,6 +948,9 @@ class ElfExecutable(Executable):
             # Relative symbols will be relative to the load address
             baseaddr = self.address
 
+        # The st_other bits above visibility are processor-specific.
+        is_mips = int(elf.header.machine_type) == EM_MIPS
+
         dynsyms = set(elf.dynamic_symbols)
         idx = 0
         dynamic = True
@@ -796,6 +962,14 @@ class ElfExecutable(Executable):
                 idx = 0
                 dynamic = False
 
+            # A microMIPS code symbol's value carries the ISA bit, as code
+            # addresses do on platforms with two instruction sets. LLD sets
+            # it in .dynsym but not in .symtab, so set it from st_other for
+            # both, and the two agree.
+            value = s.value
+            if is_mips and s.other & STO_MIPS_ISA == STO_MICROMIPS and s.shndx != 0:
+                value |= 1
+
             # Build a symbol
             sym = ElfSymbol(
                 idx=idx,
@@ -803,13 +977,14 @@ class ElfExecutable(Executable):
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
-                # Visibility is the low two bits of st_other.  The rest can
-                # mean something else; on PowerPC64 ELFv2 it's the offset of
-                # the function's local entry point.
+                # Visibility is the low two bits of st_other. Read them
+                # directly: LIEF's enum rejects the processor-specific bits
+                # above them, such as STO_MICROMIPS or PowerPC64 ELFv2's
+                # offset of the function's local entry point.
                 visibility=s.other & 0x3,
                 other=s.other,
                 shndx=s.shndx,
-                value=s.value,
+                value=value,
                 size=s.size,
                 baseaddr=baseaddr,
                 defined=(s.shndx != 0),
@@ -829,12 +1004,16 @@ class ElfExecutable(Executable):
         # no explicit platform; guard the access as the header-block paths do.
         if self.platform is not None and (
             self.platform.architecture == Architecture.MIPS32
+            or self.platform.architecture == Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == Architecture.MIPS64
         ):
             # All MIPS dynamic symbols have an implicit rela.
             # MIPS dynamic symbols always have a GOT entry;
             # to save space, the ABI just assumes that the rela exists
-            if (
+            if not self._dtags:
+                # No dynamic section: a static image, with no GOT to find.
+                pass
+            elif (
                 DT_MIPS_GOTSYM not in self._dtags
                 or DT_MIPS_LOCAL_GOTNO not in self._dtags
                 or DT_PLTGOT not in self._dtags
@@ -849,10 +1028,10 @@ class ElfExecutable(Executable):
                 gotoff = self._dtags[DT_PLTGOT]
 
                 rela_type = R_MIPS_JUMP_SLOT
-                if self.platform.architecture == Architecture.MIPS32:
-                    gotent = 4
-                else:
+                if self.platform.architecture == Architecture.MIPS64:
                     gotent = 8
+                else:
+                    gotent = 4
 
                 # Rebase the GOT offset relative to the image
                 gotoff = self._rebase_file(gotoff)
@@ -931,7 +1110,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     jmpreloff,
                     baseaddr,
@@ -972,7 +1151,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1013,7 +1192,7 @@ class ElfExecutable(Executable):
                     is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
-                    elf.header.machine_type.value,
+                    int(elf.header.machine_type),
                     image,
                     dynreloff,
                     baseaddr,
@@ -1040,7 +1219,7 @@ class ElfExecutable(Executable):
                         is_rela,
                         elf.header.identity_class.value,
                         elf.header.identity_data.value,
-                        elf.header.machine_type.value,
+                        int(elf.header.machine_type),
                         image,
                         section.offset,
                         baseaddr,

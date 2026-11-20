@@ -48,6 +48,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instruction stored to a constant address, which p-code expresses as a COPY
   into a memory varnode, the backend ran the write hooks and then skipped the
   op, so the store never happened.
+- `AngrEmulator` reads and writes part of a register correctly on p-code
+  architectures. angr's p-code engine looked a register varnode up by the
+  name of the register containing it, losing its offset within it, so an
+  instruction using a big-endian register's low half (SuperH `mulu.w`) used
+  the high half instead. This also fixes SuperH `mov.w Rm,@Rn` and
+  `mov.b Rm,@Rn`, which stored `Rm`'s high bytes, so a halfword store of
+  `0x1234` wrote zero.
+- `GhidraEmulator` and `GhidraSymbolicEmulator` report an instruction their
+  language cannot decode as `EmulationExecInvalidFailure`, as the other
+  backends do, rather than letting Ghidra's `DecodePcodeExecutionException`
+  escape, or its `InstructionDecodeException` for an undecodable delay-slot
+  instruction.
+- The ELF loader reports a machine type LIEF does not know as an unknown
+  `e_machine` value, rather than failing with an `AttributeError`, and loads
+  such an image when given a platform with `ignore_platform`.
+- The p-code use/def analysis no longer misreads MIPS32 code above a `jalx`
+  target that it analyzed after the `jalx`. Decoding a `jalx` left its cached
+  SLEIGH context decoding those addresses as MIPS16, so their reads and
+  writes came back empty or wrong; the context is now rebuilt after one.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -65,8 +84,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero (`beqz`, `c.bnez`...) count as conditional branches.
 - On RISC-V, `TritonEmulator` raises an interrupt for `c.ebreak`, as for
   `ebreak`, and steps past `fence`, `fence.i`, `fence.tso` and `pause`;
-  `GhidraEmulator` steps past `fence` and `fence.i`, through its
-  `GhidraMachineDef.userops` table.  Both stopped with an error.
+  `GhidraEmulator` steps past `fence` and `fence.i`, which the RISC-V
+  machine definitions list in `GhidraMachineDef.nop_userops`.  Both stopped
+  with an error.
 - The RISC-V ELF relocator resolves TLS module and offset relocations
   (`R_RISCV_TLS_DTPMOD64`, `R_RISCV_TLS_DTPREL64`) and names what is missing
   for `R_RISCV_COPY` and `R_RISCV_TLS_TPREL64`, rather than calling them
@@ -145,11 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `square`, `branch`, `mcs51_spaces` and `mcs51_flags` integration cases.
   The 8051's separate address spaces share one flat SmallWorld memory map,
   which `GhidraMachineDef.address_spaces` describes and the Ghidra emulator
-  translates; `GhidraMachineDef.userops` lets a machine implement SLEIGH
-  user-defined operations in Python, or skip them with `handle_nop`,
-  following the angr backend's Xtensa tables. The emulator matches them by
-  name, as the angr backend's RISC-V and SuperH-4 code does, since Ghidra
-  numbers them in declaration order. Test binaries are assembled with SDCC. SmallWorld's Nix environment
+  translates; its `decimal_adjust` userop runs through
+  `GhidraMachineDef.userops`, and its `nop` through `nop_userops`. Test binaries are assembled with SDCC. SmallWorld's Nix environment
   patches Ghidra's 8051 language (`nix/patches/ghidra-8051.patch`) so that
   arithmetic flags, bit addressing, `mov sp,#n` and `movx @Ri` behave as on
   hardware; `movx @Ri` takes the high byte of its address from P2, which SDCC
@@ -301,6 +318,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with no request flag, as the EFM8BB2's Port Match is. An `mcs51_sdcc`
   program built for the EFM8BB2 tests them.
 
+- angr runs floating-point p-code. angr's p-code engine leaves every float
+  operation unimplemented, so SmallWorld supplies its own. They follow IEEE
+  754, and the docs list where Ghidra's emulator departs from it: concrete
+  operands in half, single and double precision, symbolic
+  ones in single and double precision through Z3. SH-2A floating point now runs
+  on angr and passes TestFloat's single-precision functions. SH-4's does not
+  yet, because its float instructions branch within the instruction, which
+  angr's p-code engine cannot do.
+- `Architecture.SUPERH_SH1` and `Architecture.SUPERH_SH2`, big-endian, on the
+  angr and Ghidra backends, using Ghidra's SH-1 and SH-2 languages. Each
+  refuses the later versions' instructions, as the CPU does, where SH-1 and
+  SH-2 code used to run as SH-2A. The ELF loader recognizes them from
+  `e_flags`.
+- `Architecture.LOONGARCH32`, 32-bit LoongArch, on angr and Ghidra through
+  Ghidra's `Loongarch:LE:32:ilp32d` language. It decodes LA32R and LA32S
+  code, and also accepts some LoongArch64-only instructions. Some instructions
+  stop emulation, and the language computes `rotr.w`, `rotri.w`, `bstrins.w`
+  and `bytepick.w` wrong; the platform support docs list both. ELF32
+  `EM_LOONGARCH` images now load as this platform instead of being refused,
+  with `R_LARCH_32` relocations. There are no System V ABI models for it yet.
+- `AngrEmulator` supports M68K (68040), using Ghidra's `68000:BE:32:default`
+  p-code, with a stack-based System V calling convention for function hooks.
+  On angr, the `sfc`, `dfc` and `tc` control registers keep their real widths
+  even though sleigh widens them to 4 bytes. `cas`/`cas2` are refused, and
+  traps, syscalls, the BCD instructions and the FPU aren't supported; see the
+  platform support notes.
+- `Architecture.V850`, Renesas V850E1, V850E2 and V850E2M, on the angr and
+  Ghidra backends, using Ghidra's V850 language. The ELF loader loads GCC-ABI
+  (`EM_V850`) images, applying the common relocation types in relocatable
+  objects, and refuses RH850-ABI (`EM_V800`) ones. RH850's additional
+  instructions are not modelled, and a few of them run as different V850
+  instructions. Some V850 instructions stop emulation or compute wrong
+  results; the platform support docs list them. Test binaries are built with
+  GNU binutils for `v850-elf`, built from source in `ci/flake.nix` because
+  nixpkgs has no V850 platform.
+- `Architecture.POWERPC32_VLE`, PowerPC e200 with the Variable Length
+  Encoding, on the angr backend through pypcode's own e200 p-code language.
+  Upstream Ghidra has no 32-bit e200 language, and Unicorn, PANDA and Capstone
+  have no VLE support. `se_sc` and `e_sc` reach angr's syscall hooks, and the
+  memory barriers and cache hints run as no-ops. The ELF loader recognizes VLE
+  executables by the section and segment flags binutils sets on VLE code. There
+  are no C library models for VLE. The language miscomputes wrap-around
+  `e_rlwinm`/`e_rlwimi` masks, and angr refuses the SPE instructions that
+  branch inside their own p-code, such as `efscfsi` (see the platform support
+  notes). The test suite assembles VLE with GNU binutils, since zig's
+  assembler cannot.
+- `Architecture.X86_16`, x86 real mode, on the Unicorn, angr and Ghidra
+  (concrete) backends. `pc` is the linear address `cs * 16 + ip`. angr and
+  Ghidra use Ghidra's real-mode language, which only handles code segments
+  that start on a 64 KiB boundary, and which ignores segments in a few
+  instructions; Unicorn handles any segment, but not far returns. See the
+  platform support notes. `X86RealModeStack` gives the `ss:sp` for its
+  stack, and `x86RealModeInstruction` decodes real-mode instructions for
+  the analyses.
+- `UnicornMachineDef.pc_from_engine()`/`pc_to_engine()`, for machines whose
+  program counter register is not the linear pc.
+- `GhidraMachineDef.nop_userops` and `GhidraMachineDef.userops`, for sleigh
+  user ops that Ghidra's emulator does not provide: the first names userops
+  to step over, and the second maps a userop's name to a function of the
+  emulator, the instruction's mnemonic and the userop's arguments that
+  returns its output. `GhidraEmulator` and `GhidraSymbolicEmulator` both use
+  them. `GhidraMachineDef.ram_address_size`, for machines whose RAM offsets
+  are wider than their pointers.
+- `PlatformDef.isa_bit`, an `IsaBit`, says what bit 0 of a code address
+  means: part of the address, or the choice between a CPU's two instruction
+  sets (ARM's Thumb bit, MIPS's ISA bit). `Emulator.get_isa_mode()` and
+  `Emulator.set_isa_mode()` read and choose the instruction set on platforms
+  with two. A function model placed at an odd address on such a platform
+  hooks the even one, and returns to the instruction set that bit 0 of its
+  return address selects, where the backend can switch.
+- Machine-definition hooks that convert SmallWorld's pc to the backend's:
+  `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
+  pc writes, and `UnicornMachineDef.pc_to_start()`, for the address
+  `emu_start()` begins at, which `Machine.fuzz()` also starts unicornafl runs
+  at.
+- `Architecture.MIPS32_MICROMIPS`, MIPS32 with the microMIPS encoding, big-
+  and little-endian. Ghidra switches between microMIPS and standard MIPS32 as
+  hardware does; angr and Unicorn run microMIPS only. An `isa_mode`
+  pseudo-register holds the current encoding, and an odd pc selects microMIPS.
+  ELF images flagged `EF_MIPS_MICROMIPS` load as this platform, with a warning
+  if their symbols show standard MIPS32 functions too. Its code addresses
+  keep the ISA bit: the entrypoint, microMIPS code symbols and pointers
+  relocated to them are odd. Machine-definition hooks carry the mode:
+  `GhidraMachineDef.context` sets starting context fields,
+  `GhidraMachineDef.isa_bit_context` names the field an odd pc selects, and
+  the pc hooks below set Unicorn's ISA bit and store an even pc on angr and
+  Ghidra. The Ghidra emulators read and write sleigh context fields as
+  registers. The
+  System V C and POSIX models cover microMIPS as they do MIPS32. The p-code
+  use/def analysis covers it too: `PlatformDef.ghidra_context` names the
+  context values a platform's code decodes with, and
+  `pcode_use_def.analyze()` takes them. PANDA has no microMIPS support.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by
@@ -357,6 +466,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so the 8051's register bank sync, parity flag and interrupt checks act
   only on what changed. Running SDCC's C library is about three times
   faster.
+- SH-1 and SH-2 ELF images (`e_flags` `EF_SH1` and `EF_SH2`) now load as
+  `SUPERH_SH1` and `SUPERH_SH2` rather than `SUPERH_SH2A_FPU`, so they no
+  longer run on Panda or Styx by default. Pass `platform` with
+  `SUPERH_SH2A_FPU` to keep running them as SH-2A.
 - `Value.{get, set}()` changed to `@property` `value`.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.

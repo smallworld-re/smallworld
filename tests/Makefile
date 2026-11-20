@@ -23,6 +23,9 @@ ARMEL_ID := arm-linux-gnueabi.2.40
 ARMHF_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
+# zig has no LoongArch32 libc, and its LLVM no 32-bit LoongArch CPU to compile
+# C for, so LoongArch32 tests are assembly only.
+LA32_ID := loongarch32-linux
 LA64_ID := loongarch64-linux-gnu.2.40
 M68K_ID := m68k-unknown-linux-gnu
 MIPS_ID := mips-linux-gnueabihf.2.40
@@ -39,6 +42,11 @@ RISCV64_ID := riscv64-linux-gnu.2.40
 # endianness come from per-platform ASFLAGS below.
 SH_ID := sh4-unknown-linux-gnu
 TRICORE_ID := tricore-elf
+V850_ID := v850-elf
+# zig's LLVM assembler has no PowerPC VLE; GNU binutils assembles it with -mvle.
+PPCVLE_ID := powerpc-none-eabi
+# Real-mode sources open with .code16; the 32-bit toolchain assembles them.
+X86_16_ID := $(I386_ID)
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
@@ -48,11 +56,16 @@ AMD64_ASM_AS := ./nasm_wrapper.sh
 ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
+LA32_ASM_AS := zig build-exe -target $(LA32_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
 MCS51_ASM_AS := ./mcs51_asm.sh
 MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
+# microMIPS shares the MIPS32 targets; each source opens with `.set micromips`.
+# (zig cannot build its runtime with -mcpu=...+micromips.)
+MICROMIPS_ASM_AS := $(MIPS_ASM_AS)
+MICROMIPSEL_ASM_AS := $(MIPSEL_ASM_AS)
 MIPS64_ASM_AS := zig build-exe -target $(MIPS64_ID)
 MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
 MSP430_ASM_AS := zig build-exe -target $(MSP430_ID)
@@ -64,8 +77,13 @@ RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ASM_AS := ./$(SH_ID)-asm
 SH4EL_ASM_AS := ./$(SH_ID)-asm
 SH2A_ASM_AS := ./$(SH_ID)-asm
+SH2_ASM_AS := ./$(SH_ID)-asm
+SH1_ASM_AS := ./$(SH_ID)-asm
 TRICORE_ASM_AS := ./$(TRICORE_ID)-asm
+V850_ASM_AS := ./$(V850_ID)-asm
+PPCVLE_ASM_AS := ./$(PPCVLE_ID)-asm
 XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
+X86_16_ASM_AS := zig build-exe -target $(X86_16_ID)
 
 # Assembler Commands for ELF
 
@@ -74,10 +92,13 @@ AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
 ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
+LA32_ELF_AS := zig build-exe -target $(LA32_ID)
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
 MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID)
+MICROMIPS_ELF_AS := $(MIPS_ELF_AS)
+MICROMIPSEL_ELF_AS := $(MIPSEL_ELF_AS)
 MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
 MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID) 
 MSP430_ELF_AS := zig build-exe -target $(MSP430_ID)
@@ -89,7 +110,11 @@ RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ELF_AS := ./$(SH_ID)-elfasm
 SH4EL_ELF_AS := ./$(SH_ID)-elfasm
 SH2A_ELF_AS := ./$(SH_ID)-elfasm
+SH2_ELF_AS := ./$(SH_ID)-elfasm
+SH1_ELF_AS := ./$(SH_ID)-elfasm
 TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
+V850_ELF_AS := ./$(V850_ID)-elfasm
+PPCVLE_ELF_AS := ./$(PPCVLE_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands
@@ -100,12 +125,15 @@ AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
 ARMEL_OBJCOPY := zig objcopy
 ARMHF_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
+LA32_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
 # mcs51_asm.sh already writes the raw binary; see that script.
 MCS51_OBJCOPY := bash -c 'cp -- $$4 $$5'
 MIPS_OBJCOPY := zig objcopy
 MIPSEL_OBJCOPY := zig objcopy
+MICROMIPS_OBJCOPY := zig objcopy
+MICROMIPSEL_OBJCOPY := zig objcopy
 MIPS64_OBJCOPY := zig objcopy
 MIPS64EL_OBJCOPY := zig objcopy
 MSP430_OBJCOPY := zig objcopy
@@ -117,8 +145,13 @@ RISCV64_OBJCOPY := zig objcopy
 SH4_OBJCOPY := $(SH_ID)-objcopy
 SH4EL_OBJCOPY := $(SH_ID)-objcopy
 SH2A_OBJCOPY := $(SH_ID)-objcopy
+SH2_OBJCOPY := $(SH_ID)-objcopy
+SH1_OBJCOPY := $(SH_ID)-objcopy
 TRICORE_OBJCOPY := $(TRICORE_ID)-objcopy
+V850_OBJCOPY := $(V850_ID)-objcopy
+PPCVLE_OBJCOPY := $(PPCVLE_ID)-objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
+X86_16_OBJCOPY := zig objcopy
 
 # C compiler commands
 
@@ -133,6 +166,8 @@ LA64_CC := zig cc -target $(LA64_ID)
 M68K_CC := $(M68K_ID)-gcc
 MIPS_CC := zig cc -target $(MIPS_ID) 
 MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
+MICROMIPS_CC := zig cc -target $(MIPS_ID)
+MICROMIPSEL_CC := zig cc -target $(MIPSEL_ID)
 MIPS64_CC := zig cc -target $(MIPS64_ID) 
 MIPS64EL_CC := zig cc -target $(MIPS64EL_ID) 
 MSP430_CC := zig cc -target $(MSP430_ID)
@@ -155,6 +190,14 @@ XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
 SH4_ASFLAGS := -big --isa=sh4a
 SH4EL_ASFLAGS := -little --isa=sh4a
 SH2A_ASFLAGS := -big --isa=sh2a
+SH2_ASFLAGS := -big --isa=sh2
+# gas spells SH-1 plain `sh`.
+SH1_ASFLAGS := -big --isa=sh
+# GCC's ELF ABI (EM_V850, with the core in e_flags) rather than gas's RH850
+# default (EM_V800). V850E1 is the oldest core Ghidra's language models, so
+# the tests use only instructions every modelled core has.
+V850_ASFLAGS := -mgcc-abi -mv850e1
+PPCVLE_ASFLAGS := -mvle
 
 # objcopy flags
 GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
@@ -171,6 +214,15 @@ ARMHF_CFLAGS := -marm
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
+# zig cannot build its runtime or libc for microMIPS, and LLD cannot link
+# microMIPS PIC calls (R_MICROMIPS_JALR), so microMIPS C is freestanding,
+# non-PIC and static, entered at main. Only sources that need no library build.
+MICROMIPS_CFLAGS := -mmicromips -fno-pic -mno-abicalls -nostdlib -static
+MICROMIPSEL_CFLAGS := $(MICROMIPS_CFLAGS)
+MICROMIPS_ELF_CFLAGS := -Wl,-e,main
+MICROMIPSEL_ELF_CFLAGS := $(MICROMIPS_ELF_CFLAGS)
+MICROMIPS_C_ELF_ONLY := exitpoint/exitpoint.elf.c unmapped/unmapped.elf.c
+MICROMIPSEL_C_ELF_ONLY := $(MICROMIPS_C_ELF_ONLY)
 MIPS64_CFLAGS := -T mips_linkerscript.ld
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard
@@ -201,24 +253,32 @@ ARMEL_EXT := armel
 ARMHF_EXT := armhf
 I386_EXT := i386
 I386_MINGW_EXT := i386
+LA32_EXT := la32
 LA64_EXT := la64
 M68K_EXT := m68k
 MCS51_EXT := mcs51
 MIPS_EXT := mips
 MIPSEL_EXT := mipsel
+MICROMIPS_EXT := micromips
+MICROMIPSEL_EXT := micromipsel
 MIPS64_EXT := mips64
 MIPS64EL_EXT := mips64el
 MSP430_EXT := msp430
 MSP430X_EXT := msp430x
 PPC_EXT := ppc
 PPC64_EXT := ppc64
+PPCVLE_EXT := ppcvle
 RISCV32_EXT := riscv32
 RISCV64_EXT := riscv64
 SH4_EXT := sh4
 SH4EL_EXT := sh4el
 SH2A_EXT := sh2a
+SH2_EXT := sh2
+SH1_EXT := sh1
 TRICORE_EXT := tricore
+V850_EXT := v850
 XTENSA_EXT := xtensa
+X86_16_EXT := x86_16
 
 # Arch-specific source extensions
 AARCH64_SRC_EXT := $(AARCH64_EXT)
@@ -226,12 +286,16 @@ AMD64_SRC_EXT := $(AMD64_EXT)
 ARMEL_SRC_EXT := $(ARMEL_EXT)
 ARMHF_SRC_EXT := $(ARMHF_EXT)
 I386_SRC_EXT := $(I386_EXT)
+LA32_SRC_EXT := $(LA32_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
 M68K_SRC_EXT := $(M68K_EXT)
 MCS51_SRC_EXT := $(MCS51_EXT)
 MIPS_SRC_EXT := $(MIPS_EXT)
 # NOTE: mipsel uses mips source
 MIPSEL_SRC_EXT := $(MIPS_EXT)
+MICROMIPS_SRC_EXT := $(MICROMIPS_EXT)
+# NOTE: micromipsel uses micromips source
+MICROMIPSEL_SRC_EXT := $(MICROMIPS_EXT)
 MIPS64_SRC_EXT := $(MIPS64_EXT)
 # NOTE: mips64el uses mips64 source
 MIPS64EL_SRC_EXT := $(MIPS64_EXT)
@@ -239,14 +303,23 @@ MSP430_SRC_EXT := $(MSP430_EXT)
 MSP430X_SRC_EXT := $(MSP430X_EXT)
 PPC_SRC_EXT := $(PPC_EXT)
 PPC64_SRC_EXT := $(PPC64_EXT)
+PPCVLE_SRC_EXT := $(PPCVLE_EXT)
 RISCV32_SRC_EXT := $(RISCV32_EXT)
 RISCV64_SRC_EXT := $(RISCV64_EXT)
 SH4_SRC_EXT := $(SH4_EXT)
 # NOTE: sh4el uses sh4 source
 SH4EL_SRC_EXT := $(SH4_EXT)
 SH2A_SRC_EXT := $(SH2A_EXT)
+SH2_SRC_EXT := $(SH2_EXT)
+# NOTE: sh1 uses sh2 source, so the SH-1 build keeps that source SH-1-clean:
+# gas refuses an instruction the --isa lacks.
+SH1_SRC_EXT := $(SH2_EXT)
+# ...except for the sh2 sources that test SH-2 additions, which SH-1 lacks.
+SH1_SRC_EXCLUDE := sh2a_delayslot/sh2a_delayslot.sh2.s
 TRICORE_SRC_EXT := $(TRICORE_EXT)
+V850_SRC_EXT := $(V850_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
+X86_16_SRC_EXT := $(X86_16_EXT)
 
 # **********************
 # *** Rule Templates ***
@@ -257,7 +330,7 @@ XTENSA_SRC_EXT := $(XTENSA_EXT)
 
 define ASM_TEMPLATE
 
-$(1)_ASM_BIN_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).s)
+$(1)_ASM_BIN_SRCS := $$(filter-out $$($(1)_SRC_EXCLUDE),$$(wildcard */*.$$($(1)_SRC_EXT).s))
 $(1)_ASM_ELF_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).elf.s)
 
 $(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM_BIN_SRCS))
@@ -303,9 +376,11 @@ AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 
 define C_ELF_TEMPLATE
 
-$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
-$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
+# A platform that can build only some C sources lists its ELF sources in
+# $(1)_C_ELF_ONLY, and then builds no objects or shared libraries.
+$(1)_C_OBJS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS)))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(or $$($(1)_C_ELF_ONLY),$$(C_ELF_SRCS)))
+$(1)_C_SOS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS)))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
@@ -482,7 +557,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_C_IHXS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_C_IHXS) $$($(1)_ASM_ELFS) $$($(1)_ASM_SOS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
@@ -502,13 +577,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MCS51 MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV32 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MCS51 MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV32 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV32 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV32 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -516,6 +591,24 @@ C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
 
 # Populate the ASM templates
 $(foreach platform,$(ASM_PLATFORMS),$(eval $(call ASM_TEMPLATE,$(platform))))
+
+# A microMIPS shared library, and an executable that imports from it, for the
+# ELF loader's ISA-bit handling. They are assembly because microMIPS C cannot
+# be linked PIC (see MICROMIPS_CFLAGS), and the executable has explicit rules
+# because it links against the library.
+define MICROMIPS_SO_TEMPLATE
+
+$(1)_ASM_SOS := link_elf/micromips_lib.$$($(1)_EXT).so link_elf/micromips_import.$$($(1)_EXT).elf
+
+link_elf/micromips_lib.$$($(1)_EXT).so : link_elf/micromips_lib.$$($(1)_SRC_EXT).so.s
+	$$($(1)_CC) -shared -nostdlib -o $$@ $$<
+
+link_elf/micromips_import.$$($(1)_EXT).elf : link_elf/micromips_import.$$($(1)_SRC_EXT).elf.s link_elf/micromips_lib.$$($(1)_EXT).so
+	$$($(1)_CC) -nostdlib -o $$@ $$^
+
+endef
+
+$(foreach platform,MICROMIPS MICROMIPSEL,$(eval $(call MICROMIPS_SO_TEMPLATE,$(platform))))
 
 # Populate the C ELF templates
 $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))

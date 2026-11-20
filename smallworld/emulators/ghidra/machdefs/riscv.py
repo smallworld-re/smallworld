@@ -1,14 +1,5 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef, GhidraUserOp, handle_nop
-
-
-class RISCVUserOp(GhidraUserOp):
-    # Memory ordering, which a single emulated hart can't observe.  (pause is
-    # a fence, and Ghidra's language doesn't decode fence.tso.)  Numbered as
-    # in Ghidra 12.1.2's RISC-V languages, RV32 and RV64 alike; matched by
-    # name.
-    FENCE = 0x04, "fence", handle_nop, "Memory fence"
-    FENCE_I = 0x05, "fence.i", handle_nop, "Instruction fence"
+from .machdef import GhidraMachineDef
 
 
 class RISCVMachineDef(GhidraMachineDef):
@@ -18,7 +9,10 @@ class RISCVMachineDef(GhidraMachineDef):
     only their widths differ.
     """
 
-    userops = RISCVUserOp
+    # Memory ordering, which a single emulated hart can't observe.  (pause is
+    # a fence, and Ghidra's language doesn't decode fence.tso.)  RV32 and
+    # RV64 alike.
+    nop_userops = frozenset({"fence", "fence.i"})
 
     byteorder = Byteorder.LITTLE
 

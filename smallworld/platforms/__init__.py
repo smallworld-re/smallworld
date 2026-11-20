@@ -1,4 +1,4 @@
-from .defs import PlatformDef, RegisterAliasDef, RegisterDef
+from .defs import IsaBit, PlatformDef, RegisterAliasDef, RegisterDef
 from .platforms import ABI, Architecture, Byteorder, Platform
 
 __all__ = [
@@ -6,6 +6,7 @@ __all__ = [
     "Architecture",
     "Byteorder",
     "ABI",
+    "IsaBit",
     "PlatformDef",
     "RegisterDef",
     "RegisterAliasDef",

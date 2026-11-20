@@ -1,70 +1,15 @@
 import abc
-import enum
 import typing
 
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
+from java.math import BigInteger
 
 from .... import exceptions, platforms, utils
 from ....platforms.defs.platformdef import PlatformDef
 
-
-def handle_nop(emulator, op):
-    """A :class:`GhidraUserOp` handler for an operation with no effect
-    SmallWorld models, such as a memory fence."""
-    pass
-
-
-class GhidraUserOp(enum.IntEnum):
-    """Base for a machine's table of SLEIGH user-defined operations.
-
-    Each member is the operation's number, followed by its name, a handler
-    and a description, as in the angr backend's Xtensa and LoongArch tables.
-    The handler is called as ``handler(emulator, op)`` with the CALLOTHER
-    p-code op, in place of running it, and must perform the operation itself;
-    :func:`handle_nop` skips it.
-
-    The emulator matches an operation to a member by its name, as the
-    language declares it, not by its number: Ghidra numbers a language's
-    operations in declaration order, so a Ghidra release that adds or
-    reorders one would retarget a number at another operation.  The numbers
-    are those of the Ghidra release SmallWorld pins, for reference.
-    """
-
-    def __new__(
-        cls, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
-    ):
-        obj = int.__new__(cls, val)
-        obj._value_ = val
-        obj.short_name = name
-        obj.handler = handler
-        obj.description = desc
-        return obj
-
-    def __init__(
-        self, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
-    ):
-        self._value_: int = val
-        self.short_name: str = name
-        self.handler: typing.Any = handler
-        self.description: str = desc
-
-    def __repr__(self):
-        return f"{hex(self.value)}: {self.short_name} - {self.description}"
-
-    @classmethod
-    def named(cls, name: str) -> typing.Optional["GhidraUserOp"]:
-        """The member for the operation the language names ``name``, if any."""
-        for member in cls:
-            if member.short_name == name:
-                return member
-        return None
-
-    @classmethod
-    def only_skips(cls) -> bool:
-        """Whether every operation in the table is skipped, with
-        :func:`handle_nop`, rather than performed."""
-        return all(member.handler is handle_nop for member in cls)
+Userop = typing.Callable[[typing.Any, str, typing.Sequence[int]], typing.Optional[int]]
+"""A userop SmallWorld runs itself: ``(emulator, mnemonic, args) -> output``."""
 
 
 class GhidraWrites:
@@ -150,15 +95,6 @@ class GhidraMachineDef:
         None
     )
 
-    #: The SLEIGH user-defined operations (CALLOTHER) this machine
-    #: implements in Python, as a :class:`GhidraUserOp` enum, for operations
-    #: the language leaves to its host and Ghidra's emulator does not
-    #: provide, or skips, such as memory fences.  An operation the table does
-    #: not name, or every one if it is None, runs as Ghidra runs it.
-    userops: typing.Optional[typing.Type["GhidraUserOp"]] = None
-
-    _registers: typing.Dict[str, typing.Optional[str]]
-
     def initialize_state(self, emulator: typing.Any) -> None:
         """Set machine state the hardware fixes before emulation starts.
 
@@ -224,6 +160,91 @@ class GhidraMachineDef:
         """
         pass
 
+    # Size in bytes of an offset into the default address space, where that
+    # differs from the platform's pointer size (`PlatformDef.address_size`).
+    ram_address_size: typing.Optional[int] = None
+
+    # Userops the emulator steps over instead of running,
+    # for SLEIGH that calls a userop Ghidra's emulator can't run
+    # on this language.
+    nop_userops: typing.FrozenSet[str] = frozenset()
+
+    # Userops SmallWorld runs itself, for SLEIGH that calls a userop Ghidra's
+    # emulator can't run on this language. Each maps to a function taking the
+    # emulator, the instruction's mnemonic and the userop's arguments as
+    # unsigned integers, and returning its output's value, or None for a
+    # userop with no output.
+    userops: typing.Mapping[str, Userop] = {}
+
+    @property
+    def context(self) -> typing.Dict[str, int]:
+        """Starting values for context fields, as {name: value}, where they
+        differ from the language's defaults.
+
+        Some sleigh languages hold several encodings and pick one with a
+        context field that branches can change. The emulator sets these once,
+        when it creates its thread; after that the program's own jumps change
+        them. Sourced from the platform definition, which the p-code use/def
+        analysis also reads.
+        """
+        platdef = PlatformDef.for_platform(
+            platforms.Platform(self.arch, self.byteorder)
+        )
+        return platdef.ghidra_context
+
+    # A context field that a pc written with its low bit set selects.
+    #
+    # On ISAs that mark the instruction set in the low bit of a jump target
+    # (MIPS's ISA bit), writing an odd pc sets this field to 1 and stores the
+    # even address. An even pc leaves the field as it is.
+    isa_bit_context: typing.Optional[str] = None
+
+    _registers: typing.Dict[str, typing.Optional[str]]
+
+    def apply_context(self, thread) -> None:
+        """Set this machine's starting context fields on a p-code thread."""
+        for name, field in self.context.items():
+            self.write_context(thread, self.language.getRegister(name), field)
+
+    def read_context(self, thread, reg: Register) -> int:
+        """Read a context field from a p-code thread's decode context."""
+        value = thread.getContext().getRegisterValue(reg)
+        if value is None or not value.hasValue():
+            return 0
+        return int(value.getUnsignedValue().longValue())
+
+    def write_context(self, thread, reg: Register, field: int) -> None:
+        """Write a context field into a p-code thread's decode context."""
+        bits = reg.getBitLength()
+        if not 0 <= field < 1 << bits:
+            # Ghidra would keep only the field's low bits, without a word.
+            raise ValueError(
+                f"context field {reg.getName()} is {bits} bits wide; "
+                f"{field} does not fit"
+            )
+        value = thread.getContext().assign(reg, BigInteger.valueOf(field))
+        thread.overrideContext(value)
+
+    def pc_to_engine(self, thread, pc: int) -> int:
+        """Convert SmallWorld's pc to the address to store in a p-code thread.
+
+        Applies the ISA bit: an odd pc selects the alternate instruction set,
+        and the address stored is even.
+
+        Arguments:
+            thread: The p-code thread
+            pc: The address of the next instruction, with any ISA bit
+
+        Returns:
+            The value to write to the pc register
+        """
+        if self.isa_bit_context is not None and pc & 1:
+            self.write_context(
+                thread, self.language.getRegister(self.isa_bit_context), 1
+            )
+            return pc & ~1
+        return pc
+
     def __init__(self):
         # Load the Pcode language definition
         slp = SleighLanguageProvider.getSleighLanguageProvider()
@@ -241,6 +262,26 @@ class GhidraMachineDef:
         reg = self.language.getRegister(self._registers[name])
         assert reg is not None, name
         return reg
+
+    def userop_name(self, op) -> typing.Optional[str]:
+        """The name of the userop this p-code op calls, if it calls one."""
+        if op.getOpcode() != op.CALLOTHER:
+            return None
+        return str(self.language.getUserDefinedOpName(int(op.getInput(0).getOffset())))
+
+    def is_nop_userop(self, op) -> bool:
+        """Whether this p-code op calls one of `nop_userops`."""
+        if not self.nop_userops:
+            return False
+        return self.userop_name(op) in self.nop_userops
+
+    def userop(self, op) -> typing.Optional["Userop"]:
+        """The implementation of the userop this p-code op calls, if SmallWorld
+        has one."""
+        if not self.userops:
+            return None
+        name = self.userop_name(op)
+        return None if name is None else self.userops.get(name)
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

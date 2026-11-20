@@ -65,6 +65,13 @@ _SPECS = {
         stack_pointer_register="esp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "la32": ElfSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "la64": ElfSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pointer_size=8,
@@ -107,12 +114,35 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "micromips": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "ppc": ElfSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="r1",
         engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    # The loader tells VLE from plain PowerPC32 by the SHF_PPC_VLE section
+    # flag, and refuses a platform that disagrees with it.
+    "ppcvle": ElfSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="r1",
+        engines=("angr",),
     ),
     "ppc64": ElfSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
@@ -145,6 +175,13 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         engines=("angr", "panda", "pcode"),
+    ),
+    "v850": ElfSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
     ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
@@ -236,7 +273,7 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
-    if arch in {"mips", "mipsel"} and engine == "unicorn":
+    if arch in {"mips", "mipsel", "micromips", "micromipsel"} and engine == "unicorn":
         set_register(cpu, "ra", 0xFFFF0)
         emulator.add_exit_point(0xFFFF0)
         return
@@ -258,6 +295,11 @@ def _configure_exitpoints(
 
     if arch == "tricore":
         set_register(cpu, "ra", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
+        return
+
+    if arch == "v850":
+        set_register(cpu, "lp", 0xFFFF0)
         machine.add_exit_point(0xFFFF0)
         return
 

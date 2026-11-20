@@ -21,9 +21,11 @@ class MallocModel(state.models.Model):
         platforms.Architecture.ARM_V5T: "r0",
         platforms.Architecture.ARM_V7A: "r0",
         platforms.Architecture.MIPS32: "a0",
+        platforms.Architecture.MIPS32_MICROMIPS: "a0",
         platforms.Architecture.MIPS64: "a0",
         platforms.Architecture.POWERPC32: "r3",
         platforms.Architecture.POWERPC64: "r3",
+        platforms.Architecture.POWERPC32_VLE: "r3",
         platforms.Architecture.X86_64: "rdi",
     }
 
@@ -32,9 +34,11 @@ class MallocModel(state.models.Model):
         platforms.Architecture.ARM_V5T: "r0",
         platforms.Architecture.ARM_V7A: "r0",
         platforms.Architecture.MIPS32: "v0",
+        platforms.Architecture.MIPS32_MICROMIPS: "v0",
         platforms.Architecture.MIPS64: "v0",
         platforms.Architecture.POWERPC32: "r3",
         platforms.Architecture.POWERPC64: "r3",
+        platforms.Architecture.POWERPC32_VLE: "r3",
         platforms.Architecture.X86_64: "rax",
     }
 

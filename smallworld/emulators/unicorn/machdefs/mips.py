@@ -1,5 +1,6 @@
 import enum
 import logging
+import typing
 
 import unicorn
 
@@ -609,3 +610,35 @@ class MIPS64BEMachineDef(MIPS64MachineDef):
                 "lo3": unicorn.mips_const.UC_MIPS_REG_INVALID,
             }
         )
+
+
+class MicroMIPSMachineDef:
+    """Mixin for MIPS32 with microMIPS, which Unicorn runs as microMIPS only.
+
+    Unicorn has no microMIPS mode. It runs microMIPS on a CPU that implements
+    it while the low bit of the pc is set: by emu_start(), a write to the pc
+    register, or a jump. Writing an even pc would switch to standard MIPS32.
+    """
+
+    arch = Architecture.MIPS32_MICROMIPS
+
+    uc_cpu: typing.Optional[int] = unicorn.mips_const.UC_CPU_MIPS32_M14KC
+
+    def __init__(self):
+        super().__init__()  # type: ignore[misc]
+        # Unicorn does not report its ISA mode, so isa_mode is unsupported
+        # and runs stay in microMIPS.
+        self._registers["isa_mode"] = unicorn.mips_const.UC_MIPS_REG_INVALID
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        # Unicorn runs microMIPS while the low bit of the pc is set, and an
+        # even pc written or started at would switch it to standard MIPS32.
+        return pc | 1
+
+
+class MicroMIPSELMachineDef(MicroMIPSMachineDef, MIPSELMachineDef):
+    """Unicorn machine definition for microMIPS little-endian"""
+
+
+class MicroMIPSBEMachineDef(MicroMIPSMachineDef, MIPSBEMachineDef):
+    """Unicorn machine definition for microMIPS big-endian"""

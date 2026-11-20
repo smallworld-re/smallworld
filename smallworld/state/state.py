@@ -1131,11 +1131,52 @@ class Machine(StatefulSet):
                 _reset()
             return input_callback(emulator, input_bytes, persistent_round, data)
 
-        unicornafl.uc_afl_fuzz(
+        # unicornafl restarts each run from the pc register, which reads back
+        # without any mode bit Unicorn takes from the start address. On ARM it
+        # puts the Thumb bit back itself; for any other machine that needs one
+        # (see UnicornMachineDef.pc_to_start), start the runs here instead.
+        start = emulator.read_register("pc")
+        begin = emulator.machdef.pc_to_start(emulator.engine, start)
+        if begin == start:
+            unicornafl.uc_afl_fuzz(
+                uc=emulator.engine,
+                input_file=input_file_path,
+                place_input_callback=_adapter,
+                exits=emulator.get_exit_points(),
+                validate_crash_callback=crash_callback,
+                always_validate=always_validate,
+                persistent_iters=iterations,
+            )
+            return
+
+        import unicorn
+
+        exits = list(emulator.get_exit_points())
+        if exits:
+            # What uc_afl_fuzz does with its exits argument.
+            emulator.engine.ctl_exits_enabled(True)
+            emulator.engine.ctl_set_exits(exits)
+
+        def _run(uc, _data) -> int:
+            try:
+                uc.emu_start(begin, 0)
+            except unicorn.UcError as e:
+                return e.errno
+            except Exception as e:
+                # A hook raised: an exit model's EmulationStop, a bound, a
+                # user hook's error. Unicorn stopped the run, and uc_afl_fuzz,
+                # which calls uc_emu_start from C, never sees the exception and
+                # reports UC_ERR_OK; report the same. Left uncaught, it would
+                # escape this ctypes callback, and unicornafl would read a
+                # garbage result as a crash.
+                logger.debug(f"hook stopped the fuzzing run: {e!r}")
+            return unicorn.UC_ERR_OK
+
+        unicornafl.uc_afl_fuzz_custom(
             uc=emulator.engine,
             input_file=input_file_path,
             place_input_callback=_adapter,
-            exits=emulator.get_exit_points(),
+            fuzzing_callback=_run,
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
             persistent_iters=iterations,

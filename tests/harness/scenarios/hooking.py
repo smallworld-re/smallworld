@@ -33,6 +33,7 @@ class HookingSpec:
     gets_address: int = 0x1000
     puts_address: int = 0x1004
     stack_base: int = 0x2000
+    fake_return: int = 0xFFFFFFFF
     stack_padding_bytes: dict[str, int] = dataclasses.field(default_factory=dict)
     tricore_panda_callsite_offsets: dict[str, int] = dataclasses.field(
         default_factory=dict
@@ -94,6 +95,15 @@ _SPECS = {
         ),
         puts_address=0x1001,
     ),
+    "la32": HookingSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="a0"),
+    ),
     "la64": HookingSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pointer_size=8,
@@ -109,7 +119,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=4,
-        engines=("unicorn", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(
             stack_pointer_register="sp",
             stack_offset=4,
@@ -128,6 +138,7 @@ _SPECS = {
         engines=("angr", "pcode"),
         string_source=StringSource(register="r0", address_base=0x20000),
         puts_address=0x1001,
+        fake_return=0xFFFF,
     ),
     "mips": HookingSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -165,6 +176,24 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="a0"),
     ),
+    "micromips": HookingSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+    ),
+    "micromipsel": HookingSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+    ),
     "ppc": HookingSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pointer_size=4,
@@ -174,6 +203,16 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="r3"),
         stack_padding_bytes={"unicorn": 8, "angr": 8, "panda": 8, "pcode": 8},
+    ),
+    "ppcvle": HookingSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr",),
+        string_source=StringSource(register="r3"),
+        stack_padding_bytes={"angr": 8},
     ),
     "ppc64": HookingSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
@@ -216,6 +255,26 @@ _SPECS = {
     # delay slot in inst_next, so pr gets the architectural inst_start+4; that
     # was measured byte-identical on angr, pcode and panda, which is why SH-4
     # needs no skip here even though static_buf's `bsr` call does.
+    "sh1": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
+    "sh2": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
     "sh2a": HookingSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pointer_size=4,
@@ -255,6 +314,31 @@ _SPECS = {
         engines=("angr", "panda", "pcode"),
         string_source=StringSource(register="a4"),
         tricore_panda_callsite_offsets={"gets": 0x0C, "puts": 0x12},
+    ),
+    "v850": HookingSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r6"),
+    ),
+    "x86_16": HookingSpec(
+        platform=PlatformSpec("X86_16", "LITTLE"),
+        pointer_size=2,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=2,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(
+            stack_pointer_register="sp",
+            stack_offset=2,
+            pointer_size=2,
+            byteorder="little",
+        ),
+        puts_address=0x1001,
+        fake_return=0xFFFF,
     ),
     "xtensa": HookingSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
@@ -341,11 +425,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         stack.push_bytes(b"\0" * padding, "Scratch space")
 
     set_register(cpu, spec.pc_register, code.address + spec.pc_offset)
-    stack.push_integer(
-        0xFFFFFFFF & ((1 << (8 * spec.pointer_size)) - 1),
-        spec.pointer_size,
-        "fake return address",
-    )
+    stack.push_integer(spec.fake_return, spec.pointer_size, "fake return address")
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if not install_tricore_panda_hooking_compatibility(

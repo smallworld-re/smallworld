@@ -113,6 +113,8 @@ FLAG_REGS = {
     "mipsel": set(),
     "mips64": set(),
     "mips64el": set(),
+    "micromips": set(),
+    "micromipsel": set(),
     "arm32": {
         # ARM condition flags (Ghidra names them like AArch64)
         "ng",
@@ -143,6 +145,8 @@ ADDRESS_BITS = {
     "mipsel": 32,
     "mips64": 64,
     "mips64el": 64,
+    "micromips": 32,
+    "micromipsel": 32,
     "arm32": 32,
 }
 
@@ -210,6 +214,8 @@ SUBREG_MAP = {
     "mipsel": {},
     "mips64": {},
     "mips64el": {},
+    "micromips": {},
+    "micromipsel": {},
     # ARM GPRs (r0-r15) have no narrower aliases; sp/lr/pc are r13/r14/r15.
     "arm32": {"r13": "sp", "r14": "lr", "r15": "pc"},
 }
@@ -286,6 +292,8 @@ PC_REGS = {
     "mipsel": {"pc"},
     "mips64": {"pc"},
     "mips64el": {"pc"},
+    "micromips": {"pc"},
+    "micromipsel": {"pc"},
     "arm32": {"pc"},
 }
 
@@ -303,7 +311,10 @@ def _alias(isa, name):
         m = re.fullmatch(r"[bhsdqz](\d+)", name)
         if m:
             return f"v{m.group(1)}"
-    if isa in ("mips32", "mipsel", "mips64", "mips64el") and name == "s8":
+    if (
+        isa in ("mips32", "mipsel", "mips64", "mips64el", "micromips", "micromipsel")
+        and name == "s8"
+    ):
         # Capstone calls register 30 "fp"; Ghidra calls it "s8"
         return "fp"
     if isa in ("mips64", "mips64el"):
@@ -405,7 +416,13 @@ def check_entry(
     }
 
     try:
-        analyzed = analyze(raw, lang, base)
+        # A language that holds several encodings (microMIPS) names the one
+        # the corpus is in with context fields.
+        context = corpus.get("ghidra_context")
+        if context:
+            analyzed = analyze(raw, lang, base, context)
+        else:
+            analyzed = analyze(raw, lang, base)
     except Exception as exc:  # noqa: BLE001 - we want everything
         result["status"] = "error"
         result["error"] = f"{type(exc).__name__}: {exc}"

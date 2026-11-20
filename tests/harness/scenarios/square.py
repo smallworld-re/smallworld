@@ -15,23 +15,31 @@ _ARCHS = (
     "armel",
     "armhf",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mcs51",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "msp430",
     "msp430x",
     "ppc",
     "ppc64",
+    "ppcvle",
     "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -43,8 +51,11 @@ _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
     engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
-    # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
-    per_arch={"la64": {"result_register": "v0"}},
+    # LoongArch's mul.w writes a0; the binary reads v0, which aliases the same reg.
+    per_arch={
+        "la32": {"result_register": "v0"},
+        "la64": {"result_register": "v0"},
+    },
 )
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
@@ -91,7 +102,10 @@ SCENARIO_INFO = ScenarioInfo(
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            **{arch: {"sixteenbit": True} for arch in ("mcs51", "msp430", "msp430x")},
+            **{
+                arch: {"sixteenbit": True}
+                for arch in ("mcs51", "msp430", "msp430x", "x86_16")
+            },
         },
     ),
     run_factory=assert_outputs(_square_expectations),

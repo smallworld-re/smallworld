@@ -16,8 +16,9 @@ R_PPC_RELATIVE = 22  # Write B + A; ignores the symbol value.
 
 
 class PowerPCElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.POWERPC32
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.POWERPC32, platforms.Byteorder.BIG)}
+    )
     addrsz = 4
 
     def _compute_value(self, rela: ElfRela, elf):
@@ -42,6 +43,36 @@ class PowerPCElfRelocator(ElfRelocator):
             raise ConfigurationError(
                 f"Invalid relocation type for {rela.symbol.name}: {rela.type}"
             )
+
+
+# The VLE code relocations, R_PPC_VLE_REL8 through R_PPC_VLE_ADDR20.
+R_PPC_VLE_FIRST = 216
+R_PPC_VLE_LAST = 232
+
+
+class PowerPCVLEElfRelocator(PowerPCElfRelocator):
+    """Relocator for PowerPC VLE.
+
+    VLE uses the standard 32-bit data relocations. Its code relocations
+    (R_PPC_VLE_*) are not supported, so a relocatable object that has any,
+    such as one with an `e_bl` to a global function, cannot be loaded.
+    """
+
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.POWERPC32_VLE, platforms.Byteorder.BIG
+            )
+        }
+    )
+
+    def _compute_value(self, rela: ElfRela, elf):
+        if R_PPC_VLE_FIRST <= rela.type <= R_PPC_VLE_LAST:
+            raise ConfigurationError(
+                f"VLE code relocations are not supported: {rela.type} "
+                f"for {rela.symbol.name}"
+            )
+        return super()._compute_value(rela, elf)
 
 
 # PowerPC64 adds, besides A, B and S above:
@@ -105,8 +136,9 @@ _PPC64_HALF_RELOCATIONS = {
 
 
 class PowerPC64ElfRelocator(PowerPCElfRelocator):
-    arch = platforms.Architecture.POWERPC64
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.POWERPC64, platforms.Byteorder.BIG)}
+    )
     addrsz = 8
 
     # The TOC pointer (r2) of an object file, set by prepare_object;

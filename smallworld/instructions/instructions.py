@@ -337,7 +337,7 @@ class Instruction(metaclass=abc.ABCMeta):
             # below cannot see it -- the reported length is still the
             # branch's.
             raw = self.instruction[: self._instruction.size]
-            result = analyze(raw, language_id, self.address)
+            result = analyze(raw, language_id, self.address, platdef.ghidra_context)
         except UseDefError as e:
             logger.info(
                 f"pcode analysis cannot express {self.instruction.hex()} on "

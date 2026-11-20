@@ -11,8 +11,17 @@ R_MIPS_JUMP_SLOT = 127
 
 
 class MIPSElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.MIPS32
-    byteorder = platforms.Byteorder.BIG
+    # microMIPS gets only the data relocations below; none of the
+    # R_MICROMIPS_* code relocations, which a linked image no longer carries.
+    supported_platforms = frozenset(
+        platforms.Platform(architecture, byteorder)
+        for architecture in (
+            platforms.Architecture.MIPS32,
+            platforms.Architecture.MIPS32_MICROMIPS,
+            platforms.Architecture.MIPS64,
+        )
+        for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         # Unpack a MIPS64 relocation.
@@ -35,7 +44,7 @@ class MIPSElfRelocator(ElfRelocator):
         else:
             addend = elf.read_int(
                 rela.offset,
-                4 if self.arch is platforms.Architecture.MIPS32 else 8,
+                8 if self.arch is platforms.Architecture.MIPS64 else 4,
                 self.byteorder,
             )
 
@@ -72,14 +81,8 @@ class MIPSElfRelocator(ElfRelocator):
         )
 
 
-class MIPSELElfRelocator(MIPSElfRelocator):
-    byteorder = platforms.Byteorder.LITTLE
-
-
-class MIPS64ElfRelocator(MIPSElfRelocator):
-    arch = platforms.Architecture.MIPS64
-
-
-class MIPS64ELElfRelocator(MIPSElfRelocator):
-    arch = platforms.Architecture.MIPS64
-    byteorder = platforms.Byteorder.LITTLE
+# The names of the relocators MIPSElfRelocator replaced, so pickles that
+# hold one still load.
+MIPSELElfRelocator = MIPSElfRelocator
+MIPS64ElfRelocator = MIPSElfRelocator
+MIPS64ELElfRelocator = MIPSElfRelocator

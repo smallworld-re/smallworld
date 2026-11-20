@@ -25,6 +25,8 @@ _ARCHS = (
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "ppc",
     "ppc64",
     "sh2a",
@@ -72,6 +74,9 @@ _SPECS = build_specs(
         "m68k": ("unicorn",),
         "mips": _ENGINES_UNICORN_PANDA,
         "mipsel": _ENGINES_UNICORN_PANDA,
+        # PANDA has no microMIPS support.
+        "micromips": ("unicorn",),
+        "micromipsel": ("unicorn",),
         "ppc": _ENGINES_UNICORN_PANDA,
         "ppc64": _ENGINES_UNICORN_PANDA,
         "sh2a": _ENGINES_PANDA,
