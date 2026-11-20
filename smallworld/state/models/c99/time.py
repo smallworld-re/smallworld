@@ -13,7 +13,7 @@ from .utils import _emu_strlen
 
 class TimeModel(CStdModel):
     # The type of time_t, for platforms where it isn't a long.
-    time_t_type = ArgumentType.LONG
+    time_t = ArgumentType.LONG
 
     def time_struct_to_tuple(self, ptr: int, emulator: Emulator):
         # Load the fields out of the struct
@@ -100,7 +100,7 @@ class Time(TimeModel):
         intval = int(time.time())
 
         if ptr != 0:
-            self.write_integer(ptr, intval, self.time_t_type, emulator)
+            self.write_integer(ptr, intval, self.time_t, emulator)
 
         self.set_return_value(emulator, intval)
 
@@ -123,7 +123,7 @@ class Localtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, self.time_t_type, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timetuple = time.localtime(tv)
 
@@ -151,7 +151,7 @@ class Gmtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, self.time_t_type, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timetuple = time.gmtime(tv)
 
@@ -177,7 +177,7 @@ class Ctime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, self.time_t_type, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timestr = time.ctime(tv)
         timebytes = timestr.encode("utf-8") + b"\n\0"

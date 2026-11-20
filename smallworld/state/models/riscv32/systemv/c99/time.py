@@ -15,20 +15,20 @@ from ..systemv import RiscV32SysVModel
 
 
 class RiscV32SysVTime(Time, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
     return_type = ArgumentType.LONGLONG
 
 
 class RiscV32SysVLocaltime(Localtime, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
 
 
 class RiscV32SysVGmtime(Gmtime, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
 
 
 class RiscV32SysVCtime(Ctime, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
 
 
 class RiscV32SysVAsctime(Asctime, RiscV32SysVModel):
@@ -40,12 +40,12 @@ class RiscV32SysVStrftime(Strftime, RiscV32SysVModel):
 
 
 class RiscV32SysVDifftime(Difftime, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
     argument_types = [ArgumentType.LONGLONG, ArgumentType.LONGLONG]
 
 
 class RiscV32SysVMktime(Mktime, RiscV32SysVModel):
-    time_t_type = ArgumentType.LONGLONG
+    time_t = ArgumentType.LONGLONG
     return_type = ArgumentType.LONGLONG
 
 
