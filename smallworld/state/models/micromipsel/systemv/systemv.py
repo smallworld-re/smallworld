@@ -5,7 +5,9 @@ from ...cstd import CStdModel
 from ...mipsel.systemv.systemv import (
     FileDescriptorManager as MIPSELFileDescriptorManager,
 )
-from ...mipsel.systemv.systemv import MIPSELSysVCallingContext
+from ...mipsel.systemv.systemv import (
+    MIPSELSysVCallingContext,
+)
 
 
 class FileDescriptorManager(MIPSELFileDescriptorManager):
