@@ -668,11 +668,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
                 if opcode == op.STORE:
                     # This is a STORE opcode; could trigger a "write" hook
                     space_var, addr_var, data_var = op.getInputs()
+                    # Only stores to the spaces SmallWorld maps are memory
+                    # writes; a language may store to another space, such as
+                    # SPARC's register windows.
                     space = self._mapped_space(space_var.getAddress().getOffset())
-                    if space is None and self.machdef.address_spaces is None:
-                        # Single-space machines treat every store as
-                        # a store to the default space.
-                        space = (self._default_space, 0)
                     if space is not None:
                         address, data = self._store_target(
                             addr_var, data_var, space=space

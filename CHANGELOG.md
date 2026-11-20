@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the program, as `qsort` and `bsearch` do with their comparator. A hook that
   set the program counter to its return address, counting on angr to pop
   it, must now pop it itself, as on the other backends.
+- `GhidraEmulator` runs memory write hooks only for stores to the address
+  spaces SmallWorld maps, not for a store some language makes to another
+  space.
 - `GhidraEmulator` no longer drops a write to a fixed memory address. When an
   instruction stored to a constant address, which p-code expresses as a COPY
   into a memory varnode, the backend ran the write hooks and then skipped the
