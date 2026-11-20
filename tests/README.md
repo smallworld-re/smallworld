@@ -103,3 +103,25 @@ nix develop .. -c python3 run_case.py elf_core.actuate amd64
 
 Some scenarios require extra arguments. See the underlying harness script for
 details.
+
+#### Replaying CI Locally
+
+To run what the pull-request workflow runs, from the repository root:
+
+```bash
+nix run ./ci#local -- --cores 32
+```
+
+This replays the `run:` steps of `.github/workflows/pull-request.yml` against
+fresh clones of `HEAD` in `../<repo>.local-ci`, one job per core, and leaves
+per-job logs, the combined coverage report, and peak memory per job
+(`memory.json`) there. Useful options:
+
+- `--cores N`: cap CPU use; tests are pinned to `N` cores and nix builds get `N`.
+- `--only Unit-Test,Lint`: run a subset of jobs (plus the jobs they need).
+- `--shards 0-3`: run only some of the integration shards.
+- `--dirty`: test uncommitted changes to tracked files rather than `HEAD`.
+- `--merge origin/main`: merge `main` first, as CI does for a pull request.
+
+The Python 3.9 container job and the PR-title check are not replayed, although
+`--pr-title "feat: ..."` runs the title check.
