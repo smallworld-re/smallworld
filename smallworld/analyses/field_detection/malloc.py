@@ -26,6 +26,7 @@ class MallocModel(state.models.Model):
         platforms.Architecture.POWERPC32: "r3",
         platforms.Architecture.POWERPC64: "r3",
         platforms.Architecture.POWERPC32_VLE: "r3",
+        platforms.Architecture.RISCV32: "a0",
         platforms.Architecture.X86_64: "rdi",
     }
 
@@ -39,6 +40,7 @@ class MallocModel(state.models.Model):
         platforms.Architecture.POWERPC32: "r3",
         platforms.Architecture.POWERPC64: "r3",
         platforms.Architecture.POWERPC32_VLE: "r3",
+        platforms.Architecture.RISCV32: "a0",
         platforms.Architecture.X86_64: "rax",
     }
 
