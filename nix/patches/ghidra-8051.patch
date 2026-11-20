@@ -1,0 +1,267 @@
+Fix Ghidra's Intel 8051 language for emulation.
+
+Ghidra's 8051 specification targets decompilation and gets these wrong when
+emulated; nix/ghidra.nix recompiles 8051.sla with this patch applied:
+
+- ADDC and SUBB fold the carry into the operand in one byte, so an operand of
+  0xFF with the carry set wraps to 0 and the carry or borrow out is lost.
+- ADD, ADDC and SUBB never set AC or OV, so DA A misadjusts and signed
+  overflow goes undetected.
+- Arithmetic and logic instructions write invented N and Z flags into PSW bits
+  5 and 1, which are the user flags F0 and F1.
+- Bit instructions use a separate byte per bit (BIT_OPS "BIT_ADDRS") instead of
+  the bits of internal RAM 0x20-0x2F and of the SFRs.
+- SP has no direct-address alias, so `mov sp,#n` writes SFR 0x81 and leaves SP
+  alone.  With the alias, PUSH and POP of SP would use SP as both operand and
+  stack pointer, so the patch passes their operand through a temporary.
+- MOVX @Ri ignores P2, which supplies the high address byte, so code that
+  pages external RAM, as SDCC's startup code does, stays in its first 256
+  bytes.  The patch takes the page from a new register, XPAGE, which the host
+  keeps in step with the SFR another, XPAGE_SFR, names, since Silicon Labs'
+  CIP-51 devices page through an EMI0CN instead.
+- SFRs have no pages, so Silicon Labs' devices that page their SFRs through
+  SFRPAGE cannot be emulated.  The patch moves SFR accesses to a new space,
+  PSFR, whose addresses have a second byte, the page, as the CIP-51 variant's
+  SFR space has; a new register, SFR_PAGE, which the host keeps in step with
+  SFRPAGE, selects the page of the SFRs that two more, SFR_PAGED_LO and
+  SFR_PAGED_HI, mark as paged.
+
+--- a/Ghidra/Processors/8051/data/languages/8051_main.sinc
++++ b/Ghidra/Processors/8051/data/languages/8051_main.sinc
+@@ -1,8 +1,11 @@
+ # sleigh specification file for Intel 8051
+ 
+ #@define BIT_OPS "PCODEOPS"
+-#@define BIT_OPS "SHIFTS" 
+-@define BIT_OPS "BIT_ADDRS"
++# SmallWorld: SHIFTS, so bit instructions read and write the bits of internal
++# RAM 0x20-0x2F and of the SFRs, as the hardware does, rather than a separate
++# byte per bit.
++@define BIT_OPS "SHIFTS"
++#@define BIT_OPS "BIT_ADDRS"
+ 
+ # It's sometimes clearer for decompilation to omit the pushing and
+ # restoring of the return value for function calls.
+@@ -201,6 +204,25 @@
+ define register offset=0x40  size=$(SP_SIZE) [ SP ];
+ define register offset=0x44  size=$(PTRSIZE) [ PC ];
+ define register offset=0x48  size=1 [ PSW ];
++@if defined(MCS51)
++# SmallWorld: the address of the SFR that supplies the high byte of MOVX @Ri's
++# address.  Not a register of the hardware but a property of the device: P2
++# (0xA0) on Intel's 8051, an EMI0CN on Silicon Labs' CIP-51 devices.  The host
++# sets it before emulation starts, and keeps XPAGE in step with that SFR - or
++# zero, where it is not mapped - so that MOVX @Ri reads no SFR itself.
++define register offset=0x4C  size=1 [ XPAGE_SFR ];
++define register offset=0x4E  size=1 [ XPAGE ];
++# SmallWorld: SFR paging, as on Silicon Labs' devices with an SFRPAGE SFR.
++# SFRs are emulated in PSFR, whose addresses have a second byte, the page, as
++# the CIP-51 variant's SFR space has; unpaged SFRs are on page 0.  None of
++# these registers is the hardware's.  SFR_PAGE mirrors SFRPAGE, which the host
++# keeps it in step with, since SFRPAGE's address depends on the device.  Bit n
++# of SFR_PAGED_LO says whether SFR 0x80 + n is paged; of SFR_PAGED_HI, whether
++# SFR 0xC0 + n is.  The host leaves both zero on other devices.
++define space PSFR     type=ram_space      size=2;
++define register offset=0x4D  size=1 [ SFR_PAGE ];
++define register offset=0x58  size=8 [ SFR_PAGED_LO SFR_PAGED_HI ];
++@endif
+ @if defined(DUAL_DPTR)
+ # Dual DPTR
+ # Rather than model it as context, we're just going
+@@ -380,23 +402,42 @@
+ # PSW = PSW | ((op1 < op2) << 7);
+ #}
+ 
+-macro addflags(op1, op2) {   # Flags set by add instructions
+-$(CY) = (carry(op1,op2));        # Check for carry
+- #OV = (scarry(op1,op2));      # Check for signed carry
++# SmallWorld: CY, AC and OV for op1 + op2 + cin and op1 - op2 - cin.  The
++# carry-in is a separate operand: folding it into op2 first, in one byte,
++# wraps 0xFF + 1 to 0 and loses the carry or borrow out.
++macro addflags(op1, op2, cin) {   # Flags set by add instructions
++ local a:2 = zext(op1);
++ local b:2 = zext(op2);
++ local c:2 = zext(cin);
++ local wide:2 = a + b + c;
++ $(CY) = wide > 0xff;
++ $(AC) = ((a & 0xf) + (b & 0xf) + c) > 0xf;
++ local sa:2 = sext(op1);
++ local sb:2 = sext(op2);
++ local swide:2 = sa + sb + c;
++ $(OV) = (swide s> 0x7f) || (swide s< 0xff80);
+ }
+ 
+-macro subflags(op1, op2) {   # Flags set by sub instructions
+-$(CY) = (op1 < op2);        # Check for carry
+- #OV = sborrow(op1,op2);      # Check for signed carry
++macro subflags(op1, op2, cin) {   # Flags set by sub instructions
++ local a:2 = zext(op1);
++ local b:2 = zext(op2);
++ local c:2 = zext(cin);
++ $(CY) = a < (b + c);
++ $(AC) = (a & 0xf) < ((b & 0xf) + c);
++ local sa:2 = sext(op1);
++ local sb:2 = sext(op2);
++ local swide:2 = sa - sb - c;
++ $(OV) = (swide s> 0x7f) || (swide s< 0xff80);
+ }
+ 
+ macro compflags(op1, op2) {  # Flags set by the compare instructions
+ $(CY) = (op1 < op2);        # Check for carry
+ }
+ 
+-macro resultflags(op1) { # Set N,Z flag for results
+- $(N) = op1 s< 0;
+- $(Z) = op1 == 0;
++# SmallWorld: the 8051 has no N or Z flag.  PSW bits 5 and 1, which $(N) and
++# $(Z) name, are the user flags F0 and F1, so writing them corrupts program
++# state.
++macro resultflags(op1) {
+ }
+ 
+ macro push8(val) {
+@@ -602,6 +643,17 @@
+ RiX:     @ri       is ri      { ptr:3 = zext(ri); export *[RAM]:1 ptr; }
+ @endif
+ 
++# SmallWorld: on the 8051, MOVX @Ri takes the high byte of its address from
++# an SFR, as the hardware does - P2 on Intel's 8051; XPAGE_SFR names it, and
++# XPAGE holds its value.  SDCC
++# pages external RAM through it to initialize data, and to reach pdata and an
++# external stack.  Other variants keep RiX.
++@if defined(MCS51)
++RiXP:    @ri       is ri      { ptr:2 = (zext(XPAGE) << 8) | zext(ri); export *[EXTMEM]:1 ptr; }
++@else
++RiXP:    RiX       is RiX     { export RiX; }
++@endif
++
+ Data:    "#"data   is data	  { export *[const]:1 data; }
+ Data16:  "#"data16 is data16  { export *[const]:2 data16; }
+ @if defined(MCS80390)
+@@ -615,11 +667,27 @@
+ @elif defined(MCS51) || defined(MCS80390) || defined(CIP51)
+ Direct:  mainreg   is bank=0 & mainreg	{ export *[INTMEM]:1 mainreg; }
+ @endif
++@if defined(MCS51)
++# SmallWorld: the address of an SFR, on its page if it is paged; see SFR_PAGE.
++macro sfr_address(address, paged, offset) {
++	local bit:8 = (paged >> (offset & 0x3F)) & 1;
++	local page:1 = SFR_PAGE * bit:1;
++	address = (zext(page) << 8) | offset;
++}
++Direct:  direct    is bank=1 & sfr6=0 & direct 	{ local a:2 = 0; sfr_address(a, SFR_PAGED_LO, direct); export *[PSFR]:1 a; }
++Direct:  direct    is bank=1 & sfr6=1 & direct 	{ local a:2 = 0; sfr_address(a, SFR_PAGED_HI, direct); export *[PSFR]:1 a; }
++@else
+ Direct:  direct    is bank=1 & direct 	{ export *[SFR]:1 direct; }
++@endif
+ Direct:  PSW       is bank=1 & direct=0xD0 & PSW  { export PSW;  }
+ Direct:  "A"       is bank=1 & direct=0xE0 	{ export ACC; }
+ Direct:  B         is bank=1 & direct=0xF0 & B  { export B;  }
+ Direct:  DPL       is bank=1 & direct=0x82 & DPL 	{ export DPL; }
++# SmallWorld: SP is a register too; without this, `mov sp,#n` writes SFR 0x81.
++# Only where SP is one byte wide, as a direct operand is.
++@if defined(MCS51) || defined(MCS80390) || defined(CIP51)
++Direct:  SP        is bank=1 & direct=0x81 & SP  { export SP; }
++@endif
+ Direct:  DPH       is bank=1 & direct=0x83 & DPH  { export DPH;  }
+ @if defined(MCS80390)
+ Direct:  DPX       is bank=1 & direct=0x93 & DPX  { export DPX;  }
+@@ -635,11 +703,19 @@
+ @elif defined(MCS51) || defined(MCS80390) || defined(CIP51)
+ Direct2:  mainreg2  is bank2=0 & mainreg2	{ export *[INTMEM]:1 mainreg2; }
+ @endif
++@if defined(MCS51)
++Direct2: direct2   is bank2=1 & sfr26=0 & direct2  	{ local a:2 = 0; sfr_address(a, SFR_PAGED_LO, direct2); export *[PSFR]:1 a; }
++Direct2: direct2   is bank2=1 & sfr26=1 & direct2  	{ local a:2 = 0; sfr_address(a, SFR_PAGED_HI, direct2); export *[PSFR]:1 a; }
++@else
+ Direct2: direct2   is bank2=1 & direct2  	{ export *[SFR]:1 direct2; }
++@endif
+ Direct2: PSW       is bank2=1 & direct2=0xD0 & PSW  { export PSW;  }
+ Direct2: "A"       is bank2=1 & direct2=0xE0	{ export ACC; }
+ Direct2:  B        is bank2=1 & direct2=0xF0 & B  { export B;  }
+ Direct2:  DPL      is bank2=1 & direct2=0x82 & DPL 	{ export DPL; }
++@if defined(MCS51) || defined(MCS80390) || defined(CIP51)
++Direct2:  SP       is bank2=1 & direct2=0x81 & SP  { export SP; }
++@endif
+ Direct2:  DPH      is bank2=1 & direct2=0x83 & DPH  { export DPH;  }
+ @if defined(MCS80390)
+ Direct2:  DPX      is bank2=1 & direct2=0x93 & DPX  { export DPX;  }
+@@ -666,7 +742,12 @@
+ BitAddr2: "/"bitaddr is bitbank=0 & lowbyte & sfrbit [ bitaddr =(lowbyte << 3)+sfrbit; ] { export *[BITS]:1 bitaddr; }
+ @endif
+ 
++@if defined(MCS51)
++BitByteAddr: byteaddr 	is bitbank=1 & sfrbit6=0 & sfrbyte & sfrbit [ byteaddr =(sfrbyte << 3); ] { local a:2 = 0; sfr_address(a, SFR_PAGED_LO, byteaddr); export *[PSFR]:1 a; }
++BitByteAddr: byteaddr 	is bitbank=1 & sfrbit6=1 & sfrbyte & sfrbit [ byteaddr =(sfrbyte << 3); ] { local a:2 = 0; sfr_address(a, SFR_PAGED_HI, byteaddr); export *[PSFR]:1 a; }
++@else
+ BitByteAddr: byteaddr 	is bitbank=1 & sfrbyte & sfrbit [ byteaddr =(sfrbyte << 3); ] { export *[SFR]:1 byteaddr; }
++@endif
+ BitByteAddr: "A" 		is bitbank=1 & sfrbyte=0x1C & sfrbit { export ACC; }
+ BitByteAddr: B 			is bitbank=1 & sfrbyte=0x1E & sfrbit & B { export B; }
+ BitByteAddr: PSW 	    is bitbank=1 & sfrbyte=0x1A & sfrbit & PSW { export PSW; }
+@@ -704,15 +785,15 @@
+ :ACALL  Addr11 is  $(GROUP1) & aaddrfill=1 & aoplo=1 & Addr11   { ret:2 = inst_next; push16(ret); call Addr11; }
+ @endif
+ 
+-:ADD Areg,rn      is $(GROUP2) & ophi=2          & Areg & rnfill=1 & rn 	 { addflags(ACC,rn); ACC = ACC + rn; resultflags(ACC); }
+-:ADD Areg,Direct  is $(GROUP1) & ophi=2 & oplo=5 & Areg; Direct  { addflags(ACC,Direct); ACC = ACC + Direct; resultflags(ACC); }
+-:ADD Areg,Ri      is $(GROUP2) & ophi=2          & Areg & rifill=3 & Ri	 { addflags(ACC,Ri); ACC = ACC + Ri; resultflags(ACC); }
+-:ADD Areg,Data    is $(GROUP1) & ophi=2 & oplo=4 & Areg; Data    { addflags(ACC,Data); ACC = ACC + Data; resultflags(ACC); }
+-
+-:ADDC Areg,rn     is $(GROUP2) & ophi=3          & Areg & rnfill=1 & rn	   { tmp:1 =$(CY)+ rn; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Direct is $(GROUP1) & ophi=3 & oplo=5 & Areg; Direct    { tmp:1 =$(CY)+ Direct; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Ri     is $(GROUP2) & ophi=3          & Areg & rifill=3 & Ri	   { tmp:1 =$(CY)+ Ri; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
+-:ADDC Areg,Data   is $(GROUP1) & ophi=3 & oplo=4 & Areg; Data      {  tmp:1 =$(CY)+ Data; addflags(ACC,tmp); ACC = ACC + tmp; resultflags(ACC); }
++:ADD Areg,rn      is $(GROUP2) & ophi=2          & Areg & rnfill=1 & rn 	 { local v:1 = rn; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Direct  is $(GROUP1) & ophi=2 & oplo=5 & Areg; Direct  { local v:1 = Direct; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Ri      is $(GROUP2) & ophi=2          & Areg & rifill=3 & Ri	 { local v:1 = Ri; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++:ADD Areg,Data    is $(GROUP1) & ophi=2 & oplo=4 & Areg; Data    { local v:1 = Data; addflags(ACC,v,0:1); ACC = ACC + v; resultflags(ACC); }
++
++:ADDC Areg,rn     is $(GROUP2) & ophi=3          & Areg & rnfill=1 & rn	   { local v:1 = rn; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Direct is $(GROUP1) & ophi=3 & oplo=5 & Areg; Direct    { local v:1 = Direct; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Ri     is $(GROUP2) & ophi=3          & Areg & rifill=3 & Ri	   { local v:1 = Ri; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
++:ADDC Areg,Data   is $(GROUP1) & ophi=3 & oplo=4 & Areg; Data      { local v:1 = Data; local cin:1 = $(CY); addflags(ACC,v,cin); ACC = ACC + v + cin; resultflags(ACC); }
+ 
+ #TODO: which GROUP does AJMP belong to ??
+ @if defined(MCS80390)
+@@ -874,9 +955,9 @@
+ :MOVC  Areg,ADPTR is $(GROUP1) & ophi=9 & oplo=3 & ADPTR & Areg		{ ACC = *:1 ADPTR; }
+ :MOVC  Areg,APC   is $(GROUP1) & ophi=8 & oplo=3 & APC   & Areg		{ ACC = *:1 APC; }
+ 
+-:MOVX  Areg,RiX     is $(GROUP2) & ophi=14 & rifill=1 & RiX & Areg	{ ACC = RiX; }
++:MOVX  Areg,RiXP    is $(GROUP2) & ophi=14 & rifill=1 & RiXP & Areg	{ ACC = RiXP; }
+ :MOVX  Areg,ATDPTR  is $(GROUP1) & ophi=14 & oplo=0 & Areg & ATDPTR	{ ACC = ATDPTR; }
+-:MOVX  RiX,Areg     is $(GROUP2) & ophi=15 & rifill=1 & RiX & Areg	{ RiX = ACC; }
++:MOVX  RiXP,Areg    is $(GROUP2) & ophi=15 & rifill=1 & RiXP & Areg	{ RiXP = ACC; }
+ :MOVX  ATDPTR,Areg  is $(GROUP1) & ophi=15 & oplo=0 & Areg & ATDPTR	{ ATDPTR = ACC; }
+ 
+ :MUL ABreg         is $(GROUP1) & ophi=10 & oplo=4 & ABreg	   { PSW = PSW & 0x7b; tmp:2 = zext(ACC) * zext(B); ACC = tmp(0); B = tmp(1); PSW = PSW | ((B!=0)<<2); }
+@@ -904,9 +985,11 @@
+ :ORL CY,BitAddr2 is $(GROUP1) & CY & ophi=10 & oplo=0; BitAddr2 & sfrbit & BitByteAddr {$(CY)=$(CY)| (((BitByteAddr>>sfrbit)&1)^1); }
+ @endif
+ 
+-:POP  Direct is $(GROUP1) & ophi=13 & oplo=0; Direct	{ pop8(Direct); }
++# SmallWorld: through a temporary, so that, with SP as a direct operand, POP
++# leaves SP the byte popped, and PUSH pushes SP as it was, as the hardware does.
++:POP  Direct is $(GROUP1) & ophi=13 & oplo=0; Direct	{ local val:1 = 0; pop8(val); Direct = val; }
+ 
+-:PUSH Direct is $(GROUP1) & ophi=12 & oplo=0; Direct	{ push8(Direct); }
++:PUSH Direct is $(GROUP1) & ophi=12 & oplo=0; Direct	{ local val:1 = Direct; push8(val); }
+ 
+ :RET  is $(GROUP1) & ophi=2 & oplo=2	{
+ @if defined(MCS251) || defined(MX51)
+@@ -946,10 +1029,10 @@
+ 
+ :SJMP Rel8        is $(GROUP1) & ophi=8 & oplo=0; Rel8			{ goto Rel8; }
+ 
+-:SUBB Areg,rn     is $(GROUP2) & ophi=9 & rnfill=1 & rn & Areg				{  tmp : 1 = rn+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Direct is $(GROUP1) & ophi=9 & oplo=5 & Areg; Direct	{  tmp:1 = Direct+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Ri     is $(GROUP2) & ophi=9 & Areg & rifill=3 & Ri				{  local tmp = Ri+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
+-:SUBB Areg,Data   is $(GROUP1) & ophi=9 & oplo=4 & Areg; Data	{ tmp:1 = Data+$(CY); subflags(ACC,tmp); ACC = ACC - tmp; }
++:SUBB Areg,rn     is $(GROUP2) & ophi=9 & rnfill=1 & rn & Areg				{ local v:1 = rn; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Direct is $(GROUP1) & ophi=9 & oplo=5 & Areg; Direct	{ local v:1 = Direct; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Ri     is $(GROUP2) & ophi=9 & Areg & rifill=3 & Ri				{ local v:1 = Ri; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
++:SUBB Areg,Data   is $(GROUP1) & ophi=9 & oplo=4 & Areg; Data	{ local v:1 = Data; local cin:1 = $(CY); subflags(ACC,v,cin); ACC = ACC - v - cin; }
+ 
+ :SWAP  Areg       is $(GROUP1) & ophi=12 & oplo=4 & Areg		{ ACC = (ACC>>4) | (ACC<<4); }
+ 

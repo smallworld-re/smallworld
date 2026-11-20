@@ -36,6 +36,7 @@ MSP430_ID := msp430-linux-gnu
 MSP430X_ID := msp430-linux-gnu
 PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
 PPC64_ID := powerpc64-linux-gnu.2.40
+RISCV32_ID := riscv32-linux-gnu.2.40
 RISCV64_ID := riscv64-linux-gnu.2.40
 # One SuperH binutils covers SH-4 big/little and SH-2A; the generation and
 # endianness come from per-platform ASFLAGS below.
@@ -58,6 +59,7 @@ I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA32_ASM_AS := zig build-exe -target $(LA32_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
+MCS51_ASM_AS := ./mcs51_asm.sh
 MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
 # microMIPS shares the MIPS32 targets; each source opens with `.set micromips`.
@@ -70,6 +72,7 @@ MSP430_ASM_AS := zig build-exe -target $(MSP430_ID)
 MSP430X_ASM_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
+RISCV32_ASM_AS := zig build-exe -target $(RISCV32_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 SH4_ASM_AS := ./$(SH_ID)-asm
 SH4EL_ASM_AS := ./$(SH_ID)-asm
@@ -102,6 +105,7 @@ MSP430_ELF_AS := zig build-exe -target $(MSP430_ID)
 MSP430X_ELF_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
+RISCV32_ELF_AS := zig build-exe -target $(RISCV32_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
 SH4_ELF_AS := ./$(SH_ID)-elfasm
 SH4EL_ELF_AS := ./$(SH_ID)-elfasm
@@ -124,6 +128,8 @@ I386_OBJCOPY := zig objcopy
 LA32_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
+# mcs51_asm.sh already writes the raw binary; see that script.
+MCS51_OBJCOPY := bash -c 'cp -- $$4 $$5'
 MIPS_OBJCOPY := zig objcopy
 MIPSEL_OBJCOPY := zig objcopy
 MICROMIPS_OBJCOPY := zig objcopy
@@ -134,6 +140,7 @@ MSP430_OBJCOPY := zig objcopy
 MSP430X_OBJCOPY := zig objcopy
 PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
+RISCV32_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
 SH4_OBJCOPY := $(SH_ID)-objcopy
 SH4EL_OBJCOPY := $(SH_ID)-objcopy
@@ -167,6 +174,7 @@ MSP430_CC := zig cc -target $(MSP430_ID)
 MSP430X_CC := zig cc -target $(MSP430X_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
+RISCV32_CC := zig cc -target $(RISCV32_ID)
 RISCV64_CC := zig cc -target $(RISCV64_ID)
 TRICORE_CC := $(TRICORE_ID)-gcc
 XTENSA_CC := $(XTENSA_ID)-gcc
@@ -225,6 +233,7 @@ AMD64_ELF_CFLAGS := -pie
 ARMHF_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
+RISCV32_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
 XTENSA_ELF_CFLAGS := -pie
 
@@ -247,6 +256,7 @@ I386_MINGW_EXT := i386
 LA32_EXT := la32
 LA64_EXT := la64
 M68K_EXT := m68k
+MCS51_EXT := mcs51
 MIPS_EXT := mips
 MIPSEL_EXT := mipsel
 MICROMIPS_EXT := micromips
@@ -258,6 +268,7 @@ MSP430X_EXT := msp430x
 PPC_EXT := ppc
 PPC64_EXT := ppc64
 PPCVLE_EXT := ppcvle
+RISCV32_EXT := riscv32
 RISCV64_EXT := riscv64
 SH4_EXT := sh4
 SH4EL_EXT := sh4el
@@ -278,6 +289,7 @@ I386_SRC_EXT := $(I386_EXT)
 LA32_SRC_EXT := $(LA32_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
 M68K_SRC_EXT := $(M68K_EXT)
+MCS51_SRC_EXT := $(MCS51_EXT)
 MIPS_SRC_EXT := $(MIPS_EXT)
 # NOTE: mipsel uses mips source
 MIPSEL_SRC_EXT := $(MIPS_EXT)
@@ -292,6 +304,7 @@ MSP430X_SRC_EXT := $(MSP430X_EXT)
 PPC_SRC_EXT := $(PPC_EXT)
 PPC64_SRC_EXT := $(PPC64_EXT)
 PPCVLE_SRC_EXT := $(PPCVLE_EXT)
+RISCV32_SRC_EXT := $(RISCV32_EXT)
 RISCV64_SRC_EXT := $(RISCV64_EXT)
 SH4_SRC_EXT := $(SH4_EXT)
 # NOTE: sh4el uses sh4 source
@@ -428,6 +441,115 @@ $(1)_C_DLLS := $$(patsubst %.dll.c,%.$$($(1)_EXT).dll,$$(C_DLL_SRCS))
 
 endef
 
+# 8051 C template
+# Builds each .mcs51.c twice with SDCC, once per calling convention, into
+# Intel HEX images with the linker's map beside them; see mcs51_cc.sh.
+
+MCS51_C_SRCS := $(wildcard */*.mcs51.c)
+MCS51_C_IHXS := $(patsubst %.mcs51.c,%.sdcc.mcs51.ihx,$(MCS51_C_SRCS)) $(patsubst %.mcs51.c,%.sdccstackauto.mcs51.ihx,$(MCS51_C_SRCS))
+
+%.sdcc.mcs51.ihx : %.mcs51.c
+	./mcs51_cc.sh $< $@
+
+%.sdccstackauto.mcs51.ihx : %.mcs51.c
+	./mcs51_cc.sh --stack-auto $< $@
+
+# libc.mcs51.c once more for a Silicon Labs CIP-51 device, the C8051F330, in
+# the medium memory model: its startup code and pdata page through EMI0CN
+# rather than P2, and pdata is moved off page 0, so the page matters.
+MCS51_C_IHXS += mcs51_sdcc/libc.cip51.mcs51.ihx
+
+mcs51_sdcc/libc.cip51.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F330.h --pdata 0x7e00 $< $@
+
+# And again for the C8051F020, whose EMI0CN is at another address.
+MCS51_C_IHXS += mcs51_sdcc/libc.c8051f020.mcs51.ihx
+
+mcs51_sdcc/libc.c8051f020.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F020.h --pdata 0x7e00 $< $@
+
+# And for the C8051F040, which pages its SFRs, and whose EMI0CN is at 0xA2.
+MCS51_C_IHXS += mcs51_sdcc/libc.c8051f040.mcs51.ihx
+
+mcs51_sdcc/libc.c8051f040.mcs51.ihx : mcs51_sdcc/libc.mcs51.c
+	./mcs51_cc.sh --medium --device C8051F040.h --pdata 0x7e00 $< $@
+
+# sfrpages.c for the devices that page their SFRs as the C8051F040 does.
+MCS51_SFRPAGES_DEVICES := c8051f040 c8051f060 c8051f120
+MCS51_C_IHXS += $(foreach d,$(MCS51_SFRPAGES_DEVICES),mcs51_sdcc/sfrpages.$(d).mcs51.ihx)
+
+mcs51_sdcc/sfrpages.%.mcs51.ihx : mcs51_sdcc/sfrpages.c
+	./mcs51_cc.sh --device $(shell echo $* | tr a-z A-Z).h $< $@
+
+# sfrpages_f36x.c only for the C8051F360, which pages its SFRs its own way.
+MCS51_C_IHXS += mcs51_sdcc/sfrpages_f36x.c8051f360.mcs51.ihx
+
+mcs51_sdcc/sfrpages_f36x.c8051f360.mcs51.ihx : mcs51_sdcc/sfrpages_f36x.c
+	./mcs51_cc.sh --device C8051F360.h $< $@
+
+# flash.cip51.c only for the C8051F330, whose flash programming it tests.
+MCS51_C_IHXS += mcs51_sdcc/flash.cip51.mcs51.ihx
+
+mcs51_sdcc/flash.cip51.mcs51.ihx : mcs51_sdcc/flash.cip51.c
+	./mcs51_cc.sh --device C8051F330.h $< $@
+
+# The EFM8BB2, which SDCC has no header for: mcs51_sdcc/efm8bb2.h declares the
+# SFRs the programs use.  libc.mcs51.c for it as for the C8051F330, its EMI0CN
+# at 0xE7; flash_efm8bb2.c, which erases its two sizes of flash page;
+# sfrpages_efm8bb2.c, which reaches SFRs on its pages and reads its page stack;
+# and interrupts_efm8bb2.c, which takes its interrupts.
+MCS51_EFM8BB2_H := $(CURDIR)/mcs51_sdcc/efm8bb2.h
+MCS51_C_IHXS += mcs51_sdcc/libc.efm8bb2.mcs51.ihx mcs51_sdcc/flash_efm8bb2.efm8bb2.mcs51.ihx
+MCS51_C_IHXS += mcs51_sdcc/sfrpages_efm8bb2.efm8bb2.mcs51.ihx
+MCS51_C_IHXS += mcs51_sdcc/interrupts_efm8bb2.efm8bb2.mcs51.ihx
+
+mcs51_sdcc/libc.efm8bb2.mcs51.ihx : mcs51_sdcc/libc.mcs51.c mcs51_sdcc/efm8bb2.h
+	./mcs51_cc.sh --medium --device $(MCS51_EFM8BB2_H) --pdata 0x7e00 $< $@
+
+mcs51_sdcc/flash_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/flash_efm8bb2.c mcs51_sdcc/efm8bb2.h
+	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
+
+mcs51_sdcc/sfrpages_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/sfrpages_efm8bb2.c mcs51_sdcc/efm8bb2.h
+	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
+
+mcs51_sdcc/interrupts_efm8bb2.efm8bb2.mcs51.ihx : mcs51_sdcc/interrupts_efm8bb2.c mcs51_sdcc/efm8bb2.h
+	./mcs51_cc.sh --device $(MCS51_EFM8BB2_H) $< $@
+
+# interrupts.cip51.c only for the C8051F330, whose interrupts it tests.
+MCS51_C_IHXS += mcs51_sdcc/interrupts.cip51.mcs51.ihx
+
+mcs51_sdcc/interrupts.cip51.mcs51.ihx : mcs51_sdcc/interrupts.cip51.c
+	./mcs51_cc.sh --device C8051F330.h $< $@
+
+# The C99 library-model tests whose functions have 8051 models, built the
+# same way from their shared sources, and again in SDCC's medium and large
+# memory models; see mcs51_cc.sh.  SDCC has no medium-model library for its
+# reentrant convention.  Keep in step with _MCS51_FUNCTIONS in
+# harness/scenarios/library_models.py.
+
+MCS51_C99_FUNCTIONS := abs atof atoi atol atoll bsearch calloc fabs free getchar gets \
+	labs llabs malloc memchr memcmp memcpy memmove memset printf putchar puts qsort \
+	rand realloc sprintf srand strcat strchr strcmp strcoll strcpy strcspn \
+	strerror strlen strncat strncmp strncpy strpbrk strrchr strspn strstr \
+	strtok strxfrm tolower toupper
+MCS51_C99_VARIANTS := sdcc sdccstackauto sdcc-medium sdcc-large sdccstackauto-large
+MCS51_C_IHXS += $(foreach f,$(MCS51_C99_FUNCTIONS),$(foreach v,$(MCS51_C99_VARIANTS),c99/$(f)/$(f).$(v).mcs51.ihx))
+
+c99/%.sdcc.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h c99/mcs51_sdcc.c
+	./mcs51_cc.sh --c99 $< $@
+
+c99/%.sdccstackauto.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h c99/mcs51_sdcc.c
+	./mcs51_cc.sh --stack-auto --c99 $< $@
+
+c99/%.sdcc-medium.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h c99/mcs51_sdcc.c
+	./mcs51_cc.sh --medium --c99 $< $@
+
+c99/%.sdcc-large.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h c99/mcs51_sdcc.c
+	./mcs51_cc.sh --large --c99 $< $@
+
+c99/%.sdccstackauto-large.mcs51.ihx : c99/%.elf.c c99/mcs51_sdcc.h c99/mcs51_sdcc.c
+	./mcs51_cc.sh --stack-auto --large --c99 $< $@
+
 # Build phony targets to build everything for the architecture
 
 define GENERAL_TEMPLATE
@@ -435,12 +557,14 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_ASM_SOS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_C_IHXS) $$($(1)_ASM_ELFS) $$($(1)_ASM_SOS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
 	find . -name '*.$$($(1)_EXT).o' -type f -delete
 	find . -name '*.$$($(1)_EXT).bin' -type f -delete
+	find . -name '*.$$($(1)_EXT).ihx' -type f -delete
+	find . -name '*.$$($(1)_EXT).map' -type f -delete
 	find . -name '*.$$($(1)_EXT).elf' -type f -delete
 	find . -name '*.$$($(1)_EXT).so' -type f -delete
 	find . -name '*.$$($(1)_EXT).pe' -type f -delete
@@ -453,13 +577,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV32 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -492,6 +616,20 @@ $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform)))
 # Populate the C PE templates
 $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
+# elf_core runs its binary on a real glibc under qemu-user to get a core dump.
+# zig's powerpc64-linux-gnu emits ELFv2 code but binds ELFv1 glibc symbol
+# versions (puts@GLIBC_2.3), and ELFv2 glibc starts at GLIBC_2.17, so no glibc
+# can load the result.  Nix's ELFv2 cross gcc builds against the glibc
+# create_core.sh runs it on.
+PPC64_GLIBC_CC := powerpc64-unknown-linux-gnuabielfv2-gcc
+elf_core/elf_core.ppc64.elf: PPC64_CC := $(PPC64_GLIBC_CC)
+# The test derivation's buildInputs put every cross glibc into
+# NIX_CFLAGS_COMPILE and NIX_LDFLAGS, which this gcc reads: it would compile
+# against m68k's headers and get an rpath that finds aarch64's libc.so.6
+# first.  Its wrapper supplies its own glibc, so drop them.
+elf_core/elf_core.ppc64.elf: export NIX_CFLAGS_COMPILE :=
+elf_core/elf_core.ppc64.elf: export NIX_LDFLAGS :=
+
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
 
@@ -506,6 +644,8 @@ all : $(foreach platform,$(PLATFORMS),$(call lc,$(platform)))
 .PHONY : clean
 clean : 
 	find . -name '*.bin' -type f -delete
+	find . -name '*.ihx' -type f -delete
+	find . -name '*.map' -type f -delete
 	find . -name '*.elf' -type f -delete
 	find . -name '*.o' -type f -delete
 	find . -name '*.so' -type f -delete

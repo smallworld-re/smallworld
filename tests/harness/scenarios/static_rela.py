@@ -22,6 +22,8 @@ _VARIANTS = (
     ("mips64", _skip("mips64")),
     ("mips64el", _skip("mips64el")),
     ("ppc", _skip("ppc")),
+    ("ppc64", None),
+    ("riscv32", _skip("riscv32")),
     ("riscv64", _skip("riscv64")),
 )
 

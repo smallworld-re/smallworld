@@ -1534,6 +1534,8 @@ class ABIEnumAndFeatureTests(unittest.TestCase):
         self.assertEqual(ABI.WINDOWS.value, "windows")
         self.assertEqual(ABI.STDCALL.value, "stdcall")
         self.assertEqual(ABI.THISCALL.value, "thiscall")
+        self.assertEqual(ABI.SDCC.value, "sdcc")
+        self.assertEqual(ABI.SDCCSTACKAUTO.value, "sdcc-stack-auto")
         self.assertFalse(hasattr(ABI, "DARWIN"))
         for member in ABI:
             self.assertRegex(member.name, r"^[A-Z]+$")

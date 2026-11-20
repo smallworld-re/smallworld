@@ -1,6 +1,8 @@
 import abc
 import typing
 
+import unicorn
+
 from .... import exceptions, platforms, utils
 
 # from ....platforms import Architecture
@@ -54,6 +56,18 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             raise ValueError(
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        """Set up a newly created Unicorn engine
+
+        This is for CPU state the machine state doesn't model,
+        but that user-space code expects, such as enabled FPUs.
+        The default does nothing.
+
+        Arguments:
+            engine: The new engine
+        """
+        pass
 
     def pc_from_engine(self, engine: typing.Any, value: int) -> int:
         """Convert the engine's program counter register to SmallWorld's pc.

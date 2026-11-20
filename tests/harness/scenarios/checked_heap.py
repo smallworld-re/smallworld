@@ -24,6 +24,8 @@ _ARCH_SPECS = {
     "mips64el": PlatformSpec("MIPS64", "LITTLE"),
     "mipsel": PlatformSpec("MIPS32", "LITTLE"),
     "ppc": PlatformSpec("POWERPC32", "BIG"),
+    "ppc64": PlatformSpec("POWERPC64", "BIG"),
+    "riscv32": PlatformSpec("RISCV32", "LITTLE"),
     "riscv64": PlatformSpec("RISCV64", "LITTLE"),
 }
 
@@ -74,7 +76,7 @@ SCENARIO_INFOS = tuple(
 def _supports_engine(arch: str, engine: str) -> bool:
     if engine == "triton":
         return arch in TRITON_ARCHS
-    if arch == "riscv64":
+    if arch in {"ppc64", "riscv32", "riscv64"}:
         return engine in {"unicorn", "angr", "pcode"}
     return engine in {"unicorn", "angr", "panda", "pcode"}
 
@@ -118,9 +120,17 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     cpu.pc.set(entrypoint)
     if arch in _NEEDS_T9 and hasattr(cpu, "t9"):
         cpu.t9.set(entrypoint)
+    if arch == "ppc64":
+        # An ELFv2 function's global entry point derives the TOC pointer, r2,
+        # from its own address in r12.
+        cpu.r12.set(entrypoint)
 
     stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
     machine.add(stack)
+    if arch == "ppc64":
+        # An ELFv2 caller's frame header is 32 bytes: back chain, CR save,
+        # LR save, and the TOC save slot that calls through the PLT use.
+        stack.push_bytes(b"\0" * 24, "Frame header")
     stack.push_integer(0xFFFFFFFF, 8, "fake return address")
     cpu.sp.set(stack.get_pointer())
 

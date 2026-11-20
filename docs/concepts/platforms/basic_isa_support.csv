@@ -16,11 +16,13 @@ mips32-micromips-be, **Yes**,    **Yes**,    No,         No,         **Yes**
 mips32-micromips-el, **Yes**,    **Yes**,    No,         No,         **Yes**
 mips64r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips64r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mcs51,              **Yes**,    **Yes**,    No Support, No,         No Support
 msp430,             **Yes**,    **Yes**,    No Support, No,         No Support
 msp430x,            **Yes**,    **Yes**,    No Support, No,         No Support
 powerpc32,          **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 powerpc32-vle,      **Yes**,    No,         No Support, No,         No Support
-powerpc64,          **Yes**,    **Yes**,    No,         No,         No Support
+powerpc64,          **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+riscv32,            **Yes**,    **Yes**,    No,         No,         **Yes**
 riscv64,            **Yes**,    **Yes**,    No Support, No,         **Yes**
 superh-sh1,         **Yes**,    **Yes**,    No,         No,         No Support
 superh-sh2,         **Yes**,    **Yes**,    No,         No,         No Support

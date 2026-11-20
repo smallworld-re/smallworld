@@ -24,6 +24,7 @@ _ARCHS = (
     # VLE's `se_sc` reaches the syscall hooks because `machdefs/ppc_vle.py`
     # rewrites it, as for SuperH below.
     "ppcvle",
+    "riscv32",
     "riscv64",
     # SuperH's `trapa #imm` reaches hook_syscall(s) only because
     # `machdefs/superh.py` and `machdefs/superh4.py` rewrite it into an

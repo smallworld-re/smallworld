@@ -597,6 +597,11 @@ class FunctionHookable(metaclass=abc.ABCMeta):
         current function so that the hook essentially replaces a function call
         to the given address.
 
+        A hook that changes the program counter itself carries on wherever it
+        set it, on every backend, without popping a return address: if it
+        returns from the call that way, it must pop the return address too,
+        as :meth:`smallworld.state.models.Model.run` does.
+
         Arguments:
             address: The address of the hook.
             function: The function to execute when the address is reached.

@@ -1,6 +1,8 @@
+#ifndef __SDCC
 #include <features.h>
 #undef __GLIBC_USE_DEPRECATED_GETS
 #define __GLIBC_USE_DEPRECATED_GETS 1
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

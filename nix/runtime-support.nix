@@ -36,21 +36,24 @@ let
   # was built with, so keep this in step with it by hand.
   ghidraJdk = pkgs: pkgs.jdk25;
 
+  # Ghidra with SmallWorld's 8051 language fixes; see nix/ghidra.nix.
+  ghidraFor = pkgs: pkgs.callPackage ./ghidra.nix { jdk = ghidraJdk pkgs; };
+
   # Ghidra is the only tool in the regular runtime that needs both binaries on
   # PATH and matching environment variables in every shell/program wrapper.
   mkGhidraRuntime = pkgs: {
     tools = [
-      pkgs.ghidra
+      (ghidraFor pkgs)
       (ghidraJdk pkgs)
     ];
 
     env = {
-      GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+      GHIDRA_INSTALL_DIR = ghidraInstallDir (ghidraFor pkgs);
       JAVA_HOME = ghidraJdk pkgs;
     };
 
     setupHook = ''
-      export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
+      export GHIDRA_INSTALL_DIR=${ghidraInstallDir (ghidraFor pkgs)}
       export JAVA_HOME=${ghidraJdk pkgs}
     '';
   };
@@ -525,7 +528,7 @@ let
             Cmd = [ "/bin/sh" ];
             Env = [
               "LD_LIBRARY_PATH=/lib"
-              "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+              "GHIDRA_INSTALL_DIR=${ghidraInstallDir (ghidraFor pkgs)}"
               "JAVA_HOME=${ghidraJdk pkgs}"
             ];
           };

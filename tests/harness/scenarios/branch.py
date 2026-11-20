@@ -17,6 +17,7 @@ _ARCHS = (
     "la32",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "micromips",
@@ -28,6 +29,7 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "ppcvle",
+    "riscv32",
     "riscv64",
     "sh1",
     "sh2",
@@ -69,7 +71,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "branch"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
     run_factory=assert_outputs(
         (

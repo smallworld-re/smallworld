@@ -17,6 +17,7 @@ _ARCHS = (
     "la32",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "micromips",
@@ -26,6 +27,7 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "ppcvle",
+    "riscv32",
     "riscv64",
     "sh1",
     "sh2",
@@ -61,6 +63,8 @@ _STACKS = {
     "la32": _stack("la32"),
     "la64": _stack("la64"),
     "m68k": _stack("m68k"),
+    # The 8051's foo never returns, so no fake return address is needed.
+    "mcs51": _stack("mcs51", fake_return_size=None),
     "mips": _stack("mips"),
     "mipsel": _stack("mipsel"),
     "micromips": _stack("micromips"),
@@ -70,6 +74,7 @@ _STACKS = {
     "ppc": _stack("ppc"),
     "ppcvle": _stack("ppcvle"),
     "ppc64": _stack("ppc64"),
+    "riscv32": _stack("riscv32"),
     "riscv64": _stack("riscv64"),
     # SuperH leaves the return address in pr rather than on the stack, so like
     # tricore it needs no synthetic return slot; the sh binaries still touch the
@@ -115,14 +120,14 @@ def _call_expectations(
 ) -> tuple[tuple[tuple[str, ...], str], ...]:
     signext = bool(kwargs.get("signext", False))
     if kwargs.get("sixteenbit", False):
-        return tuple(
-            ((str(n),), f"{r:#x}") for n, r in ((0, 0xFFF9), (101, 0x321), (1000, 0x21))
+        # 65536 does not fit a 16-bit argument; 1000 takes the same branch.
+        outputs: tuple[tuple[int, int], ...] = ((0, 0xFFF9), (101, 0x321), (1000, 0x21))
+    else:
+        outputs = (
+            (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
+            (101, 0x321),
+            (65536, 0x21),
         )
-    outputs = (
-        (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
-        (101, 0x321),
-        (65536, 0x21),
-    )
     return tuple(((str(n),), f"{r:#x}") for n, r in outputs)
 
 
@@ -156,13 +161,13 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "call"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unexpected trap", **_SH4_CALL_SKIPS},
+        skip_reasons=_SH4_CALL_SKIPS,
         arch_kwargs={
             **{
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            "x86_16": {"sixteenbit": True},
+            **{arch: {"sixteenbit": True} for arch in ("mcs51", "x86_16")},
         },
     ),
     run_factory=assert_outputs(_call_expectations),

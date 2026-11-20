@@ -2,183 +2,181 @@ from ... import platforms, state
 from . import cpu
 
 
-class RISCV64(cpu.CPU):
-    """CPU state for riscv64"""
+class RISCV(cpu.CPU):
+    """CPU state common to all RiscV variants"""
 
-    platform = platforms.Platform(
-        platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
-    )
-
-    def __init__(self):
+    def __init__(self, xlen):
         super().__init__()
         # *** General-Purpose Registers ***
         # x0 is wired to 0, and aliased as "zero"
-        self.x0 = state.FixedRegister("x0", 8, 0)
+        self.x0 = state.FixedRegister("x0", xlen, 0)
         self.add(self.x0)
-        self.zero = state.RegisterAlias("zero", self.x0, 8, 0)
+        self.zero = state.RegisterAlias("zero", self.x0, xlen, 0)
         self.add(self.zero)
         # x1 acts as the link register
         # NOTE: ra is the official name; lr might be an angr invention.
-        self.x1 = state.Register("x1", 8)
+        self.x1 = state.Register("x1", xlen)
         self.add(self.x1)
-        self.ra = state.RegisterAlias("ra", self.x1, 8, 0)
+        self.ra = state.RegisterAlias("ra", self.x1, xlen, 0)
         self.add(self.ra)
         # x2 acts as the stack pointer
-        self.x2 = state.Register("x2", 8)
+        self.x2 = state.Register("x2", xlen)
         self.add(self.x2)
-        self.sp = state.RegisterAlias("sp", self.x2, 8, 0)
+        self.sp = state.RegisterAlias("sp", self.x2, xlen, 0)
         self.add(self.sp)
         # x3 acts as the global pointer
-        self.x3 = state.Register("x3", 8)
+        self.x3 = state.Register("x3", xlen)
         self.add(self.x3)
-        self.gp = state.RegisterAlias("gp", self.x3, 8, 0)
+        self.gp = state.RegisterAlias("gp", self.x3, xlen, 0)
         self.add(self.gp)
         # x4 acts as the thread pointer
-        self.x4 = state.Register("x4", 8)
+        self.x4 = state.Register("x4", xlen)
         self.add(self.x4)
-        self.tp = state.RegisterAlias("tp", self.x4, 8, 0)
+        self.tp = state.RegisterAlias("tp", self.x4, xlen, 0)
         self.add(self.tp)
         # x5 is a temporary register
-        self.x5 = state.Register("x5", 8)
+        self.x5 = state.Register("x5", xlen)
         self.add(self.x5)
-        self.t0 = state.RegisterAlias("t0", self.x5, 8, 0)
+        self.t0 = state.RegisterAlias("t0", self.x5, xlen, 0)
         self.add(self.t0)
         # x6 is a temporary register
-        self.x6 = state.Register("x6", 8)
+        self.x6 = state.Register("x6", xlen)
         self.add(self.x6)
-        self.t1 = state.RegisterAlias("t1", self.x6, 8, 0)
+        self.t1 = state.RegisterAlias("t1", self.x6, xlen, 0)
         self.add(self.t1)
         # x7 is a temporary register
-        self.x7 = state.Register("x7", 8)
+        self.x7 = state.Register("x7", xlen)
         self.add(self.x7)
-        self.t2 = state.RegisterAlias("t2", self.x7, 8, 0)
+        self.t2 = state.RegisterAlias("t2", self.x7, xlen, 0)
         self.add(self.t2)
         # x8 is a callee-saved register
-        self.x8 = state.Register("x8", 8)
+        self.x8 = state.Register("x8", xlen)
         self.add(self.x8)
-        self.s0 = state.RegisterAlias("s0", self.x8, 8, 0)
+        self.s0 = state.RegisterAlias("s0", self.x8, xlen, 0)
         self.add(self.s0)
         # x9 is a callee-saved register
-        self.x9 = state.Register("x9", 8)
+        self.x9 = state.Register("x9", xlen)
         self.add(self.x9)
-        self.s1 = state.RegisterAlias("s1", self.x9, 8, 0)
+        self.s1 = state.RegisterAlias("s1", self.x9, xlen, 0)
         self.add(self.s1)
         # x10 is argument 0
-        self.x10 = state.Register("x10", 8)
+        self.x10 = state.Register("x10", xlen)
         self.add(self.x10)
-        self.a0 = state.RegisterAlias("a0", self.x10, 8, 0)
+        self.a0 = state.RegisterAlias("a0", self.x10, xlen, 0)
         self.add(self.a0)
         # x11 is argument 1
-        self.x11 = state.Register("x11", 8)
+        self.x11 = state.Register("x11", xlen)
         self.add(self.x11)
-        self.a1 = state.RegisterAlias("a1", self.x11, 8, 0)
+        self.a1 = state.RegisterAlias("a1", self.x11, xlen, 0)
         self.add(self.a1)
         # x12 is argument 2
-        self.x12 = state.Register("x12", 8)
+        self.x12 = state.Register("x12", xlen)
         self.add(self.x12)
-        self.a2 = state.RegisterAlias("a2", self.x12, 8, 0)
+        self.a2 = state.RegisterAlias("a2", self.x12, xlen, 0)
         self.add(self.a2)
         # x13 is argument 3
-        self.x13 = state.Register("x13", 8)
+        self.x13 = state.Register("x13", xlen)
         self.add(self.x13)
-        self.a3 = state.RegisterAlias("a3", self.x13, 8, 0)
+        self.a3 = state.RegisterAlias("a3", self.x13, xlen, 0)
         self.add(self.a3)
         # x14 is argument 4
-        self.x14 = state.Register("x14", 8)
+        self.x14 = state.Register("x14", xlen)
         self.add(self.x14)
-        self.a4 = state.RegisterAlias("a4", self.x14, 8, 0)
+        self.a4 = state.RegisterAlias("a4", self.x14, xlen, 0)
         self.add(self.a4)
         # x15 is argument 5
-        self.x15 = state.Register("x15", 8)
+        self.x15 = state.Register("x15", xlen)
         self.add(self.x15)
-        self.a5 = state.RegisterAlias("a5", self.x15, 8, 0)
+        self.a5 = state.RegisterAlias("a5", self.x15, xlen, 0)
         self.add(self.a5)
         # x16 is argument 6
-        self.x16 = state.Register("x16", 8)
+        self.x16 = state.Register("x16", xlen)
         self.add(self.x16)
-        self.a6 = state.RegisterAlias("a6", self.x16, 8, 0)
+        self.a6 = state.RegisterAlias("a6", self.x16, xlen, 0)
         self.add(self.a6)
         # x17 is argument 7
-        self.x17 = state.Register("x17", 8)
+        self.x17 = state.Register("x17", xlen)
         self.add(self.x17)
-        self.a7 = state.RegisterAlias("a7", self.x17, 8, 0)
+        self.a7 = state.RegisterAlias("a7", self.x17, xlen, 0)
         self.add(self.a7)
         # x18 is a callee-saved register
-        self.x18 = state.Register("x18", 8)
+        self.x18 = state.Register("x18", xlen)
         self.add(self.x18)
-        self.s2 = state.RegisterAlias("s2", self.x18, 8, 0)
+        self.s2 = state.RegisterAlias("s2", self.x18, xlen, 0)
         self.add(self.s2)
         # x19 is a callee-saved register
-        self.x19 = state.Register("x19", 8)
+        self.x19 = state.Register("x19", xlen)
         self.add(self.x19)
-        self.s3 = state.RegisterAlias("s3", self.x19, 8, 0)
+        self.s3 = state.RegisterAlias("s3", self.x19, xlen, 0)
         self.add(self.s3)
         # x20 is a callee-saved register
-        self.x20 = state.Register("x20", 8)
+        self.x20 = state.Register("x20", xlen)
         self.add(self.x20)
-        self.s4 = state.RegisterAlias("s4", self.x20, 8, 0)
+        self.s4 = state.RegisterAlias("s4", self.x20, xlen, 0)
         self.add(self.s4)
         # x21 is a callee-saved register
-        self.x21 = state.Register("x21", 8)
+        self.x21 = state.Register("x21", xlen)
         self.add(self.x21)
-        self.s5 = state.RegisterAlias("s5", self.x21, 8, 0)
+        self.s5 = state.RegisterAlias("s5", self.x21, xlen, 0)
         self.add(self.s5)
         # x22 is a callee-saved register
-        self.x22 = state.Register("x22", 8)
+        self.x22 = state.Register("x22", xlen)
         self.add(self.x22)
-        self.s6 = state.RegisterAlias("s6", self.x22, 8, 0)
+        self.s6 = state.RegisterAlias("s6", self.x22, xlen, 0)
         self.add(self.s6)
         # x23 is a callee-saved register
-        self.x23 = state.Register("x23", 8)
+        self.x23 = state.Register("x23", xlen)
         self.add(self.x23)
-        self.s7 = state.RegisterAlias("s7", self.x23, 8, 0)
+        self.s7 = state.RegisterAlias("s7", self.x23, xlen, 0)
         self.add(self.s7)
         # x24 is a callee-saved register
-        self.x24 = state.Register("x24", 8)
+        self.x24 = state.Register("x24", xlen)
         self.add(self.x24)
-        self.s8 = state.RegisterAlias("s8", self.x24, 8, 0)
+        self.s8 = state.RegisterAlias("s8", self.x24, xlen, 0)
         self.add(self.s8)
         # x25 is a callee-saved register
-        self.x25 = state.Register("x25", 8)
+        self.x25 = state.Register("x25", xlen)
         self.add(self.x25)
-        self.s9 = state.RegisterAlias("s9", self.x25, 8, 0)
+        self.s9 = state.RegisterAlias("s9", self.x25, xlen, 0)
         self.add(self.s9)
         # x26 is a callee-saved register
-        self.x26 = state.Register("x26", 8)
+        self.x26 = state.Register("x26", xlen)
         self.add(self.x26)
-        self.s10 = state.RegisterAlias("s10", self.x26, 8, 0)
+        self.s10 = state.RegisterAlias("s10", self.x26, xlen, 0)
         self.add(self.s10)
         # x27 is a callee-saved register
-        self.x27 = state.Register("x27", 8)
+        self.x27 = state.Register("x27", xlen)
         self.add(self.x27)
-        self.s11 = state.RegisterAlias("s11", self.x27, 8, 0)
+        self.s11 = state.RegisterAlias("s11", self.x27, xlen, 0)
         self.add(self.s11)
         # x28 is a temporary register
-        self.x28 = state.Register("x28", 8)
+        self.x28 = state.Register("x28", xlen)
         self.add(self.x28)
-        self.t3 = state.RegisterAlias("t3", self.x28, 8, 0)
+        self.t3 = state.RegisterAlias("t3", self.x28, xlen, 0)
         self.add(self.t3)
         # x29 is a temporary register
-        self.x29 = state.Register("x29", 8)
+        self.x29 = state.Register("x29", xlen)
         self.add(self.x29)
-        self.t4 = state.RegisterAlias("t4", self.x29, 8, 0)
+        self.t4 = state.RegisterAlias("t4", self.x29, xlen, 0)
         self.add(self.t4)
         # x30 is a temporary register
-        self.x30 = state.Register("x30", 8)
+        self.x30 = state.Register("x30", xlen)
         self.add(self.x30)
-        self.t5 = state.RegisterAlias("t5", self.x30, 8, 0)
+        self.t5 = state.RegisterAlias("t5", self.x30, xlen, 0)
         self.add(self.t5)
         # x31 is a temporary register
-        self.x31 = state.Register("x31", 8)
+        self.x31 = state.Register("x31", xlen)
         self.add(self.x31)
-        self.t6 = state.RegisterAlias("t6", self.x31, 8, 0)
+        self.t6 = state.RegisterAlias("t6", self.x31, xlen, 0)
         self.add(self.t6)
 
         # *** Program Counter ***
-        self.pc = state.Register("pc", 8)
+        self.pc = state.Register("pc", xlen)
         self.add(self.pc)
 
         # *** Floating-Point Registers ***
+        # NOTE: These are sized for the "D" extension (FLEN = 64)
+        # regardless of XLEN, since RV32GC and RV64GC both include it.
         # f0 is a temporary register
         self.f0 = state.Register("f0", 8)
         self.add(self.f0)
@@ -345,3 +343,25 @@ class RISCV64(cpu.CPU):
 
         # *** Control and Status Registers ***
         # NOTE: These exist, but aren't supported.
+
+
+class RISCV32(RISCV):
+    """CPU state for riscv32"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.RISCV32, platforms.Byteorder.LITTLE
+    )
+
+    def __init__(self):
+        super().__init__(4)
+
+
+class RISCV64(RISCV):
+    """CPU state for riscv64"""
+
+    platform = platforms.Platform(
+        platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+    )
+
+    def __init__(self):
+        super().__init__(8)

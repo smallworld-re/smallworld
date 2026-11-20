@@ -32,6 +32,12 @@ _VARIANTS = (
     ("i386.angr", None),
     ("i386.pcode", None),
     ("i386.triton", _TRITON_NO_FLOAT),
+    ("ppc", None),
+    ("ppc.angr", None),
+    ("ppc.pcode", None),
+    ("ppc64", None),
+    ("ppc64.angr", None),
+    ("ppc64.pcode", None),
     # SuperH selects precision from FPSCR rather than the opcode, so these run
     # single-precision with PR=0; 2.2 + 1.1 comes out as 3.3000002, which still
     # carries the "3.3" this scenario asserts on.  Double precision is broken on

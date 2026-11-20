@@ -7,6 +7,7 @@ from . import (
     i386,
     loongarch64,
     m68k,
+    mcs51,
     micromips,
     micromipsel,
     mips,
@@ -15,6 +16,8 @@ from . import (
     mipsel,
     posix,
     powerpc,
+    powerpc64,
+    riscv32,
     riscv64,
 )
 from .defaultmmio import (
@@ -43,6 +46,7 @@ __all__ = __model__ + [
     "i386",
     "loongarch64",
     "m68k",
+    "mcs51",
     "micromips",
     "micromipsel",
     "mips",
@@ -51,5 +55,7 @@ __all__ = __model__ + [
     "mips64el",
     "posix",
     "powerpc",
+    "powerpc64",
+    "riscv32",
     "riscv64",
 ]

@@ -18,6 +18,7 @@ _ARCHS = (
     "la32",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
     "micromips",
@@ -29,6 +30,7 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "ppcvle",
+    "riscv32",
     "riscv64",
     "sh1",
     "sh2",
@@ -95,13 +97,15 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "square"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={
             **{
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x", "x86_16")},
+            **{
+                arch: {"sixteenbit": True}
+                for arch in ("mcs51", "msp430", "msp430x", "x86_16")
+            },
         },
     ),
     run_factory=assert_outputs(_square_expectations),

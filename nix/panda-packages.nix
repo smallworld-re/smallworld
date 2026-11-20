@@ -100,6 +100,8 @@ let
           # target/sh4/cpu.{h,c} - so this order matters.
           ./patches/panda-qemu-superh.patch
           ./patches/panda-qemu-sh2a.patch
+          # Generated on top of `superh`, which edits the same meson.build.
+          ./patches/panda-qemu-ppc64-configurable.patch
         ];
       };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;

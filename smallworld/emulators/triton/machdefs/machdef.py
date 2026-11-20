@@ -94,6 +94,13 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
     clean stop rather than an execution fault.
     """
 
+    nop_mnemonics: typing.Set[str] = set()
+    """Instruction mnemonics that have no effect SmallWorld models on this arch.
+
+    Valid instructions, such as memory fences, that Triton implements no
+    semantics for and reports as undefined; the run loop steps past them.
+    """
+
     syscall_mnemonics: typing.Set[str] = set()
     """Instruction mnemonics that request a system call on this architecture.
 
@@ -131,6 +138,14 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
                 f"has no register '{name}'"
             )
         return self._registers[key]
+
+    def check_register_write(self, name: str, value: int) -> None:
+        """Raise if Triton can't hold ``value`` in the register.
+
+        For registers Triton models narrower than the platform does, which
+        would otherwise lose bits silently.  Most machines have none.
+        """
+        pass
 
     def has_register(self, name: str) -> bool:
         key = name.lower()
