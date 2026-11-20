@@ -34,6 +34,7 @@ _ARCHS = (
     "sh4el",
     "tricore",
     "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -46,8 +47,13 @@ _SPECS = build_specs(
     _ARCHS,
     common={"print_mode": "register"},
     engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
-    # branch prints the 32-bit view on aarch64 so the boolean fits.
-    per_arch={"aarch64": {"result_register": "w0"}},
+    # branch prints the 32-bit view on aarch64 so the boolean fits. x86_16
+    # prints in hex: on angr, ax is a slice of an eax whose high half is
+    # unset, so it is a concrete bitvector that only "hex" mode unwraps.
+    per_arch={
+        "aarch64": {"result_register": "w0"},
+        "x86_16": {"print_mode": "hex"},
+    },
 )
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.

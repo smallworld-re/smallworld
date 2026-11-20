@@ -469,6 +469,56 @@ without any error, and both emulators compute the same wrong values:
 The ``roundf`` instructions, which GNU as accepts only with ``-mextension``, do
 not decode.
 
+**x86-16:** ``Architecture.X86_16`` is x86 real mode, as the 80386 runs it:
+16-bit code that may still use the 32-bit registers through the operand-size
+prefix. ``pc`` is the linear address of the next instruction, ``cs * 16 + ip``,
+and is a register of its own rather than an alias of ``eip``. Set the segment
+registers and ``pc``; the CPU's segment registers start at 0. Use
+``X86RealModeStack.get_segment()`` and ``get_offset()`` to load ``ss`` and
+``sp``.
+
+- **Unicorn** derives ``ip`` from ``pc`` and ``cs``, and ``eip`` holds the
+  offset into the code segment. It models segmentation, apart from far
+  returns (below).
+- **angr and Ghidra** both run Ghidra's ``x86:LE:16:Real Mode`` language.
+  ``eip`` is not available on them (set ``pc`` and ``cs`` instead), and ``ip``
+  is the low half of the linear pc, so it is the offset into cs only when cs
+  is a multiple of 0x1000.
+- Function models and hooks assume near calls: they pop a 2-byte offset from
+  ``ss:sp`` and return to it in the current ``cs``. A function reached by a
+  far call needs a model that sets ``skip_return`` and returns itself.
+- Models' pointer arguments are linear addresses, so they only match what
+  the code means when the segment the code reads them through is 0.
+- The Ghidra symbolic emulator, PANDA and Triton do not support real mode.
+- SmallWorld's analyses decode real-mode instructions with Capstone, since
+  the p-code analysis can't see through the language's ``segment`` op.
+
+**⚠ angr and Ghidra need code segments on a 64 KiB boundary.** Ghidra's
+real-mode language infers the code segment from the linear pc as
+``(pc >> 4) & 0xf000``, so code must run from a segment that starts on a
+64 KiB boundary: a cs that is a multiple of 0x1000, such as ``0000:7c00`` or
+``1000:0000``. In any other segment, near calls push the wrong return offset,
+and indirect near jumps and calls, and ``cs:`` overrides, overwrite cs with
+the inferred value. angr refuses to run such a segment. Ghidra runs it, and
+computes a wrong result: it only faults when a wrong address happens to be
+unmapped.
+
+**⚠ More of the real-mode language ignores segments on angr and Ghidra.**
+These are defects in Ghidra's language, so they are wrong in any code
+segment, and are right only when the segment they ignore is 0:
+
+- ``iret``, ``retf imm16`` and ``jmp far [m16:16]`` jump to the offset they
+  pop or load as a linear address, without its segment; ``call far [m16:16]``
+  jumps correctly, but leaves ``cs`` unchanged.
+- Accesses with the address-size prefix (``0x67``), including 32-bit stack
+  accesses, ignore their segment's base.
+- ``xlat`` reads from ``bx + al`` without ``ds`` or a segment override.
+
+**⚠ Unicorn gets far returns wrong.** Unicorn 2.1.4 in 16-bit mode loads the
+new ``cs`` on ``retf``, but keeps the old ``ip``, whenever a memory-read hook
+is installed, and SmallWorld always installs one. Far calls, far jumps,
+``iret`` and ``int`` are correct.
+
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
 Our emulation support depends on Ghidra's hardware model,

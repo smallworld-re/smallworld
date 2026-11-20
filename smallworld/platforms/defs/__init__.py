@@ -14,6 +14,7 @@ from .superh import SH1, SH2, SH2AFPU
 from .superh4 import SuperH4BE, SuperH4EL
 from .tricore import TriCore
 from .v850 import V850
+from .x86_16 import X86RealMode
 from .xtensa import Xtensa, XtensaBE
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "SuperH4EL",
     "TriCore",
     "V850",
+    "X86RealMode",
     "Xtensa",
     "XtensaBE",
 ]

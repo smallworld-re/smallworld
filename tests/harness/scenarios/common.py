@@ -293,6 +293,17 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=4,
         engines=("angr", "pcode"),
     ),
+    # Real mode, with every segment register at 0: the tests load at linear
+    # 0x1000, so pc, ip and every pointer coincide.
+    "x86_16": ArchInfo(
+        platform=PlatformSpec("X86_16", "LITTLE"),
+        pc_register="pc",
+        arg_register="di",
+        result_register="ax",
+        stack_pointer_register="sp",
+        pointer_size=2,
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "xtensa": ArchInfo(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -413,6 +424,19 @@ def make_emulator(smallworld, platform, engine: str):
         cpu_model = engine[len("styx") :].lstrip("-") or None
         return smallworld.emulators.StyxEmulator(platform, cpu_model=cpu_model)
     return getattr(smallworld.emulators, _EMULATOR_NAMES[engine])(platform)
+
+
+def concrete(value):
+    """``value`` as an int if it is a concrete bitvector.
+
+    angr leaves registers the harness never set symbolic, so a register
+    alias over a written low half and an unset high half (``ax`` in
+    ``eax`` on x86-16) comes back as a concrete bitvector rather than an
+    int.
+    """
+    if getattr(value, "concrete", False) and hasattr(value, "concrete_value"):
+        return value.concrete_value
+    return value
 
 
 def set_register(cpu, name: str, value: int) -> None:

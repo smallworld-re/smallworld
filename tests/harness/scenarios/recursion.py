@@ -9,6 +9,7 @@ from .common import (
     ARCH_REGISTERS,
     PlatformSpec,
     build_specs,
+    concrete,
     enroll_triton,
     load_raw_code,
     make_emulator,
@@ -65,6 +66,7 @@ _ARCHS = (
     "riscv64",
     "tricore",
     "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -112,6 +114,10 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     # main is the last instruction; mc91 keeps lp on the stack itself.
     "v850": {"entry_offset": 0x2A},
     "xtensa": {"stack_items": (_fake_return("xtensa"),)},
+    "x86_16": {
+        "arg_register": None,
+        "stack_items": (StackItem("argument", 2), StackItem(0xFFFF, 2)),
+    },
 }
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
@@ -208,5 +214,5 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
     emulator.add_exit_point(code.address + code.get_capacity())
     final_cpu = machine.emulate(emulator).get_cpu()
-    print(hex(getattr(final_cpu, spec.result_register).get()))
+    print(hex(concrete(getattr(final_cpu, spec.result_register).get())))
     return 0

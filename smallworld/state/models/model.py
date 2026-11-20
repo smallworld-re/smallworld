@@ -269,6 +269,15 @@ class Model(Hook):
                     self.platdef.sp_register, sp + self.platdef.address_size
                 )
             return ret
+        elif self.platform.architecture == platforms.Architecture.X86_16:
+            # x86 real mode: a near call pushes ip at ss:sp, and the return
+            # lands at that offset in the code segment.
+            sp = emulator.read_register("sp")
+            stack = (emulator.read_register("ss") << 4) + sp
+            ip = int.from_bytes(emulator.read_memory(stack, 2), "little")
+            if pop:
+                emulator.write_register("sp", (sp + 2) & 0xFFFF)
+            return (emulator.read_register("cs") << 4) + ip
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
             or self.platform.architecture == platforms.Architecture.ARM_V5T

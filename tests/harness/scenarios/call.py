@@ -32,6 +32,7 @@ _ARCHS = (
     "sh4el",
     "tricore",
     "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -77,12 +78,14 @@ _STACKS = {
     "tricore": _stack("tricore", fake_return_size=None),
     # V850 also returns through a register, lp.
     "v850": _stack("v850", fake_return_size=None),
+    "x86_16": _stack("x86_16", fake_return=0xFFFF, argument_size=2, pointer_adjust=2),
 }
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
     arch: {"stack": stack} for arch, stack in _STACKS.items()
 }
 _PER_ARCH["i386"]["arg_register"] = None
+_PER_ARCH["x86_16"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
 _PER_ARCH["v850"]["entry_offset"] = 0x14
 
@@ -107,6 +110,10 @@ def _call_expectations(
     variant: str, kwargs: Mapping[str, Any]
 ) -> tuple[tuple[tuple[str, ...], str], ...]:
     signext = bool(kwargs.get("signext", False))
+    if kwargs.get("sixteenbit", False):
+        return tuple(
+            ((str(n),), f"{r:#x}") for n, r in ((0, 0xFFF9), (101, 0x321), (1000, 0x21))
+        )
     outputs = (
         (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
         (101, 0x321),
@@ -147,8 +154,11 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={"ppc64": "Unexpected trap", **_SH4_CALL_SKIPS},
         arch_kwargs={
-            arch: {"signext": True}
-            for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+            **{
+                arch: {"signext": True}
+                for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+            },
+            "x86_16": {"sixteenbit": True},
         },
     ),
     run_factory=assert_outputs(_call_expectations),

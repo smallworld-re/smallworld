@@ -27,4 +27,5 @@ superh-sh4-be,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4-el,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 tricore,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 v850,               **Yes**,    **Yes**,    No Support, No Support, No Support
+x86-16,             **Yes**,    **Yes**,    No,         No,         **Yes**
 xtensa,             **Yes**,    **Yes**,    No Support, No,         No Support

@@ -418,6 +418,10 @@ class UnicornEmulator(
         try:
             if is_msr:
                 return self.engine.msr_read(reg)
+            elif name == "pc":
+                return self.machdef.pc_from_engine(
+                    self.engine, self.engine.reg_read(reg)
+                )
             else:
                 return self.engine.reg_read(reg)
         except Exception as e:
@@ -465,6 +469,10 @@ class UnicornEmulator(
         try:
             if is_msr:
                 self.engine.msr_write(reg, content)
+            elif name == "pc":
+                self.engine.reg_write(
+                    reg, self.machdef.pc_to_engine(self.engine, content)
+                )
             else:
                 self.engine.reg_write(reg, content)
         except Exception as e:
