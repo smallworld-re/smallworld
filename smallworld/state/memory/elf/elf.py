@@ -941,7 +941,7 @@ class ElfExecutable(Executable):
             baseaddr = self.address
 
         # The st_other bits above visibility are processor-specific.
-        is_mips = elf.header.machine_type.value == EM_MIPS
+        is_mips = int(elf.header.machine_type) == EM_MIPS
 
         dynsyms = set(elf.dynamic_symbols)
         idx = 0
