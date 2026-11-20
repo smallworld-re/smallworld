@@ -84,7 +84,7 @@ def register_alias(name: str, arch: Architecture) -> str:
             return "spr_xer"
         if name.startswith("fp_"):
             return "fpscr"
-    elif arch == Architecture.MIPS32:
+    elif arch in (Architecture.MIPS32, Architecture.MIPS32_MICROMIPS):
         if name == "hi":
             return "hi0"
         if name == "lo":

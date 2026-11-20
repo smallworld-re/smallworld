@@ -60,6 +60,10 @@ LA64_ASM_AS := zig build-exe -target $(LA64_ID)
 M68K_ASM_AS := ./$(M68K_ID)-asm
 MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
+# microMIPS shares the MIPS32 targets; each source opens with `.set micromips`.
+# (zig cannot build its runtime with -mcpu=...+micromips.)
+MICROMIPS_ASM_AS := $(MIPS_ASM_AS)
+MICROMIPSEL_ASM_AS := $(MIPSEL_ASM_AS)
 MIPS64_ASM_AS := zig build-exe -target $(MIPS64_ID)
 MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
 MSP430_ASM_AS := zig build-exe -target $(MSP430_ID)
@@ -90,6 +94,8 @@ LA64_ELF_AS := zig build-exe -target $(LA64_ID)
 M68K_ELF_AS := ./$(M68K_ID)-elfasm
 MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID)
+MICROMIPS_ELF_AS := $(MIPS_ELF_AS)
+MICROMIPSEL_ELF_AS := $(MIPSEL_ELF_AS)
 MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
 MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID) 
 MSP430_ELF_AS := zig build-exe -target $(MSP430_ID)
@@ -120,6 +126,8 @@ LA64_OBJCOPY := zig objcopy
 M68K_OBJCOPY := $(M68K_ID)-objcopy
 MIPS_OBJCOPY := zig objcopy
 MIPSEL_OBJCOPY := zig objcopy
+MICROMIPS_OBJCOPY := zig objcopy
+MICROMIPSEL_OBJCOPY := zig objcopy
 MIPS64_OBJCOPY := zig objcopy
 MIPS64EL_OBJCOPY := zig objcopy
 MSP430_OBJCOPY := zig objcopy
@@ -151,6 +159,8 @@ LA64_CC := zig cc -target $(LA64_ID)
 M68K_CC := $(M68K_ID)-gcc
 MIPS_CC := zig cc -target $(MIPS_ID) 
 MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
+MICROMIPS_CC := zig cc -target $(MIPS_ID)
+MICROMIPSEL_CC := zig cc -target $(MIPSEL_ID)
 MIPS64_CC := zig cc -target $(MIPS64_ID) 
 MIPS64EL_CC := zig cc -target $(MIPS64EL_ID) 
 MSP430_CC := zig cc -target $(MSP430_ID)
@@ -196,6 +206,15 @@ ARMHF_CFLAGS := -marm
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
+# zig cannot build its runtime or libc for microMIPS, and LLD cannot link
+# microMIPS PIC calls (R_MICROMIPS_JALR), so microMIPS C is freestanding,
+# non-PIC and static, entered at main. Only sources that need no library build.
+MICROMIPS_CFLAGS := -mmicromips -fno-pic -mno-abicalls -nostdlib -static
+MICROMIPSEL_CFLAGS := $(MICROMIPS_CFLAGS)
+MICROMIPS_ELF_CFLAGS := -Wl,-e,main
+MICROMIPSEL_ELF_CFLAGS := $(MICROMIPS_ELF_CFLAGS)
+MICROMIPS_C_ELF_ONLY := exitpoint/exitpoint.elf.c unmapped/unmapped.elf.c
+MICROMIPSEL_C_ELF_ONLY := $(MICROMIPS_C_ELF_ONLY)
 MIPS64_CFLAGS := -T mips_linkerscript.ld
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard
@@ -230,6 +249,8 @@ LA64_EXT := la64
 M68K_EXT := m68k
 MIPS_EXT := mips
 MIPSEL_EXT := mipsel
+MICROMIPS_EXT := micromips
+MICROMIPSEL_EXT := micromipsel
 MIPS64_EXT := mips64
 MIPS64EL_EXT := mips64el
 MSP430_EXT := msp430
@@ -260,6 +281,9 @@ M68K_SRC_EXT := $(M68K_EXT)
 MIPS_SRC_EXT := $(MIPS_EXT)
 # NOTE: mipsel uses mips source
 MIPSEL_SRC_EXT := $(MIPS_EXT)
+MICROMIPS_SRC_EXT := $(MICROMIPS_EXT)
+# NOTE: micromipsel uses micromips source
+MICROMIPSEL_SRC_EXT := $(MICROMIPS_EXT)
 MIPS64_SRC_EXT := $(MIPS64_EXT)
 # NOTE: mips64el uses mips64 source
 MIPS64EL_SRC_EXT := $(MIPS64_EXT)
@@ -339,9 +363,11 @@ AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 
 define C_ELF_TEMPLATE
 
-$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
-$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
+# A platform that can build only some C sources lists its ELF sources in
+# $(1)_C_ELF_ONLY, and then builds no objects or shared libraries.
+$(1)_C_OBJS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS)))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(or $$($(1)_C_ELF_ONLY),$$(C_ELF_SRCS)))
+$(1)_C_SOS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS)))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
@@ -409,7 +435,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_ASM_SOS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_GNU2_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :
@@ -427,13 +453,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -441,6 +467,24 @@ C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
 
 # Populate the ASM templates
 $(foreach platform,$(ASM_PLATFORMS),$(eval $(call ASM_TEMPLATE,$(platform))))
+
+# A microMIPS shared library, and an executable that imports from it, for the
+# ELF loader's ISA-bit handling. They are assembly because microMIPS C cannot
+# be linked PIC (see MICROMIPS_CFLAGS), and the executable has explicit rules
+# because it links against the library.
+define MICROMIPS_SO_TEMPLATE
+
+$(1)_ASM_SOS := link_elf/micromips_lib.$$($(1)_EXT).so link_elf/micromips_import.$$($(1)_EXT).elf
+
+link_elf/micromips_lib.$$($(1)_EXT).so : link_elf/micromips_lib.$$($(1)_SRC_EXT).so.s
+	$$($(1)_CC) -shared -nostdlib -o $$@ $$<
+
+link_elf/micromips_import.$$($(1)_EXT).elf : link_elf/micromips_import.$$($(1)_SRC_EXT).elf.s link_elf/micromips_lib.$$($(1)_EXT).so
+	$$($(1)_CC) -nostdlib -o $$@ $$^
+
+endef
+
+$(foreach platform,MICROMIPS MICROMIPSEL,$(eval $(call MICROMIPS_SO_TEMPLATE,$(platform))))
 
 # Populate the C ELF templates
 $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))

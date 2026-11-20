@@ -14,6 +14,8 @@ Operand notation: registers by name; memory as `[base+scale*index±0xoffset]:siz
 - [MIPS32 (little-endian)](#mips32-little-endian) - 77 instructions, `MIPS:LE:32:default`
 - [MIPS64 (big-endian)](#mips64-big-endian) - 99 instructions, `MIPS:BE:64:default`
 - [MIPS64 (little-endian)](#mips64-little-endian) - 99 instructions, `MIPS:LE:64:default`
+- [microMIPS (big-endian)](#micromips-big-endian) - 16 instructions, `MIPS:BE:32:micro`
+- [microMIPS (little-endian)](#micromips-little-endian) - 16 instructions, `MIPS:LE:32:micro`
 - [PowerPC32 (big-endian)](#powerpc32-big-endian) - 79 instructions, `PowerPC:BE:32:default`
 
 ## x86-64
@@ -804,6 +806,56 @@ Category breakdown: shift 13, load 13, muldiv 10, arith 9, mov 8, branch 8, logi
 | 97 | `drotr $a0, $a1, 8` | `3a222500` | a1 | a0 |  |
 | 98 | `dext $a0, $a1, 4, 8` | `0339a47c` | a1 | a0 |  |
 | 99 | `dins $a0, $a1, 4, 8` | `0759a47c` | a1, a0 | a0 | insert merges into dest, so $a0 is read and written |
+
+## microMIPS (big-endian)
+
+16 instructions - Ghidra language `MIPS:BE:32:micro` - base address `0x1000`
+
+Category breakdown: branch 4, call 4, mov 2, load 2, ret 2, arith 1, store 1
+
+| # | asm | bytes | uses | defs | notes |
+|--:|-----|-------|------|------|-------|
+| 1 | `addiu $t0, $zero, 42` | `3100002a` | zero? | t0 | li via addiu: reads hardwired zero |
+| 2 | `addiu $sp, $sp, -32` | `33bdffe0` | sp | sp |  |
+| 3 | `lw $t0, 8($sp)` | `fd1d0008` | sp, [sp+0x8]:4 | t0 |  |
+| 4 | `sw $t0, 8($sp)` | `f91d0008` | t0, sp | [sp+0x8]:4 |  |
+| 5 | `lw16 $v0, 4($a0)` | `6941` | a0, [a0+0x4]:4 | v0 |  |
+| 6 | `move $s5, $a0` | `0ea4` | a0 | s5 | move16 |
+| 7 | `jr $t9` | `00190f3c` | t9 | — |  |
+| 8 | `jr16 $t9` | `4599` | t9 | — |  |
+| 9 | `jrc $ra` | `45bf` | ra | — | compact: no delay slot |
+| 10 | `jalr $t9` | `03f90f3c` | t9 | ra |  |
+| 11 | `jalrs16 $t9` | `45f9` | t9 | ra | short delay slot: the link skips a 16-bit one |
+| 12 | `jraddiusp 8` | `4702` | ra, sp | sp | jr $ra and sp += 8, with no delay slot |
+| 13 | `beqzc $a0, 4` | `40e40002` | a0 | — | compact: no delay slot |
+| 14 | `b16 4` | `cc02` | — | — |  |
+| 15 | `bal 4` | `40600002` | zero? | ra | bal encodes as bgezal $zero: reads hardwired zero |
+| 16 | `jalx 0x2000` | `f0000800` | — | ra | jumps to standard MIPS32 code |
+
+## microMIPS (little-endian)
+
+16 instructions - Ghidra language `MIPS:LE:32:micro` - base address `0x1000`
+
+Category breakdown: branch 4, call 4, mov 2, load 2, ret 2, arith 1, store 1
+
+| # | asm | bytes | uses | defs | notes |
+|--:|-----|-------|------|------|-------|
+| 1 | `addiu $t0, $zero, 42` | `00312a00` | zero? | t0 | li via addiu: reads hardwired zero |
+| 2 | `addiu $sp, $sp, -32` | `bd33e0ff` | sp | sp |  |
+| 3 | `lw $t0, 8($sp)` | `1dfd0800` | sp, [sp+0x8]:4 | t0 |  |
+| 4 | `sw $t0, 8($sp)` | `1df90800` | t0, sp | [sp+0x8]:4 |  |
+| 5 | `lw16 $v0, 4($a0)` | `4169` | a0, [a0+0x4]:4 | v0 |  |
+| 6 | `move $s5, $a0` | `a40e` | a0 | s5 | move16 |
+| 7 | `jr $t9` | `19003c0f` | t9 | — |  |
+| 8 | `jr16 $t9` | `9945` | t9 | — |  |
+| 9 | `jrc $ra` | `bf45` | ra | — | compact: no delay slot |
+| 10 | `jalr $t9` | `f9033c0f` | t9 | ra |  |
+| 11 | `jalrs16 $t9` | `f945` | t9 | ra | short delay slot: the link skips a 16-bit one |
+| 12 | `jraddiusp 8` | `0247` | ra, sp | sp | jr $ra and sp += 8, with no delay slot |
+| 13 | `beqzc $a0, 4` | `e4400200` | a0 | — | compact: no delay slot |
+| 14 | `b16 4` | `02cc` | — | — |  |
+| 15 | `bal 4` | `60400200` | zero? | ra | bal encodes as bgezal $zero: reads hardwired zero |
+| 16 | `jalx 0x2000` | `00f00008` | — | ra | jumps to standard MIPS32 code |
 
 ## PowerPC32 (big-endian)
 

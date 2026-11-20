@@ -16,6 +16,7 @@ i386 sse,                       **Yes**,    **Yes**,    No,         No,         
 loongarch64 scalar,             Untested,   Untested,   No Support, No,         No Support
 m68k,                           No,         Untested,   No Support, No,         Untested
 mips32,                         No,         Untested,   No,         No,         No Support
+mips32-micromips,               No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
 powerpc32,                      No,         Untested,   No,         Untested,   No Support
 powerpc32-vle spe,              No,         No,         No Support, No,         No Support

@@ -13,6 +13,8 @@ _ARCHS = (
     "i386",
     "la32",
     "la64",
+    "micromips",
+    "micromipsel",
     "mips",
     "mipsel",
     "mips64",

@@ -57,6 +57,7 @@ from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     AddressMaskingTests,
     AddressOnlyReadsCapstoneFallbackTests,
     AddressRoleTests,
+    DecodeStateTests,
     GetCmpInfoDegradationTests,
     GhidraMachdefRegisterAliasTests,
     InstructionFetchesTests,
@@ -134,6 +135,7 @@ from smallworld.state.memory.elf.rela.loongarch import (
     LoongArch64ElfRelocator,
 )
 from smallworld.state.memory.elf.rela.m68k import M68KElfRelocator
+from smallworld.state.memory.elf.rela.mips import MIPSElfRelocator
 from smallworld.state.memory.elf.rela.ppc import (
     PowerPC64ElfRelocator,
     PowerPCElfRelocator,
@@ -986,6 +988,11 @@ UNIT_TEST_PLATFORMS = {
     "loongarch32": (platforms.Architecture.LOONGARCH32, platforms.Byteorder.LITTLE),
     "loongarch64": (platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE),
     "m68k": (platforms.Architecture.M68K, platforms.Byteorder.BIG),
+    "micromips": (platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG),
+    "micromipsel": (
+        platforms.Architecture.MIPS32_MICROMIPS,
+        platforms.Byteorder.LITTLE,
+    ),
     "mips": (platforms.Architecture.MIPS32, platforms.Byteorder.BIG),
     "mipsel": (platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE),
     "mips64": (platforms.Architecture.MIPS64, platforms.Byteorder.BIG),
@@ -1504,6 +1511,8 @@ class M68KAngrTests(unittest.TestCase):
                 "loongarch32",
                 "loongarch64",
                 "m68k",
+                "micromips",
+                "micromipsel",
                 "msp430",
                 "msp430x",
                 "ppc64",
@@ -9289,6 +9298,68 @@ class HelpersFuzzMemberIterationTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
+class UnicornFuzzCustomCallbackTests(unittest.TestCase):
+    """The fuzzing callback ``Machine._fuzz_with_unicorn`` hands
+    ``uc_afl_fuzz_custom`` for microMIPS, whose start pc needs its ISA bit,
+    must report what ``uc_afl_fuzz`` reports for the same run: a run a hook
+    stopped is ``UC_ERR_OK``, a fault is its error. ``uc_afl_fuzz_custom`` is
+    mocked out, and the callback it would have been given is driven
+    directly."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LW_V0_ZERO = bytes.fromhex("fc400000")  # lw v0, 0(zero): an unmapped read
+
+    def _result(self, first_insn=bytes(4), setup=lambda emulator: None) -> int:
+        import unicornafl
+
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.PLATFORM)
+        cpu.pc.set_content(0x1000)
+        machine.add(cpu)
+        machine.add(
+            state.memory.code.Executable.from_bytes(
+                first_insn + bytes(12), address=0x1000
+            )
+        )
+        emulator = emulators.UnicornEmulator(self.PLATFORM)
+        emulator.add_exit_point(0x1010)
+        setup(emulator)
+
+        with mock.patch.object(unicornafl, "uc_afl_fuzz_custom") as fuzz:
+            machine.fuzz_with_file(emulator, lambda *_args: None, "/nonexistent")
+        run = fuzz.call_args.kwargs["fuzzing_callback"]
+        return run(emulator.engine, None)
+
+    def test_clean_run(self):
+        import unicorn
+
+        self.assertEqual(self._result(), unicorn.UC_ERR_OK)
+
+    def test_hook_stop_is_not_a_crash(self):
+        import unicorn
+
+        def stop(_emulator):
+            raise exceptions.EmulationStop("stop")
+
+        result = self._result(setup=lambda e: e.hook_instruction(0x1008, stop))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_leaving_a_bound_is_not_a_crash(self):
+        import unicorn
+
+        result = self._result(setup=lambda e: e.add_bound(0x1000, 0x1008))
+        self.assertEqual(result, unicorn.UC_ERR_OK)
+
+    def test_fault_reports_its_error(self):
+        import unicorn
+
+        result = self._result(first_insn=self.LW_V0_ZERO)
+        self.assertEqual(result, unicorn.UC_ERR_READ_UNMAPPED)
+
+
+@unittest.skipUnless(_FUZZFIX_UNICORNAFL_AVAILABLE, "unicornafl not installed")
 class UnicornFuzzPersistentSnapshotTests(unittest.TestCase):
     """Persistent-mode state restoration in ``Machine._fuzz_with_unicorn``.
 
@@ -10542,6 +10613,599 @@ class ElfUnknownMachineTests(unittest.TestCase):
             self._image(), platform=platform, ignore_platform=True
         )
         self.assertEqual(code.platform, platform)
+
+
+class MicroMIPSIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register: Ghidra keeps it in the ISA_MODE decode
+    context and an odd pc selects microMIPS; backends that run only microMIPS
+    do not support it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _ghidra(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraEmulator(self.PLATFORM)
+
+    def test_ghidra_starts_in_micromips(self):
+        self.assertEqual(self._ghidra().read_register("isa_mode"), 1)
+
+    def test_ghidra_isa_mode_round_trips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+        emu.write_register("isa_mode", 1)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_odd_pc_selects_micromips(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_ghidra_even_pc_keeps_isa_mode(self):
+        emu = self._ghidra()
+        emu.write_register("isa_mode", 0)
+        emu.write_register("pc", 0x1000)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_ghidra_isa_mode_out_of_range(self):
+        emu = self._ghidra()
+        for value in (2, -1):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    emu.write_register("isa_mode", value)
+        self.assertEqual(emu.read_register("isa_mode"), 1)
+
+    def test_unicorn_isa_mode_unsupported(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+    def test_angr_isa_mode_unsupported(self):
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            emu.write_register("isa_mode", 0)
+
+    def test_ghidra_get_and_set_isa_mode(self):
+        emu = self._ghidra()
+        self.assertEqual(emu.get_isa_mode(), 1)
+        emu.set_isa_mode(0)
+        self.assertEqual(emu.get_isa_mode(), 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_single_isa_backends_refuse_set_isa_mode(self):
+        for emu in (
+            emulators.UnicornEmulator(self.PLATFORM),
+            emulators.AngrEmulator(self.PLATFORM),
+        ):
+            with self.subTest(emulator=type(emu).__name__):
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.set_isa_mode(0)
+
+    def test_isa_mode_needs_two_instruction_sets(self):
+        emu = emulators.UnicornEmulator(
+            platforms.Platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_model_hooks_the_even_address(self):
+        class Nop(state.models.Model):
+            name = "nop"
+            platform = MicroMIPSIsaModeTests.PLATFORM
+            abi = platforms.ABI.NONE
+
+            def model(self, emulator):
+                pass
+
+        self.assertEqual(Nop(0x1001)._address, 0x1000)
+
+    def test_unicorn_odd_pc_reads_back_even(self):
+        emu = emulators.UnicornEmulator(self.PLATFORM)
+        emu.write_register("pc", 0x1001)
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def _angr(self, platform=None):
+        emu = emulators.AngrEmulator(platform or self.PLATFORM)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))  # addiu v0,zero,5
+        emu.write_register("v0", 0)
+        return emu
+
+    def test_angr_odd_pc_reads_back_even(self):
+        # Written before initialization, which applies it, and after.
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+        emu.write_register("pc", 0x1003)
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_angr_concrete_bv_pc_reads_back_even(self):
+        emu = self._angr()
+        emu.initialize()
+        emu.write_register("pc", claripy.BVV(0x1001, 32))
+        self.assertEqual(emu.read_register("pc"), 0x1000)
+
+    def test_angr_runs_from_odd_pc(self):
+        emu = self._angr()
+        emu.write_register("pc", 0x1001)
+        emu.add_exit_point(0x1004)
+        emu.run()
+        self.assertEqual(emu.read_register("v0"), 5)
+
+    def test_angr_mips32_pc_unchanged(self):
+        mips32 = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        emu = self._angr(mips32)
+        emu.write_register("pc", 0x1001)
+        emu.initialize()
+        self.assertEqual(emu.read_register("pc"), 0x1001)
+
+
+class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
+    """The isa_mode pseudo-register and an odd pc on the symbolic Ghidra
+    emulator, which handles them as the concrete one does."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    def _emu(self):
+        _ensure_pyghidra_started()
+        return emulators.ghidra.GhidraSymbolicEmulator(self.PLATFORM)
+
+    def test_starts_in_micromips(self):
+        self.assertEqual(self._emu().read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_round_trips(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+        emu.write_register_content("isa_mode", 1)
+        self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_isa_mode_reads_as_concrete_bv(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        value = emu.read_register_symbolic("isa_mode")
+        self.assertFalse(value.symbolic)
+        self.assertEqual(value.concrete_value, 0)
+
+    def test_symbolic_isa_mode_rejected(self):
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self._emu().write_register_content("isa_mode", claripy.BVS("mode", 8))
+
+    def test_odd_pc_selects_micromips(self):
+        for value in (0x1001, claripy.BVV(0x1001, 32)):
+            with self.subTest(value=value):
+                emu = self._emu()
+                emu.write_register_content("isa_mode", 0)
+                emu.write_register_content("pc", value)
+                self.assertEqual(emu.read_register_content("pc"), 0x1000)
+                self.assertEqual(emu.read_register_content("isa_mode"), 1)
+
+    def test_even_pc_keeps_isa_mode(self):
+        emu = self._emu()
+        emu.write_register_content("isa_mode", 0)
+        emu.write_register_content("pc", 0x1000)
+        self.assertEqual(emu.read_register_content("isa_mode"), 0)
+
+    def test_runs_micromips_from_odd_pc(self):
+        emu = self._emu()
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex("30400005") + bytes(12))
+        emu.write_register_content("v0", 0)
+        emu.write_register_content("pc", 0x1001)
+        emu.step()
+        self.assertEqual(emu.read_register_content("v0"), 5)
+
+
+class MicroMIPSAngrMIPS32JumpTests(unittest.TestCase):
+    """angr runs microMIPS only, so it warns, once, when the code jumps into
+    standard MIPS32 code."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+    LOGGER = "smallworld.emulators.angr.machdefs.micromips"
+
+    # jr t9 with a nop in its delay slot, at 0x1000.
+    JR_T9 = bytes.fromhex("00190f3c" "00000000") + bytes(24)
+
+    def _run(self, code: bytes, registers, exit_point: int, target=None) -> None:
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, 0x2000)
+        emu.write_code(0x1000, code)
+        # 0x2000: addiu v0, zero, 5, unless given other code.
+        emu.write_code(0x2000, target or bytes.fromhex("30400005") + bytes(12))
+        for name, value in registers.items():
+            emu.write_register(name, value)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(exit_point)
+        emu.run()
+
+    def test_jump_to_even_address_warns_once(self):
+        # Two jumps to even addresses: 0x1000 to 0x2000, whose jr t8 goes back
+        # to 0x1010.
+        back = bytes.fromhex("00180f3c" "00000000") + bytes(8)
+        with self.assertLogs(self.LOGGER, level="WARNING") as logs:
+            self._run(self.JR_T9, {"t9": 0x2000, "t8": 0x1010}, 0x1014, back)
+        self.assertEqual(len(logs.output), 1)
+
+    def test_jump_to_odd_address_is_quiet(self):
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(self.JR_T9, {"t9": 0x2001, "v0": 0}, 0x2004)
+
+    def test_return_to_exit_point_is_quiet(self):
+        # jrc ra, to a harness's even exit address.
+        code = bytes.fromhex("45bf") + bytes(14)
+        with self.assertNoLogs(self.LOGGER, level="WARNING"):
+            self._run(code, {"ra": 0x3000}, 0x3000)
+
+    def test_calling_convention_is_o32(self):
+        import angr
+
+        cc = angr.calling_conventions.DEFAULT_CC["MIPS:BE:32:micro"]["Linux"]
+        self.assertTrue(issubclass(cc, angr.calling_conventions.SimCCO32))
+        self.assertEqual(cc.CALLER_SAVED_REGS, ["t9", "gp"])
+        self.assertEqual(cc.FP_ARG_REGS, [])
+
+
+class MicroMIPSAngrJalxTests(unittest.TestCase):
+    """Decoding a jalx leaves sleigh's context saying standard MIPS32 starts
+    at its target; angr's microMIPS engine must not keep decoding with it."""
+
+    PLATFORM = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+    JALX = bytes.fromhex("f0000800")  # jalx 0x2000
+    NOP16 = bytes.fromhex("0c00")
+
+    @staticmethod
+    def _addiu_v0(value: int) -> bytes:
+        return bytes.fromhex("3040") + value.to_bytes(2, "big")
+
+    def _image(self) -> bytes:
+        image = bytearray(self.NOP16 * 0x1008)
+        # 0x1000: jalx 0x2000, with a 16-bit nop in its delay slot.
+        image[0:4] = self.JALX
+        # 0x1ff8: a block that starts below the jalx target and runs into it.
+        image[0x1000:0x1004] = self._addiu_v0(7)
+        # 0x3000: microMIPS well above the jalx target.
+        image[0x2000:0x2004] = self._addiu_v0(5)
+        return bytes(image)
+
+    def _emulator(self):
+        image = self._image()
+        emu = emulators.AngrEmulator(self.PLATFORM)
+        emu.map_memory(0x1000, len(image))
+        emu.write_code(0x1000, image)
+        emu.write_register("v0", 0)
+        return emu
+
+    def _run(self, emu, start: int, stop: int) -> int:
+        emu.write_register("pc", start)
+        emu.add_exit_point(stop)
+        emu.run()
+        return emu.read_register("v0")
+
+    def _lifter_context(self, emu):
+        import angr
+
+        arch = emu.proj.arch
+        return angr.engines.pcode.lifter.PcodeLifter.get_lifter(arch).context
+
+    def test_jalx_does_not_reach_a_later_emulator(self):
+        self._run(self._emulator(), 0x1000, 0x2000)
+        self.assertEqual(self._run(self._emulator(), 0x3000, 0x3004), 5)
+
+    def test_jalx_target_decodes_as_micromips(self):
+        self.assertEqual(self._run(self._emulator(), 0x1000, 0x2004), 7)
+
+    def test_block_running_into_jalx_target(self):
+        emu = self._emulator()
+        emu.initialize()
+        # Lift the jalx without running it; the factory bounds blocks by pc.
+        emu.write_register("pc", 0x1000)
+        emu.state.block(0x1000).vex
+        self.assertEqual(self._run(emu, 0x1FF8, 0x2004), 7)
+
+    def test_jalx_lifted_outside_the_engine(self):
+        emu = self._emulator()
+        emu.initialize()
+        self._lifter_context(emu).translate(self.JALX + self.NOP16, 0x1000)
+        self.assertEqual(self._run(emu, 0x3000, 0x3004), 5)
+
+
+class MicroMIPSSysVModelTests(unittest.TestCase):
+    """microMIPS uses MIPS32's o32 calling convention, so the System V C and
+    POSIX models exist for it as for MIPS32, and behave the same."""
+
+    BYTEORDERS = (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
+
+    @staticmethod
+    def _platform(arch, byteorder):
+        return platforms.Platform(arch, byteorder)
+
+    def _micro(self, byteorder):
+        return self._platform(platforms.Architecture.MIPS32_MICROMIPS, byteorder)
+
+    def test_lookups(self):
+        sysv = platforms.ABI.SYSTEMV
+        for byteorder in self.BYTEORDERS:
+            platform = self._micro(byteorder)
+            with self.subTest(byteorder=byteorder.name):
+                for name in ("strlen", "malloc", "printf", "open", "sigaction"):
+                    model = state.models.Model.lookup(name, platform, sysv, 0x2000)
+                    self.assertEqual(model.platform, platform)
+                context = state.models.cstd.CStdCallingContext.for_platform_and_abi(
+                    platform, sysv
+                )
+                self.assertNotIsInstance(context, state.models.Model)
+                self.assertEqual(context.platform, platform)
+                state.models.errno.ErrnoResolver.for_platform(platform, sysv)
+
+    def _call_llabs(self, platform, value: int):
+        # Calls the model directly, on registers set up as a caller would.
+        emu = emulators.UnicornEmulator(platform)
+        model = state.models.Model.lookup(
+            "llabs", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        for register in ("a0", "a1", "a2", "a3", "v0", "v1"):
+            emu.write_register(register, 0)
+        model.set_argument(0, emu, value)
+        model.model(emu)
+        return emu.read_register("v0"), emu.read_register("v1")
+
+    def test_eight_byte_return_matches_mips32(self):
+        value = -0x123456789  # llabs gives 0x123456789, spanning v0 and v1
+        for byteorder in self.BYTEORDERS:
+            with self.subTest(byteorder=byteorder.name):
+                mips32 = self._platform(platforms.Architecture.MIPS32, byteorder)
+                self.assertEqual(
+                    self._call_llabs(self._micro(byteorder), value),
+                    self._call_llabs(mips32, value),
+                )
+
+    def _run_strlen(self, platform, engine):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        # jalr t9, with a 32-bit nop in its delay slot.
+        code = bytes.fromhex("03f90f3c" "00000000")
+        if platform.byteorder == platforms.Byteorder.LITTLE:
+            code = b"".join(code[i : i + 2][::-1] for i in range(0, len(code), 2))
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        trampolines = state.memory.Memory(0x2000, 0x10)
+        trampolines[0] = state.BytesValue(bytes(0x10), None)
+        machine.add(trampolines)
+        string = state.memory.Memory(0x3000, 0x10)
+        string[0] = state.BytesValue(b"hello\0".ljust(0x10, b"\0"), None)
+        machine.add(string)
+        machine.add(
+            state.models.Model.lookup("strlen", platform, platforms.ABI.SYSTEMV, 0x2000)
+        )
+        cpu.pc.set(0x1000)
+        cpu.t9.set(0x2001)  # a pointer to microMIPS code
+        cpu.a0.set(0x3000)
+        cpu.v0.set(0)
+        machine.add_exit_point(0x1008)
+        return machine.emulate(engine(platform)).get_cpu()
+
+    def test_strlen_model_runs(self):
+        _ensure_pyghidra_started()
+        engines = (
+            emulators.UnicornEmulator,
+            emulators.GhidraEmulator,
+            emulators.AngrEmulator,
+        )
+        for byteorder in self.BYTEORDERS:
+            for engine in engines:
+                with self.subTest(byteorder=byteorder.name, engine=engine.__name__):
+                    cpu = self._run_strlen(self._micro(byteorder), engine)
+                    self.assertEqual(cpu.v0.get(), 5)
+                    self.assertEqual(cpu.pc.get(), 0x1008)
+
+    def test_model_pickles(self):
+        platform = self._micro(platforms.Byteorder.BIG)
+        model = state.models.Model.lookup(
+            "strlen", platform, platforms.ABI.SYSTEMV, 0x2000
+        )
+        copied = pickle.loads(pickle.dumps(model))
+        self.assertIs(type(copied), type(model))
+        self.assertEqual(copied.platform, platform)
+
+
+class UnicornDelaySlotFaultTests(unittest.TestCase):
+    """Unicorn reports a branch's fetch fault as a read fault in its delay
+    slot. Telling the two apart needs the instruction that ran before the
+    fault, which on microMIPS can be 2 or 4 bytes long."""
+
+    # Each case: (architecture, code as big-endian halfwords or words,
+    # expected failure, offset of the pc it reports).
+    CASES = {
+        # The halfword 0x4599 inside this addiu decodes as jr16 $t9, and t9
+        # is unmapped; the fault is still the lw's read of a0.
+        "addiu_then_load": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "31004599" "fc440000" "0c000c00",  # addiu t0,zero,0x4599; lw v0,0(a0)
+            exceptions.EmulationReadUnmappedFailure,
+            4,
+        ),
+        "jr": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "00190f3c" "00000000" "0c000c00",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+        "jr16": (
+            platforms.Architecture.MIPS32_MICROMIPS,
+            "0c00" "4599" "0c00" "0c000c00",  # nop16; jr16 t9; nop16
+            exceptions.EmulationFetchUnmappedFailure,
+            2,
+        ),
+        "mips32_jr": (
+            platforms.Architecture.MIPS32,
+            "03200008" "00000000" "00000000",  # jr t9; nop
+            exceptions.EmulationFetchUnmappedFailure,
+            0,
+        ),
+    }
+
+    @staticmethod
+    def _code(arch, hexcode: str, byteorder) -> bytes:
+        code = bytes.fromhex(hexcode)
+        if byteorder == platforms.Byteorder.BIG:
+            return code
+        # Little-endian microMIPS stores each halfword little-endian.
+        unit = 2 if arch == platforms.Architecture.MIPS32_MICROMIPS else 4
+        return b"".join(code[i : i + unit][::-1] for i in range(0, len(code), unit))
+
+    def _fault(self, name: str, byteorder, step: bool):
+        arch, hexcode, _, _ = self.CASES[name]
+        code = self._code(arch, hexcode, byteorder)
+        emu = emulators.UnicornEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code + bytes(0x20))
+        for register in ("t9", "a0", "v0", "t0"):
+            emu.write_register(register, 0)
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1000 + len(code))
+        with self.assertRaises(exceptions.EmulationError) as caught:
+            if step:
+                for _ in range(len(code)):
+                    emu.step()
+            else:
+                emu.run()
+        return caught.exception
+
+    def test_faults(self):
+        for name, (_, _, expected, offset) in self.CASES.items():
+            for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+                for step in (False, True):
+                    with self.subTest(case=name, byteorder=byteorder.name, step=step):
+                        fault = self._fault(name, byteorder, step)
+                        self.assertIs(type(fault), expected)
+                        self.assertEqual(fault.pc, 0x1000 + offset)
+
+
+class ElfMicroMIPSSymbolTests(unittest.TestCase):
+    """A microMIPS code symbol's value carries the ISA bit, whichever table it
+    comes from, and so do relocated pointers to the code."""
+
+    LINK_ELF = BINARIES_TESTS_DIR / "link_elf"
+    LIB_BASE = 0x800000
+    FOO = 0x10260  # foo's address in the library, as .symtab records it
+
+    def _load(self, name: str, user_base=None) -> ElfExecutable:
+        path = self.LINK_ELF / name
+        if not path.exists():
+            self.skipTest(f"{path} not built (run `make micromips` in tests/)")
+        with path.open("rb") as f:
+            return ElfExecutable(f, user_base=user_base)
+
+    def _word(self, elf: ElfExecutable, symbol: str) -> int:
+        return elf.read_int(elf.get_symbol_value(symbol), 4, elf.platform.byteorder)
+
+    def test_symbol_tables_agree(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # .dynsym has the ISA bit set and .symtab does not; both
+                # load with it.
+                self.assertEqual(
+                    lib.get_symbol_value("foo"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def test_pointer_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                self.assertEqual(
+                    self._word(lib, "fooptr"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def test_linked_import_has_isa_bit(self):
+        for ext in ("micromips", "micromipsel"):
+            with self.subTest(ext=ext):
+                exe = self._load(f"micromips_import.{ext}.elf")
+                lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
+                # Unresolved, the import stays null.
+                self.assertEqual(self._word(exe, "fooref"), 0)
+                exe.link_elf(lib)
+                self.assertEqual(
+                    self._word(exe, "fooref"), self.LIB_BASE + self.FOO + 1
+                )
+
+    def _relocate(self, type_: int, value: int) -> int:
+        symbol = _make_symbol(value=value, baseaddr=0x400000)
+        rela = ElfRela(is_rela=True, offset=0x2000, type=type_, symbol=symbol, addend=0)
+        relocator = MIPSElfRelocator(
+            platforms.Platform(
+                platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+            )
+        )
+        value = relocator._compute_value(rela, _FakeElf())
+        return int.from_bytes(value, "big")
+
+    def test_relocations_keep_isa_bit(self):
+        # R_MIPS_32, R_MIPS_REL32 and the GOT's R_MIPS_JUMP_SLOT.
+        for type_ in (2, 3, 127):
+            with self.subTest(type=type_):
+                self.assertEqual(self._relocate(type_, 0x1001), 0x401001)
+                self.assertEqual(self._relocate(type_, 0x1000), 0x401000)
+
+
+class ElfMicroMIPSTests(unittest.TestCase):
+    """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
+    keeps the ISA bit; standard MIPS32 functions in such an image warn."""
+
+    MICRO = BINARIES_TESTS_DIR / "elf" / "elf.micromips.elf"
+    STANDARD = BINARIES_TESTS_DIR / "elf" / "elf.mips.elf"
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_static_image_has_no_got_to_miss(self):
+        with self.assertNoLogs("smallworld.state.memory.elf.elf", level="ERROR"):
+            with self.MICRO.open("rb") as f:
+                Executable.from_elf(f)
+
+    @unittest.skipUnless(MICRO.exists(), _BINARIES_SKIP_REASON)
+    def test_micromips_image(self):
+        with self.MICRO.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertEqual(code.entrypoint, code.get_symbol_value("__start"))
+        self.assertEqual(code.entrypoint & 1, 1)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_mips32_image(self):
+        with self.STANDARD.open("rb") as f:
+            code = Executable.from_elf(f)
+        self.assertEqual(code.platform.architecture, platforms.Architecture.MIPS32)
+
+    @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
+    def test_standard_function_in_micromips_image_warns(self):
+        # Flag a standard MIPS32 image as microMIPS: __start lacks STO_MICROMIPS.
+        image = bytearray(self.STANDARD.read_bytes())
+        flags = struct.unpack_from(">I", image, 36)[0]
+        struct.pack_into(">I", image, 36, flags | 0x02000000)  # EF_MIPS_MICROMIPS
+        with self.assertLogs(level="WARNING") as logs:
+            code = Executable.from_elf(io.BytesIO(bytes(image)))
+        self.assertEqual(
+            code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
+        )
+        self.assertIn("standard MIPS32 functions", "\n".join(logs.output))
+        self.assertIn("__start", "\n".join(logs.output))
 
 
 class ElfShdrsTextOffsetTests(unittest.TestCase):

@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ELF loader reports a machine type LIEF does not know as an unknown
   `e_machine` value, rather than failing with an `AttributeError`, and loads
   such an image when given a platform with `ignore_platform`.
+- The p-code use/def analysis no longer misreads MIPS32 code above a `jalx`
+  target that it analyzed after the `jalx`. Decoding a `jalx` left its cached
+  SLEIGH context decoding those addresses as MIPS16, so their reads and
+  writes came back empty or wrong; the context is now rebuilt after one.
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
 - `TritonEmulator` no longer returns from a hooked function twice; the hook
@@ -126,6 +130,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returns its output. `GhidraEmulator` and `GhidraSymbolicEmulator` both use
   them. `GhidraMachineDef.ram_address_size`, for machines whose RAM offsets
   are wider than their pointers.
+- `PlatformDef.isa_bit`, an `IsaBit`, says what bit 0 of a code address
+  means: part of the address, or the choice between a CPU's two instruction
+  sets (ARM's Thumb bit, MIPS's ISA bit). `Emulator.get_isa_mode()` and
+  `Emulator.set_isa_mode()` read and choose the instruction set on platforms
+  with two. A function model placed at an odd address on such a platform
+  hooks the even one, and returns to the instruction set that bit 0 of its
+  return address selects, where the backend can switch.
+- Machine-definition hooks that convert SmallWorld's pc to the backend's:
+  `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
+  pc writes, and `UnicornMachineDef.pc_to_start()`, for the address
+  `emu_start()` begins at, which `Machine.fuzz()` also starts unicornafl runs
+  at.
+- `Architecture.MIPS32_MICROMIPS`, MIPS32 with the microMIPS encoding, big-
+  and little-endian. Ghidra switches between microMIPS and standard MIPS32 as
+  hardware does; angr and Unicorn run microMIPS only. An `isa_mode`
+  pseudo-register holds the current encoding, and an odd pc selects microMIPS.
+  ELF images flagged `EF_MIPS_MICROMIPS` load as this platform, with a warning
+  if their symbols show standard MIPS32 functions too. Its code addresses
+  keep the ISA bit: the entrypoint, microMIPS code symbols and pointers
+  relocated to them are odd. Machine-definition hooks carry the mode:
+  `GhidraMachineDef.context` sets starting context fields,
+  `GhidraMachineDef.isa_bit_context` names the field an odd pc selects, and
+  the pc hooks below set Unicorn's ISA bit and store an even pc on angr and
+  Ghidra. The Ghidra emulators read and write sleigh context fields as
+  registers. The
+  System V C and POSIX models cover microMIPS as they do MIPS32. The p-code
+  use/def analysis covers it too: `PlatformDef.ghidra_context` names the
+  context values a platform's code decodes with, and
+  `pcode_use_def.analyze()` takes them. PANDA has no microMIPS support.
 - A `testfloat` scenario that checks emulated FPUs against
   [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
   TestFloat and its SoftFloat reference are built from upstream by

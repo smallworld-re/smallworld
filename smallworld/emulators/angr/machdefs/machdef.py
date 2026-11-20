@@ -62,6 +62,22 @@ class AngrMachineDef:
             )
         return self.angr_arch.registers[angr_name]
 
+    def pc_to_engine(self, state: typing.Optional[angr.SimState], pc: int) -> int:
+        """Convert SmallWorld's pc to the value angr stores in its pc register.
+
+        The pc as written is not always the address to run from: a microMIPS
+        pc's low bit selects the encoding, not a byte. The default stores the
+        value unchanged.
+
+        Arguments:
+            state: The emulator's angr state, or None before it has one
+            pc: The address of the next instruction, with any ISA bit
+
+        Returns:
+            The value to store in the pc register
+        """
+        return pc
+
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture
 

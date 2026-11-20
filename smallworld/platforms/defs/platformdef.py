@@ -1,4 +1,5 @@
 import abc
+import enum
 import typing
 from dataclasses import dataclass
 
@@ -18,11 +19,51 @@ class RegisterAliasDef(RegisterDef):
     offset: int
 
 
+class IsaBit(enum.Enum):
+    """What bit 0 of a code address means on a platform.
+
+    Some CPUs run two instruction sets and take the one to run from bit 0 of
+    a jump target (ARM's Thumb bit, MIPS's ISA bit). On those, code
+    addresses in an ELF image and in registers such as the return address
+    carry that bit; the instruction itself is at the even address.
+    """
+
+    NONE = "none"
+    """Bit 0 is part of the address."""
+
+    SELECTS = "selects"
+    """Bit 0 selects the instruction set: 1 the alternate one (Thumb,
+    microMIPS), 0 the standard one."""
+
+    REQUIRED = "required"
+    """The CPU runs only the alternate instruction set, and bit 0 must be 1
+    (ARMv6-M and ARMv7-M Thumb)."""
+
+
 class PlatformDef(metaclass=abc.ABCMeta):
+    #: What bit 0 of a code address means; see :class:`IsaBit`. Where it
+    #: selects the instruction set, :meth:`.Emulator.get_isa_mode` and
+    #: :meth:`.Emulator.set_isa_mode` read and set the current one.
+    isa_bit: IsaBit = IsaBit.NONE
+
     #: Ghidra/SLEIGH language id (arch+byteorder) -- the single source of
     #: truth for both the Ghidra emulator's machine defs and the pcode
     #: analysis. None if this platform has no Ghidra language.
     ghidra_language_id: typing.Optional[str] = None
+
+    #: Context field values to decode this platform's code with, where its
+    #: SLEIGH language holds several encodings and the default is not this
+    #: platform's (microMIPS: ISA_MODE). The single source for both the Ghidra
+    #: emulator's machine defs and the p-code use/def analysis, which, like
+    #: ghidra_register_aliases below, cannot reach the machine defs. Empty
+    #: where the language's defaults are right.
+    ghidra_context: typing.Dict[str, int] = {}
+
+    #: Mnemonics whose decoding records, in the SLEIGH context, how later code
+    #: decodes. MIPS's jalx says its target, and everything above it, is in
+    #: the other encoding. The p-code use/def analysis drops a cached context
+    #: after decoding one. Empty where no instruction does this.
+    ghidra_context_writing_mnemonics: typing.FrozenSet[str] = frozenset()
 
     #: Ghidra/SLEIGH register name -> the name THIS platform uses for the
     #: same physical register, for the cases where the two namespaces

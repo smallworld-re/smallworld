@@ -91,6 +91,16 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
     ),
+    "micromips": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "mips64": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
         pc_register="pc",

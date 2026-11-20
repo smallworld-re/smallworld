@@ -54,6 +54,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # This includes execution mode information,
         # and isn't automatically propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
 
@@ -94,6 +95,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
 
         # Get the thread's register state
         state = self._thread.getState()
@@ -120,6 +125,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
             return
         if not isinstance(value, int):
             raise TypeError("Pcode emulator can't support symbolic values")
+        if reg.isProcessorContext():
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            value = self.machdef.pc_to_engine(self._thread, value)
 
         state = self._thread.getState()
 

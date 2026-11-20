@@ -114,6 +114,20 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "micromips": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "ppc": ElfSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pointer_size=4,
@@ -253,7 +267,7 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
-    if arch in {"mips", "mipsel"} and engine == "unicorn":
+    if arch in {"mips", "mipsel", "micromips", "micromipsel"} and engine == "unicorn":
         set_register(cpu, "ra", 0xFFFF0)
         emulator.add_exit_point(0xFFFF0)
         return

@@ -93,6 +93,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
         # Context configuration isn't auto-propagated to the thread.
         self._thread.overrideContextWithDefault()
+        self.machdef.apply_context(self._thread)
 
         self._memory_map = utils.RangeCollection()
         # Byte ranges the harness has explicitly written. write_memory_label
@@ -304,6 +305,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            # A context field lives in the thread's decode context,
+            # not its register state.
+            return self.machdef.read_context(self._thread, reg)
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
@@ -325,6 +330,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            return claripy.BVV(
+                self.machdef.read_context(self._thread, reg),
+                self._expected_register_size(name) * 8,
+            )
         state = self._thread.getState()
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         sym = pair.getRight()
@@ -350,6 +360,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if name == "pc":
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
+        if reg.isProcessorContext():
+            if not isinstance(value, int):
+                raise exceptions.SymbolicValueError(
+                    f"Context register {name} cannot hold a symbolic value"
+                )
+            self.machdef.write_context(self._thread, reg, value)
+            return
+        if name == self.platdef.pc_register:
+            if isinstance(value, claripy.ast.bv.BV) and not value.symbolic:
+                # A concrete pc takes the int path, so pc_to_engine sees its
+                # low bit; a symbolic one has no bit to act on.
+                value = value.concrete_value
+            if isinstance(value, int):
+                value = self.machdef.pc_to_engine(self._thread, value)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()

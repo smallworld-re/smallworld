@@ -5,7 +5,7 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform, PlatformDef
+from ....platforms import Architecture, Byteorder, IsaBit, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
@@ -51,6 +51,11 @@ _V850_RH850_WARNING = (
 # on a section in sh_flags, and on a segment in p_flags.
 SHF_PPC_VLE = 0x10000000
 PF_PPC_VLE = 0x10000000
+
+# MIPS-specific flag values
+EF_MIPS_MICROMIPS = 0x02000000  # ASE: the image contains microMIPS code
+STO_MIPS_ISA = 0xC0  # st_other: the bits that say which MIPS ISA a symbol is
+STO_MICROMIPS = 0x80  # st_other: this symbol is microMIPS code
 
 # SuperH-specific flag values.
 #
@@ -274,6 +279,21 @@ def _ppc_architecture(elf, requested):
     return Architecture.POWERPC32
 
 
+def _mips_architecture(elf, requested):
+    # Some kind of MIPS.
+    # TODO: There are more parameters than just word size
+    architecture = _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64)(
+        elf, requested
+    )
+    if (
+        architecture == Architecture.MIPS32
+        and elf.header.processor_flag & EF_MIPS_MICROMIPS
+    ):
+        ElfExecutable._warn_mixed_micromips(elf)
+        return Architecture.MIPS32_MICROMIPS
+    return architecture
+
+
 # The architecture detector for each e_machine value.
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
@@ -283,8 +303,7 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_LOONGARCH: _architecture_by_class(
         Architecture.LOONGARCH32, Architecture.LOONGARCH64
     ),
-    # TODO: There are more MIPS parameters than just word size
-    EM_MIPS: _architecture_by_class(Architecture.MIPS32, Architecture.MIPS64),
+    EM_MIPS: _mips_architecture,
     EM_PPC: _ppc_architecture,
     EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
     EM_RISCV: _architecture_by_class(
@@ -491,7 +510,25 @@ class ElfExecutable(Executable):
         if elf.entrypoint is not None and elf.entrypoint != 0:
             # Check if the entrypoint is valid (falls within the image)
             entrypoint = self._rebase_file(elf.entrypoint)
-            if not self.bounds.contains_value(entrypoint):
+            address = entrypoint
+            if (
+                self.platform is not None
+                and PlatformDef.for_platform(self.platform).isa_bit is not IsaBit.NONE
+            ):
+                # Bit 0 of a code address selects the instruction set; the
+                # code itself is at the even address.
+                address &= ~1
+            if (
+                self.platform is not None
+                and self.platform.architecture == Architecture.MIPS32_MICROMIPS
+                and not entrypoint & 1
+            ):
+                log.warning(
+                    "The ELF entrypoint is standard MIPS32 code, but runs "
+                    "start in microMIPS; set isa_mode to 0 before running "
+                    "it (Ghidra only)"
+                )
+            if not self.bounds.contains_value(address):
                 if (
                     self.platform is not None
                     and self.platform.architecture == Architecture.POWERPC64
@@ -605,6 +642,30 @@ class ElfExecutable(Executable):
                 # We (probably) cannot move the image without problems.
                 raise ConfigurationError("Base address defined for fixed-position ELF")
         log.debug(f"Address: {self.address:x}")
+
+    @staticmethod
+    def _warn_mixed_micromips(elf) -> None:
+        """Warn if a microMIPS image also has standard MIPS32 functions.
+
+        Only the Ghidra backend switches between the two encodings, and the
+        header flag says only that some of the code is microMIPS. Function
+        symbols say which is which; a stripped image has none to check.
+        """
+        standard = sorted(
+            sym.name
+            for sym in elf.symbols
+            if sym.type == lief.ELF.Symbol.TYPE.FUNC
+            and sym.value != 0
+            and sym.other & STO_MIPS_ISA != STO_MICROMIPS
+        )
+        if standard:
+            shown = ", ".join(standard[:5]) + (", ..." if len(standard) > 5 else "")
+            log.warning(
+                "ELF image mixes microMIPS and standard MIPS32 code; loading it "
+                "as MIPS32_MICROMIPS. Only the Ghidra backend switches between "
+                "the two; on angr and Unicorn these standard MIPS32 functions "
+                f"will not run correctly: {shown}"
+            )
 
     def _rebase_file(self, val: int):
         # Rebase an offset from file-relative to image-relative
@@ -879,6 +940,9 @@ class ElfExecutable(Executable):
             # Relative symbols will be relative to the load address
             baseaddr = self.address
 
+        # The st_other bits above visibility are processor-specific.
+        is_mips = int(elf.header.machine_type) == EM_MIPS
+
         dynsyms = set(elf.dynamic_symbols)
         idx = 0
         dynamic = True
@@ -890,6 +954,14 @@ class ElfExecutable(Executable):
                 idx = 0
                 dynamic = False
 
+            # A microMIPS code symbol's value carries the ISA bit, as code
+            # addresses do on platforms with two instruction sets. LLD sets
+            # it in .dynsym but not in .symtab, so set it from st_other for
+            # both, and the two agree.
+            value = s.value
+            if is_mips and s.other & STO_MIPS_ISA == STO_MICROMIPS and s.shndx != 0:
+                value |= 1
+
             # Build a symbol
             sym = ElfSymbol(
                 idx=idx,
@@ -897,9 +969,12 @@ class ElfExecutable(Executable):
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
-                visibility=s.visibility,
+                # Visibility is the low two bits of st_other. Read them
+                # directly: LIEF's enum rejects the processor-specific bits
+                # above them, such as STO_MICROMIPS.
+                visibility=s.other & 0x3,
                 shndx=s.shndx,
-                value=s.value,
+                value=value,
                 size=s.size,
                 baseaddr=baseaddr,
                 defined=(s.shndx != 0),
@@ -919,12 +994,16 @@ class ElfExecutable(Executable):
         # no explicit platform; guard the access as the header-block paths do.
         if self.platform is not None and (
             self.platform.architecture == Architecture.MIPS32
+            or self.platform.architecture == Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == Architecture.MIPS64
         ):
             # All MIPS dynamic symbols have an implicit rela.
             # MIPS dynamic symbols always have a GOT entry;
             # to save space, the ABI just assumes that the rela exists
-            if (
+            if not self._dtags:
+                # No dynamic section: a static image, with no GOT to find.
+                pass
+            elif (
                 DT_MIPS_GOTSYM not in self._dtags
                 or DT_MIPS_LOCAL_GOTNO not in self._dtags
                 or DT_PLTGOT not in self._dtags
@@ -939,10 +1018,10 @@ class ElfExecutable(Executable):
                 gotoff = self._dtags[DT_PLTGOT]
 
                 rela_type = R_MIPS_JUMP_SLOT
-                if self.platform.architecture == Architecture.MIPS32:
-                    gotent = 4
-                else:
+                if self.platform.architecture == Architecture.MIPS64:
                     gotent = 8
+                else:
+                    gotent = 4
 
                 # Rebase the GOT offset relative to the image
                 gotoff = self._rebase_file(gotoff)

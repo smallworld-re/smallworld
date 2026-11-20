@@ -111,6 +111,80 @@ gaps:
   holds them in 4 bytes, so a ``movec`` that reads one into a register gives a
   partly symbolic value.
 
+**mips32-micromips:** MIPS32 with microMIPS, which re-encodes MIPS32
+Release 3/5 in 16- and 32-bit instructions over the same registers. Hardware
+switches between microMIPS and standard MIPS32 on the low bit of a jump target
+(``jalx`` switches outright). The current choice is the ``isa_mode``
+pseudo-register: 1 for microMIPS, 0 for standard MIPS32. No architectural
+register holds it, so SmallWorld adds one. Runs start in microMIPS.
+
+Writing an odd pc selects microMIPS and stores the even address; writing an
+even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
+``isa_mode`` set to 0. The pc always reads back even.
+
+- **Ghidra** switches between the two encodings as hardware does, on the
+  ``MIPS:BE:32:micro`` and ``MIPS:LE:32:micro`` languages. ``isa_mode`` is
+  their ``ISA_MODE`` context field.
+
+  Ghidra's disassembler remembers the encoding it first decoded each address
+  in, so code that one emulator has run in one encoding keeps decoding that
+  way. Writing ``isa_mode``, or an odd pc, does not change it, though
+  ``isa_mode`` reads back the new value; neither does a jump into that code in
+  the other encoding. Run it in the other encoding on a fresh emulator. Ghidra
+  offers no public way to clear that memory.
+- **angr** runs microMIPS only, on the same languages through its p-code
+  engine rather than VEX, which has no microMIPS decoder. angr's lifter has no
+  way to set a context field, so SmallWorld gives the lifter angr caches for
+  these languages a context that decodes microMIPS. A ``jalx``, or a ``jr`` to
+  an even address, still decodes as microMIPS: following a switch would need
+  angr's engine to act on sleigh's ``ISAModeSwitch``. An odd pc is stored even,
+  as on the other backends, but ``isa_mode`` and the FPU registers are not
+  available on angr. ``syscall`` reaches ``hook_syscall`` and
+  ``hook_syscalls``, with the o32 convention (the number in ``v0``), because the
+  machine definition rewrites it into a syscall exit as the SuperH ones do for
+  ``trapa`` (see below).
+- **Unicorn** starts every run in microMIPS, on the M14Kc CPU model, which runs
+  microMIPS while the low bit of the pc is set. SmallWorld sets that bit
+  whenever it starts a run or writes the pc. Unicorn does follow a jump into
+  standard MIPS32, but it does not report its ISA mode, so ``isa_mode`` is not
+  available and SmallWorld returns to microMIPS whenever a run resumes.
+
+  Unicorn runs a microMIPS compact branch (one with no delay slot, such as
+  ``jrc``, ``jraddiusp``, ``beqzc`` or ``bnezc``) even when a hook stops
+  emulation on it, in both the pip and the nix builds. An exit point placed on
+  such a branch is therefore run past, and single-stepping runs it too: the
+  step that reaches the branch also takes it, ending at its target rather than
+  at the branch, so a step-by-step trace on Unicorn leaves the branch out. This
+  is a Unicorn bug that SmallWorld does not work around.
+
+  Stock Unicorn 2.1.4, as pip installs it, mishandles a load or store in the
+  delay slot of a branch that is not taken while a memory hook is installed,
+  which SmallWorld always does: the next instruction, if it is a branch, raises
+  a reserved-instruction exception. The Unicorn that SmallWorld's nix
+  environment builds, from the ``mmio_map_pc_sync`` branch of
+  ``appleflyerv3/unicorn``, does not have this bug.
+- **PANDA** is not supported.
+
+An ELF image flagged ``EF_MIPS_MICROMIPS`` loads as this platform, with a
+warning if the entrypoint is standard MIPS32 code. Code addresses keep the ISA
+bit, as on hardware: the entrypoint, the values of microMIPS code symbols
+(set from ``STO_MICROMIPS`` in ``st_other``, so ``.symtab`` and ``.dynsym``
+agree), and pointers relocated to them are odd. Writing one to the pc selects
+microMIPS, and a function model placed at one hooks the even address. The flag
+says only that the image contains some microMIPS code, so SmallWorld also warns
+when function symbols show standard MIPS32 functions, which only Ghidra runs; a
+stripped image cannot be checked.
+
+Calls from microMIPS code set the low bit of ``ra``, and calls from standard
+MIPS32 code leave it clear. Function models keep that bit: a model returns as
+``jr ra`` would, to microMIPS for an odd ``ra`` and to standard MIPS32 for an
+even one, where the backend can switch.
+
+microMIPS code calls with MIPS32's o32 convention, so the System V C and POSIX
+models exist for this platform as they do for MIPS32. Those that pass or
+return floating-point values need the FPU registers, which angr and Unicorn do
+not provide here.
+
 **mips64 Panda:** The panda emulator currently runs code directly from physical memory.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.

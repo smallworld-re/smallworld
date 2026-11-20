@@ -5,7 +5,12 @@ from .i386 import i386MachineDef
 from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
 from .m68k import M68KMachineDef
 from .machdef import GhidraMachineDef
-from .mips import MIPSBEMachineDef, MIPSELMachineDef
+from .mips import (
+    MicroMIPSBEMachineDef,
+    MicroMIPSELMachineDef,
+    MIPSBEMachineDef,
+    MIPSELMachineDef,
+)
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
 from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
@@ -32,6 +37,8 @@ __all__ = [
     "MIPS64ELMachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
+    "MicroMIPSBEMachineDef",
+    "MicroMIPSELMachineDef",
     "MSP430MachineDef",
     "MSP430XMachineDef",
     "GhidraMachineDef",

@@ -9,6 +9,14 @@ class Architecture(enum.Enum):
     match the regex ``[A-Z0-9]+``.
 
     Values are lowercase, kebab-case.
+
+    A member names a CPU: the instruction decoder (or sleigh language) that
+    runs it, and the instruction set it starts in. An instruction set the CPU
+    can switch to while running, such as ARM's Thumb or MIPS32 from
+    microMIPS, is runtime mode (see :attr:`PlatformDef.isa_bit`), not a
+    separate member. A CPU that starts in a different instruction set, or
+    decodes a different one, is its own member, such as
+    ``MIPS32_MICROMIPS`` and ``POWERPC32_VLE``.
     """
 
     X86_16 = "x86-16"
@@ -31,6 +39,9 @@ class Architecture(enum.Enum):
 
     MIPS32 = "mips32"
     """MIPS32 rel 2"""
+
+    MIPS32_MICROMIPS = "mips32-micromips"
+    """MIPS32 with the microMIPS (16/32-bit) encoding, starting in microMIPS"""
 
     MIPS64 = "mips64"
     """MIPS32 rel 2"""

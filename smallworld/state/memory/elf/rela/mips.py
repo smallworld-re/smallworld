@@ -11,10 +11,13 @@ R_MIPS_JUMP_SLOT = 127
 
 
 class MIPSElfRelocator(ElfRelocator):
+    # microMIPS gets only the data relocations below; none of the
+    # R_MICROMIPS_* code relocations, which a linked image no longer carries.
     supported_platforms = frozenset(
         platforms.Platform(architecture, byteorder)
         for architecture in (
             platforms.Architecture.MIPS32,
+            platforms.Architecture.MIPS32_MICROMIPS,
             platforms.Architecture.MIPS64,
         )
         for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE)
@@ -41,7 +44,7 @@ class MIPSElfRelocator(ElfRelocator):
         else:
             addend = elf.read_int(
                 rela.offset,
-                4 if self.arch is platforms.Architecture.MIPS32 else 8,
+                8 if self.arch is platforms.Architecture.MIPS64 else 4,
                 self.byteorder,
             )
 

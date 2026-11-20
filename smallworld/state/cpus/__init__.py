@@ -6,7 +6,7 @@ from .cpu import __all__ as __cpu__
 from .i386 import I386
 from .loongarch import LoongArch32, LoongArch64
 from .m68k import M68K
-from .mips import MIPSBE, MIPSEL
+from .mips import MIPSBE, MIPSEL, MicroMIPSBE, MicroMIPSEL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
 from .powerpc import PowerPC32, PowerPC32VLE, PowerPC64
@@ -35,6 +35,8 @@ __all__ = __cpu__ + [
     "MIPS64BE",
     "MIPSEL",
     "MIPSBE",
+    "MicroMIPSEL",
+    "MicroMIPSBE",
     "MSP430",
     "MSP430X",
     "PowerPC32",

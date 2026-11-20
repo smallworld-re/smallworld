@@ -130,6 +130,30 @@ _SPECS = {
         link_register="ra",
         entrypoint_registers=("t9",),
     ),
+    "micromips": ExitpointSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=2,
+        # The mid exit lands on main's final jrc. Unicorn runs a microMIPS
+        # compact branch even when a hook stops emulation on it, so on Unicorn
+        # stop one instruction earlier, on the addiusp before it.
+        mid_exit_offset_overrides={"unicorn": 4},
+        link_register="ra",
+    ),
+    "micromipsel": ExitpointSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=2,
+        # The mid exit lands on main's final jrc. Unicorn runs a microMIPS
+        # compact branch even when a hook stops emulation on it, so on Unicorn
+        # stop one instruction earlier, on the addiusp before it.
+        mid_exit_offset_overrides={"unicorn": 4},
+        link_register="ra",
+    ),
     "mips64": ExitpointSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
         pc_register="pc",
@@ -360,6 +384,14 @@ def _run_exit_test(
 
 
 def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
+    from smallworld import platforms
+
+    if platforms.PlatformDef.for_platform(code.platform).isa_bit is not (
+        platforms.IsaBit.NONE
+    ):
+        # main's symbol value carries the ISA bit; the code is at the even
+        # address.
+        entrypoint &= ~1
     return (
         entrypoint
         + code.get_symbol_size("main")

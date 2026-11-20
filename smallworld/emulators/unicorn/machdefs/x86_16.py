@@ -36,3 +36,7 @@ class X86RealModeMachineDef(i386MachineDef):
                 f"pc {pc:#x} is outside the code segment at {base:#x}; set cs first"
             )
         return offset
+
+    def pc_to_start(self, engine: typing.Any, pc: int) -> int:
+        # emu_start() takes the linear address and sets ip from cs itself.
+        return pc

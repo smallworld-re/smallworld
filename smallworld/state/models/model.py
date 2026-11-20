@@ -109,6 +109,12 @@ class Model(Hook):
 
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
 
+        if self.platdef.isa_bit is not platforms.IsaBit.NONE:
+            # A function's symbol value, and any pointer relocated to it,
+            # carries the ISA bit, but the CPU runs the code at the even
+            # address, so a hook at the odd one would never fire.
+            self._address &= ~1
+
     # Flag indicating this model is unsupported.
     #
     # This function includes a behavior SmallWorld
@@ -299,6 +305,7 @@ class Model(Hook):
             self.platform.architecture == platforms.Architecture.LOONGARCH32
             or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
@@ -333,6 +340,14 @@ class Model(Hook):
             return
 
         ret = self.get_return_address(emulator, pop=True)
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS:
+            # Return as bx lr and jr ra do: bit 0 of the return address says
+            # which instruction set the caller runs. Backends that run only
+            # one of them have no mode to switch.
+            try:
+                emulator.set_isa_mode(ret & 1)
+            except exceptions.UnsupportedRegisterError:
+                pass
         emulator.write_register("pc", ret)
 
 
