@@ -1585,7 +1585,6 @@ os._exit(1)
                 "micromipsel",
                 "msp430",
                 "msp430x",
-                "ppc64",
                 "ppcvle",
                 "riscv32",
                 "riscv64",
