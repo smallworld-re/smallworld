@@ -623,6 +623,12 @@ $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 # create_core.sh runs it on.
 PPC64_GLIBC_CC := powerpc64-unknown-linux-gnuabielfv2-gcc
 elf_core/elf_core.ppc64.elf: PPC64_CC := $(PPC64_GLIBC_CC)
+# The test derivation's buildInputs put every cross glibc into
+# NIX_CFLAGS_COMPILE and NIX_LDFLAGS, which this gcc reads: it would compile
+# against m68k's headers and get an rpath that finds aarch64's libc.so.6
+# first.  Its wrapper supplies its own glibc, so drop them.
+elf_core/elf_core.ppc64.elf: export NIX_CFLAGS_COMPILE :=
+elf_core/elf_core.ppc64.elf: export NIX_LDFLAGS :=
 
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
