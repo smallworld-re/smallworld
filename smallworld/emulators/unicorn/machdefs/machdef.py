@@ -79,15 +79,21 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         return pc
 
-    def uc_pc_value(self, pc: int) -> int:
-        """The value to give Unicorn for ``pc``, as a start address or register.
+    def pc_to_start(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the address emu_start() begins at.
 
-        Unicorn takes some execution modes from the low bit of the pc, both
-        when emu_start() begins and when the pc register is written; an even
-        value leaves such a mode. A machine that runs in one sets that bit
-        here.
+        Unicorn takes some execution modes from the low bit of the start
+        address, as it does when the pc register is written, so this is
+        `pc_to_engine()` unless a machine's pc register is not the address.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The address to pass to emu_start()
         """
-        return pc
+        return self.pc_to_engine(engine, pc)
 
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt

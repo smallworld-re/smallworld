@@ -7,7 +7,7 @@ from .m68k import M68K
 from .mips import MIPS32BE, MIPS32EL, MicroMIPS32BE, MicroMIPS32EL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
-from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
+from .platformdef import IsaBit, PlatformDef, RegisterAliasDef, RegisterDef
 from .powerpc import PowerPC32, PowerPC32VLE, PowerPC64
 from .riscv import RiscV64
 from .superh import SH1, SH2, SH2AFPU
@@ -28,6 +28,7 @@ __all__ = [
     "ARMv7R",
     "ARMv7A",
     "I386",
+    "IsaBit",
     "LoongArch32",
     "LoongArch64",
     "M68K",

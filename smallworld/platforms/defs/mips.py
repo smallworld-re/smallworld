@@ -3,7 +3,7 @@ import typing
 import capstone
 
 from ..platforms import Architecture, Byteorder
-from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
+from .platformdef import IsaBit, PlatformDef, RegisterAliasDef, RegisterDef
 
 # NOTE: mips32 has two major ISA variants.
 #
@@ -399,6 +399,9 @@ class MicroMIPSMixin:
     # The microMIPS languages also hold standard MIPS32, which their
     # ISA_MODE context field selects by default.
     ghidra_context = {"ISA_MODE": 1}
+
+    # Bit 0 of a jump target selects microMIPS (1) or MIPS32 (0).
+    isa_bit = IsaBit.SELECTS
 
     conditional_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS
     compare_branch_mnemonics = MICROMIPS_CONDITIONAL_BRANCH_MNEMONICS

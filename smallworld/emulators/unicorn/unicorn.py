@@ -471,7 +471,6 @@ class UnicornEmulator(
 
         if name == "pc":
             content = self._handle_thumb_interwork(content)
-            content = self.machdef.uc_pc_value(content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
         if reg == 0:
@@ -827,7 +826,9 @@ class UnicornEmulator(
                 logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
+            self.engine.emu_start(
+                self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
+            )
             self._diagnose_clean_stop()
         except unicorn.UcError as e:
             if (
@@ -854,13 +855,17 @@ class UnicornEmulator(
             logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
+            self.engine.emu_start(
+                self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
+            )
             self._diagnose_clean_stop()
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
+            self.engine.emu_start(
+                self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
+            )
             self._diagnose_clean_stop()
         except unicorn.UcError as e:
             self._error(e, "exec")
@@ -876,7 +881,9 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(self.machdef.uc_pc_value(pc), self.exit_sentinel)
+            self.engine.emu_start(
+                self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
+            )
             self._diagnose_clean_stop()
         except exceptions.EmulationStop:
             pass

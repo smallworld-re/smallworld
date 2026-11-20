@@ -369,11 +369,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             return
         if name == self.platdef.pc_register:
             if isinstance(value, claripy.ast.bv.BV) and not value.symbolic:
-                # A concrete pc takes the int path, so pc_value sees its
+                # A concrete pc takes the int path, so pc_to_engine sees its
                 # low bit; a symbolic one has no bit to act on.
                 value = value.concrete_value
             if isinstance(value, int):
-                value = self.machdef.pc_value(self._thread, value)
+                value = self.machdef.pc_to_engine(self._thread, value)
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()

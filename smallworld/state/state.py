@@ -1134,9 +1134,10 @@ class Machine(StatefulSet):
         # unicornafl restarts each run from the pc register, which reads back
         # without any mode bit Unicorn takes from the start address. On ARM it
         # puts the Thumb bit back itself; for any other machine that needs one
-        # (see UnicornMachineDef.uc_pc_value), start the runs here instead.
+        # (see UnicornMachineDef.pc_to_start), start the runs here instead.
         start = emulator.read_register("pc")
-        if emulator.machdef.uc_pc_value(start) == start:
+        begin = emulator.machdef.pc_to_start(emulator.engine, start)
+        if begin == start:
             unicornafl.uc_afl_fuzz(
                 uc=emulator.engine,
                 input_file=input_file_path,
@@ -1158,7 +1159,7 @@ class Machine(StatefulSet):
 
         def _run(uc, _data) -> int:
             try:
-                uc.emu_start(emulator.machdef.uc_pc_value(start), 0)
+                uc.emu_start(begin, 0)
             except unicorn.UcError as e:
                 return e.errno
             except Exception as e:

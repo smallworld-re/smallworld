@@ -5,7 +5,7 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform, PlatformDef
+from ....platforms import Architecture, Byteorder, IsaBit, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
@@ -510,20 +510,25 @@ class ElfExecutable(Executable):
         if elf.entrypoint is not None and elf.entrypoint != 0:
             # Check if the entrypoint is valid (falls within the image)
             entrypoint = self._rebase_file(elf.entrypoint)
+            address = entrypoint
+            if (
+                self.platform is not None
+                and PlatformDef.for_platform(self.platform).isa_bit is not IsaBit.NONE
+            ):
+                # Bit 0 of a code address selects the instruction set; the
+                # code itself is at the even address.
+                address &= ~1
             if (
                 self.platform is not None
                 and self.platform.architecture == Architecture.MIPS32_MICROMIPS
+                and not entrypoint & 1
             ):
-                # The low bit marks the entrypoint as microMIPS code;
-                # it is not part of the address.
-                if not entrypoint & 1:
-                    log.warning(
-                        "The ELF entrypoint is standard MIPS32 code, but runs "
-                        "start in microMIPS; set isa_mode to 0 before running "
-                        "it (Ghidra only)"
-                    )
-                entrypoint &= ~1
-            if not self.bounds.contains_value(entrypoint):
+                log.warning(
+                    "The ELF entrypoint is standard MIPS32 code, but runs "
+                    "start in microMIPS; set isa_mode to 0 before running "
+                    "it (Ghidra only)"
+                )
+            if not self.bounds.contains_value(address):
                 if (
                     self.platform is not None
                     and self.platform.architecture == Architecture.POWERPC64
@@ -949,12 +954,13 @@ class ElfExecutable(Executable):
                 idx = 0
                 dynamic = False
 
-            # A microMIPS symbol's value may have the ISA bit set: LLD sets
-            # it in .dynsym and not in .symtab. Keep the address as the
-            # value, so the two agree and name the code's address, and
-            # remember the bit for the relocations that point at the code.
-            micromips = is_mips and s.other & STO_MIPS_ISA == STO_MICROMIPS
-            value = s.value & ~1 if micromips else s.value
+            # A microMIPS code symbol's value carries the ISA bit, as code
+            # addresses do on platforms with two instruction sets. LLD sets
+            # it in .dynsym but not in .symtab, so set it from st_other for
+            # both, and the two agree.
+            value = s.value
+            if is_mips and s.other & STO_MIPS_ISA == STO_MICROMIPS and s.shndx != 0:
+                value |= 1
 
             # Build a symbol
             sym = ElfSymbol(
@@ -972,7 +978,6 @@ class ElfExecutable(Executable):
                 size=s.size,
                 baseaddr=baseaddr,
                 defined=(s.shndx != 0),
-                micromips=micromips,
             )
             # Save the sym, and temporarily tie it to its lief partner
             if dynamic:
@@ -1380,10 +1385,6 @@ class ElfExecutable(Executable):
             # Value provided is absolute; rebase it to the symbol's base address
             value -= syms[0].baseaddr
 
-        if syms[0].micromips:
-            # The value is the code's address; relocation adds the ISA bit.
-            value &= ~1
-
         # Update the value
         for sym in syms:
             sym.value = value
@@ -1522,9 +1523,6 @@ class ElfExecutable(Executable):
                 continue
 
             o_sym = o_syms[0]
-            # An import is microMIPS code if its definition is; the importing
-            # image need not say so, and its pointers to it need the ISA bit.
-            my_sym.micromips = o_sym.micromips
             if o_sym.type == STT_TLS:
                 # A block offset, not an address: rebasing would leave the
                 # delta between the two load addresses, which indexes nothing

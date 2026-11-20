@@ -630,7 +630,9 @@ class MicroMIPSMachineDef:
         # and runs stay in microMIPS.
         self._registers["isa_mode"] = unicorn.mips_const.UC_MIPS_REG_INVALID
 
-    def uc_pc_value(self, pc: int) -> int:
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        # Unicorn runs microMIPS while the low bit of the pc is set, and an
+        # even pc written or started at would switch it to standard MIPS32.
         return pc | 1
 
 

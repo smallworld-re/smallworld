@@ -118,8 +118,19 @@ class GhidraMachineDef:
         value = thread.getContext().assign(reg, BigInteger.valueOf(field))
         thread.overrideContext(value)
 
-    def pc_value(self, thread, pc: int) -> int:
-        """The address to store for a pc write, applying the ISA bit."""
+    def pc_to_engine(self, thread, pc: int) -> int:
+        """Convert SmallWorld's pc to the address to store in a p-code thread.
+
+        Applies the ISA bit: an odd pc selects the alternate instruction set,
+        and the address stored is even.
+
+        Arguments:
+            thread: The p-code thread
+            pc: The address of the next instruction, with any ISA bit
+
+        Returns:
+            The value to write to the pc register
+        """
         if self.isa_bit_context is not None and pc & 1:
             self.write_context(
                 thread, self.language.getRegister(self.isa_bit_context), 1

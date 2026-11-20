@@ -165,11 +165,15 @@ even pc leaves ``isa_mode`` alone, so code that starts in standard MIPS32 needs
   ``appleflyerv3/unicorn``, does not have this bug.
 - **PANDA** is not supported.
 
-An ELF image flagged ``EF_MIPS_MICROMIPS`` loads as this platform, with its
-entrypoint's low bit cleared, and a warning if the entrypoint is standard
-MIPS32 code. The flag says only that the image contains some microMIPS code,
-so SmallWorld also warns when function symbols show standard MIPS32 functions,
-which only Ghidra runs; a stripped image cannot be checked.
+An ELF image flagged ``EF_MIPS_MICROMIPS`` loads as this platform, with a
+warning if the entrypoint is standard MIPS32 code. Code addresses keep the ISA
+bit, as on hardware: the entrypoint, the values of microMIPS code symbols
+(set from ``STO_MICROMIPS`` in ``st_other``, so ``.symtab`` and ``.dynsym``
+agree), and pointers relocated to them are odd. Writing one to the pc selects
+microMIPS, and a function model placed at one hooks the even address. The flag
+says only that the image contains some microMIPS code, so SmallWorld also warns
+when function symbols show standard MIPS32 functions, which only Ghidra runs; a
+stripped image cannot be checked.
 
 Calls from microMIPS code set the low bit of ``ra``, and calls from standard
 MIPS32 code leave it clear. Function models keep that bit: a model returns as

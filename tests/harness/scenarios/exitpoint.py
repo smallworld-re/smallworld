@@ -384,6 +384,14 @@ def _run_exit_test(
 
 
 def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
+    from smallworld import platforms
+
+    if platforms.PlatformDef.for_platform(code.platform).isa_bit is not (
+        platforms.IsaBit.NONE
+    ):
+        # main's symbol value carries the ISA bit; the code is at the even
+        # address.
+        entrypoint &= ~1
     return (
         entrypoint
         + code.get_symbol_size("main")

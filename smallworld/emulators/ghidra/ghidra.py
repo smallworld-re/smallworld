@@ -129,7 +129,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self.machdef.write_context(self._thread, reg, value)
             return
         if name == self.platdef.pc_register:
-            value = self.machdef.pc_value(self._thread, value)
+            value = self.machdef.pc_to_engine(self._thread, value)
 
         state = self._thread.getState()
 

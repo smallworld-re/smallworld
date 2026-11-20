@@ -10669,6 +10669,42 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         with self.assertRaises(exceptions.UnsupportedRegisterError):
             emu.write_register("isa_mode", 0)
 
+    def test_ghidra_get_and_set_isa_mode(self):
+        emu = self._ghidra()
+        self.assertEqual(emu.get_isa_mode(), 1)
+        emu.set_isa_mode(0)
+        self.assertEqual(emu.get_isa_mode(), 0)
+        self.assertEqual(emu.read_register("isa_mode"), 0)
+
+    def test_single_isa_backends_refuse_set_isa_mode(self):
+        for emu in (
+            emulators.UnicornEmulator(self.PLATFORM),
+            emulators.AngrEmulator(self.PLATFORM),
+        ):
+            with self.subTest(emulator=type(emu).__name__):
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.set_isa_mode(0)
+
+    def test_isa_mode_needs_two_instruction_sets(self):
+        emu = emulators.UnicornEmulator(
+            platforms.Platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_model_hooks_the_even_address(self):
+        class Nop(state.models.Model):
+            name = "nop"
+            platform = MicroMIPSIsaModeTests.PLATFORM
+            abi = platforms.ABI.NONE
+
+            def model(self, emulator):
+                pass
+
+        self.assertEqual(Nop(0x1001)._address, 0x1000)
+
     def test_unicorn_odd_pc_reads_back_even(self):
         emu = emulators.UnicornEmulator(self.PLATFORM)
         emu.write_register("pc", 0x1001)
@@ -11062,8 +11098,8 @@ class UnicornDelaySlotFaultTests(unittest.TestCase):
 
 
 class ElfMicroMIPSSymbolTests(unittest.TestCase):
-    """A microMIPS symbol's value is its code's address, whichever table it
-    comes from; relocated pointers to the code carry the ISA bit."""
+    """A microMIPS code symbol's value carries the ISA bit, whichever table it
+    comes from, and so do relocated pointers to the code."""
 
     LINK_ELF = BINARIES_TESTS_DIR / "link_elf"
     LIB_BASE = 0x800000
@@ -11083,8 +11119,11 @@ class ElfMicroMIPSSymbolTests(unittest.TestCase):
         for ext in ("micromips", "micromipsel"):
             with self.subTest(ext=ext):
                 lib = self._load(f"micromips_lib.{ext}.so", self.LIB_BASE)
-                # .dynsym has the ISA bit set and .symtab does not.
-                self.assertEqual(lib.get_symbol_value("foo"), self.LIB_BASE + self.FOO)
+                # .dynsym has the ISA bit set and .symtab does not; both
+                # load with it.
+                self.assertEqual(
+                    lib.get_symbol_value("foo"), self.LIB_BASE + self.FOO + 1
+                )
 
     def test_pointer_has_isa_bit(self):
         for ext in ("micromips", "micromipsel"):
@@ -11106,10 +11145,8 @@ class ElfMicroMIPSSymbolTests(unittest.TestCase):
                     self._word(exe, "fooref"), self.LIB_BASE + self.FOO + 1
                 )
 
-    def _relocate(self, type_: int, micromips: bool, defined: bool = True) -> int:
-        symbol = _make_symbol(value=0x1000, baseaddr=0x400000)
-        symbol.micromips = micromips
-        symbol.defined = defined
+    def _relocate(self, type_: int, value: int) -> int:
+        symbol = _make_symbol(value=value, baseaddr=0x400000)
         rela = ElfRela(is_rela=True, offset=0x2000, type=type_, symbol=symbol, addend=0)
         relocator = MIPSElfRelocator(
             platforms.Platform(
@@ -11119,20 +11156,17 @@ class ElfMicroMIPSSymbolTests(unittest.TestCase):
         value = relocator._compute_value(rela, _FakeElf())
         return int.from_bytes(value, "big")
 
-    def test_relocations_add_isa_bit(self):
+    def test_relocations_keep_isa_bit(self):
         # R_MIPS_32, R_MIPS_REL32 and the GOT's R_MIPS_JUMP_SLOT.
         for type_ in (2, 3, 127):
             with self.subTest(type=type_):
-                self.assertEqual(self._relocate(type_, True), 0x401001)
-                self.assertEqual(self._relocate(type_, False), 0x401000)
-
-    def test_unresolved_import_stays_null(self):
-        self.assertEqual(self._relocate(2, True, defined=False) & 1, 0)
+                self.assertEqual(self._relocate(type_, 0x1001), 0x401001)
+                self.assertEqual(self._relocate(type_, 0x1000), 0x401000)
 
 
 class ElfMicroMIPSTests(unittest.TestCase):
     """EF_MIPS_MICROMIPS selects the microMIPS platform, whose entrypoint
-    drops the ISA bit; standard MIPS32 functions in such an image warn."""
+    keeps the ISA bit; standard MIPS32 functions in such an image warn."""
 
     MICRO = BINARIES_TESTS_DIR / "elf" / "elf.micromips.elf"
     STANDARD = BINARIES_TESTS_DIR / "elf" / "elf.mips.elf"
@@ -11151,7 +11185,7 @@ class ElfMicroMIPSTests(unittest.TestCase):
             code.platform.architecture, platforms.Architecture.MIPS32_MICROMIPS
         )
         self.assertEqual(code.entrypoint, code.get_symbol_value("__start"))
-        self.assertEqual(code.entrypoint & 1, 0)
+        self.assertEqual(code.entrypoint & 1, 1)
 
     @unittest.skipUnless(STANDARD.exists(), _BINARIES_SKIP_REASON)
     def test_mips32_image(self):

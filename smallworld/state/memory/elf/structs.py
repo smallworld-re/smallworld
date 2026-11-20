@@ -39,10 +39,6 @@ class ElfSymbol:
     relas: typing.List["ElfRela"] = field(
         default_factory=list
     )  # List of associated relas
-    # Is this microMIPS code? Its value is then the address, and jumps to it,
-    # relocated pointers included, need the ISA bit (bit 0) set. Only the
-    # loader's MIPS path sets this.
-    micromips: bool = False
 
 
 rela_patterns = [
