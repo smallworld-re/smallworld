@@ -6,9 +6,9 @@ import archinfo
 import pypcode
 
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, PcodeEngine
 from .mips import MIPSMachineDef
-from .superh import pcode_arch
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 logger = logging.getLogger(__name__)
 
@@ -66,35 +66,8 @@ for _language in ("MIPS:BE:32:micro", "MIPS:LE:32:micro"):
     )
 
 
-def _end_block_in_syscall(irsb, i: int) -> None:
-    """End `irsb` with the syscall whose CALLOTHER is op `i`.
-
-    Sleigh lifts syscall to a bare user op, which angr's p-code engine cannot
-    run, and no p-code opcode means "syscall", so the lifter never gives a
-    block the Ijk_Sys_syscall jumpkind that sends angr to its syscall
-    handling. Cut the block before the op and say so instead, as the
-    LoongArch, SuperH and Xtensa machine definitions do.
-    """
-    imark = next(
-        op for op in reversed(irsb._ops[:i]) if op.opcode == pypcode.OpCode.IMARK
-    ).inputs[0]
-    next_addr = imark.offset + imark.size
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = [
-        addr for addr in irsb._instruction_addresses if addr < next_addr
-    ]
-    irsb.jumpkind = "Ijk_Sys_syscall"
-
-
-# MERGE NOTE: two unmerged branches replace GhidraMachineDef's default
-# angr_engine: feature/angr-pcode-float with FloatPcodeEngine (floating-point
-# p-code) and feature/superh-sh1-sh2 with PcodeEngine (the partial-register
-# fix). Base this class on whichever engine is the default once they merge,
-# rather than on UberEnginePcode, or microMIPS loses those fixes.
-class MicroMIPSEnginePcode(angr.engines.UberEnginePcode):
-    """angr's p-code engine, lifting every block as microMIPS.
+class MicroMIPSEnginePcode(PcodeEngine):
+    """SmallWorld's p-code engine, lifting every block as microMIPS.
 
     This pins the encoding rather than tracking it: the ISAModeSwitch register
     that sleigh writes on a jump is ignored, so a jalx or jr into standard
@@ -165,22 +138,16 @@ class MicroMIPSMachineDef(GhidraMachineDef):
     angr_engine = MicroMIPSEnginePcode
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        # Turn syscall into a syscall exit; see _end_block_in_syscall. Other
-        # user ops are left to the engine as before. Also warn, once, when
-        # the code jumps into standard MIPS32, which angr cannot follow.
+        # Sleigh lifts syscall to a bare user op, which angr's p-code engine
+        # cannot run, so end the block there as a syscall, as the LoongArch,
+        # SuperH and Xtensa machine definitions do. Other user ops are left
+        # to the engine. Also warn, once, when the code jumps into standard
+        # MIPS32, which angr cannot follow.
         assert hasattr(state.scratch, "exit_points")
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            irsb = kwargs["irsb"]
-        else:
-            kwargs["opt_level"] = 0
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+        exit_points = state.scratch.exit_points | set(
+            kwargs.get("extra_stop_points", ())
+        )
+        irsb = lift_for_rewrite(state, kwargs)
 
         disassembly = getattr(irsb, "disassembly", None)
         mnemonics = (
@@ -188,15 +155,16 @@ class MicroMIPSMachineDef(GhidraMachineDef):
             if disassembly is not None
             else {}
         )
-        address = None
+        imark = None
         for i, op in enumerate(irsb._ops):
             if op.opcode == pypcode.OpCode.IMARK:
-                address = op.inputs[0].offset
+                imark = op.inputs[0]
             elif (
                 op.opcode == pypcode.OpCode.CALLOTHER
-                and mnemonics.get(address) == "syscall"
+                and imark is not None
+                and mnemonics.get(imark.offset) == "syscall"
             ):
-                _end_block_in_syscall(irsb, i)
+                rewrite_as_syscall(irsb, i, imark.offset + imark.size)
                 break
 
         kwargs["irsb"] = irsb
