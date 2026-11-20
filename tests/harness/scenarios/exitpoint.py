@@ -417,10 +417,13 @@ def _run_exit_test(
         )
 
 
-def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
+def _mid_exitpoint(
+    entrypoint: int, platform, code, engine: str, spec: ExitpointSpec
+) -> int:
     from smallworld import platforms
 
-    if platforms.PlatformDef.for_platform(code.platform).isa_bit is not (
+    # The platform comes from the caller: a raw binary has none of its own.
+    if platforms.PlatformDef.for_platform(platform).isa_bit is not (
         platforms.IsaBit.NONE
     ):
         # main's symbol value carries the ISA bit; the code is at the even
@@ -463,7 +466,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         if ns.panda_subtest == "fake":
             return 0
 
-    _, _, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
-    mid_exitpoint = _mid_exitpoint(entrypoint, code, engine, spec)
+    _, platform, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
+    mid_exitpoint = _mid_exitpoint(entrypoint, platform, code, engine, spec)
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
     return 0
