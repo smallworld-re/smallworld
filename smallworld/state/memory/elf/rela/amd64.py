@@ -83,10 +83,6 @@ class AMD64ElfRelocator(ElfRelocator):
         # relocated (or re-relocated) after binding is not written back to
         # null.
         self._tls_resolver = 0
-        # Synthetic GOT slots for an object file's descriptors, which no
-        # linker built, by symbol index, so that several call sites share one
-        # descriptor.
-        self._tls_descriptor_slots: typing.Dict[int, int] = {}
 
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
@@ -147,20 +143,6 @@ class AMD64ElfRelocator(ElfRelocator):
         if address not in self._tls_descriptors:
             self._tls_descriptors.append(address)
         return self._tls_resolver
-
-    def _tls_descriptor_slot(self, elf, symbol_index: int) -> int:
-        """Address of the TLS descriptor for a symbol, creating it if needed.
-
-        An object file has no GOT -- building one is the linker's job -- so
-        the missing slots go in space the image reserves past its loaded
-        sections, one per symbol.  Keyed and idempotent, since
-        `update_symbol_value` re-relocates every rela attached to a symbol.
-        """
-        if symbol_index not in self._tls_descriptor_slots:
-            self._tls_descriptor_slots[symbol_index] = elf.reserve_synthetic(
-                16, "synthetic TLS descriptor"
-            )
-        return self._tls_descriptor_slots[symbol_index]
 
     def _compute_value(self, rela: ElfRela, elf):
         symval = self._symbol_value(rela)
@@ -269,7 +251,12 @@ class AMD64ElfRelocator(ElfRelocator):
             # The unlinked form of R_X86_64_TLSDESC: an object file has only
             # `lea x@tlsdesc(%rip)`, naming a GOT slot no linker built, so
             # synthesize one.
-            slot = self._tls_descriptor_slot(elf, rela.symbol.idx)
+            slot = self.synthetic_slot(
+                elf,
+                ("tls descriptor", rela.symbol.idx),
+                16,
+                "synthetic TLS descriptor",
+            )
             # The addend belongs to the PC-relative computation (gcc emits -4
             # for the displacement), not to the argument, which is the
             # symbol's block offset alone.

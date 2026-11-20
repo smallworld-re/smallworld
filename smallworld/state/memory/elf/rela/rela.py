@@ -41,6 +41,32 @@ class ElfRelocator:
         elif platform not in self.supported_platforms:
             raise ValueError(f"{type(self).__name__} does not cover {platform}")
         self.platform = platform
+        # Slots no linker built, by key; see synthetic_slot.
+        self._synthetic_slots: typing.Dict[typing.Hashable, int] = {}
+
+    def synthetic_slot(
+        self, elf: elf.ElfExecutable, key: typing.Hashable, size: int, label: str
+    ) -> int:
+        """Address of a slot a linker would have built, creating it if needed.
+
+        An object file has no GOT, and so none of the GOT entries or TLS
+        descriptors its relocations name: building them is the linker's job.
+        This reserves one past the image's loaded sections for each key.
+        Keyed and idempotent, since `update_symbol_value` re-relocates every
+        rela attached to a symbol.
+
+        Arguments:
+            elf: The image being relocated
+            key: What the slot is for, such as a kind of slot and a symbol
+            size: The slot's size in bytes
+            label: A label for the reserved bytes
+
+        Returns:
+            The slot's address
+        """
+        if key not in self._synthetic_slots:
+            self._synthetic_slots[key] = elf.reserve_synthetic(size, label)
+        return self._synthetic_slots[key]
 
     @property
     def arch(self) -> platforms.Architecture:
