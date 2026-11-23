@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ARM ELF loading: `EF_ARM_BE8` decides whether a big-endian image is BE8 or
+  BE32; a requested ARM32 platform wins whatever the image's float ABI, with
+  a warning when its C models use the other one, and an image loaded without
+  one follows its float ABI; soft-float ARMv6-M and ARMv7-M images load, and
+  a requested ARMv7-R wins for hard-float ones.
+- ARM relocation: Thumb branch relocations are limited to the encodings each
+  architecture has, and an ARM-to-Thumb call is refused on ARMv4 and ARMv4T,
+  which have no `blx`, rather than emitted as one. Object files get
+  synthesized GOT entries for ARM and AArch64 GOT relocations, and AArch64
+  LO12 load/store relocations use the address's page offset.
+- Library models get Thumb addresses on Thumb-only ARM, and only on ARM,
+  including the TLS descriptor resolver; model hooks on 32-bit ARM drop the
+  Thumb bit from their address; models' static buffers are aligned; and
+  stack-passed floats sit at the end of their slot on big-endian AArch64.
+- `AngrEmulator` on ARM: Thumb code addresses, hooks and exit points work,
+  and pc reads without the Thumb bit, including through `r15`; `ip` maps to
+  `r12`; ARMv8-M's stack-limit instructions and registers run; `ldrexd` puts
+  its first register at the lower address on BE8; the ARMv8 rounding
+  instructions round ties away, and `vmaxnm`/`vminnm` run; and `lift_vex`
+  arguments bind by name.
+- `GhidraEmulator` on ARM: Thumb state is read and written through cpsr's T
+  bit, an odd pc enters Thumb state, and cpsr's flags stay in step with
+  Ghidra's flag registers. SmallWorld runs the userops Ghidra's emulator
+  can't (CRC32, SQRDML, the ARMv8-M stack limits, the ARMv8 AArch32 FP
+  instructions, AArch64 `crc32`/`crc32c`), honoring FPSCR.DN in the scalar
+  `vrint` ones, and steps over ARM preload hints, AArch64 hints and acquire/
+  release ordering. On the symbolic emulator, z3 implications convert to
+  claripy in one linear pass, and the SymZ3 extension is prepared before the
+  concrete emulator boots the JVM.
+- `UnicornEmulator` on ARM: each platform runs on a CPU model of its
+  architecture (Cortex-M on M-profile), the platform's capstone mode
+  survives ARM/Thumb interworking, and prefetch aborts, which some cores
+  report for unmapped fetches, are reported as fetch faults at the faulting
+  address.
+- `PandaEmulator`: the ARM and AArch64 FPUs are enabled and their registers
+  exposed, and runs stop at exit points outside QEMU's memory.
+- `StyxEmulator`: hooks can use emulator state, substitute reads (whose
+  lengths are checked), and reach ARM's register aliases and status
+  register; a function hook returns to a Thumb caller in Thumb state; and a
+  hook's exception is carried out of the run.
+- `TritonEmulator` steps over ARM and AArch64 hint instructions.
+- Instructions: the format is picked by platform when the caller knows it,
+  M-profile special-register moves decode, bytes that don't decode raise
+  `InstructionDecodeError`, and crash triage classifies the pre-v5 ARM
+  indirect call as a call.
+- The ARM32 register models match their architectures, and gain the whole
+  registers that were missing.
+
 - An exception while `PandaEmulator` sets up its CPU (PANDA's machine-init
   callback) is raised from the constructor rather than leaving it waiting
   forever.
@@ -124,6 +172,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "install the [emu-triton] extra" error is reachable again.
 
 ### Added
+
+- 32-bit ARM platforms named by architecture: ARMv4, ARMv4T, ARMv5T,
+  ARMv6K (modeled on the ARM1176), ARMv6-M, ARMv7-M, ARMv7E-M with the
+  FPv4-SP FPU, ARMv7-R, ARMv7-A, ARMv8-A (AArch32), ARMv8-R and ARMv8-M
+  Mainline, each with its own register model; big-endian ARMv4, ARMv4T and
+  ARMv5T (BE32) and ARMv6K, ARMv7-A, ARMv7-R, ARMv8-A and ARMv8-R (BE8); and
+  AArch64 v8.5-A and big-endian AArch64, in both versions. They run on angr,
+  Ghidra and Unicorn; on PANDA except the BE32 platforms and ARMv6-M, with
+  ARMv7-M, ARMv7E-M and ARMv8-M on QEMU's MPS2 boards; and on Styx for
+  little-endian ARMv4, ARMv4T, ARMv5T, ARMv6K, ARMv7-A, ARMv6-M, ARMv7-M and
+  ARMv7E-M.
+  `docs/concepts/platforms/support.rst` lists what each backend runs.
+- Library models and C tests for ARMv6-M and ARMv7-R, C tests for ARMv5T and
+  ARMv7-M, C test families for ARMv8-M, and models of the 64-bit `time_t`
+  functions on M-profile.
+- angr engines for what VEX lifts wrongly on ARM: BE8 code, the ARMv8
+  floating-point instructions and the ARMv8-M stack limits. Canary tests
+  fail when an upstream angr or claripy defect that SmallWorld works around
+  is fixed, and the docs list angr's floating-point limitations.
+- Measured TestFloat results for ARM and AArch64.
 
 - `floats` and `testfloat` integration cases for 32- and 64-bit PowerPC. Unicorn
   passes all ten TestFloat functions; Ghidra skips single-precision multiply
@@ -489,6 +557,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** the `armel` and `armhf` models are renamed after the
+  architectures they model, `armv6k` and `armv7a`.
+
 - The angr backend's 8051 engine keeps the register bank and the parity flag
   current incrementally: a full sync as each block starts, then only what
   each instruction wrote, with concrete values handled without the solver.
@@ -523,6 +594,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   descriptor slots. `ElfExecutable.tlsdesc_descriptors`, `bind_tlsdesc_resolver()`,
   `tlsdesc_got_slot()` and `note_tlsdesc_descriptor()` are gone. An
   `ElfExecutable` pickled by an earlier version no longer unpickles.
+
+### Removed
+
+- **Breaking:** `Architecture.ARM_V6M_THUMB`, which duplicated `ARM_V6M`:
+  ARMv6-M has no ARM state.
 
 ### Deprecated
 
