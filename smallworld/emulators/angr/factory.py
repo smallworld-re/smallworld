@@ -22,10 +22,15 @@ class PatchedObjectFactory(AngrObjectFactory):
             # Angr's Vex lifter will happily run off the edge of memory,
             # interpreting undefined memory as zeroes.
             state = kwargs["backup_state"]
-            try:
-                ip = state.solver.eval_one(state._ip)
-            except SimValueError:
-                raise AnalysisError("Cannot step an unconstrained state")
+            addr = args[0] if args else kwargs.get("addr")
+            if addr is not None:
+                # The block asked for, which need not be at the state's pc.
+                ip = addr
+            else:
+                try:
+                    ip = state.solver.eval_one(state._ip)
+                except SimValueError:
+                    raise AnalysisError("Cannot step an unconstrained state")
             if kwargs.get("thumb") or (
                 ip & 1 and self.project.arch.name.startswith("ARM")
             ):

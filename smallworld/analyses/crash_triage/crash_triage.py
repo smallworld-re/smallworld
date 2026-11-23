@@ -374,12 +374,15 @@ class CrashTriage(analysis.Analysis):
     def _get_target_type(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
     ) -> str:
-        # Recover the vex that got us here
-        old_state = emu.state
-        emu.state = state
-        emu.write_register("pc", pc)
-        vex = state.block(opt_level=0).vex
-        emu.state = old_state
+        # Recover the vex that got us here: the block that just ran, at the
+        # address angr ran it at, which carries the ISA bit where the
+        # platform has one (Thumb). The state's own pc is where that block
+        # went, which may be symbolic, so it can't say which mode the block
+        # was in.
+        addr = state.history.addr
+        if addr is None:
+            raise exceptions.AnalysisError(f"No history for the block at {pc:x}")
+        vex = state.block(addr, opt_level=0).vex
         # Vex only allows indirect jumps as default block exits.
         # We can look at the default jumpkind for this block
         # to tell us
