@@ -279,6 +279,16 @@
                             --replace-fail "setuptools_scm<10" "setuptools_scm"
                         '';
                       });
+                      # spsdk-pyocd 0.3.10 now declares a runtime dependency on
+                      # spsdk, but spsdk itself depends on spsdk-pyocd, so
+                      # nixpkgs omits it to break the cycle and the
+                      # pythonRuntimeDepsCheck fails with "spsdk not installed".
+                      # Drop the cyclic requirement from the wheel metadata;
+                      # spsdk is still present in the env since it is what pulls
+                      # spsdk-pyocd in.
+                      spsdk-pyocd = pyprev.spsdk-pyocd.overridePythonAttrs (old: {
+                        pythonRemoveDeps = (old.pythonRemoveDeps or [ ]) ++ [ "spsdk" ];
+                      });
                       patool = pyprev.patool.overridePythonAttrs (_old: {
                         doCheck = false;
                         doInstallCheck = false;
