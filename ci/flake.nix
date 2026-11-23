@@ -248,6 +248,11 @@
               xtensaGcc
               ;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
+            # zig 0.17 dropped glibc support for 32-bit PowerPC (only musl
+            # remains), so `zig cc -target powerpc-linux...-gnueabi` fails with
+            # "unable to provide libc for target". Stay on 0.16 until the PPC
+            # C test binaries move to another toolchain.
+            zig = pkgs.zig_0_16;
           };
 
           rtos_demo = pkgs.callPackage ../use_cases/rtos_demo {
