@@ -31,6 +31,13 @@ class ARMMachineDef(UnicornMachineDef):
     def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
         return pc | 1 if pc & 1 or self._thumb(engine) else pc
 
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        if self.cpsr_fixed_bits:
+            cpsr = engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+            engine.reg_write(
+                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | self.cpsr_fixed_bits
+            )
+
     def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
         if self._thumb(engine):
             return mode | capstone.CS_MODE_THUMB

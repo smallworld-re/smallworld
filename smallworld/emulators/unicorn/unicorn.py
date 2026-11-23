@@ -86,11 +86,6 @@ class UnicornEmulator(
             self.platdef.capstone_arch, self.platdef.capstone_mode
         )
         self.disassembler.detail = True
-        if self.machdef.cpsr_fixed_bits:
-            cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-            self.engine.reg_write(
-                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | self.machdef.cpsr_fixed_bits
-            )
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
