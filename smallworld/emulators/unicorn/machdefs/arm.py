@@ -1,3 +1,6 @@
+import typing
+
+import capstone
 import unicorn
 
 from ....platforms import Architecture, Byteorder
@@ -5,6 +8,8 @@ from .machdef import UnicornMachineDef
 
 # CPSR.E: data accesses are big-endian.
 CPSR_E = 1 << 9
+# CPSR.T: the CPU runs Thumb code.
+CPSR_T = 1 << 5
 
 
 class ARMMachineDef(UnicornMachineDef):
@@ -12,6 +17,24 @@ class ARMMachineDef(UnicornMachineDef):
 
     uc_arch = unicorn.UC_ARCH_ARM
     uc_mode = unicorn.UC_MODE_ARM
+
+    # Unicorn keeps Thumb state in CPSR.T, but emu_start() and a pc write
+    # take it from bit 0 of the address, so an even one leaves Thumb state.
+
+    def _thumb(self, engine: typing.Any) -> bool:
+        if self.uc_mode & unicorn.UC_MODE_THUMB:
+            # Thumb-only (M-profile). A Cortex-M fresh from reset doesn't
+            # report the Thumb bit through the A-profile CPSR view.
+            return True
+        return bool(engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR) & CPSR_T)
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        return pc | 1 if pc & 1 or self._thumb(engine) else pc
+
+    def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
+        if self._thumb(engine):
+            return mode | capstone.CS_MODE_THUMB
+        return mode & ~capstone.CS_MODE_THUMB
 
     def __init__(self):
         self._registers = {

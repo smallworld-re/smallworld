@@ -771,10 +771,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
             raise exceptions.EmulationBounds()
 
     def get_thumb(self) -> bool:
-        return self.machdef.get_thumb(self._thread)
+        return bool(self.get_isa_mode())
 
     def set_thumb(self, enabled=True) -> None:
-        self.machdef.set_thumb(self._thread, enabled)
+        self.set_isa_mode(int(bool(enabled)))
 
     def current_instruction_bytes(self) -> bytes:
         """The bytes of the instruction being executed, in memory order, for a

@@ -11896,13 +11896,13 @@ class GhidraThumbTests(unittest.TestCase):
                         platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
                     )
                 )
-                self.assertFalse(emu.get_thumb())
-                emu.set_thumb(False)
+                # ARMv4 has one instruction set, so no ISA mode to read or set.
                 with self.assertRaises(exceptions.ConfigurationError):
-                    emu.set_thumb(True)
+                    emu.get_isa_mode()
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_isa_mode(1)
                 # cpsr's T bit has nothing to select.
                 emu.write_register("cpsr", 0x30)
-                self.assertFalse(emu.get_thumb())
 
     def test_get_thumb_needs_arm32(self):
         for arch in (platforms.Architecture.AARCH64, platforms.Architecture.X86_64):

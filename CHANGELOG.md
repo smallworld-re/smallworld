@@ -407,6 +407,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   odd pc on a platform whose `isa_bit` is `SELECTS` selects the alternate
   instruction set, as on Ghidra, and a mode set before initialization takes
   effect once the emulator has a state.
+- `UnicornEmulator` and the Ghidra emulators keep no Thumb code of their
+  own either. `UnicornMachineDef.disassembler_mode()` picks the capstone mode
+  for the instruction set the CPU runs, and ARM's Unicorn `pc_to_engine()`
+  keeps the Thumb bit that `emu_start()` and a pc write take the mode from.
+  Writing an odd pc to Unicorn on a `SELECTS` platform selects the alternate
+  instruction set. On ARMv4, which has no Thumb, `get_thumb()` and
+  `set_thumb()` now raise `ConfigurationError`, as the ISA-mode API does.
 - Machine-definition hooks that convert SmallWorld's pc to the backend's:
   `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
   pc writes, and `UnicornMachineDef.pc_to_start()`, for the address

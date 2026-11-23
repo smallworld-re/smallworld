@@ -490,7 +490,15 @@ class UnicornEmulator(
             )
 
         if name == "pc":
-            content = self._handle_thumb_interwork(content)
+            if self.platdef.isa_bit is platforms.IsaBit.SELECTS and content & 1:
+                # An odd pc selects the alternate instruction set, as a jump
+                # to it does; an even one leaves the mode as it is.
+                try:
+                    self.set_isa_mode(1)
+                except exceptions.UnsupportedRegisterError:
+                    # This machine runs one of them only.
+                    pass
+                content &= ~1
         elif name == "cpsr":
             # Keep the bits the platform holds set: a harness writing CPSR
             # mustn't switch a BE8 CPU's data accesses to little-endian.
@@ -691,6 +699,7 @@ class UnicornEmulator(
     def _disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
+        self._update_disassembler_mode()
         instructions = self.disassembler.disasm(code, base)
         disassembly = []
         insns = []
@@ -706,8 +715,15 @@ class UnicornEmulator(
         code = self.read_memory(pc, 15)
         if code is None:
             raise AssertionError("invalid state")
+        self._update_disassembler_mode()
         for i in self.disassembler.disasm(code, pc):
             return i
+
+    def _update_disassembler_mode(self) -> None:
+        # Decode the instruction set the CPU runs now.
+        self.disassembler.mode = self.machdef.disassembler_mode(
+            self.engine, self.platdef.capstone_mode
+        )
 
     def _check(self) -> None:
         # check if it's ok to begin emulating
@@ -729,76 +745,11 @@ class UnicornEmulator(
                 "at least one exit point or bound must be set, emulation cannot start"
             )
 
-    def _check_arm32_platform(self):
-        """Check for ARM32 platform architecture"""
-        return self.platform.architecture in [
-            platforms.Architecture.ARM_V4,
-            platforms.Architecture.ARM_V4T,
-            platforms.Architecture.ARM_V5T,
-            platforms.Architecture.ARM_V6K,
-            platforms.Architecture.ARM_V6M,
-            platforms.Architecture.ARM_V7A,
-            platforms.Architecture.ARM_V7M,
-            platforms.Architecture.ARM_V7EM,
-            platforms.Architecture.ARM_V7R,
-            platforms.Architecture.ARM_V8A,
-            platforms.Architecture.ARM_V8R,
-            platforms.Architecture.ARM_V8M,
-        ]
-
     def get_thumb(self) -> bool:
-        if not self._check_arm32_platform():
-            raise exceptions.ConfigurationError(
-                "called get_thumb() on non-ARM32 system"
-            )
-
-        if self.platdef.capstone_mode & capstone.CS_MODE_THUMB:
-            # Thumb-only (M-profile). A Cortex-M fresh from reset doesn't
-            # report the Thumb bit through the A-profile CPSR view.
-            return True
-
-        CPSR_THUMB_MODE_MASK = 0x20
-        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-        if cpsr & CPSR_THUMB_MODE_MASK:
-            return True
-        else:
-            return False
+        return bool(self.get_isa_mode())
 
     def set_thumb(self, enabled=True) -> None:
-        if not self._check_arm32_platform():
-            raise exceptions.ConfigurationError(
-                "called set_thumb() on non-ARM32 system"
-            )
-
-        CPSR_THUMB_MODE_MASK = 0x20
-        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-
-        if enabled:
-            self.engine.reg_write(
-                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | CPSR_THUMB_MODE_MASK
-            )
-        elif cpsr & CPSR_THUMB_MODE_MASK:
-            self.engine.reg_write(
-                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr ^ CPSR_THUMB_MODE_MASK
-            )
-
-    # Handle Thumb ISA exchange for ARM32
-    def _handle_thumb_interwork(self, pc) -> int:
-        if not self._check_arm32_platform():
-            return pc
-
-        # emu_start clears thumb mode if the low bit of pc != 1.
-        # We use CPSR to determine if unicorn was previously in thumb
-        # mode and set the low bit to 1 to maintain it. We also set
-        # the mode of the disassembler, keeping the platform's other
-        # mode bits (V8, MCLASS, big-endian).
-        mode = self.platdef.capstone_mode & ~capstone.CS_MODE_THUMB
-        if self.get_thumb() or pc & 1:
-            pc |= 1
-            mode |= capstone.CS_MODE_THUMB
-        self.disassembler.mode = mode
-
-        return pc
+        self.set_isa_mode(int(bool(enabled)))
 
     def _diagnose_clean_stop(self) -> None:
         """Diagnose an emu_start() call that returned without raising.
@@ -853,8 +804,6 @@ class UnicornEmulator(
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint
 
-        pc = self._handle_thumb_interwork(pc)
-
         if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
             if disas is None:
@@ -881,7 +830,6 @@ class UnicornEmulator(
     def step_block(self) -> None:
         self._check()
         pc = self.read_register("pc")
-        pc = self._handle_thumb_interwork(pc)
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint
 
@@ -899,7 +847,6 @@ class UnicornEmulator(
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
-            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(
                 self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
             )
@@ -917,7 +864,6 @@ class UnicornEmulator(
 
         try:
             pc = self.read_register("pc")
-            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(
                 self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
             )
@@ -949,8 +895,6 @@ class UnicornEmulator(
             # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
             res = self.engine.mem_read(pc, 16)
             code = bytes(res)
-            # on arm32, update disassembler for ARM vs Thumb
-            _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
             i = instructions.Instruction.from_capstone(insns[0], platform=self.platform)
         except:
@@ -1038,8 +982,6 @@ class UnicornEmulator(
                     try:
                         res = self.engine.mem_read(prev_addr, prev_size)
                         code = bytes(res)
-                        # on arm32, update disassembler for ARM vs Thumb
-                        _ = self._handle_thumb_interwork(pc)
                         insns, _ = self._disassemble(code, prev_addr, 1)
                         prev_mnem = insns[0].mnemonic
                         prev_i = instructions.Instruction.from_capstone(

@@ -80,6 +80,21 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         pass
 
+    def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
+        """The capstone mode to decode the next instruction with.
+
+        For a machine whose instruction set can change at runtime. The
+        default is the platform's mode, unchanged.
+
+        Arguments:
+            engine: The Unicorn engine
+            mode: The platform's capstone mode
+
+        Returns:
+            The capstone mode for the instruction set the CPU runs now
+        """
+        return mode
+
     def pc_from_engine(self, engine: typing.Any, value: int) -> int:
         """Convert the engine's program counter register to SmallWorld's pc.
 
