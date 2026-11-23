@@ -345,7 +345,7 @@ _SCTLR_EE = 1 << 25
 class AArch64MachineMixinBE:
     byteorder = Byteorder.BIG
 
-    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
         env = panda_obj.cpu_env(panda_cpu)
         for el in range(1, 4):
             env.cp15.sctlr_el[el] |= _SCTLR_EE | _SCTLR_E0E

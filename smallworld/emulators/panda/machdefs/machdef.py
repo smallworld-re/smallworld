@@ -46,10 +46,6 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
     reports a fetch from memory SmallWorld didn't map as unmapped.
     """
 
-    def setup_cpu(self, panda_obj, panda_cpu) -> None:
-        """Configure the CPU's state once PANDA has created it."""
-        pass
-
     def pc_written(self, panda_obj, panda_cpu) -> None:
         """Fix up the CPU's state after SmallWorld writes the program counter."""
         pass

@@ -186,7 +186,7 @@ class ARMMachineMixinMFP:
     # through, so the machine enables it from the start, in both security
     # states' copies of CPACR, as Unicorn does.
 
-    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
         env = panda_obj.cpu_env(panda_cpu)
         for secure in range(2):
             env.v7m.cpacr[secure] |= _CPACR_CP10_CP11
@@ -813,7 +813,7 @@ _SCTLR_EE = 1 << 25
 class ARMMachineMixinBE8:
     byteorder = Byteorder.BIG
 
-    def setup_cpu(self, panda_obj, panda_cpu) -> None:
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
         env = panda_obj.cpu_env(panda_cpu)
         for el in range(1, 4):
             env.cp15.sctlr_el[el] |= _SCTLR_EE
