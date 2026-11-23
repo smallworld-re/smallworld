@@ -69,7 +69,18 @@ SPECS: Dict[str, RegisterCaseSpec] = {
             # T still shows the delay slot's nott, proving it executed.
             "r4": 0,
         },
-    )
+    ),
+    # SH-2 introduced bt/s and bf/s.  Its blob swaps SH-2A's `nott` for `clrt`
+    # and expects the same results.  It has no FPU and no SR.MD to keep set, so
+    # SR is seeded with 0.  SH-1 is absent because it has neither instruction;
+    # superh_isa checks that it refuses them.
+    "sh2": RegisterCaseSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        engines=("angr", "pcode"),
+        fpscr=None,
+        inputs={"sr": 0},
+        expected={"r1": 11, "r0": 1, "r2": 5, "r3": 7, "r4": 0},
+    ),
 }
 
 SCENARIO_PREFIXES = ((_SCENARIO, _SCENARIO),)
@@ -77,7 +88,8 @@ SCENARIO_PREFIXES = ((_SCENARIO, _SCENARIO),)
 SCENARIO_INFO = ScenarioInfo(
     prefix=_SCENARIO,
     scenario=_SCENARIO,
-    tags=("scenario", _SCENARIO, "sh2a"),
+    # One tag per architecture the scenario covers; tags apply to every row.
+    tags=("scenario", _SCENARIO, *SPECS),
     variants_source=from_arch_table(SPECS),
     run_factory=just_run(),
 )

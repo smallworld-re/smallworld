@@ -282,8 +282,9 @@ MOVW_OP_MOVZ = 2
 
 
 class AArch64ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.AARCH64
-    byteorder = platforms.Byteorder.LITTLE
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE)}
+    )
 
     def _symbol_name(self, rela: ElfRela) -> str:
         return rela.symbol.name if rela.symbol.name else "<anonymous>"
@@ -478,7 +479,12 @@ class AArch64ElfRelocator(ElfRelocator):
             # An object file has no GOT -- building one is the linker's job --
             # so synthesize the symbol's entry, and fill it in as GLOB_DAT
             # would. Rewritten whenever the symbol is re-relocated.
-            slot = elf.got_slot(rela.symbol.idx)
+            slot = self.synthetic_slot(
+                elf,
+                ("got", rela.symbol.idx),
+                self._word_size(elf),
+                "synthetic GOT entry",
+            )
             elf.write_bytes(
                 slot, self._pack(self._symbol_value(rela), self._word_size(elf))
             )
@@ -1265,7 +1271,9 @@ class AArch64BEElfRelocator(AArch64ElfRelocator):
     object files, so instruction relocations stay little-endian.
     """
 
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.BIG)}
+    )
 
     def _pack_insn(self, value: int) -> bytes:
         return (value & 0xFFFFFFFF).to_bytes(4, "little")
@@ -1275,8 +1283,20 @@ class AArch64BEElfRelocator(AArch64ElfRelocator):
 
 
 class AArch64V85AElfRelocator(AArch64ElfRelocator):
-    arch = platforms.Architecture.AARCH64_V8_5A
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+            )
+        }
+    )
 
 
 class AArch64V85ABEElfRelocator(AArch64BEElfRelocator):
-    arch = platforms.Architecture.AARCH64_V8_5A
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+            )
+        }
+    )

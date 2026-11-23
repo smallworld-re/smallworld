@@ -1,6 +1,8 @@
 import abc
 import typing
 
+import unicorn
+
 from .... import exceptions, platforms, utils
 
 # from ....platforms import Architecture
@@ -66,15 +68,57 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         return False
 
-    def uc_pc_value(self, pc: int) -> int:
-        """The value to give Unicorn for ``pc``, as a start address or register.
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        """Set up a newly created Unicorn engine
 
-        Unicorn takes some execution modes from the low bit of the pc, both
-        when emu_start() begins and when the pc register is written; an even
-        value leaves such a mode. A machine that runs in one sets that bit
-        here.
+        This is for CPU state the machine state doesn't model,
+        but that user-space code expects, such as enabled FPUs.
+        The default does nothing.
+
+        Arguments:
+            engine: The new engine
+        """
+        pass
+
+    def pc_from_engine(self, engine: typing.Any, value: int) -> int:
+        """Convert the engine's program counter register to SmallWorld's pc.
+
+        Arguments:
+            engine: The Unicorn engine
+            value: The contents of the register that `pc` maps to
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the engine's program counter register.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The value to write to the register that `pc` maps to
         """
         return pc
+
+    def pc_to_start(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the address emu_start() begins at.
+
+        Unicorn takes some execution modes from the low bit of the start
+        address, as it does when the pc register is written, so this is
+        `pc_to_engine()` unless a machine's pc register is not the address.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The address to pass to emu_start()
+        """
+        return self.pc_to_engine(engine, pc)
 
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt

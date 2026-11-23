@@ -9,8 +9,10 @@ from .common import (
     PlatformSpec,
     enroll_triton,
     load_elf_code,
+    load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     run_case_subprocess,
     set_register,
     split_variant,
@@ -29,6 +31,9 @@ class UnmappedSpec:
     stack_pointer_register: str = "sp"
     entrypoint_registers: tuple[str, ...] = ()
     stack_padding_bytes: int = 0
+    # Platforms with no ELF toolchain load unmapped.<arch>.bin instead, and
+    # enter each routine at these offsets into it.
+    raw_offsets: dict[str, int] | None = None
 
 
 _SPECS = {
@@ -169,6 +174,11 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="esp",
     ),
+    "la32": UnmappedSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "la64": UnmappedSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -179,6 +189,13 @@ _SPECS = {
         pc_register="pc",
         engines=("unicorn", "pcode"),
         load_address=0x40000,
+    ),
+    # SDCC writes no ELF; see unmapped.mcs51.s for the offsets.
+    "mcs51": UnmappedSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+        raw_offsets={"read_unmapped": 0, "write_unmapped": 5, "fetch_unmapped": 10},
     ),
     "mips": UnmappedSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -191,6 +208,16 @@ _SPECS = {
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
         entrypoint_registers=("t9",),
+    ),
+    "micromips": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": UnmappedSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
     ),
     "mips64": UnmappedSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
@@ -213,9 +240,15 @@ _SPECS = {
     "ppc64": UnmappedSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         load_address=0x400000,
         stack_padding_bytes=32,
+    ),
+    "riscv32": UnmappedSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode"),
+        load_address=0x400000,
     ),
     "riscv64": UnmappedSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -239,6 +272,17 @@ _SPECS = {
         pc_register="pc",
         engines=("angr", "pcode", "panda"),
     ),
+    # unmapped.sh2.elf.s builds for both SH-1 and SH-2.
+    "sh1": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
+    "sh2": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
     "sh4": UnmappedSpec(
         platform=PlatformSpec("SUPERH_SH4", "BIG"),
         pc_register="pc",
@@ -254,13 +298,18 @@ _SPECS = {
         pc_register="pc",
         engines=("angr", "panda", "pcode"),
     ),
+    # unmapped.v850.elf.s loads at 0x100000, its linker's default.
+    "v850": UnmappedSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
 }
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
     # Measured: Styx's SuperH2A target maps a flat 4 GiB RWX space, so none of
     # the three accesses can fault.  Single-stepping unmapped.sh2a.elf's
     # read_unmapped shows `mov.l @r1,r0` with r1=0x8000 completing and yielding
@@ -304,21 +353,24 @@ def _build_machine(smallworld, arch: str, engine: str, spec: UnmappedSpec):
     cpu = smallworld.state.cpus.CPU.for_platform(platform)
     machine.add(cpu)
 
-    code = load_elf_code(
-        smallworld,
-        "unmapped",
-        arch,
-        platform,
-        address=spec.load_address,
-    )
+    if spec.raw_offsets is not None:
+        code = load_raw_code(smallworld, "unmapped", arch)
+    else:
+        code = load_elf_code(
+            smallworld,
+            "unmapped",
+            arch,
+            platform,
+            address=spec.load_address,
+        )
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
     if spec.stack_padding_bytes:
         # PowerPC keeps ABI scratch data above SP, so the old tests reserved it first.
         stack.push_bytes(b"\0" * spec.stack_padding_bytes, None)
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if engine in ("unicorn", "triton"):
         # Neither backend will start without somewhere to stop: Unicorn needs an
@@ -341,7 +393,10 @@ def _run_operation(
     expected_exception,
 ) -> None:
     machine, cpu, platform, code = _build_machine(smallworld, arch, engine, spec)
-    entrypoint = code.get_symbol_value(symbol)
+    if spec.raw_offsets is not None:
+        entrypoint = code.address + spec.raw_offsets[symbol]
+    else:
+        entrypoint = code.get_symbol_value(symbol)
     set_register(cpu, spec.pc_register, entrypoint)
     for register_name in spec.entrypoint_registers:
         set_register(cpu, register_name, entrypoint)

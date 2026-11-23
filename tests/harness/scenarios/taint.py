@@ -191,6 +191,13 @@ _SPECS = {
         output_registers=("eax", "ecx", "edx", "ebp"),
         word_size=4,
     ),
+    "riscv32": TaintSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        input_registers=("a0", "a1"),
+        output_registers=("a2", "a3", "a4", "a5"),
+        word_size=4,
+    ),
     "riscv64": TaintSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
         pc_register="pc",

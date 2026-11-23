@@ -28,7 +28,11 @@ class POSIXFileDescriptorManager(FileDescriptorManager):
     def SOCK_STREAM(self) -> int:
         """Socket type: Stream socket"""
         # Of course it's MIPS.
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             return 2
         else:
             return 1
@@ -37,7 +41,11 @@ class POSIXFileDescriptorManager(FileDescriptorManager):
     def SOCK_DGRAM(self) -> int:
         """Socket type: Datagram socket"""
         # Of course it's MIPS.
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             return 1
         else:
             return 2

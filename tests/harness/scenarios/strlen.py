@@ -8,6 +8,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    concrete,
     enroll_triton,
     load_raw_code,
     make_emulator,
@@ -61,19 +62,28 @@ _ARCHS = (
     "armv8r",
     "armv8rbe",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
+    "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -112,6 +122,7 @@ _SPECS = build_specs(
         # i386 and m68k take the string pointer on the stack rather than in a reg.
         "i386": {"arg_register": None, "stack_argument_size": 4},
         "m68k": {"arg_register": None, "stack_argument_size": 4},
+        "x86_16": {"arg_register": None, "stack_argument_size": 2},
         # tricore receives a pointer in a4, not the canonical integer-arg d4.
         "tricore": {"arg_register": "a4"},
         # Only amd64 prints the stack and pointer address; others print result only.
@@ -156,7 +167,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
             **_SH4_CALL_SKIPS,
         },
     ),
@@ -223,5 +233,5 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     emulator.add_exit_point(code.address + code.get_capacity())
 
     final_machine = machine.emulate(emulator)
-    print(hex(getattr(final_machine.get_cpu(), spec.result_register).get()))
+    print(hex(concrete(getattr(final_machine.get_cpu(), spec.result_register).get())))
     return 0

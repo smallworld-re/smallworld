@@ -121,12 +121,6 @@ def encode_patch(patch: bytes, big: bool) -> bytes:
 # module may cite them.
 # --------------------------------------------------------------------------
 
-# angr's pcode engine implements no floating-point operations at all: every
-# OpBehaviorFloat* class in angr/engines/pcode/behavior.py inherits the base
-# evaluate_binary/evaluate_unary, which raise AngrError("Not implemented!").
-# That is upstream and affects every pcode-backed architecture.
-ANGR_NO_FP = "angr's pcode engine implements no floating-point ops (upstream)"
-
 # Ghidra's p-code emulator flushes gradual-underflow results to zero in
 # single-precision multiply and divide instead of returning the subnormal.
 # Minimal case: 0x00000001 (the least positive subnormal) * 0x3F000001 (0.5)

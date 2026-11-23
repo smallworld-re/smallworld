@@ -18,17 +18,25 @@ from .arm import (
     ARMv7MMachineDef,
 )
 from .i386 import i386MachineDef
-from .loongarch import LoongArch64MachineDef
+from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
 from .m68k import M68KMachineDef
 from .machdef import GhidraMachineDef
-from .mips import MIPSBEMachineDef, MIPSELMachineDef
+from .mcs51 import MCS51MachineDef
+from .mips import (
+    MicroMIPSBEMachineDef,
+    MicroMIPSELMachineDef,
+    MIPSBEMachineDef,
+    MIPSELMachineDef,
+)
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
 from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
-from .riscv import RISCV64MachineDef
-from .superh import SH2AFPUMachineDef
+from .riscv import RISCV32MachineDef, RISCV64MachineDef
+from .superh import SH1MachineDef, SH2AFPUMachineDef, SH2MachineDef
 from .superh4 import SuperH4BEMachineDef, SuperH4ELMachineDef
 from .tricore import TriCoreMachineDef
+from .v850 import V850MachineDef
+from .x86_16 import X86RealModeMachineDef
 from .xtensa import XTensaMachineDef
 
 __all__ = [
@@ -48,21 +56,30 @@ __all__ = [
     "ARMv7MMachineDef",
     "ARMv7AMachineDef",
     "i386MachineDef",
+    "LoongArch32MachineDef",
     "LoongArch64MachineDef",
     "M68KMachineDef",
+    "MCS51MachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
+    "MicroMIPSBEMachineDef",
+    "MicroMIPSELMachineDef",
     "MSP430MachineDef",
     "MSP430XMachineDef",
     "GhidraMachineDef",
     "PowerPC32MachineDef",
     "PowerPC64MachineDef",
+    "RISCV32MachineDef",
     "RISCV64MachineDef",
+    "SH1MachineDef",
+    "SH2MachineDef",
     "SH2AFPUMachineDef",
     "SuperH4BEMachineDef",
     "SuperH4ELMachineDef",
     "TriCoreMachineDef",
+    "V850MachineDef",
+    "X86RealModeMachineDef",
     "XTensaMachineDef",
 ]

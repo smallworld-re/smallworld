@@ -7,6 +7,7 @@ import typing
 import capstone
 
 from ... import emulators, exceptions, platforms, utils
+from ...platforms.defs.mcs51 import mcs51_return_address
 from .. import state
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,12 @@ class Model(Hook):
         self.allow_imprecise = False
 
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
+
+        if self.platdef.isa_bit is not platforms.IsaBit.NONE:
+            # A function's symbol value, and any pointer relocated to it,
+            # carries the ISA bit, but the CPU runs the code at the even
+            # address, so a hook at the odd one would never fire.
+            self._address &= ~1
 
         if self.platdef.capstone_arch == capstone.CS_ARCH_ARM:
             # On ARM32 a Thumb function's symbol value, and any pointer
@@ -278,6 +285,15 @@ class Model(Hook):
                     self.platdef.sp_register, sp + self.platdef.address_size
                 )
             return ret
+        elif self.platform.architecture == platforms.Architecture.X86_16:
+            # x86 real mode: a near call pushes ip at ss:sp, and the return
+            # lands at that offset in the code segment.
+            sp = emulator.read_register("sp")
+            stack = (emulator.read_register("ss") << 4) + sp
+            ip = int.from_bytes(emulator.read_memory(stack, 2), "little")
+            if pop:
+                emulator.write_register("sp", (sp + 2) & 0xFFFF)
+            return (emulator.read_register("cs") << 4) + ip
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
             or self.platform.architecture == platforms.Architecture.AARCH64_V8_5A
@@ -294,26 +310,38 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.ARM_V8R
             or self.platform.architecture == platforms.Architecture.ARM_V8M
             or self.platform.architecture == platforms.Architecture.POWERPC32
+            or self.platform.architecture == platforms.Architecture.POWERPC32_VLE
             or self.platform.architecture == platforms.Architecture.POWERPC64
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             return emulator.read_register("lr")
+        elif self.platform.architecture == platforms.Architecture.V850:
+            # v850: jarl leaves the return address in 'lp'
+            return emulator.read_register("lp")
         elif (
-            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            self.platform.architecture == platforms.Architecture.LOONGARCH32
+            or self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV32
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH1
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH2
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
             or self.platform.architecture == platforms.Architecture.TRICORE
         ):
-            # mips32, mips64, riscv64, superh and tricore: branch to register
+            # mips32, mips64, riscv32, riscv64, superh and tricore: branch to register
             # 'ra'.  On SuperH that is an alias of the architectural PR register,
             # where bsr/jsr deposit the return address and rts branches back to.
             return emulator.read_register("ra")
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
+        elif self.platform.architecture == platforms.Architecture.MCS51:
+            # 8051: pop the return address from the stack in internal RAM.
+            return mcs51_return_address(emulator, pop=pop)
 
         raise exceptions.ConfigurationError(
             f"Don't know how to return for {self.platform.architecture}"
@@ -333,6 +361,14 @@ class Model(Hook):
             return
 
         ret = self.get_return_address(emulator, pop=True)
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS:
+            # Return as bx lr and jr ra do: bit 0 of the return address says
+            # which instruction set the caller runs. Backends that run only
+            # one of them have no mode to switch.
+            try:
+                emulator.set_isa_mode(ret & 1)
+            except exceptions.UnsupportedRegisterError:
+                pass
         emulator.write_register("pc", ret)
 
 

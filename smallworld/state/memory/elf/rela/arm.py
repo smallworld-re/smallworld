@@ -187,7 +187,7 @@ THUMB_NOP_W = 0xF3AF8000
 
 
 class ArmElfRelocator(ElfRelocator):
-    byteorder = platforms.Byteorder.LITTLE
+    """Shared ARM ELF relocator; each subclass covers one architecture."""
 
     # Does the architecture have BLX (ARMv5 and later)? Without it, an Arm
     # call to Thumb needs an interworking veneer, which this loader can't
@@ -629,7 +629,9 @@ class ArmElfRelocator(ElfRelocator):
             # An object file has no GOT -- building one is the linker's job --
             # so synthesize the symbol's entry, and fill it in as GLOB_DAT
             # would. Rewritten whenever the symbol is re-relocated.
-            slot = elf.got_slot(rela.symbol.idx)
+            slot = self.synthetic_slot(
+                elf, ("got", rela.symbol.idx), 4, "synthetic GOT entry"
+            )
             elf.write_bytes(
                 slot, self._pack(self._symbol_addr(rela, include_thumb_bit=True), 4)
             )
@@ -1346,101 +1348,89 @@ class ArmElfRelocator(ElfRelocator):
             )
 
 
+def _platforms(
+    architecture: platforms.Architecture, big_endian: bool = True
+) -> typing.FrozenSet[platforms.Platform]:
+    """The little-endian platform, and the big-endian one where it exists.
+
+    Big-endian ARMv4 and ARMv5 are BE32, so instructions are packed
+    big-endian too, like data. Big-endian ARMv6 and later are BE8: a linked
+    BE8 image holds its code little-endian, but needs only data relocations,
+    which are big-endian, and object files hold their code big-endian until
+    the linker converts it. Both follow from the platform's byte order.
+    """
+    byteorders = [platforms.Byteorder.LITTLE]
+    if big_endian:
+        byteorders.append(platforms.Byteorder.BIG)
+    return frozenset(platforms.Platform(architecture, b) for b in byteorders)
+
+
 class Armv4ElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V4
+    supported_platforms = _platforms(platforms.Architecture.ARM_V4)
     has_blx = False
     thumb_bl_range = 1 << 22
     has_wide_thumb_branches = False
 
 
 class Armv4TElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V4T
+    supported_platforms = _platforms(platforms.Architecture.ARM_V4T)
     has_blx = False
     thumb_bl_range = 1 << 22
     has_wide_thumb_branches = False
 
 
 class Armv5TElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V5T
+    supported_platforms = _platforms(platforms.Architecture.ARM_V5T)
     thumb_bl_range = 1 << 22
     has_wide_thumb_branches = False
 
 
-# Big-endian ARMv4 and ARMv5 are BE32, so instructions are packed big-endian
-# too, like data.
-
-
-class Armv4BEElfRelocator(Armv4ElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv4TBEElfRelocator(Armv4TElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv5TBEElfRelocator(Armv5TElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
 class Armv6KElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V6K
+    supported_platforms = _platforms(platforms.Architecture.ARM_V6K)
     thumb_bl_range = 1 << 22
     has_wide_thumb_branches = False
 
 
 class Armv6MElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V6M
+    supported_platforms = _platforms(platforms.Architecture.ARM_V6M, big_endian=False)
     has_wide_thumb_branches = False
 
 
 class Armv7MElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7M
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7M, big_endian=False)
 
 
 class Armv7EMElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7EM
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7EM, big_endian=False)
 
 
 class Armv7RElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7R
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7R)
 
 
 class Armv7AElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V7A
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7A)
 
 
 class Armv8AElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V8A
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8A)
 
 
 class Armv8RElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V8R
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8R)
 
 
 class Armv8MElfRelocator(ArmElfRelocator):
-    arch = platforms.Architecture.ARM_V8M
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8M, big_endian=False)
 
 
-# Big-endian ARMv6 and later are BE8. A linked BE8 image holds its code
-# little-endian, but needs only data relocations, which are big-endian.
-# Object files hold their code big-endian until the linker converts it.
-
-
-class Armv6KBEElfRelocator(Armv6KElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv7ABEElfRelocator(Armv7AElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv7RBEElfRelocator(Armv7RElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv8ABEElfRelocator(Armv8AElfRelocator):
-    byteorder = platforms.Byteorder.BIG
-
-
-class Armv8RBEElfRelocator(Armv8RElfRelocator):
-    byteorder = platforms.Byteorder.BIG
+# The big-endian relocators were once classes of their own; the names stay
+# so that pickled images still load.
+Armv4BEElfRelocator = Armv4ElfRelocator
+Armv4TBEElfRelocator = Armv4TElfRelocator
+Armv5TBEElfRelocator = Armv5TElfRelocator
+Armv6KBEElfRelocator = Armv6KElfRelocator
+Armv7ABEElfRelocator = Armv7AElfRelocator
+Armv7RBEElfRelocator = Armv7RElfRelocator
+Armv8ABEElfRelocator = Armv8AElfRelocator
+Armv8RBEElfRelocator = Armv8RElfRelocator

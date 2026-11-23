@@ -1,3 +1,4 @@
+import functools
 import logging
 
 import unicorn
@@ -9,12 +10,28 @@ from .machdef import UnicornMachineDef
 logger = logging.getLogger(__name__)
 
 
+# MSR bits for the floating-point, vector (Altivec) and VSX facilities
+MSR_FP = 1 << 13
+MSR_VEC = 1 << 25
+MSR_VSX = 1 << 23
+
+
 class PPCMachineDef(UnicornMachineDef):
     """Unicorn machine definition for powerpc"""
 
     byteorder = Byteorder.BIG
 
     uc_arch = unicorn.UC_ARCH_PPC
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        # Unicorn starts with the floating-point and vector facilities off,
+        # so their first instruction raises a facility-unavailable interrupt.
+        # Linux user space always sees them on.  CPUs that lack a facility
+        # drop its bit.
+        msr = engine.reg_read(unicorn.ppc_const.UC_PPC_REG_MSR)
+        engine.reg_write(
+            unicorn.ppc_const.UC_PPC_REG_MSR, msr | MSR_FP | MSR_VEC | MSR_VSX
+        )
 
     _registers = {
         "r0": unicorn.ppc_const.UC_PPC_REG_0,
@@ -430,12 +447,33 @@ class PPC32MachineDef(PPCMachineDef):
     uc_mode = unicorn.UC_MODE_PPC32 | unicorn.UC_MODE_BIG_ENDIAN
 
 
+# MSR[HV], the hypervisor-state bit
+MSR_HV = 1 << 60
+
+
+@functools.lru_cache(maxsize=None)
+def unicorn_runs_ppc64() -> bool:
+    """Can this Unicorn build run PowerPC64 code?
+
+    Stock Unicorn starts PPC64 CPUs in non-hypervisor real mode, where the
+    first instruction fetch faults, so no PPC64 code runs at all.  SmallWorld's
+    build is patched to start them in hypervisor mode, as the reset code
+    intends; see nix/patches/unicorn-ppc64-reset-hv.patch.
+    """
+    uc = unicorn.Uc(
+        unicorn.UC_ARCH_PPC, unicorn.UC_MODE_PPC64 | unicorn.UC_MODE_BIG_ENDIAN
+    )
+    return bool(uc.reg_read(unicorn.ppc_const.UC_PPC_REG_MSR) & MSR_HV)
+
+
 class PPC64MachineDef(PPCMachineDef):
     arch = Architecture.POWERPC64
     uc_mode = unicorn.UC_MODE_PPC64 | unicorn.UC_MODE_BIG_ENDIAN
 
     def __init__(self, *args, **kwargs):
-        logger.warning(
-            "Unicorn PowerPC64 support is a work in progress.  This may not work."
-        )
+        if not unicorn_runs_ppc64():
+            logger.warning(
+                "This Unicorn build can't run PowerPC64 code; it needs the "
+                "patches in nix/patches/unicorn-ppc64-*.patch."
+            )
         super().__init__(*args, **kwargs)

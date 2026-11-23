@@ -32,13 +32,20 @@ _ARCHS = (
     "armv8r",
     "armv8rbe",
     "i386",
+    "la32",
     "la64",
+    "micromips",
+    "micromipsel",
     "mips",
     "mipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    # VLE's `se_sc` reaches the syscall hooks because `machdefs/ppc_vle.py`
+    # rewrites it, as for SuperH below.
+    "ppcvle",
+    "riscv32",
     "riscv64",
     # SuperH's `trapa #imm` reaches hook_syscall(s) only because
     # `machdefs/superh.py` and `machdefs/superh4.py` rewrite it into an
@@ -48,6 +55,8 @@ _ARCHS = (
     # Triton has no SuperH or Xtensa target, and on PANDA the very same
     # instruction is an interrupt instead, which is what the `interrupt`
     # scenario covers.
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",

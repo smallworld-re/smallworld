@@ -152,6 +152,34 @@ class Executable(memory.RawMemory):
         )
 
     @classmethod
+    def from_ihex(
+        cls,
+        file: typing.IO,
+        map_file: typing.Optional[typing.IO] = None,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+    ):
+        """Load an Intel HEX image from an open file-like object.
+
+        Arguments:
+            file: The open file-like object from which to read.
+            map_file: Optional open file-like object holding the linker's map,
+                for symbol lookups.  Maps from the ASxxxx linker, which SDCC
+                uses, are supported.
+            address: Where the image's address 0 goes; by default, 0.
+            platform: The platform the image is for, which Intel HEX does not
+                record.  On the 8051, it places symbols in the right space.
+
+        Returns:
+            An Executable parsed from the given Intel HEX file-like object.
+        """
+        from .ihex import IHexExecutable
+
+        return IHexExecutable(
+            file, map_file=map_file, platform=platform, user_base=address
+        )
+
+    @classmethod
     def from_vxworks(
         cls,
         file: typing.BinaryIO,

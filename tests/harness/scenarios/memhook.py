@@ -141,6 +141,13 @@ _VARIANTS = (
     ("ppc.angr", None),
     ("ppc.panda", None),
     ("ppc.pcode", None),
+    ("ppc64", None),
+    ("ppc64.angr", None),
+    ("ppc64.pcode", None),
+    ("riscv32", None),
+    ("riscv32.angr", None),
+    ("riscv32.pcode", None),
+    ("riscv32.triton", None),
     ("riscv64", None),
     ("riscv64.angr", None),
     ("riscv64.pcode", None),
@@ -158,6 +165,7 @@ _WIDE_ARCHES = {
     "la64",
     "mips64",
     "mips64el",
+    "ppc64",
     "riscv64",
 }
 

@@ -1104,6 +1104,62 @@ class AddressOnlyReadsCapstoneFallbackTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
+class DecodeStateTests(unittest.TestCase):
+    """A cached SLEIGH context keeps state from earlier analyses; none of it
+    may change what a later one reports."""
+
+    def _rw(self, arch, byteorder, hexbytes, address):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture[arch], Byteorder[byteorder])
+        instruction = Instruction.from_bytes(bytes.fromhex(hexbytes), address, platform)
+        return (
+            sorted(str(o) for o in instruction.reads),
+            sorted(str(o) for o in instruction.writes),
+        )
+
+    def _cleared(self):
+        from smallworld.instructions import pcode_use_def
+
+        pcode_use_def.analyze.cache_clear()
+        pcode_use_def._contexts.clear()
+        pcode_use_def._delay_slot_sizes.clear()
+
+    def test_jalx_leaves_code_above_its_target_alone(self):
+        # Decoding a jalx records that its target and everything above it is
+        # in the other encoding; code there must still decode as itself.
+        cases = [
+            # jalx 0x2000, then li v0, 5 at 0x3000.
+            ("MIPS32", "BIG", "74000800", 0x1000, "24020005", 0x3000),
+            # jalx 0x2000, then addiu v0, zero, 5 at 0x3002.
+            ("MIPS32_MICROMIPS", "BIG", "f0000800", 0x1004, "30400005", 0x3002),
+        ]
+        for arch, byteorder, jalx, jalx_at, after, after_at in cases:
+            with self.subTest(arch=arch):
+                self._cleared()
+                expected = self._rw(arch, byteorder, after, after_at)
+                self._cleared()
+                self._rw(arch, byteorder, jalx, jalx_at)
+                self.assertEqual(self._rw(arch, byteorder, after, after_at), expected)
+
+    def test_delay_slot_width_change_at_one_address(self):
+        # A 32-bit then a 16-bit delay-slot branch at the same address, and
+        # the reverse: SLEIGH left the second translated with no p-code.
+        jr, jr16 = "00190f3c", "4599"
+        for first, second in ((jr, jr16), (jr16, jr)):
+            with self.subTest(first=first, second=second):
+                self._cleared()
+                expected = self._rw("MIPS32_MICROMIPS", "BIG", second, 0x1000)
+                self._cleared()
+                self._rw("MIPS32_MICROMIPS", "BIG", first, 0x1000)
+                self.assertEqual(
+                    self._rw("MIPS32_MICROMIPS", "BIG", second, 0x1000), expected
+                )
+                self.assertIn("RegisterOperand(t9)", expected[0])
+
+
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
 
@@ -1255,6 +1311,16 @@ class InstructionUseDefTests(unittest.TestCase):
         ("AARCH64", "LITTLE", "1f0001eb", "cmp x0, x1", {"x0", "x1"}, {"nzcv"}),
         ("AARCH64", "LITTLE", "2000019a", "adc x0, x1, x1", {"nzcv", "x1"}, {"x0"}),
         ("AARCH64", "LITTLE", "20049f9a", "cset x0, eq", {"nzcv"}, {"x0"}),
+        # microMIPS, whose language decodes standard MIPS32 unless the
+        # platform's ISA_MODE context value is applied. Capstone reports the
+        # jump-register forms' targets as written, and jraddiusp as nothing.
+        ("MIPS32_MICROMIPS", "BIG", "00190f3c", "jr t9", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "BIG", "4599", "jr16 t9", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "BIG", "45f9", "jalrs16 t9", {"t9"}, {"pc", "ra"}),
+        ("MIPS32_MICROMIPS", "BIG", "4702", "jraddiusp 8", {"ra", "sp"}, {"sp"}),
+        ("MIPS32_MICROMIPS", "BIG", "03f90f3c", "jalr t9", {"t9"}, {"pc", "ra"}),
+        ("MIPS32_MICROMIPS", "LITTLE", "9945", "jr16 t9 (el)", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "LITTLE", "4169", "lw16 v0, 4(a0) (el)", {"a0"}, {"v0"}),
     ]
 
     def test_reads_writes_are_platform_valid(self):

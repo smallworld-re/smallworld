@@ -17,7 +17,13 @@ from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-fou
 from ghidra.pcode.emu.symz3.state import (
     SymZ3PcodeEmulator,  # type: ignore[import-not-found]
 )
-from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
+from ghidra.pcode.emulate import (  # type: ignore[import-not-found]
+    InstructionDecodeException,
+)
+from ghidra.pcode.exec import (  # type: ignore[import-not-found]
+    DecodePcodeExecutionException,
+    PcodeExecutorStatePiece,
+)
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
 from java.lang import String as JString  # type: ignore[import-not-found]
@@ -82,6 +88,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
+        # This emulator addresses only the language's default space.
+        if self.machdef.address_spaces is not None:
+            raise exceptions.ConfigurationError(
+                f"GhidraSymbolicEmulator does not support {platform}"
+            )
 
         self._jctx: Z3Context = Z3Context()
         self._emu = SymZ3PcodeEmulator(self.machdef.language)
@@ -375,11 +386,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             return
         if name == self.platdef.pc_register:
             if isinstance(value, claripy.ast.bv.BV) and not value.symbolic:
-                # A concrete pc takes the int path, so pc_value sees its
+                # A concrete pc takes the int path, so pc_to_engine sees its
                 # low bit; a symbolic one has no bit to act on.
                 value = value.concrete_value
             if isinstance(value, int):
-                value = self.machdef.pc_value(self._thread, value)
+                value = self.machdef.pc_to_engine(self._thread, value)
         self._write_register(reg, name, value)
         for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
             flag: typing.Union[int, claripy.ast.bv.BV]
@@ -728,7 +739,21 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if pc in self._function_hooks:
             self._function_hooks[pc](self)
         else:
-            self._step_pcode_ops()
+            # The first step of an instruction decodes it, which fails if the
+            # language has no such instruction. Ghidra raises a different
+            # exception when the instruction decodes but its delay slot does
+            # not.
+            try:
+                self._step_pcode_ops()
+            except (
+                DecodePcodeExecutionException,
+                InstructionDecodeException,
+            ) as e:
+                raise exceptions.EmulationExecInvalidFailure(
+                    f"Invalid instruction at {hex(pc)}: {e.getMessage()}",
+                    pc,
+                    None,
+                ) from e
 
         # Cache invalidation: anything we ran may have changed preconditions.
         self._cached_preconditions = None

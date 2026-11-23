@@ -1,10 +1,11 @@
 import typing
 
 import capstone
+import claripy
 
-from smallworld import platforms
+from smallworld import emulators, platforms
 
-from .bsid import x86BSIDMemoryReferenceOperand
+from .bsid import BSIDMemoryReferenceOperand, x86BSIDMemoryReferenceOperand
 from .instructions import Instruction, MemoryReferenceOperand, Operand, RegisterOperand
 
 
@@ -99,3 +100,85 @@ class AMD64Instruction(x86Instruction):
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
+
+
+class x86RealModeMemoryReferenceOperand(BSIDMemoryReferenceOperand):
+    """A memory operand in x86 real mode: an offset into a segment.
+
+    The linear address is the segment register's value times 16, plus the
+    offset. A 16-bit offset wraps within its 64 KiB segment; a 32-bit one,
+    from the address-size prefix, does not. Without a segment override the
+    segment is ss for an address based on bp or sp, and ds otherwise.
+    """
+
+    _WIDE_REGISTERS = frozenset(
+        ("eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp")
+    )
+    _STACK_REGISTERS = frozenset(("bp", "sp", "ebp", "esp"))
+
+    def _segment_register(self) -> str:
+        if self.segment:
+            return self.segment
+        return "ss" if self.base in self._STACK_REGISTERS else "ds"
+
+    def _offset_bits(self) -> int:
+        if self.base in self._WIDE_REGISTERS or self.index in self._WIDE_REGISTERS:
+            return 32
+        return 16
+
+    def address(self, emulator: emulators.Emulator) -> int:
+        offset = self.offset
+        if self.base is not None:
+            offset += emulator.read_register(self.base)
+        if self.index is not None:
+            offset += self.scale * emulator.read_register(self.index)
+        offset &= (1 << self._offset_bits()) - 1
+        return (emulator.read_register(self._segment_register()) << 4) + offset
+
+    def symbolic_address(self, emulator: emulators.Emulator) -> claripy.ast.bv.BV:
+        bits = self._offset_bits()
+
+        def read(name: str) -> claripy.ast.bv.BV:
+            value = emulator.read_register_symbolic(name)
+            if value.size() < bits:
+                value = value.zero_extend(bits - value.size())
+            return value[bits - 1 : 0]
+
+        offset = claripy.BVV(self.offset, bits)
+        if self.base is not None:
+            offset = offset + read(self.base)
+        if self.index is not None:
+            offset = offset + claripy.BVV(self.scale, bits) * read(self.index)
+        segment = emulator.read_register_symbolic(self._segment_register())
+        return (segment.zero_extend(16) << 4) + offset.zero_extend(32 - bits)
+
+
+class x86RealModeInstruction(x86Instruction):
+    """An instruction in x86 real mode.
+
+    Its memory operands are offsets into a segment; see
+    `x86RealModeMemoryReferenceOperand`.
+    """
+
+    angr_arch = "x86:LE:16:Real Mode"
+    cs_mode = capstone.CS_MODE_16
+    sp = "sp"
+    word_size = 2
+    platform = platforms.Platform(
+        platforms.Architecture.X86_16, platforms.Byteorder.LITTLE
+    )
+
+    # Real-mode sleigh forms every segmented address with its `segment`
+    # user op, which the p-code analysis cannot see through, so it reports
+    # nothing for such an instruction; Capstone reports the operands.
+    supports_pcode_use_def = False
+
+    def _memory_reference(self, segment, base, index, scale, offset, size):
+        return x86RealModeMemoryReferenceOperand(
+            segment=segment,
+            base=base,
+            index=index,
+            scale=scale,
+            offset=offset,
+            size=size,
+        )

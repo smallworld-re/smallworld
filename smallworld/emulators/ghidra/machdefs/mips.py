@@ -159,3 +159,27 @@ class MIPSELMachineDef(MIPSMachineDef):
 
 class MIPSBEMachineDef(MIPSMachineDef):
     byteorder = Byteorder.BIG
+
+
+class MicroMIPSMachineDef(MIPSMachineDef):
+    arch = Architecture.MIPS32_MICROMIPS
+
+    # The microMIPS languages decode both encodings and pick one with the
+    # ISA_MODE context field: 1 for microMIPS, 0 for standard MIPS32. Jumps
+    # switch it as hardware does, from the low bit of the target (sleigh's
+    # ISAModeSwitch). Runs start in microMIPS, as the platform definition's
+    # ghidra_context says.
+    isa_bit_context = "ISA_MODE"
+
+    def __init__(self):
+        super().__init__()
+        self._registers = dict(self._registers)
+        self._registers["isa_mode"] = "ISA_MODE"
+
+
+class MicroMIPSELMachineDef(MicroMIPSMachineDef):
+    byteorder = Byteorder.LITTLE
+
+
+class MicroMIPSBEMachineDef(MicroMIPSMachineDef):
+    byteorder = Byteorder.BIG

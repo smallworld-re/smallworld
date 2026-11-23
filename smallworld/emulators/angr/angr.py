@@ -28,6 +28,17 @@ class HookHandler(angr.SimProcedure):
     def run(self, *args, callback, parent):
         emu = ConcreteAngrEmulator(self.state, parent)
         callback(emu)
+        # A hook that moved the program counter, as a model calling back into
+        # the program does, carries on there instead of returning.
+        if not self.state.regs.ip.symbolic and self.state.addr != self.addr:
+            self.inhibit_autoret = True
+            self.jump(self.state.regs.ip)
+            return None
+        ret = parent.machdef.function_return_address(emu)
+        if ret is not None:
+            # The machine pops its own return address; don't let angr try.
+            self.inhibit_autoret = True
+            self.jump(ret)
         return None
 
 
@@ -174,6 +185,8 @@ class AngrEmulator(
         self._exit_points: typing.Set[int] = set()
         self._constraints: typing.List[claripy.ast.bool.Bool] = list()
         self._extensions: typing.Dict[str, typing.Any] = dict()
+
+        self.machdef.initialize_state(self)
 
     def initialize(self):
         """Initialize the emulator
@@ -484,11 +497,13 @@ class AngrEmulator(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
         if name in ("pc", self.platdef.pc_register):
+            state = self.state if self._initialized else None
             if isinstance(content, int):
-                content = self.machdef.pc_value(content)
+                content = self.machdef.pc_to_engine(state, content)
             elif isinstance(content, claripy.ast.bv.BV) and not content.symbolic:
                 content = claripy.BVV(
-                    self.machdef.pc_value(content.concrete_value), content.size()
+                    self.machdef.pc_to_engine(state, content.concrete_value),
+                    content.size(),
                 )
 
         if name == "cpsr" and self.machdef.has_cpsr and content is not None:
@@ -1588,7 +1603,9 @@ class AngrEmulator(
 
         # As soon as we start executing, disable value access
         self._dirty = True
-        if self._linear:
+        # Disassembling the block lifts it once more, so do it only when the
+        # message will be shown.
+        if self._linear and log.isEnabledFor(logging.DEBUG):
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
                 try:
                     disas = self.state.block(opt_level=0).disassembly

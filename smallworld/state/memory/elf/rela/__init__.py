@@ -19,14 +19,21 @@ from .arm import (
     Armv7RElfRelocator,
 )
 from .i386 import I386ElfRelocator
-from .loongarch import LoongArch64ElfRelocator
+from .loongarch import LoongArch32ElfRelocator, LoongArch64ElfRelocator
 from .m68k import M68KElfRelocator
 from .mips import MIPSELElfRelocator, MIPSElfRelocator
-from .ppc import PowerPCElfRelocator
+from .ppc import PowerPCElfRelocator, PowerPCVLEElfRelocator
 from .rela import ElfRelocator
+from .riscv32 import RISCV32ElfRelocator
 from .riscv64 import RISCV64ElfRelocator
-from .superh import SH2AFPUElfRelocator, SuperH4BEElfRelocator, SuperH4ELElfRelocator
+from .superh import (
+    SH2AFPUElfRelocator,
+    SuperH4BEElfRelocator,
+    SuperH4ELElfRelocator,
+    SuperHElfRelocator,
+)
 from .tricore import TriCoreElfRelocator
+from .v850 import V850ElfRelocator
 from .xtensa import XtensaElfRelocator
 
 __all__ = [
@@ -47,16 +54,21 @@ __all__ = [
     "Armv7MElfRelocator",
     "Armv7RElfRelocator",
     "I386ElfRelocator",
+    "LoongArch32ElfRelocator",
     "LoongArch64ElfRelocator",
     "M68KElfRelocator",
     "MIPSElfRelocator",
     "MIPSELElfRelocator",
     "PowerPCElfRelocator",
+    "RISCV32ElfRelocator",
+    "PowerPCVLEElfRelocator",
     "RISCV64ElfRelocator",
     "SH2AFPUElfRelocator",
     "SuperH4BEElfRelocator",
     "SuperH4ELElfRelocator",
+    "SuperHElfRelocator",
     "TriCoreElfRelocator",
+    "V850ElfRelocator",
     "XtensaElfRelocator",
     "ElfRelocator",
 ]

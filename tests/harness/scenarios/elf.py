@@ -214,6 +214,13 @@ _SPECS = {
         stack_pointer_register="esp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "la32": ElfSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "la64": ElfSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pointer_size=8,
@@ -256,6 +263,20 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "micromips": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "ppc": ElfSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pointer_size=4,
@@ -263,12 +284,30 @@ _SPECS = {
         stack_pointer_register="r1",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    # The loader tells VLE from plain PowerPC32 by the SHF_PPC_VLE section
+    # flag, and refuses a platform that disagrees with it.
+    "ppcvle": ElfSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="r1",
+        engines=("angr",),
+    ),
     "ppc64": ElfSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pointer_size=8,
         pc_register="pc",
         stack_pointer_register="r1",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "riscv32": ElfSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        print_register="a0",
+        use_platform_loader=False,
     ),
     "riscv64": ElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -286,6 +325,13 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("angr", "panda", "pcode"),
     ),
+    "v850": ElfSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -300,9 +346,7 @@ _SPECS = {
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-_SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
-}
+_SKIP_REASONS = {}
 
 _UNICORN_BOUND_EXITS = {
     "aarch64": 0xAC,
@@ -338,7 +382,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "elf"),
     variants_source=from_arch_table(
         _SPECS,
-        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),
     run_factory=just_run(args=("foobar",)),
 )
@@ -430,7 +473,7 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
-    if arch in {"mips", "mipsel"} and engine == "unicorn":
+    if arch in {"mips", "mipsel", "micromips", "micromipsel"} and engine == "unicorn":
         set_register(cpu, "ra", 0xFFFF0)
         emulator.add_exit_point(0xFFFF0)
         return
@@ -455,8 +498,17 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
+    if arch == "v850":
+        set_register(cpu, "lp", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
+        return
+
     if arch == "ppc" and engine == "panda":
         machine.add_exit_point(entrypoint + 0x34)
+
+    if arch == "ppc64" and engine == "panda":
+        # Stop on _start's closing blr; PANDA faults fetching the return address.
+        machine.add_exit_point(entrypoint + code.get_symbol_size("_start") - 4)
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:

@@ -7,6 +7,7 @@ import pypcode
 from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, rewrite_as_syscall
 
 
 def handle_nop(irsb, i):
@@ -21,13 +22,7 @@ def handle_sigtrap(irsb, i):
     # instruction length is read from the IMARK varnode rather than hardcoded.
     imark = irsb._ops[i - 1].inputs[0]
     next_addr = imark.offset + imark.size
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = list(
-        filter(lambda x: x < next_addr, irsb._instruction_addresses)
-    )
-    irsb.jumpkind = "Ijk_SigTRAP"
+    rewrite_as_syscall(irsb, i, next_addr, jumpkind="Ijk_SigTRAP")
     return i
 
 
@@ -37,13 +32,7 @@ def handle_sigill(irsb, i):
     # instruction length is read from the IMARK varnode rather than hardcoded.
     imark = irsb._ops[i - 1].inputs[0]
     next_addr = imark.offset + imark.size
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = list(
-        filter(lambda x: x < next_addr, irsb._instruction_addresses)
-    )
-    irsb.jumpkind = "Ijk_SigILL"
+    rewrite_as_syscall(irsb, i, next_addr, jumpkind="Ijk_SigILL")
     return i
 
 
@@ -53,13 +42,7 @@ def handle_syscall(irsb, i):
     # instruction length is read from the IMARK varnode rather than hardcoded.
     imark = irsb._ops[i - 1].inputs[0]
     next_addr = imark.offset + imark.size
-    irsb._ops = irsb._ops[0:i]
-    irsb.next = next_addr
-    irsb._size = next_addr - irsb.addr
-    irsb._instruction_addresses = list(
-        filter(lambda x: x < next_addr, irsb._instruction_addresses)
-    )
-    irsb.jumpkind = "Ijk_Sys_syscall"
+    rewrite_as_syscall(irsb, i, next_addr)
 
     return i
 
@@ -219,27 +202,7 @@ class XTensaMachineDef(GhidraMachineDef):
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         # xtensa includes a _LOT_ of custom pcode operations.
-
-        # Inject exit points here.
-        assert hasattr(state.scratch, "exit_points")
-
-        if "extra_stop_points" in kwargs:
-            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
-            del kwargs["extra_stop_points"]
-        else:
-            exit_points = state.scratch.exit_points
-
-        # Fetch or compute the IR block for our state
-        if "irsb" in kwargs and kwargs["irsb"] is not None:
-            # Someone's already specified an IR block.
-            irsb = kwargs["irsb"]
-        else:
-            # Disable optimization; it doesn't work
-            kwargs["opt_level"] = 0
-
-            # Compute the block from the state.
-            # Pray to the Powers that kwargs are compatible.
-            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
+        irsb = lift_for_rewrite(state, kwargs)
 
         i = 0
         while i < len(irsb._ops):

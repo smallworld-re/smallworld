@@ -265,6 +265,7 @@ class TritonEmulator(
             if value & 1:
                 self.ctx.setThumb(True)
                 value &= ~1
+        self.machdef.check_register_write(name, value)
         self.ctx.setConcreteRegisterValue(self._reg(name), value)
 
     # ------------------------------------------------------------------ memory
@@ -353,6 +354,10 @@ class TritonEmulator(
             raise exceptions.EmulationExitpoint(
                 f"execution halted at pc={hex(pc)} ({mnemonic})"
             )
+        if mnemonic in self.machdef.nop_mnemonics:
+            # A valid instruction with no effect SmallWorld models.
+            self.write_register_content("pc", pc + inst.getSize())
+            return
         if mnemonic in self.machdef.interrupt_mnemonics:
             # A valid trap instruction Triton does not model. Run the hooks and
             # resume at the next instruction, which is what the architecture

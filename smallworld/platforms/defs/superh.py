@@ -182,3 +182,67 @@ class SH2AFPU(PlatformDef):
         "fpscr": RegisterDef(name="fpscr", size=4),
         "fpul": RegisterDef(name="fpul", size=4),
     }
+
+
+# Registers SH-2A adds to the SH-1/SH-2 register file: its FPU, and the table
+# base register behind `jsr/n @@(disp,tbr)`.
+SH2A_ONLY_REGISTERS = frozenset(
+    {"tbr", "fpscr", "fpul"}
+    | {f"dr{i}" for i in range(0, 16, 2)}
+    | {f"fr{i}" for i in range(0, 16)}
+)
+
+
+class SH2(PlatformDef):
+    """SH-2, big-endian.
+
+    SH-2A is a superset of SH-2, which is a superset of SH-1, and Ghidra builds
+    all three languages from the same ``superh.sinc``. Each refuses the
+    instructions of the later versions, so code using them faults as it would
+    on the real CPU rather than running as SH-2A. SH-1 and SH-2 have no FPU
+    and no ``tbr``. Like SH-2A, they are modelled big-endian only.
+    """
+
+    architecture = Architecture.SUPERH_SH2
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "SuperH:BE:32:SH-2"
+
+    address_size = 4
+
+    capstone_arch = capstone.CS_ARCH_SH
+    capstone_mode = capstone.CS_MODE_SH2 | capstone.CS_MODE_BIG_ENDIAN
+
+    conditional_branch_mnemonics = SH2AFPU.conditional_branch_mnemonics
+    compare_mnemonics = SH2AFPU.compare_mnemonics - {"fcmp/eq", "fcmp/gt"}
+    delay_slot_mnemonics = SH2A_DELAY_SLOT_MNEMONICS
+    implicit_dereference_mnemonics = {"jmp", "jsr"}
+
+    pc_register = SH2A_PROGRAM_COUNTER_REGISTER
+    sp_register = SH2A_STACK_POINTER_ALIAS
+    general_purpose_registers = SH2AFPU.general_purpose_registers
+
+    registers = {
+        name: register
+        for name, register in SH2AFPU.registers.items()
+        if name not in SH2A_ONLY_REGISTERS
+    }
+
+
+class SH1(SH2):
+    """SH-1, big-endian.
+
+    SH-1 lacks nine SH-2 instructions: ``braf``, ``bsrf``, ``bt/s``,
+    ``bf/s``, ``mul.l``, ``dmuls.l``, ``dmulu.l``, ``mac.l`` and ``dt``.
+    Capstone has no SH-1 mode, so analyses that use it decode SH-1 as SH-2.
+    """
+
+    architecture = Architecture.SUPERH_SH1
+    ghidra_language_id = "SuperH:BE:32:SH-1"
+
+    conditional_branch_mnemonics = {"bf", "bt"}
+    delay_slot_mnemonics = SH2A_DELAY_SLOT_MNEMONICS - {
+        "braf",
+        "bsrf",
+        "bt/s",
+        "bf/s",
+    }

@@ -329,3 +329,28 @@ class MIPSBE(MIPS):
         self.add(self.hi3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=4, offset=4)
         self.add(self.lo3)
+
+
+class MicroMIPSMixin:
+    def __init__(self):
+        super().__init__()  # type: ignore[misc]
+        # The ISA mode: 1 runs microMIPS, 0 standard MIPS32. No architectural
+        # register holds it, so SmallWorld models it as a pseudo-register.
+        self.isa_mode = state.Register("isa_mode", size=1)
+        self.add(self.isa_mode)  # type: ignore[attr-defined]
+
+
+class MicroMIPSEL(MicroMIPSMixin, MIPSEL):
+    """CPU state for little-endian MIPS32 with the microMIPS ASE."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.LITTLE
+    )
+
+
+class MicroMIPSBE(MicroMIPSMixin, MIPSBE):
+    """CPU state for big-endian MIPS32 with the microMIPS ASE."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )

@@ -10,6 +10,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -388,6 +389,24 @@ _SPECS = {
         ),
         stack_pointer_register="esp",
     ),
+    "la32": StackCaseSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("a0", 0x1111),
+            ("a1", 0x01010101),
+            ("a2", 0x2222),
+            ("a3", 0x01010101),
+            ("a4", 0x3333),
+            ("a5", 0x01010101),
+            ("a6", 0x4444),
+            ("a7", 0x01010101),
+        ),
+        stack_arguments=((0x5555, 4), (0x01010101, 4)),
+        add_stack_guard=False,
+    ),
     "la64": StackCaseSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
         pc_register="pc",
@@ -410,7 +429,7 @@ _SPECS = {
         platform=PlatformSpec("M68K", "BIG"),
         pc_register="pc",
         result_register="d0",
-        engines=("unicorn", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         stack_arguments=(
             (0x44444444, 4),
             (0x01010101, 4),
@@ -448,6 +467,48 @@ _SPECS = {
         pc_register="pc",
         result_register="v0",
         engines=("unicorn", "angr", "panda", "pcode"),
+        register_arguments=(
+            ("a0", 0x1111),
+            ("a1", 0x01010101),
+            ("a2", 0x2222),
+            ("a3", 0x01010101),
+        ),
+        stack_arguments=(
+            (0x4444, 4),
+            (0x01010101, 4),
+            (0x3333, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+        ),
+    ),
+    "micromips": StackCaseSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        register_arguments=(
+            ("a0", 0x1111),
+            ("a1", 0x01010101),
+            ("a2", 0x2222),
+            ("a3", 0x01010101),
+        ),
+        stack_arguments=(
+            (0x4444, 4),
+            (0x01010101, 4),
+            (0x3333, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+            (0x01010101, 4),
+        ),
+    ),
+    "micromipsel": StackCaseSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        result_register="v0",
+        engines=("unicorn", "angr", "pcode"),
         register_arguments=(
             ("a0", 0x1111),
             ("a1", 0x01010101),
@@ -516,11 +577,29 @@ _SPECS = {
         stack_arguments=((0x5555, 4),),
         stack_pointer_adjust=-24,
     ),
+    "ppcvle": StackCaseSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        result_register="r3",
+        engines=("angr",),
+        register_arguments=(
+            ("r3", 0x1111),
+            ("r4", 0x01010101),
+            ("r5", 0x2222),
+            ("r6", 0x01010101),
+            ("r7", 0x3333),
+            ("r8", 0x01010101),
+            ("r9", 0x4444),
+            ("r10", 0x01010101),
+        ),
+        stack_arguments=((0x5555, 4),),
+        stack_pointer_adjust=-24,
+    ),
     "ppc64": StackCaseSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         register_arguments=(
             ("r3", 0x1111),
             ("r4", 0x01010101),
@@ -533,6 +612,23 @@ _SPECS = {
         ),
         stack_arguments=((0x5555, 8),),
         stack_pointer_adjust=-116,
+    ),
+    "riscv32": StackCaseSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        register_arguments=(
+            ("a0", 0x11111111),
+            ("a1", 0x01010101),
+            ("a2", 0x22222222),
+            ("a3", 0x01010101),
+            ("a4", 0x33333333),
+            ("a5", 0x01010101),
+            ("a6", 0x44444444),
+            ("a7", 0x01010101),
+        ),
+        stack_arguments=((0x55555555, 4),),
     ),
     "riscv64": StackCaseSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -550,6 +646,32 @@ _SPECS = {
             ("a7", 0x01010101),
         ),
         stack_arguments=((0x55555555, 8),),
+    ),
+    "sh1": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
+    "sh2": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
     ),
     "sh2a": StackCaseSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
@@ -590,6 +712,21 @@ _SPECS = {
         ),
         stack_arguments=((0xCCCCCCCC, 4),),
     ),
+    "mcs51": StackCaseSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        result_register="acc",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r7", 0x11),
+            ("r6", 0x01),
+            ("r5", 0x22),
+            ("r4", 0x01),
+        ),
+        stack_arguments=((0x44, 1),),
+        # The guard's address is outside the 8051's stack, in internal RAM.
+        add_stack_guard=False,
+    ),
     "tricore": StackCaseSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -600,6 +737,19 @@ _SPECS = {
             ("d5", 0x01010101),
             ("d6", 0x22222222),
             ("d7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
+    "v850": StackCaseSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        engines=("angr", "pcode"),
+        register_arguments=(
+            ("r6", 0x11111111),
+            ("r7", 0x01010101),
+            ("r8", 0x22222222),
+            ("r9", 0x01010101),
         ),
         stack_arguments=((0xCCCCCCCC, 4),),
     ),
@@ -633,19 +783,29 @@ _STACK_RES = {
     "aarch64v85a": "0xffffffff",
     "aarch64be": "0xffffffff",
     "aarch64v85abe": "0xffffffff",
+    "la32": "0xffff",
     "la64": "0xffff",
+    # 0x44 + 0x11 + 0x22
+    "mcs51": "0x77",
     "mips": "0xaaaa",
     "mips64": "0xffff",
     "mips64el": "0xffff",
     "mipsel": "0xaaaa",
+    "micromips": "0xaaaa",
+    "micromipsel": "0xaaaa",
     "ppc": "0xffff",
     "ppc64": "0xffff",
+    "ppcvle": "0xffff",
+    "riscv32": "0xffffffff",
     "riscv64": "0xffffffff",
     # 0xcccccccc + 0x11111111 + 0x22222222
+    "sh1": "0xffffffff",
+    "sh2": "0xffffffff",
     "sh2a": "0xffffffff",
     "sh4": "0xffffffff",
     "sh4el": "0xffffffff",
     "tricore": "0xffffffff",
+    "v850": "0xffffffff",
 }
 
 
@@ -661,7 +821,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "stack"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={arch: {"res": res} for arch, res in _STACK_RES.items()},
     ),
     run_factory=assert_outputs(_stack_expectations, case_sensitive=False),
@@ -695,7 +854,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(code)
     set_register(cpu, spec.pc_register, code.address)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
 
     for register, value in spec.register_arguments:
@@ -710,7 +869,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     set_register(
         cpu,
         spec.stack_pointer_register,
-        stack.get_pointer() + spec.stack_pointer_adjust,
+        stack.get_pointer() + stack_adjust + spec.stack_pointer_adjust,
     )
 
     emulator = make_emulator(smallworld, platform, engine)

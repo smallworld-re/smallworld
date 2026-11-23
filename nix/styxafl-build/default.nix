@@ -35,6 +35,11 @@ ps.buildPythonPackage {
 
   dontUseCmakeConfigure = true;
 
+  # On macOS maturin's wheel audit rejects the extension's link against Nix's
+  # libiconv and wants to vendor it into the wheel. Store paths are stable, so
+  # there is nothing to repair; skip the audit.
+  maturinBuildFlags = lib.optionals stdenv.hostPlatform.isDarwin [ "--auditwheel=skip" ];
+
   nativeBuildInputs = [
     rustPlatform.cargoSetupHook
     rustPlatform.maturinBuildHook

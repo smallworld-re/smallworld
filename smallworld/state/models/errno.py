@@ -483,6 +483,18 @@ class M68KErrnoResolver(ErrnoResolver):
     # la64 uses generic errno
 
 
+class MCS51SDCCErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCC
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
+
+
+class MCS51SDCCStackAutoErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCCSTACKAUTO
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
+
+
 class MIPSErrnoResolver(ErrnoResolver):
     abi = ABI.SYSTEMV
     # MIPS Absolutely doesn't use generic errno
@@ -634,6 +646,16 @@ class MIPSELErrnoResolver(MIPSErrnoResolver):
     # mipsel uses the MIPS errno list
 
 
+class MicroMIPSBEErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.BIG)
+    # microMIPS uses the MIPS errno list
+
+
+class MicroMIPSELErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.LITTLE)
+    # microMIPS uses the MIPS errno list
+
+
 class MIPS64BEErrnoResolver(MIPSErrnoResolver):
     platform = Platform(Architecture.MIPS64, Byteorder.BIG)
     # mips64 uses the MIPS errno list
@@ -655,6 +677,17 @@ class PowerPCErrnoResolver(ErrnoResolver):
     # although the ordering of the header suggests that at one time
     # it looked like it does here.
     errno_to_label = ErrnoResolver.errno_to_label | {35: "EDEADLCK", 58: "EDEADLOCK"}
+
+
+class PowerPC64ErrnoResolver(PowerPCErrnoResolver):
+    # Linux shares one errno list between 32- and 64-bit PowerPC.
+    platform = Platform(Architecture.POWERPC64, Byteorder.BIG)
+
+
+class RiscV32ErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.RISCV32, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # riscv32 uses the generic errno list
 
 
 class RiscV64ErrnoResolver(ErrnoResolver):

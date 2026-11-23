@@ -34,7 +34,11 @@ class Open(FDModel):
     return_type = ArgumentType.INT
 
     def _option_flags(self) -> tuple:
-        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+        if self.platform.architecture in (
+            Architecture.MIPS32,
+            Architecture.MIPS32_MICROMIPS,
+            Architecture.MIPS64,
+        ):
             return _MIPS_OFLAGS
         return _GENERIC_OFLAGS
 

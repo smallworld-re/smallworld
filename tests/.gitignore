@@ -1,4 +1,6 @@
 *.bin
+*.ihx
+*.map
 *.o
 *.elf
 *.so

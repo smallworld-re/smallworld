@@ -56,16 +56,25 @@ let
   # These packages are built locally in Nix instead of coming directly from
   # the Python lockfile. We give uv2nix empty placeholders so it knows not to
   # also fetch them from PyPI.
-  prebuiltPythonPackages = [
-    "unicornafl"
-    "pypanda"
-    "unicorn"
-    "styx-emulator"
-    "styxafl"
-    "triton-library"
-  ];
+  #
+  # PANDA is Linux-only here: on macOS its header generation needs a Linux
+  # builder (see `nix/panda-packages.nix`), so Darwin envs simply leave
+  # `pypanda` out and the PANDA backend is unavailable there.
+  hasPanda = system: !(pkgsFor system).stdenv.hostPlatform.isDarwin;
 
-  addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
+  prebuiltPythonPackagesFor =
+    system:
+    [
+      "unicornafl"
+      "unicorn"
+      "styx-emulator"
+      "styxafl"
+      "triton-library"
+    ]
+    ++ lib.optional (hasPanda system) "pypanda";
+
+  addPrebuiltPlaceholders =
+    system: deps: deps // lib.genAttrs (prebuiltPythonPackagesFor system) (_: [ ]);
 
   # A small number of Python packages need native compilation or custom source
   # handling. Everything else still comes from the lockfile-generated package
@@ -81,11 +90,20 @@ let
       patchedUnicornSrc = pkgs.fetchFromGitHub {
         owner = "appleflyerv3";
         repo = "unicorn";
-        rev = "mmio_map_pc_sync";
+        # The mmio_map_pc_sync branch as of the hash below.  Pin the commit,
+        # not the branch: the branch has moved on, and a fetch of its new head
+        # fails the hash check.
+        rev = "9173cb7d46c967e3c796db29780f51d2779875cb";
         hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
       };
-      patchedUnicorn = pkgs.unicorn.overrideAttrs (_: {
+      patchedUnicorn = pkgs.unicorn.overrideAttrs (old: {
         src = patchedUnicornSrc;
+        # Without these, no PPC64 code runs: an explicit CPU model selects a
+        # PPC32 CPU, and the default POWER10 faults on its first fetch.
+        patches = (old.patches or [ ]) ++ [
+          ./patches/unicorn-ppc64-cpu-model.patch
+          ./patches/unicorn-ppc64-reset-hv.patch
+        ];
       });
       mkUnicornafl = pkgs.callPackage ./unicornafl-build {
         unicornLibraryPath = "${patchedUnicorn}/lib";
@@ -99,7 +117,7 @@ let
       unicornafl = mkUnicornafl pythonPkgs;
       # PANDA's Python bindings come from the dedicated packaging module in
       # `nix/panda-packages.nix`; they cannot be built directly from uv.lock.
-      pypanda = pandaNgPackages.${system}.pypandaBuilder pythonPkgs;
+      pypanda = if hasPanda system then pandaNgPackages.${system}.pypandaBuilder pythonPkgs else null;
       # Styx bindings are built from the upstream source via maturin; the
       # `styxafl` bridge crate lives under `nix/styxafl-src/` and depends on
       # the same pinned styx-emulator revision.
@@ -133,16 +151,20 @@ let
         unicornPy = python.pkgs.unicorn;
       };
 
-      prebuiltOverlay = _final: _prev: {
-        unicorn = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicorn; };
-        unicornafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicornafl; };
-        pypanda = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.pypanda; };
-        styx-emulator = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styx-emulator; };
-        styxafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styxafl; };
-        "triton-library" = pyprojectHacks.nixpkgsPrebuilt {
-          from = nativeAddons."triton-library";
+      prebuiltOverlay =
+        _final: _prev:
+        {
+          unicorn = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicorn; };
+          unicornafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicornafl; };
+          styx-emulator = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styx-emulator; };
+          styxafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styxafl; };
+          "triton-library" = pyprojectHacks.nixpkgsPrebuilt {
+            from = nativeAddons."triton-library";
+          };
+        }
+        // lib.optionalAttrs (nativeAddons.pypanda != null) {
+          pypanda = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.pypanda; };
         };
-      };
     in
     pyprojectPackages.overrideScope (
       lib.composeManyExtensions [
@@ -159,7 +181,7 @@ let
 
   mkLockedVirtualenv =
     system: name: selection:
-    pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selection);
+    pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders system selection);
 
   resolveLockedDependencyNames =
     pythonSet: name: enabledExtras:

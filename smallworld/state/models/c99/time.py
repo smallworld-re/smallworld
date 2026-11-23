@@ -8,6 +8,7 @@ from .utils import _emu_strlen
 
 # NOTE: time_t and clock_t are longs.
 # As such, all your 32-bit routers are vulnerable to the 2038 bug.
+# (Not RiscV32: glibc gave it a 64-bit time_t from the start.)
 
 
 class TimeModel(CStdModel):

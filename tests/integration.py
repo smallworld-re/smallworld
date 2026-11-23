@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import pathlib
 import re
 import sys
@@ -40,6 +41,12 @@ def _matches(case_id: str, tags: tuple[str, ...], filters: list[str]) -> bool:
 
 
 def main() -> int:
+    # A piped stdout (as on CI) is block-buffered, which holds every RUN/PASS
+    # line until the shard ends and hides which case is hanging.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(line_buffering=True)
+
     parser = argparse.ArgumentParser(
         description="Manifest-driven integration runner for SmallWorld.",
     )

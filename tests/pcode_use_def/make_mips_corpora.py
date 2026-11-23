@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the MIPS corpus variants from the mips32 corpus.
 
-The four MIPS targets share almost all of their ground truth:
+The four standard MIPS targets share almost all of their ground truth:
 
   * ``corpus_mipsel.json``    -- MIPS32 little-endian. Identical instruction
     set to mips32; only the byte encoding differs (each 4-byte word is stored
@@ -17,6 +17,12 @@ The four MIPS targets share almost all of their ground truth:
   * ``corpus_mips64el.json``  -- MIPS64 little-endian: ``corpus_mips64.json``
     with every word byte-reversed.
 
+  * ``corpus_micromips.json`` and ``corpus_micromipsel.json`` -- microMIPS,
+    big- and little-endian, from ``MICROMIPS_ENTRIES`` below: a different
+    encoding, so its own ground truth. Little-endian microMIPS stores each
+    16-bit halfword, not each word, in the opposite order. The corpora name
+    the ``ISA_MODE`` context value that selects microMIPS in their language.
+
 Keeping these as generated artifacts (committed alongside the generator, like
 CORPUS.md) means they stay in lock-step with the hand-maintained mips32 corpus
 while still being picked up by the auto-loading harness.
@@ -28,7 +34,7 @@ n64 names llvm-mc assembles) and verified against ``analyze`` under
 MIPS:BE:64:default.
 
 Usage:
-  python tests/pcode_use_def/make_mips_corpora.py         # regenerate the 3 files
+  python tests/pcode_use_def/make_mips_corpora.py         # regenerate the 5 files
 """
 
 import json
@@ -49,9 +55,17 @@ def _mem(base, offset, size):
 
 
 def _entry(
-    asm, hexbytes, categories, uses, defs, uses_opt=None, defs_opt=None, notes=""
+    asm,
+    hexbytes,
+    categories,
+    uses,
+    defs,
+    uses_opt=None,
+    defs_opt=None,
+    notes="",
+    address_only=None,
 ):
-    return {
+    entry = {
         "asm": asm,
         "bytes": hexbytes,
         "categories": categories,
@@ -61,6 +75,9 @@ def _entry(
         "defs_optional": defs_opt or [],
         "notes": notes,
     }
+    if address_only is not None:
+        entry["address_only_uses"] = address_only
+    return entry
 
 
 # MIPS64-only (doubleword) instructions. Encodings from llvm-mc; ground truth
@@ -210,6 +227,141 @@ DWORD_ENTRIES = [
 ]
 
 
+# microMIPS, which re-encodes MIPS32 in 16- and 32-bit instructions over the
+# same registers; the ground truth follows the mips32 corpus's conventions.
+# Encodings checked against Capstone in microMIPS mode; ground truth
+# hand-written from the microMIPS ISA. The jump-register forms are the reason
+# this corpus exists: Capstone reports their target register as written, and
+# jraddiusp as touching nothing at all.
+MICROMIPS_ENTRIES = [
+    _entry(
+        "addiu $t0, $zero, 42",
+        "3100002a",
+        ["mov", "imm", "li-form"],
+        [],
+        [_reg("t0")],
+        uses_opt=[_reg("zero")],
+        notes="li via addiu: reads hardwired zero",
+    ),
+    _entry(
+        "addiu $sp, $sp, -32",
+        "33bdffe0",
+        ["arith", "imm", "stack"],
+        [_reg("sp")],
+        [_reg("sp")],
+    ),
+    _entry(
+        "lw $t0, 8($sp)",
+        "fd1d0008",
+        ["load", "base+disp"],
+        [_reg("sp"), _mem("sp", 8, 4)],
+        [_reg("t0")],
+        address_only=["sp"],
+    ),
+    _entry(
+        "sw $t0, 8($sp)",
+        "f91d0008",
+        ["store", "base+disp"],
+        [_reg("t0"), _reg("sp")],
+        [_mem("sp", 8, 4)],
+        address_only=["sp"],
+    ),
+    _entry(
+        "lw16 $v0, 4($a0)",
+        "6941",
+        ["load", "base+disp", "16-bit"],
+        [_reg("a0"), _mem("a0", 4, 4)],
+        [_reg("v0")],
+        address_only=["a0"],
+    ),
+    _entry(
+        "move $s5, $a0",
+        "0ea4",
+        ["mov", "16-bit"],
+        [_reg("a0")],
+        [_reg("s5")],
+        notes="move16",
+    ),
+    _entry(
+        "jr $t9",
+        "00190f3c",
+        ["branch", "indirect"],
+        [_reg("t9")],
+        [],
+    ),
+    _entry(
+        "jr16 $t9",
+        "4599",
+        ["branch", "indirect", "16-bit"],
+        [_reg("t9")],
+        [],
+    ),
+    _entry(
+        "jrc $ra",
+        "45bf",
+        ["ret", "compact", "16-bit"],
+        [_reg("ra")],
+        [],
+        notes="compact: no delay slot",
+    ),
+    _entry(
+        "jalr $t9",
+        "03f90f3c",
+        ["call", "indirect"],
+        [_reg("t9")],
+        [_reg("ra")],
+    ),
+    _entry(
+        "jalrs16 $t9",
+        "45f9",
+        ["call", "indirect", "16-bit"],
+        [_reg("t9")],
+        [_reg("ra")],
+        notes="short delay slot: the link skips a 16-bit one",
+    ),
+    _entry(
+        "jraddiusp 8",
+        "4702",
+        ["ret", "compact", "stack", "16-bit"],
+        [_reg("ra"), _reg("sp")],
+        [_reg("sp")],
+        notes="jr $ra and sp += 8, with no delay slot",
+    ),
+    _entry(
+        "beqzc $a0, 4",
+        "40e40002",
+        ["branch", "conditional", "compact"],
+        [_reg("a0")],
+        [],
+        notes="compact: no delay slot",
+    ),
+    _entry(
+        "b16 4",
+        "cc02",
+        ["branch", "16-bit"],
+        [],
+        [],
+    ),
+    _entry(
+        "bal 4",
+        "40600002",
+        ["call", "pc-relative"],
+        [],
+        [_reg("ra")],
+        uses_opt=[_reg("zero")],
+        notes="bal encodes as bgezal $zero: reads hardwired zero",
+    ),
+    _entry(
+        "jalx 0x2000",
+        "f0000800",
+        ["call", "absolute", "isa-switch"],
+        [],
+        [_reg("ra")],
+        notes="jumps to standard MIPS32 code",
+    ),
+]
+
+
 def _byteswap_word(hexbytes):
     """Reverse a 4-byte (8 hex char) instruction word for the opposite endian."""
     b = bytes.fromhex(hexbytes)
@@ -223,6 +375,17 @@ def _swap_entries(entries):
     for e in entries:
         e = dict(e)
         e["bytes"] = _byteswap_word(e["bytes"])
+        out.append(e)
+    return out
+
+
+def _swap_halfwords(entries):
+    """Little-endian microMIPS stores each 16-bit halfword little-endian."""
+    out = []
+    for e in entries:
+        e = dict(e)
+        b = bytes.fromhex(e["bytes"])
+        e["bytes"] = b"".join(b[i : i + 2][::-1] for i in range(0, len(b), 2)).hex()
         out.append(e)
     return out
 
@@ -263,13 +426,37 @@ def main() -> None:
         "entries": _swap_entries(mips64["entries"]),
     }
 
+    # The microMIPS languages also hold standard MIPS32, which their ISA_MODE
+    # context field selects by default.
+    micromips = {
+        "isa": "micromips",
+        "ghidra_lang": "MIPS:BE:32:micro",
+        "ghidra_context": {"ISA_MODE": 1},
+        "llvm_triple": "mips-unknown-linux-gnu",
+        "base_address": base,
+        "entries": MICROMIPS_ENTRIES,
+    }
+
+    micromipsel = {
+        "isa": "micromipsel",
+        "ghidra_lang": "MIPS:LE:32:micro",
+        "ghidra_context": {"ISA_MODE": 1},
+        "llvm_triple": "mipsel-unknown-linux-gnu",
+        "base_address": base,
+        "entries": _swap_halfwords(MICROMIPS_ENTRIES),
+    }
+
     _write(os.path.join(HERE, "corpus_mipsel.json"), mipsel)
     _write(os.path.join(HERE, "corpus_mips64.json"), mips64)
     _write(os.path.join(HERE, "corpus_mips64el.json"), mips64el)
+    _write(os.path.join(HERE, "corpus_micromips.json"), micromips)
+    _write(os.path.join(HERE, "corpus_micromipsel.json"), micromipsel)
     print(
         f"wrote corpus_mipsel.json ({len(mipsel['entries'])}), "
         f"corpus_mips64.json ({len(mips64['entries'])}), "
-        f"corpus_mips64el.json ({len(mips64el['entries'])})"
+        f"corpus_mips64el.json ({len(mips64el['entries'])}), "
+        f"corpus_micromips.json ({len(micromips['entries'])}), "
+        f"corpus_micromipsel.json ({len(micromipsel['entries'])})"
     )
 
 

@@ -55,3 +55,23 @@ class MIPS64ELInstruction(MIPS64Instruction):
     platform = platforms.Platform(
         platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
     )
+
+
+class MicroMIPSInstruction(MIPSInstruction):
+    # angr runs microMIPS through its p-code engine, which names the
+    # architecture after the sleigh language.
+    angr_arch = "MIPS:BE:32:micro"
+    cs_mode = (
+        capstone.CS_MODE_MIPS32 | capstone.CS_MODE_MICRO | capstone.CS_MODE_BIG_ENDIAN
+    )
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.BIG
+    )
+
+
+class MicroMIPSELInstruction(MicroMIPSInstruction):
+    angr_arch = "MIPS:LE:32:micro"
+    cs_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_MICRO
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS32_MICROMIPS, platforms.Byteorder.LITTLE
+    )

@@ -1,6 +1,18 @@
+from .... import exceptions
 from ....exceptions import UnsupportedRegisterError
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
+
+# QEMU's PowerPC machine check exception index (target/ppc cpu.h
+# POWERPC_EXCP_MCHECK).  Server CPUs raise it when they access memory
+# nothing backs.  Unmapped loads and stores are caught before they reach
+# the CPU, so on these CPUs it signals an instruction fetch.
+_PPC_EXCP_MCHECK = 1
+
+# MSR bits for the floating-point, vector (Altivec) and VSX facilities
+MSR_FP = 1 << 13
+MSR_VEC = 1 << 25
+MSR_VSX = 1 << 23
 
 
 class PowerPCMachineDef(PandaMachineDef):
@@ -100,10 +112,18 @@ class PowerPCMachineDef(PandaMachineDef):
     _registers = _registers | {i: i for i in _registers_identity}
     _registers = _registers | {i: None for i in _registers_unsupported}
 
-
-class PowerPC32MachineDef(PowerPCMachineDef):
-    arch = Architecture.POWERPC32
-    cpu = "ppc32"
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
+        # QEMU's system-mode reset leaves the floating-point and vector
+        # facilities off (only user-mode QEMU turns them on), so their first
+        # instruction raises a facility-unavailable interrupt.  Linux user
+        # space always sees them on.  ppc_store_msr drops the bit of any
+        # facility the CPU lacks.
+        #
+        # NOTE: pandare2's set_reg(cpu, "msr", ...) calls
+        # Panda.ppc_store_msr, which doesn't exist; the function is in
+        # libpanda.
+        env = panda_obj.arch.cpu_env(panda_cpu)
+        panda_obj.libpanda.ppc_store_msr(env, env.msr | MSR_FP | MSR_VEC | MSR_VSX)
 
     def _panda_get_spr_regs(self, panda_obj, panda_cpu):
         # HACKHACK: export something in pypanda to do this instead of duplicating.
@@ -150,3 +170,23 @@ class PowerPC32MachineDef(PowerPCMachineDef):
             return name.upper() in panda_obj.arch.registers_spr.keys()
         else:
             return False
+
+
+class PowerPC32MachineDef(PowerPCMachineDef):
+    arch = Architecture.POWERPC32
+    cpu = "ppc32"
+
+
+class PowerPC64MachineDef(PowerPCMachineDef):
+    arch = Architecture.POWERPC64
+    panda_arch = "ppc64"
+    # NOTE: POWER9 and later reset with MSR[HV] clear,
+    # so their first instruction fetch faults under the ISA 3.0 VRMA.
+    cpu = "power8_v2.0"
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        if intno == _PPC_EXCP_MCHECK:
+            raise exceptions.EmulationFetchUnmappedFailure(
+                f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
+            )
+        super().handle_interrupt(intno, pc)

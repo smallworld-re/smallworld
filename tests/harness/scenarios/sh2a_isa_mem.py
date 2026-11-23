@@ -35,23 +35,9 @@ NATIVE_PARITY = True
 _ARCH = "sh2a"
 _SCENARIO = "sh2a_isa_mem"
 
-# Integer-only, so angr's missing floating-point support is irrelevant here.
+# Integer-only.
 _ENGINES = ("angr", "pcode", "styx", "panda")
 
-
-# angr stores zero for any 16-bit memory write.  Isolated to the store side, and
-# not to SuperH: with memory pre-seeded to 0x1234abcd, `mov.w @r5,r1` loads 0x1234
-# correctly and `mov.l @r5,r2` loads 0x1234abcd correctly, but running
-# `mov.w r1,@r5` with r1 = 0x1234 over memory pre-filled with 0xee leaves
-# `0000eeee` instead of `1234eeee`.  Ghidra returns `1234eeee`.  The plain SH-2
-# `mov.w Rm,@Rn` form fails identically to SH-2A's 32-bit displaced form, so this
-# is not an SH-2A decode issue; and the two bundled `superh.sinc` copies differ
-# only in the `bclr` rule, so it is not the sleigh either.  I did not separate
-# angr's pcode engine from SmallWorld's angr memory integration as the culprit.
-_ANGR_HALFWORD_STORE = (
-    "angr writes zero for 16-bit stores: mov.w r1,@r5 with r1=0x1234 leaves "
-    "0x0000 in memory (16-bit loads and 32-bit stores are fine)"
-)
 
 _STACK_BASE = 0x2000
 _STACK_SIZE = 0x4000
@@ -102,12 +88,7 @@ SCENARIO_INFO = ScenarioInfo(
     prefix=_SCENARIO,
     scenario=_SCENARIO,
     tags=("scenario", _SCENARIO, "sh2a"),
-    variants_source=from_arch_table(
-        SPECS,
-        skip_reasons={
-            f"{_ARCH}.angr": _ANGR_HALFWORD_STORE,
-        },
-    ),
+    variants_source=from_arch_table(SPECS),
     run_factory=just_run(),
 )
 

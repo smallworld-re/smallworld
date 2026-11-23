@@ -4,12 +4,12 @@ from ....platforms import Architecture, Byteorder
 from .machdef import UnicornMachineDef
 
 
-class RISCV64MachineDef(UnicornMachineDef):
-    arch = Architecture.RISCV64
+class RISCVMachineDef(UnicornMachineDef):
+    """Unicorn machine definition common to all RiscV variants"""
+
     byteorder = Byteorder.LITTLE
 
     uc_arch = unicorn.UC_ARCH_RISCV
-    uc_mode = unicorn.UC_MODE_64
 
     _registers = {
         "x0": unicorn.riscv_const.UC_RISCV_REG_X0,
@@ -142,3 +142,13 @@ class RISCV64MachineDef(UnicornMachineDef):
         "f31": unicorn.riscv_const.UC_RISCV_REG_F31,
         "ft11": unicorn.riscv_const.UC_RISCV_REG_FT11,
     }
+
+
+class RISCV32MachineDef(RISCVMachineDef):
+    arch = Architecture.RISCV32
+    uc_mode = unicorn.UC_MODE_RISCV32
+
+
+class RISCV64MachineDef(RISCVMachineDef):
+    arch = Architecture.RISCV64
+    uc_mode = unicorn.UC_MODE_64

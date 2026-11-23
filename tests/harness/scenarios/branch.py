@@ -35,21 +35,31 @@ _ARCHS = (
     "armv8r",
     "armv8rbe",
     "i386",
+    "la32",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "msp430",
     "msp430x",
     "ppc",
     "ppc64",
+    "ppcvle",
+    "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -84,12 +94,15 @@ _SPECS = build_specs(
         "armv8rbe": _ARM_ENGINES,
         "ppc": _PPC_ENGINES,
     },
-    # branch prints the 32-bit view on aarch64 so the boolean fits.
+    # branch prints the 32-bit view on aarch64 so the boolean fits. x86_16
+    # prints in hex: on angr, ax is a slice of an eax whose high half is
+    # unset, so it is a concrete bitvector that only "hex" mode unwraps.
     per_arch={
         "aarch64": {"result_register": "w0"},
         "aarch64v85a": {"result_register": "w0"},
         "aarch64be": {"result_register": "w0"},
         "aarch64v85abe": {"result_register": "w0"},
+        "x86_16": {"print_mode": "hex"},
     },
 )
 
@@ -104,7 +117,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "branch"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
     run_factory=assert_outputs(
         (

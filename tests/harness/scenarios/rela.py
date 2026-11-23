@@ -14,7 +14,6 @@ from .common import (
     make_emulator,
     make_platform,
     make_puts_model,
-    resolve_ppc64_function_descriptor,
     set_register,
     split_variant,
 )
@@ -30,7 +29,6 @@ class RelaSpec:
     engines: tuple[str, ...]
     string_source: StringSource
     load_address: int | None = None
-    function_descriptor_entrypoint: bool = False
     print_entrypoint: bool = False
 
 
@@ -340,10 +338,21 @@ _SPECS = {
         pointer_size=8,
         pc_register="pc",
         stack_pointer_register="sp",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="r3"),
-        function_descriptor_entrypoint=True,
         load_address=0x80000000,
+        print_entrypoint=True,
+    ),
+    # Not 0x80000000 like riscv64: angr's pcode backend can't run 32-bit code
+    # loaded at or above 0x80000000 (SuperH fails the same way).
+    "riscv32": RelaSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+        load_address=0x400000,
         print_entrypoint=True,
     ),
     "riscv64": RelaSpec(
@@ -371,9 +380,6 @@ _SPECS = {
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "ppc64": "Relocations not supported",
-    "ppc64.angr": "Relocations not supported",
-    "ppc64.pcode": "Relocations not supported",
     "tricore.angr": "No C compiler",
     "tricore.panda": "No C compiler",
     "tricore.pcode": "No C compiler",
@@ -414,7 +420,14 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
     elif arch == "ppc":
         stack.push_integer(0, 4, None)
         stack.push_integer(0, 4, None)
-    elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
+    elif arch == "ppc64":
+        # An ELFv2 caller's frame header is 32 bytes: back chain, CR save,
+        # LR save, and the TOC save slot that calls through the PLT use.
+        stack.push_bytes(b"\0" * 24, "Frame header")
+        stack.push_integer(0x7FFFFFF8, 8, "fake back chain")
+    elif arch == "riscv32":
+        stack.push_integer(0x7FFFFFF8, 4, "fake return address")
+    elif arch in {"mips64", "mips64el", "la64", "riscv64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
     elif (
         arch
@@ -492,7 +505,16 @@ def _configure_exit(
         "ppc64",
     }:
         set_register(cpu, "lr", code_pointer(arch, exitpoint))
-    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
+    elif arch in {
+        "la64",
+        "mips",
+        "mips64",
+        "mips64el",
+        "mipsel",
+        "riscv32",
+        "riscv64",
+        "tricore",
+    }:
         set_register(cpu, "ra", exitpoint)
 
 
@@ -521,10 +543,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
     machine.add(code)
 
-    if spec.function_descriptor_entrypoint:
-        entrypoint = resolve_ppc64_function_descriptor(code, "main")
-    else:
-        entrypoint = code.get_symbol_value("main")
+    entrypoint = code.get_symbol_value("main")
     if spec.print_entrypoint:
         print(f"Entrypoint {hex(entrypoint)}")
     set_register(cpu, spec.pc_register, entrypoint)
@@ -544,7 +563,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     if arch in {"mips", "mipsel", "mips64", "mips64el"}:
         set_register(cpu, "t9", entrypoint)
     if arch == "ppc64":
-        set_register(cpu, "r2", 0x10027F00)
+        # An ELFv2 function's global entry point derives the TOC pointer, r2,
+        # from its own address in r12.
+        set_register(cpu, "r12", entrypoint)
 
     emulator = make_emulator(smallworld, platform, engine)
     _configure_exit(machine, emulator, cpu, code, stack, arch, engine, entrypoint)

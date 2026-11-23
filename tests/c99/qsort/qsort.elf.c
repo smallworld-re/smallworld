@@ -1,6 +1,14 @@
 #include <stdlib.h>
 
-int compare(const void* a, const void* b) {
+#ifdef __SDCC
+// SDCC's library calls the comparator with its reentrant convention, and
+// does not warn when given one compiled with its default convention.
+#define CALLBACK __reentrant
+#else
+#define CALLBACK
+#endif
+
+int compare(const void* a, const void* b) CALLBACK {
     return *(int*)a - *(int*)b;
 }
 
@@ -9,7 +17,7 @@ int main() {
 
     const int arr[10]    = {3, 2, 7, -100, 20, 2, 1, 30000, 400, -20};
     const int answer[10] = {-100, -20, 1, 2, 2, 3, 7, 20, 400, 30000};
-    qsort((void*)arr, 10, 4, compare);
+    qsort((void*)arr, 10, sizeof(int), compare);
 
     for (int i = 0; i < 10; i++) {
         if (arr[i] != answer[i]) {

@@ -61,7 +61,19 @@
 #define LONG_HEX_RES LONG_HEX_4
 #define LONG_CON LONG_CON_4
 
+#elif defined(__powerpc64__)
+#define LONG_OCT_RES LONG_OCT_8
+#define LONG_DEC_RES LONG_DEC_8
+#define LONG_HEX_RES LONG_HEX_8
+#define LONG_CON LONG_CON_8
+
 #elif defined(__powerpc__)
+#define LONG_OCT_RES LONG_OCT_4
+#define LONG_DEC_RES LONG_DEC_4
+#define LONG_HEX_RES LONG_HEX_4
+#define LONG_CON LONG_CON_4
+
+#elif defined(__riscv) && __riscv_xlen == 32
 #define LONG_OCT_RES LONG_OCT_4
 #define LONG_DEC_RES LONG_DEC_4
 #define LONG_HEX_RES LONG_HEX_4
@@ -73,8 +85,54 @@
 #define LONG_HEX_RES LONG_HEX_8
 #define LONG_CON LONG_CON_8
 
+#elif defined(__SDCC_mcs51)
+#define LONG_OCT_RES LONG_OCT_4
+#define LONG_DEC_RES LONG_DEC_4
+#define LONG_HEX_RES LONG_HEX_4
+#define LONG_CON LONG_CON_4
+// int and size_t are 16 bits wide.
+#define INT_NEG_OCT "177726"
+#define INT_NEG_DEC "65494"
+#define INT_NEG_HEX "ffd6"
+#define SIZE_OCT_RES "41102"
+#define SIZE_DEC_RES "16962"
+#define SIZE_HEX_RES "4242"
+// Pointers show their space: here, XDATA.
+#define POINTER_RES "X:0x002a"
+// main's buffer does not fit in internal RAM.
+#define BUF_SPACE static __xdata
+// math.h has no INFINITY or NAN.
+static float float_from_bits(unsigned long bits) {
+    union {
+        unsigned long bits;
+        float value;
+    } u;
+    u.bits = bits;
+    return u.value;
+}
+#define INFINITY float_from_bits(0x7f800000ul)
+#define NAN float_from_bits(0x7fc00000ul)
+
 #else
 #error "Unknown architecture"
+#endif
+
+// Where int is 32 bits wide, and size_t as wide as long.
+#ifndef INT_NEG_OCT
+#define INT_NEG_OCT "37777777726"
+#define INT_NEG_DEC "4294967254"
+#define INT_NEG_HEX "ffffffd6"
+#define SIZE_OCT_RES LONG_OCT_RES
+#define SIZE_DEC_RES LONG_DEC_RES
+#define SIZE_HEX_RES LONG_HEX_RES
+#endif
+
+#ifndef POINTER_RES
+#define POINTER_RES "0x2a"
+#endif
+
+#ifndef BUF_SPACE
+#define BUF_SPACE
 #endif
 
 
@@ -93,7 +151,7 @@
     } while(0)
 
 int main() {
-    char buf[128];
+    BUF_SPACE char buf[128];
     char *good = (char *)(size_t)0xdead0;
     int bad = 0;
 
@@ -118,7 +176,7 @@ int main() {
     TEST("%hd", "16962", 0x4242);
     TEST("%ld", LONG_DEC_RES, LONG_CON);
     TEST("%lld", "1311768467139281697", 0x1234567887654321ll);
-    TEST("%zd", LONG_DEC_RES, (size_t)LONG_CON);
+    TEST("%zd", SIZE_DEC_RES, (size_t)LONG_CON);
     // %i: Signed decimal integer
     TEST("%i", "42", 42);
     TEST("%i", "-42", -42);
@@ -132,10 +190,10 @@ int main() {
     TEST("%hi", "16962", 0x4242);
     TEST("%li", LONG_DEC_RES, LONG_CON);
     TEST("%lli", "1311768467139281697", 0x1234567887654321ll);
-    TEST("%zi", LONG_DEC_RES, (size_t)LONG_CON);
+    TEST("%zi", SIZE_DEC_RES, (size_t)LONG_CON);
     // %o: Unsigned octal integer
     TEST("%o", "52", 42);
-    TEST("%o", "37777777726", -42);
+    TEST("%o", INT_NEG_OCT, -42);
     TEST("%8o", "      52", 42);
     TEST("%-8o", "52      ", 42);
     TEST("%08o", "00000052", 42);
@@ -150,10 +208,10 @@ int main() {
     TEST("%ho", "41102", 0x4242);
     TEST("%lo", LONG_OCT_RES, LONG_CON);
     TEST("%llo", "110642547420731241441", 0x1234567887654321ll);
-    TEST("%zo", LONG_OCT_RES, (size_t)LONG_CON);
+    TEST("%zo", SIZE_OCT_RES, (size_t)LONG_CON);
     // %u: Unsigned decimal integer
     TEST("%u", "42", 42);
-    TEST("%u", "4294967254", -42);
+    TEST("%u", INT_NEG_DEC, -42);
     TEST("%8u", "      42", 42);
     TEST("%-8u", "42      ", 42);
     TEST("%08u", "00000042", 42);
@@ -162,10 +220,10 @@ int main() {
     TEST("%hu", "16962", 0x4242);
     TEST("%lu", LONG_DEC_RES, LONG_CON);
     TEST("%llu", "1311768467139281697", 0x1234567887654321ll);
-    TEST("%zu", LONG_DEC_RES, (size_t)LONG_CON);
+    TEST("%zu", SIZE_DEC_RES, (size_t)LONG_CON);
     // %x: Unsigned hexadecimal integer, lower-case
     TEST("%x", "2a", 42);
-    TEST("%x", "ffffffd6", -42);
+    TEST("%x", INT_NEG_HEX, -42);
     TEST("%8x", "      2a", 42);
     TEST("%-8x", "2a      ", 42);
     TEST("%08x", "0000002a", 42);
@@ -175,7 +233,7 @@ int main() {
     TEST("%hx", "4242", 0x4242);
     TEST("%lx", LONG_HEX_RES, LONG_CON);
     TEST("%llx", "1234567887654321", 0x1234567887654321ll);
-    TEST("%zx", LONG_HEX_RES, (size_t)LONG_CON);
+    TEST("%zx", SIZE_HEX_RES, (size_t)LONG_CON);
     // %X: Unsigned hexadecimal integer, upper-case
     TEST("%X", "2A", 42);
     TEST("%8X", "      2A", 42);
@@ -187,7 +245,7 @@ int main() {
     TEST("%hX", "4242", 0x4242);
     TEST("%lX", LONG_HEX_RES, LONG_CON);
     TEST("%llX", "1234567887654321", 0x1234567887654321ll);
-    TEST("%zX", LONG_HEX_RES, (size_t)LONG_CON);
+    TEST("%zX", SIZE_HEX_RES, (size_t)LONG_CON);
     // %e: Scientific notation, lower-case
     TEST("%e", "4.200000e+01", 42.0);
     TEST("%e", "inf", INFINITY);
@@ -281,7 +339,7 @@ int main() {
     TEST("%8s", "  foobar", "foobar");
     TEST("%.3s", "foo", "foobar");
     // %p: Pointer
-    TEST("%p", "0x2a", (void *)42l);
+    TEST("%p", POINTER_RES, (void *)42l);
 
     if(bad) {
         puts("Errors.  Check above");

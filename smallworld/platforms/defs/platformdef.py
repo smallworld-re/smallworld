@@ -1,4 +1,5 @@
 import abc
+import enum
 import typing
 from dataclasses import dataclass
 
@@ -18,7 +19,33 @@ class RegisterAliasDef(RegisterDef):
     offset: int
 
 
+class IsaBit(enum.Enum):
+    """What bit 0 of a code address means on a platform.
+
+    Some CPUs run two instruction sets and take the one to run from bit 0 of
+    a jump target (ARM's Thumb bit, MIPS's ISA bit). On those, code
+    addresses in an ELF image and in registers such as the return address
+    carry that bit; the instruction itself is at the even address.
+    """
+
+    NONE = "none"
+    """Bit 0 is part of the address."""
+
+    SELECTS = "selects"
+    """Bit 0 selects the instruction set: 1 the alternate one (Thumb,
+    microMIPS), 0 the standard one."""
+
+    REQUIRED = "required"
+    """The CPU runs only the alternate instruction set, and bit 0 must be 1
+    (ARMv6-M and ARMv7-M Thumb)."""
+
+
 class PlatformDef(metaclass=abc.ABCMeta):
+    #: What bit 0 of a code address means; see :class:`IsaBit`. Where it
+    #: selects the instruction set, :meth:`.Emulator.get_isa_mode` and
+    #: :meth:`.Emulator.set_isa_mode` read and set the current one.
+    isa_bit: IsaBit = IsaBit.NONE
+
     #: Ghidra/SLEIGH language id (arch+byteorder) -- the single source of
     #: truth for both the Ghidra emulator's machine defs and the pcode
     #: analysis. None if this platform has no Ghidra language.

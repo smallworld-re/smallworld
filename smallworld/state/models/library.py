@@ -172,6 +172,9 @@ class ElfModelLibrary(Memory):
         # Descriptors carry a resolver address rather than a symbol, so no
         # relocation reaches them; they load with a null resolver and are
         # bound here, the first point at which the model has an address.
+        relocator = elf.relocator
+        if relocator is None:
+            return
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
             address = tlsdesc._address
@@ -179,12 +182,12 @@ class ElfModelLibrary(Memory):
                 # Code reaches the resolver with blx, so it needs the Thumb
                 # bit as every other model address does.
                 address |= 1
-            elf.bind_tlsdesc_resolver(address)
-        elif elf.tlsdesc_descriptors:
+            relocator.bind_tls_descriptor_resolver(elf, address)
+        elif relocator.tls_descriptors:
             # Silence here would surface much later as a call to address zero,
             # with nothing tying it back to TLS.
             log.warning(
-                f"{len(elf.tlsdesc_descriptors)} TLS descriptors need a resolver, "
+                f"{len(relocator.tls_descriptors)} TLS descriptors need a resolver, "
                 f"but this library provides no __tlsdesc_resolve model; "
                 f"thread-local accesses will call address zero"
             )
