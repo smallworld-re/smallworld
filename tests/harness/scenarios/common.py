@@ -31,6 +31,11 @@ class ArchInfo:
     stack_pointer_register: str
     pointer_size: int
     engines: tuple[str, ...]
+    # Why an engine in `engines` can't run this architecture's scenarios,
+    # by engine; every scenario skips those variants.
+    engine_skip_reasons: Mapping[str, str] = dataclasses.field(
+        default_factory=dict, hash=False
+    )
 
 
 _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
@@ -107,6 +112,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=8,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "aarch64v85abe": ArchInfo(
         platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
@@ -116,6 +124,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=8,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "amd64": ArchInfo(
         platform=PlatformSpec("X86_64", "LITTLE"),
@@ -143,6 +154,10 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv4": ArchInfo(
         platform=PlatformSpec("ARM_V4", "LITTLE"),
@@ -161,6 +176,10 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv4t": ArchInfo(
         platform=PlatformSpec("ARM_V4T", "LITTLE"),
@@ -179,6 +198,10 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv6k": ArchInfo(
         platform=PlatformSpec("ARM_V6K", "LITTLE"),
@@ -197,6 +220,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv6m": ArchInfo(
         platform=PlatformSpec("ARM_V6M", "LITTLE"),
@@ -206,6 +232,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's Cortex-M0 board has flash where the tests load code",
+        },
     ),
     "armv7m": ArchInfo(
         platform=PlatformSpec("ARM_V7M", "LITTLE"),
@@ -233,6 +262,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
     ),
     "armv7a": ArchInfo(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
@@ -251,6 +283,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv7r": ArchInfo(
         platform=PlatformSpec("ARM_V7R", "LITTLE"),
@@ -260,6 +295,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv7-R target",
+        },
     ),
     "armv7rbe": ArchInfo(
         platform=PlatformSpec("ARM_V7R", "BIG"),
@@ -269,6 +307,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv8a": ArchInfo(
         platform=PlatformSpec("ARM_V8A", "LITTLE"),
@@ -278,6 +319,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
     ),
     "armv8abe": ArchInfo(
         platform=PlatformSpec("ARM_V8A", "BIG"),
@@ -287,6 +331,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "armv8r": ArchInfo(
         platform=PlatformSpec("ARM_V8R", "LITTLE"),
@@ -296,6 +343,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
     ),
     "armv8rbe": ArchInfo(
         platform=PlatformSpec("ARM_V8R", "BIG"),
@@ -305,6 +355,9 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "i386": ArchInfo(
         platform=PlatformSpec("X86_32", "LITTLE"),

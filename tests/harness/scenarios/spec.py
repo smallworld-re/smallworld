@@ -3,6 +3,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Callable, Mapping, Sequence, Union
 
+from .common import ARCH_REGISTERS, split_variant
+
 VariantInfo = tuple[str, "str | None", dict[str, Any]]
 VariantsSource = Callable[[], Sequence[VariantInfo]]
 
@@ -34,50 +36,12 @@ class ScenarioInfo:
     description_factory: DescriptionFactory | None = None
 
 
-#: Skip reasons applied to every arch-table or explicitly listed variant
-#: unless a scenario gives its own. PANDA runs no ARMv6-M or BE32 ARM (see
-#: below), and Styx has no ARMv7-R or ARMv8 target.
-_DEFAULT_SKIP_REASONS = {
-    # PANDA's only Cortex-M0 board, microbit, keeps flash where the tests
-    # load their code, and flash drops the writes that would load it.
-    "armv6m.panda": "PANDA's Cortex-M0 board has flash where the tests load code",
-    **{
-        f"{arch}.styx": "Styx has no ARMv8 target"
-        for arch in ("armv8a", "armv8abe", "armv8r", "armv8rbe", "armv8m")
-    },
-    "armv7r.styx": "Styx has no ARMv7-R target",
-    "armv7rbe.styx": "Styx has no ARMv7-R target",
-    # Big-endian ARM runs on Unicorn, angr and Ghidra, and BE8 and big-endian
-    # AArch64 on PANDA too. Triton has no big-endian ARM (see TRITON_ARCHS),
-    # and SmallWorld configures no big-endian ARM machine for Styx.
-    **{
-        f"{arch}.styx": "No big-endian ARM machine is configured for Styx"
-        for arch in (
-            "aarch64be",
-            "aarch64v85abe",
-            "armv4be",
-            "armv4tbe",
-            "armv5tbe",
-            "armv6kbe",
-            "armv7abe",
-            "armv7rbe",
-            "armv8abe",
-            "armv8rbe",
-        )
-    },
-    # QEMU's system-mode BE32 keeps each word little-endian in memory and
-    # swaps byte addresses instead, so memory SmallWorld reads and writes
-    # would come out swapped within each word.
-    **{
-        f"{arch}.panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model"
-        for arch in ("armv4be", "armv4tbe", "armv5tbe")
-    },
-}
-
-
 def default_skip_reason(variant: str) -> str | None:
-    """The platform-wide skip reason for ``variant``, if it has one."""
-    return _DEFAULT_SKIP_REASONS.get(variant)
+    """The platform-wide skip reason for ``variant``, if it has one: the
+    reason its arch row in ``common.ARCH_REGISTERS`` gives for its engine."""
+    arch, engine = split_variant(variant)
+    info = ARCH_REGISTERS.get(arch)
+    return None if info is None else info.engine_skip_reasons.get(engine)
 
 
 def from_arch_table(
@@ -98,7 +62,7 @@ def from_arch_table(
     the standard enumeration (e.g. a hand-rolled spec override).
     """
 
-    skips = {**_DEFAULT_SKIP_REASONS, **(skip_reasons or {})}
+    skips = dict(skip_reasons or {})
     arch_kw = {arch: dict(kw) for arch, kw in (arch_kwargs or {}).items()}
 
     def _impl() -> Sequence[VariantInfo]:
@@ -108,7 +72,8 @@ def from_arch_table(
             kwargs = arch_kw.get(arch, {})
             for engine in spec.engines:
                 variant = arch if engine == "unicorn" else f"{arch}.{engine}"
-                out.append((variant, skips.get(variant), dict(kwargs)))
+                reason = skips.get(variant) or default_skip_reason(variant)
+                out.append((variant, reason, dict(kwargs)))
         out.extend(extra_variants)
         return out
 
