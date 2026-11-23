@@ -248,6 +248,11 @@
               xtensaGcc
               ;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
+            # zig 0.17 dropped glibc support for 32-bit PowerPC (only musl
+            # remains), so `zig cc -target powerpc-linux...-gnueabi` fails with
+            # "unable to provide libc for target". Stay on 0.16 until the PPC
+            # C test binaries move to another toolchain.
+            zig = pkgs.zig_0_16;
           };
 
           rtos_demo = pkgs.callPackage ../use_cases/rtos_demo {
@@ -278,6 +283,16 @@
                           substituteInPlace pyproject.toml \
                             --replace-fail "setuptools_scm<10" "setuptools_scm"
                         '';
+                      });
+                      # spsdk-pyocd 0.3.10 now declares a runtime dependency on
+                      # spsdk, but spsdk itself depends on spsdk-pyocd, so
+                      # nixpkgs omits it to break the cycle and the
+                      # pythonRuntimeDepsCheck fails with "spsdk not installed".
+                      # Drop the cyclic requirement from the wheel metadata;
+                      # spsdk is still present in the env since it is what pulls
+                      # spsdk-pyocd in.
+                      spsdk-pyocd = pyprev.spsdk-pyocd.overridePythonAttrs (old: {
+                        pythonRemoveDeps = (old.pythonRemoveDeps or [ ]) ++ [ "spsdk" ];
                       });
                       patool = pyprev.patool.overridePythonAttrs (_old: {
                         doCheck = false;
