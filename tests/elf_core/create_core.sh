@@ -12,14 +12,16 @@ platform=`echo "$1" | cut -d. -f2-2`
 qemu_bin="qemu-$platform"
 if [ "$platform" = "aarch64" ]; then
     sysroot=$AARCH64_SYSROOT
+elif [ "$platform" = "aarch64v85a" ]; then
+    # QEMU's user-mode default CPU, "max", runs ARMv8.5-A code.
+    sysroot=$AARCH64_SYSROOT
+    qemu_bin="qemu-aarch64"
 elif [ "$platform" = "amd64" ]; then
     sysroot=$AMD64_SYSROOT
     qemu_bin="qemu-x86_64"
-elif [ "$platform" = "armel" ]; then
+elif [ "${platform#armv}" != "$platform" ]; then
+    # Every 32-bit ARM platform (armv4t through armv8m)
     echo "FIXME: No sysroot for arm32 in Nix"
-    exit 0
-elif [ "$platform" = "armhf" ]; then
-    echo "FIXME: no sysroot for arm32 in nix"
     exit 0
 elif [ "$platform" = "i386" ]; then
     echo "FIXME: no sysroot for i386 in nix"
@@ -39,8 +41,7 @@ elif [ "$platform" = "mips64el" ]; then
 elif [ "$platform" = "ppc" ]; then
     sysroot=$PPC_SYSROOT
 elif [ "$platform" = "ppc64" ]; then
-    echo "FIXME: Something is horribly wrong with ppc64 ld.so"
-    exit 0
+    sysroot=$PPC64_SYSROOT
 fi
 
 

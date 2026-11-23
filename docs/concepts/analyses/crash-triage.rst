@@ -326,7 +326,7 @@ could raise a particular trap are entirely
 implementation-specific.  Consider integer divide-by-zero:
 
 - amd64 and i386 raise a specific "div0" exception
-- aarch64, armel, and armhf do not raise any exception; x divided by zero equals zero
+- aarch64, armv6k, and armv7a do not raise any exception; x divided by zero equals zero
 - The mips variants raise a generic "trap" exception that's indistinguishable from an illegal instruction
 
 Further more, Unicorn is incredibly inconsistent

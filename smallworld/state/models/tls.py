@@ -17,10 +17,10 @@ external function.
 import abc
 import typing
 
-#: The module id the relocator reports for every thread-local (see
-#: R_X86_64_DTPMOD64). The harness loads one image, so there is one TLS block;
-#: this names which per-module arena that block's storage lives in.
-RELOCATED_TLS_MODULE = 1
+# The module id the relocator reports for every thread-local; the harness
+# loads one image, so there is one TLS block, and this names which
+# per-module arena that block's storage lives in.  The relocators own it.
+from ..memory.elf.rela.rela import RELOCATED_TLS_MODULE  # noqa: F401
 
 
 class TlsArenaOwner(abc.ABC):

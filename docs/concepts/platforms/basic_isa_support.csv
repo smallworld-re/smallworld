@@ -1,26 +1,54 @@
 ,                   angr,       ghidra,     panda,      styx,       unicorn
 aarch64,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+aarch64-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+aarch64-v8.5a,      **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+aarch64-v8.5a-be,   **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 amd64,              **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v4,             **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v4t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v5t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v4-be,          **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v4t-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v5t-be,         **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v6k,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
 arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
 arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v7m,            **Yes**,    **Yes**,    No,         No,         **Yes**
-arm-v7r,            No,         No,         No,         No,         **Yes**
+arm-v7em,           **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7m,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7r,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v8a,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v8m,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v8r,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v6k-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v7a-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v7r-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v8a-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v8r-be,         **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 i386,               **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+la32,               **Yes**,    **Yes**,    No Support, No,         No Support
 la64,               **Yes**,    **Yes**,    No Support, No,         No Support
-m68k,               No,         **Yes**,    No Support, No,         **Yes**
+m68k,               **Yes**,    **Yes**,    No Support, No,         **Yes**
 mips32r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips32r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mips32-micromips-be, **Yes**,    **Yes**,    No,         No,         **Yes**
+mips32-micromips-el, **Yes**,    **Yes**,    No,         No,         **Yes**
 mips64r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
 mips64r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mcs51,              **Yes**,    **Yes**,    No Support, No,         No Support
 msp430,             **Yes**,    **Yes**,    No Support, No,         No Support
 msp430x,            **Yes**,    **Yes**,    No Support, No,         No Support
 powerpc32,          **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-powerpc64,          **Yes**,    **Yes**,    No,         No,         No Support
+powerpc32-vle,      **Yes**,    No,         No Support, No,         No Support
+powerpc64,          **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+riscv32,            **Yes**,    **Yes**,    No,         No,         **Yes**
 riscv64,            **Yes**,    **Yes**,    No Support, No,         **Yes**
 sparc32,            **Yes**,    **Yes**,    No,         No Support, **Yes**
+superh-sh1,         **Yes**,    **Yes**,    No,         No,         No Support
+superh-sh2,         **Yes**,    **Yes**,    No,         No,         No Support
 superh-sh2a-fpu,    **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4-be,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4-el,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 tricore,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+v850,               **Yes**,    **Yes**,    No Support, No Support, No Support
+x86-16,             **Yes**,    **Yes**,    No,         No,         **Yes**
 xtensa,             **Yes**,    **Yes**,    No Support, No,         No Support

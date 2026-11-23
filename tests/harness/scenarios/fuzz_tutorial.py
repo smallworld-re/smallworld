@@ -2,7 +2,7 @@
 
 Both variants run the standalone tutorial scripts directly (no test-harness
 scaffolding), so they verify the exact code a tutorial reader would copy.
-``unicorn:armel`` is driven through ``afl-showmap``; ``styx:armel`` relies on
+``unicorn:armv5t`` is driven through ``afl-showmap``; ``styx:armv5t`` relies on
 ``styxafl``'s non-AFL fallback mode (single iteration when ``__AFL_SHM_ID``
 is unset).
 """
@@ -25,7 +25,7 @@ _UNICORN_EXPECTED = ("002975:1", "022192:1", "050871:1")
 def _fuzz_tutorial_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
     from .. import manifest
 
-    if variant == "styx:armel":
+    if variant == "styx:armv5t":
 
         def run(runner):
             result = runner.command(
@@ -35,7 +35,7 @@ def _fuzz_tutorial_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
             )
             runner.assert_lines_absent(result.stdout, "Traceback")
 
-    elif variant == "unicorn:armel":
+    elif variant == "unicorn:armv5t":
 
         def run(runner):
             stdout, _ = manifest._run_afl_showmap(
@@ -58,7 +58,7 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="fuzz_tutorial",
     scenario="fuzz_tutorial",
     tags=("scenario", "fuzz", "docs"),
-    variants_source=from_variants((("styx:armel", None), ("unicorn:armel", None))),
+    variants_source=from_variants((("styx:armv5t", None), ("unicorn:armv5t", None))),
     run_factory=_fuzz_tutorial_run_factory,
     weight=2,
 )

@@ -7,6 +7,9 @@ from .machdef import PandaMachineDef
 # fetches an instruction from unmapped memory.
 _ARM_EXCP_PREFETCH_ABORT = 3
 
+# The views of each SIMD and FP register, by width in bits.
+_VECTOR_VIEW_BITS = {"q": 128, "d": 64, "s": 32, "h": 16, "b": 8}
+
 
 class AArch64MachineDef(PandaMachineDef):
     arch = Architecture.AARCH64
@@ -20,6 +23,49 @@ class AArch64MachineDef(PandaMachineDef):
                 f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
             )
         super().handle_interrupt(intno, pc)
+
+    # PANDA's register accessors reach only the general-purpose registers, so
+    # the SIMD and FP registers, and cpacr_el1, which gates access to them,
+    # live in the CPU state. Vector register n is zregs[n].d[0:2]; its d, s, h
+    # and b views are its low bits, and writing one leaves the rest alone.
+    # QEMU caches whether the FPU is enabled in the CPU's hflags, so writing
+    # cpacr_el1 or fpcr rebuilds them.
+    _state_registers = frozenset(
+        {"cpacr_el1", "fpcr", "fpsr"}
+        | {f"{view}{n}" for view in _VECTOR_VIEW_BITS for n in range(32)}
+    )
+
+    def read_state_register(self, name: str, panda_obj, panda_cpu) -> int:
+        env = panda_obj.cpu_env(panda_cpu)
+        if name == "cpacr_el1":
+            return int(env.cp15.cpacr_el1)
+        if name == "fpcr":
+            return int(panda_obj.libpanda.vfp_get_fpcr(env))
+        if name == "fpsr":
+            return int(panda_obj.libpanda.vfp_get_fpsr(env))
+        lanes = env.vfp.zregs[int(name[1:])].d
+        value = int(lanes[0]) | int(lanes[1]) << 64
+        return value & ((1 << _VECTOR_VIEW_BITS[name[0]]) - 1)
+
+    def write_state_register(self, name: str, value: int, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        if name == "cpacr_el1":
+            env.cp15.cpacr_el1 = value & 0xFFFFFFFFFFFFFFFF
+            panda_obj.libpanda.arm_rebuild_hflags(env)
+            return
+        if name == "fpcr":
+            panda_obj.libpanda.vfp_set_fpcr(env, value & 0xFFFFFFFF)
+            panda_obj.libpanda.arm_rebuild_hflags(env)
+            return
+        if name == "fpsr":
+            panda_obj.libpanda.vfp_set_fpsr(env, value & 0xFFFFFFFF)
+            return
+        lanes = env.vfp.zregs[int(name[1:])].d
+        mask = (1 << _VECTOR_VIEW_BITS[name[0]]) - 1
+        current = int(lanes[0]) | int(lanes[1]) << 64
+        current = (current & ~mask) | (value & mask)
+        lanes[0] = current & 0xFFFFFFFFFFFFFFFF
+        lanes[1] = current >> 64
 
     def __init__(self):
         self._registers = {
@@ -278,3 +324,37 @@ class AArch64MachineDef(PandaMachineDef):
             "h31": None,
             "b31": None,
         }
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A
+    # QEMU's "max" model accepts a superset of ARMv8.5-A's instructions.
+    cpu = "max"
+
+
+# Big-endian AArch64 keeps its instructions little-endian, as AArch64 always
+# does; SCTLR_ELx.EE makes data accesses at ELx big-endian, and SCTLR_EL1.E0E
+# those at EL0. PANDA's AArch64 runs at EL3, but every level is set so the
+# data stays big-endian at whichever level the code reaches. QEMU caches the
+# data endianness in the CPU's hflags, so setting them rebuilds those.
+
+_SCTLR_E0E = 1 << 24
+_SCTLR_EE = 1 << 25
+
+
+class AArch64MachineMixinBE:
+    byteorder = Byteorder.BIG
+
+    def configure_cpu(self, panda_obj, panda_cpu) -> None:
+        env = panda_obj.cpu_env(panda_cpu)
+        for el in range(1, 4):
+            env.cp15.sctlr_el[el] |= _SCTLR_EE | _SCTLR_E0E
+        panda_obj.libpanda.arm_rebuild_hflags(env)
+
+
+class AArch64BEMachineDef(AArch64MachineMixinBE, AArch64MachineDef):
+    pass
+
+
+class AArch64V85ABEMachineDef(AArch64MachineMixinBE, AArch64V85AMachineDef):
+    pass

@@ -1,0 +1,368 @@
+{
+ "isa": "micromips",
+ "ghidra_lang": "MIPS:BE:32:micro",
+ "ghidra_context": {
+  "ISA_MODE": 1
+ },
+ "llvm_triple": "mips-unknown-linux-gnu",
+ "base_address": 4096,
+ "entries": [
+  {
+   "asm": "addiu $t0, $zero, 42",
+   "bytes": "3100002a",
+   "categories": [
+    "mov",
+    "imm",
+    "li-form"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "li via addiu: reads hardwired zero"
+  },
+  {
+   "asm": "addiu $sp, $sp, -32",
+   "bytes": "33bdffe0",
+   "categories": [
+    "arith",
+    "imm",
+    "stack"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lw $t0, 8($sp)",
+   "bytes": "fd1d0008",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "t0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "",
+   "address_only_uses": [
+    "sp"
+   ]
+  },
+  {
+   "asm": "sw $t0, 8($sp)",
+   "bytes": "f91d0008",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "t0"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "",
+   "address_only_uses": [
+    "sp"
+   ]
+  },
+  {
+   "asm": "lw16 $v0, 4($a0)",
+   "bytes": "6941",
+   "categories": [
+    "load",
+    "base+disp",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    },
+    {
+     "mem": {
+      "base": "a0",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "v0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "",
+   "address_only_uses": [
+    "a0"
+   ]
+  },
+  {
+   "asm": "move $s5, $a0",
+   "bytes": "0ea4",
+   "categories": [
+    "mov",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "s5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "move16"
+  },
+  {
+   "asm": "jr $t9",
+   "bytes": "00190f3c",
+   "categories": [
+    "branch",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jr16 $t9",
+   "bytes": "4599",
+   "categories": [
+    "branch",
+    "indirect",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jrc $ra",
+   "bytes": "45bf",
+   "categories": [
+    "ret",
+    "compact",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "compact: no delay slot"
+  },
+  {
+   "asm": "jalr $t9",
+   "bytes": "03f90f3c",
+   "categories": [
+    "call",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jalrs16 $t9",
+   "bytes": "45f9",
+   "categories": [
+    "call",
+    "indirect",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "t9"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "short delay slot: the link skips a 16-bit one"
+  },
+  {
+   "asm": "jraddiusp 8",
+   "bytes": "4702",
+   "categories": [
+    "ret",
+    "compact",
+    "stack",
+    "16-bit"
+   ],
+   "uses": [
+    {
+     "reg": "ra"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "jr $ra and sp += 8, with no delay slot"
+  },
+  {
+   "asm": "beqzc $a0, 4",
+   "bytes": "40e40002",
+   "categories": [
+    "branch",
+    "conditional",
+    "compact"
+   ],
+   "uses": [
+    {
+     "reg": "a0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "compact: no delay slot"
+  },
+  {
+   "asm": "b16 4",
+   "bytes": "cc02",
+   "categories": [
+    "branch",
+    "16-bit"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bal 4",
+   "bytes": "40600002",
+   "categories": [
+    "call",
+    "pc-relative"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "zero"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "bal encodes as bgezal $zero: reads hardwired zero"
+  },
+  {
+   "asm": "jalx 0x2000",
+   "bytes": "f0000800",
+   "categories": [
+    "call",
+    "absolute",
+    "isa-switch"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "ra"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "jumps to standard MIPS32 code"
+  }
+ ]
+}

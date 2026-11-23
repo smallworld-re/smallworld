@@ -18,8 +18,9 @@ _JMP_G1 = 0x81C06000  # jmp %g1 + %lo(value)
 
 
 class SPARC32ElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.SPARC32
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.SPARC32, platforms.Byteorder.BIG)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         if not rela.is_rela:

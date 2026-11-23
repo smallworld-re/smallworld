@@ -1,10 +1,24 @@
+import typing
+
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, Userop
+from .userops import aarch64_crc32_userops, neon_sqrdml_as_h
 
 
 class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
+
+    # yield, sev and sevl have no architectural effect on a single core, and
+    # LOAcquire and LORelease, which the acquire and release forms of loads,
+    # stores and atomics call, only order memory accesses.
+    nop_userops = frozenset(
+        {"Yield", "SendEvent", "SendEventLocally", "LOAcquire", "LORelease"}
+    )
+    userops: typing.Mapping[str, Userop] = {
+        "NEON_sqrdml_as_h": neon_sqrdml_as_h,
+        **aarch64_crc32_userops,
+    }
 
     _registers = {
         # *** General Purpose Registers ***
@@ -287,3 +301,15 @@ class AArch64MachineDef(GhidraMachineDef):
         "h31": "h31",
         "b31": "b31",
     }
+
+
+class AArch64BEMachineDef(AArch64MachineDef):
+    byteorder = Byteorder.BIG
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABEMachineDef(AArch64BEMachineDef):
+    arch = Architecture.AARCH64_V8_5A

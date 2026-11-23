@@ -56,6 +56,7 @@ import pypcode
 
 from smallworld.instructions import Operand, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+from smallworld.platforms import PlatformDef
 
 logger = logging.getLogger(__name__)
 
@@ -65,25 +66,79 @@ logger = logging.getLogger(__name__)
 #
 # One Context per language, kept for the life of the process: building one
 # costs tens of milliseconds, translating against it is sub-millisecond.
-# Translation is stateless, so unlike the pyghidra implementation there is no
-# program to repopulate, nothing to evict on error and nothing to tear down.
+# Unlike the pyghidra implementation there is no program to repopulate,
+# nothing to evict on error and nothing to tear down.
+#
+# A language that holds several encodings picks one with context fields
+# (microMIPS's ISA_MODE), so a context is cached per language and set of
+# starting field values; the key is the bare language id when there are
+# none. And translation is not quite stateless: decoding some instructions
+# writes the context later code decodes with (see
+# _context_writing_mnemonics), so a context that decoded one is dropped.
 _contexts: dict = {}
 
+#: Context field values as (name, value) pairs, sorted by name.
+ContextValues = typing.Tuple[typing.Tuple[str, int], ...]
 
-def _get_context(language_id: str) -> "pypcode.Context":
-    """The cached Context for `language_id`, building it on first use.
 
-    Raises ValueError for a language SLEIGH does not know:
-    `Instruction._pcode_result` classifies that as a configuration problem.
+@functools.lru_cache(maxsize=None)
+def _context_writing_mnemonics(language_id: str) -> typing.FrozenSet[str]:
+    """The mnemonics whose decoding records, in `language_id`'s context, how
+    later code decodes: the ghidra_context_writing_mnemonics of every platform
+    definition with that language."""
+    mnemonics: typing.Set[str] = set()
+    stack = list(PlatformDef.__subclasses__())
+    while stack:
+        cls = stack.pop()
+        stack.extend(cls.__subclasses__())
+        if cls.ghidra_language_id == language_id:
+            mnemonics |= cls.ghidra_context_writing_mnemonics
+    return frozenset(mnemonics)
+
+
+def _context_key(language_id: str, context: ContextValues):
+    return (language_id, context) if context else language_id
+
+
+def _get_context(language_id: str, context: ContextValues = ()) -> "pypcode.Context":
+    """The cached Context for `language_id` with `context`'s starting field
+    values, building it on first use.
+
+    Raises ValueError for a language SLEIGH does not know, or a context field
+    it does not have: `Instruction._pcode_result` classifies that as a
+    configuration problem.
     """
-    ctx = _contexts.get(language_id)
+    key = _context_key(language_id, context)
+    ctx = _contexts.get(key)
     if ctx is None:
         try:
             ctx = pypcode.Context(language_id)
         except Exception as e:
             raise ValueError(f"unknown SLEIGH language {language_id!r}: {e}") from e
-        _contexts[language_id] = ctx
+        for name, value in context:
+            try:
+                ctx.setVariableDefault(name, value)
+            except Exception as e:
+                raise ValueError(
+                    f"cannot set context field {name!r} on {language_id!r}: {e}"
+                ) from e
+        _contexts[key] = ctx
     return ctx
+
+
+#: Per cached Context (by _contexts key): address -> length of the
+#: delay-slot instruction last translated there; see _analyze_locked.
+_delay_slot_sizes: dict = {}
+
+
+def _drop_context(language_id: str, context: ContextValues) -> None:
+    """Forget a cached Context, so the next analysis builds a clean one."""
+    key = _context_key(language_id, context)
+    _delay_slot_sizes.pop(key, None)
+    ctx = _contexts.pop(key, None)
+    if ctx is not None:
+        # Keyed by id(), which a new Context could reuse.
+        _register_intervals.pop(id(ctx), None)
 
 
 # Space names SLEIGH uses. `ram` is the only address-type space this
@@ -1060,14 +1115,18 @@ def _instruction_use_def(ctx, ops, disassembly, address):
 _analysis_lock = threading.RLock()
 
 
-def warm(language_id: str) -> None:
-    """Build (or reuse) the SLEIGH context for `language_id`.
+def warm(language_id: str, context: typing.Mapping[str, int] = {}) -> None:
+    """Build (or reuse) the SLEIGH context for `language_id` and `context`.
 
     Optional -- `analyze` builds it on first use anyway. Call it during setup
     to keep the one-time build out of a latency-sensitive path.
     """
     with _analysis_lock:
-        _get_context(language_id)
+        _get_context(language_id, _context_values(context))
+
+
+def _context_values(context: typing.Mapping[str, int]) -> ContextValues:
+    return tuple(sorted((name, int(value)) for name, value in context.items()))
 
 
 def _instruction_ops(translation):
@@ -1085,25 +1144,10 @@ def _instruction_ops(translation):
     return ops[0], body
 
 
-def _analyze_inner(byte_data, arch, base_address):
-    """Uncached implementation; see analyze for the public API."""
-    with _analysis_lock:
-        return _analyze_locked(byte_data, arch, base_address)
-
-
-def _analyze_locked(byte_data, arch, base_address):
-    """_analyze_inner's body; runs holding _analysis_lock."""
-    ctx = _get_context(arch)
-    base = int(base_address)
-
-    # SLEIGH will not form a delay-slot branch (MIPS, SPARC) unless the
-    # delay-slot instruction is present, and zeroes decode as a nop there, so
-    # the branch's use/def stays its own. Needs no clamping to the address
-    # space the way the Ghidra implementation did: nothing is mapped here.
-    data = bytes(byte_data) + b"\x00" * 8
-
+def _translate(ctx, data: bytes, base: int):
+    """One instruction's translation, or None if nothing decodes there."""
     try:
-        translation = ctx.translate(data, base, max_instructions=1)
+        return ctx.translate(data, base, max_instructions=1)
     except pypcode.BadDataError:
         # Nothing decodable here. None rather than an exception: the caller's
         # disassembler may disagree about whether these bytes are an
@@ -1114,6 +1158,27 @@ def _analyze_locked(byte_data, arch, base_address):
         # we do not know -- as the UNIMPLEMENTED op path did before.
         raise UseDefError(f"no p-code semantics for the instruction at {base:#x}: {e}")
 
+
+def _analyze_inner(byte_data, arch, base_address, context: ContextValues = ()):
+    """Uncached implementation; see analyze for the public API."""
+    with _analysis_lock:
+        return _analyze_locked(byte_data, arch, base_address, context)
+
+
+def _analyze_locked(byte_data, arch, base_address, context: ContextValues = ()):
+    """_analyze_inner's body; runs holding _analysis_lock."""
+    ctx = _get_context(arch, context)
+    base = int(base_address)
+
+    # SLEIGH will not form a delay-slot branch (MIPS, SPARC) unless the
+    # delay-slot instruction is present, and zeroes decode as a nop there, so
+    # the branch's use/def stays its own. Needs no clamping to the address
+    # space the way the Ghidra implementation did: nothing is mapped here.
+    data = bytes(byte_data) + b"\x00" * 8
+
+    translation = _translate(ctx, data, base)
+    if translation is None:
+        return None
     imark, ops = _instruction_ops(translation)
     if imark is None:
         return None
@@ -1122,16 +1187,46 @@ def _analyze_locked(byte_data, arch, base_address):
     # Report its own length; that is what callers check their disassembler on.
     size = int(imark.inputs[0].size)
 
+    key = _context_key(arch, context)
+    seen = _delay_slot_sizes.setdefault(key, {})
+    has_delay_slot = len(imark.inputs) > 1
+    if has_delay_slot and seen.get(base, size) != size:
+        # SLEIGH keeps decoding state by address, and a delay-slot
+        # instruction of one width there leaves a later one of the other
+        # width (microMIPS mixes 2 and 4 bytes) translated with no p-code
+        # but its IMARK. Its length and delay slots still come out right,
+        # which is how this is caught; a new Context translates it cleanly.
+        _drop_context(arch, context)
+        ctx = _get_context(arch, context)
+        seen = _delay_slot_sizes.setdefault(key, {})
+        translation = _translate(ctx, data, base)
+        if translation is None:
+            return None
+        imark, ops = _instruction_ops(translation)
+        if imark is None:
+            return None
+        size = int(imark.inputs[0].size)
+    if has_delay_slot:
+        seen[base] = size
+
+    mnemonic = ""
     try:
         disassembly = ctx.disassemble(data, base, max_instructions=1)
         insn = disassembly.instructions[0]
+        mnemonic = insn.mnem
         text = f"{insn.mnem} {insn.body}".strip()
     except Exception:
         text = ""  # presentation only; never fail an analysis over it
-
     uses, defs, indirect_targets, address_only = _instruction_use_def(
         ctx, ops, text, base
     )
+    if mnemonic.lower() in _context_writing_mnemonics(arch):
+        # This decode changed how ctx decodes later code. Pypcode's
+        # Context.reset() would undo that, but it frees what translations
+        # already taken point into; a new Context is safe, and what this
+        # analysis keeps of the old one is plain data. Dropped after the
+        # analysis above, which caches by the Context's id().
+        _drop_context(arch, context)
     return InstructionUseDef(
         disassembly=text,
         size=size,
@@ -1169,11 +1264,13 @@ class _NoInstruction(Exception):
 
 
 @functools.lru_cache(maxsize=_DEFAULT_CACHE_SIZE)
-def _analyze_cached(byte_data: bytes, arch: str, base_address: int):
+def _analyze_cached(
+    byte_data: bytes, arch: str, base_address: int, context: ContextValues = ()
+):
     """Hashable wrapper around _analyze_inner. Its result is an immutable
     NamedTuple, so callers can't mutate cached state. Raises
     _NoInstruction rather than returning None so the miss is not cached."""
-    result = _analyze_inner(byte_data, arch, base_address)
+    result = _analyze_inner(byte_data, arch, base_address, context)
     if result is None:
         raise _NoInstruction()
     return result
@@ -1183,6 +1280,7 @@ def analyze(
     byte_data: typing.Union[bytes, bytearray, memoryview],
     arch: str,
     base_address: int = 0,
+    context: typing.Mapping[str, int] = {},
 ) -> typing.Optional[InstructionUseDef]:
     """Return the use/def of the instruction at `base_address`.
 
@@ -1197,6 +1295,8 @@ def analyze(
         instruction handed to an ARM-mode language id decodes as ARM --
         a valid, entirely different instruction, with no error. Check
         the returned `size` against what your own disassembler found.
+        `context` overrides context fields' defaults where a language
+        picks its encoding with one: {"ISA_MODE": 1} for microMIPS.
 
       * Trailing bytes after the instruction should be padding, not the
         real successor, on a delay-slot ISA. Ghidra expands a delay slot
@@ -1212,16 +1312,21 @@ def analyze(
         `analyze.cache_clear()` to drop the cache and
         `analyze.cache_info()` to inspect it.
 
-      * Context reuse: one SLEIGH context per architecture, built on
-        first use and kept. That build (tens of milliseconds) is the
-        only per-architecture cost; translation itself is stateless and
-        sub-millisecond. `warm()` moves it off the first analysis.
+      * Context reuse: one SLEIGH context per architecture and `context`,
+        built on first use and kept. That build (tens of milliseconds) is
+        the only per-architecture cost; translation itself is
+        sub-millisecond. `warm()` moves it off the first analysis. The
+        exception is an instruction such as MIPS's jalx, whose decoding
+        changes how the context decodes later code: the context is
+        rebuilt after one.
     """
     # Normalize byte_data so memoryview/bytearray callers also hit the cache
     if not isinstance(byte_data, bytes):
         byte_data = bytes(byte_data)
     try:
-        return _analyze_cached(byte_data, arch, int(base_address))
+        return _analyze_cached(
+            byte_data, arch, int(base_address), _context_values(context)
+        )
     except _NoInstruction:
         return None
 

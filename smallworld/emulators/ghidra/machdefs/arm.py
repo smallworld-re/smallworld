@@ -1,8 +1,55 @@
+import typing
+
 from ....platforms import Architecture, Byteorder
-from .machdef import GhidraMachineDef
+from .machdef import GhidraMachineDef, Userop
+from .userops import (
+    coprocessor_function,
+    coprocessor_function2,
+    crc32_calc,
+    float_to_signed_round,
+    float_to_unsigned_round,
+    fp_max_num,
+    fp_min_num,
+    get_main_stack_pointer_limit,
+    get_process_stack_pointer_limit,
+    set_main_stack_pointer_limit,
+    set_proc_stack_pointer_limit,
+    vector_float_to_signed_round,
+    vector_float_to_unsigned_round,
+)
 
 
 class ARMMachineDef(GhidraMachineDef):
+    # The preload hints (pld, pldw, pli) have no architectural effect.
+    nop_userops = frozenset(
+        {"HintPreloadData", "HintPreloadDataForWrite", "HintPreloadInstruction"}
+    )
+    userops: typing.Mapping[str, Userop] = {"Crc32Calc": crc32_calc}
+
+    # Ghidra's ARM languages keep the condition flags, Q and GE in registers
+    # of their own, which they test and set instead of cpsr: N, Z, C, V and Q
+    # in bits 31-27, and GE[3:0] in bits 19-16. cpsr's T bit (5) is the TMode
+    # decoding context. M-profile's psr has no T bit to read: it is in EPSR,
+    # which reads as zero.
+    _psr_bits = {
+        31: "NG",
+        30: "ZR",
+        29: "CY",
+        28: "OV",
+        27: "Q",
+        19: "GE4",
+        18: "GE3",
+        17: "GE2",
+        16: "GE1",
+    }
+    split_bits = {"cpsr": {**_psr_bits, 5: "TMode"}, "psr": _psr_bits}
+
+    # An odd pc enters Thumb state, as on hardware and the other emulators.
+    # On M-profile, whose languages start with TMode set, this just aligns the
+    # Thumb-tagged addresses that interworking leaves (e.g. a return through
+    # lr).
+    isa_bit_context: typing.Optional[str] = "TMode"
+
     def __init__(self):
         super().__init__()
         self._registers = {
@@ -29,8 +76,11 @@ class ARMMachineDef(GhidraMachineDef):
             "r12": "r12",
             "ip": "r12",
             "sp": "sp",
+            "r13": "sp",
             "lr": "lr",
+            "r14": "lr",
             "pc": "pc",
+            "r15": "pc",
         }
 
 
@@ -43,11 +93,11 @@ class ARMMachineMixinM:
             {
                 # *** Special Registers ***
                 # Program Status Register
-                # NOTE: PSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
-                # - apsr: Just the condition flags
-                # - ipsr: Just exception information
-                # - epsr: Just execution state info
+                # NOTE: PSR can be accessed through several masked views
+                # via mrs/msr, which I'm not including:
+                # - apsr: Just the condition flags; writable
+                # - ipsr: Just exception information; read-only
+                # - epsr: Just execution state info; reads as zero
                 # - iapsr: apsr | ipsr
                 # - eapsr: apsr | epsr
                 # - iepsr: ipsr | epsr
@@ -57,10 +107,6 @@ class ARMMachineMixinM:
                 "psr": "cpsr",
                 # Exception Mask Register
                 "primask": None,
-                # Base Priority Mask Register
-                "basepri": None,
-                # Fault Mask Register
-                "faultmask": None,
                 # Control register; includes a lot of flags.
                 "control": None,
                 # *** Stack Pointer Bank ***
@@ -75,8 +121,23 @@ class ARMMachineMixinM:
         )
 
 
-class ARMMachineMixinRA:
-    """Mixin for ARM series A and R CPUs"""
+class ARMMachineMixinMMainline(ARMMachineMixinM):
+    """Mixin for ARMv7-M CPUs, which add priority masks to ARMv6-M"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Base Priority Mask Register
+                "basepri": None,
+                # Fault Mask Register
+                "faultmask": None,
+            }
+        )
+
+
+class ARMMachineMixinBanked:
+    """Mixin for ARM CPUs with the classic banked-register model (non-M-profile)"""
 
     def __init__(self):
         super().__init__()
@@ -84,8 +145,9 @@ class ARMMachineMixinRA:
             {
                 # *** Special Registers ***
                 # Current Program Status Register
-                # NOTE: CPSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
+                # NOTE: CPSR has a few masked views
+                # which I'm not including:
+                # - apsr: Just the condition flags
                 # - isetstate: Just includes instruction set control bits
                 # - itstate: Just includes state bits for Thumb IT instruction
                 "cpsr": "cpsr",
@@ -110,13 +172,6 @@ class ARMMachineMixinRA:
                 "r11_usr": None,
                 # User-mode r12
                 "r12_usr": None,
-                # Hypervisor Stack Pointer
-                "sp_hyp": None,
-                # Hypervisor Saved PSR
-                "spsr_hyp": None,
-                # Hypervisor Exception Link Register
-                # NOTE: None,
-                "elr_hyp": None,
                 # Supervisor Stack Pointer
                 "sp_svc": None,
                 # Supervisor Link Register
@@ -135,12 +190,6 @@ class ARMMachineMixinRA:
                 "lr_und": None,
                 # Undefined-mode Saved PSR
                 "spsr_und": None,
-                # Monitor-mode Stack Pointer
-                "sp_mon": None,
-                # Monitor-mode Link Register
-                "lr_mon": None,
-                # Monitor-mode Saved PSR
-                "spsr_mon": None,
                 # IRQ-mode Stack Pointer
                 "sp_irq": None,
                 # IRQ-mode Link Register
@@ -167,11 +216,298 @@ class ARMMachineMixinRA:
         )
 
 
-class ARMMachineMixinFP:
-    """Mixin for ARM CPUs with FP extensions
+class ARMMachineMixinSecurity:
+    """Mixin for CPUs with the Security Extensions (TrustZone)."""
 
-    This is one kind of floating-point extension
-    which offers 64-bit scalar operations.
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Monitor-mode Stack Pointer
+                "sp_mon": None,
+                # Monitor-mode Link Register
+                "lr_mon": None,
+                # Monitor-mode Saved PSR
+                "spsr_mon": None,
+                # Secure Configuration Register
+                "scr": None,
+                # Secure Debug Enable Register
+                "sder": None,
+                # Non-Secure Access Control Register
+                "nsacr": None,
+                # Monitor Vector Base Address Register
+                "mvbar": None,
+            }
+        )
+
+
+class ARMMachineMixinVirtualization:
+    """Mixin for CPUs with the Virtualization Extensions."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": None,
+                # Hypervisor Saved PSR
+                "spsr_hyp": None,
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": None,
+                # Hyp Configuration Register
+                "hcr": None,
+                # Hyp Coprocessor Trap Register
+                "hcptr": None,
+                # Hyp System Trap Register
+                "hstr": None,
+                # Hyp Debug Configuration Register
+                "hdcr": None,
+                # Hyp System Control Register
+                "hsctlr": None,
+                # Hyp Vector Base Address Register
+                "hvbar": None,
+                # Hyp Translation Table Base Register
+                "httbr": None,
+                # Hyp Translation Control Register
+                "htcr": None,
+                # Virtualization Translation Table Base Register
+                "vttbr": None,
+                # Virtualization Translation Control Register
+                "vtcr": None,
+                # Hyp Syndrome Register
+                "hsr": None,
+                # Hyp Data Fault Address Register
+                "hdfar": None,
+                # Hyp Instruction Fault Address Register
+                "hifar": None,
+                # Hyp IPA Fault Address Register
+                "hpfar": None,
+                # Hyp Software Thread ID Register
+                "htpidr": None,
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": None,
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": None,
+                # Virtualization Processor ID Register
+                "vpidr": None,
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": None,
+                # Virtual Offset Register
+                "cntvoff": None,
+                # Timer PL2 Control Register
+                "cnthctl": None,
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": None,
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": None,
+            }
+        )
+
+
+class ARMMachineMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": None,
+                # Cache Type Register
+                "ctr": None,
+                # System Control Register
+                "sctlr": None,
+                # Translation Table Base Register
+                "ttbr": None,
+                # Domain Access Control Register
+                "dacr": None,
+                # Fault Status Register
+                "fsr": None,
+                # Fault Address Register
+                "far": None,
+                # FCSE Process ID Register
+                "fcseidr": None,
+            }
+        )
+
+
+class ARMMachineMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": None,
+                # Cache Type Register
+                "ctr": None,
+                # System Control Register
+                "sctlr": None,
+                # Auxiliary Control Register
+                "actlr": None,
+                # Coprocessor Access Control Register
+                "cpacr": None,
+                # Translation Table Base Register 0
+                "ttbr0": None,
+                # Translation Table Base Register 1
+                "ttbr1": None,
+                # Translation Table Base Control Register
+                "ttbcr": None,
+                # Domain Access Control Register
+                "dacr": None,
+                # Data Fault Status Register
+                "dfsr": None,
+                # Instruction Fault Status Register
+                "ifsr": None,
+                # Data Fault Address Register
+                "dfar": None,
+                # Watchpoint Fault Address Register
+                "wfar": None,
+                # Instruction Fault Address Register
+                "ifar": None,
+                # Physical Address Register
+                "par": None,
+                # Primary Region Remap Register
+                "prrr": None,
+                # Normal Memory Remap Register
+                "nmrr": None,
+                # Vector Base Address Register
+                "vbar": None,
+                # FCSE Process ID Register
+                "fcseidr": None,
+                # Context ID Register
+                "contextidr": None,
+                # User Read/Write Thread ID Register
+                "tpidrurw": None,
+                # User Read-Only Thread ID Register
+                "tpidruro": None,
+                # PL1-only Thread ID Register
+                "tpidrprw": None,
+            }
+        )
+
+
+class ARMMachineMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": None,
+                # Cache Type Register
+                "ctr": None,
+                # Multiprocessor Affinity Register
+                "mpidr": None,
+                # System Control Register
+                "sctlr": None,
+                # Auxiliary Control Register
+                "actlr": None,
+                # Coprocessor Access Control Register
+                "cpacr": None,
+                # Cache Size Selection Register
+                "csselr": None,
+                # Data Fault Status Register
+                "dfsr": None,
+                # Instruction Fault Status Register
+                "ifsr": None,
+                # Data Fault Address Register
+                "dfar": None,
+                # Instruction Fault Address Register
+                "ifar": None,
+                # Context ID Register
+                "contextidr": None,
+                # User Read/Write Thread ID Register
+                "tpidrurw": None,
+                # User Read-Only Thread ID Register
+                "tpidruro": None,
+                # PL1-only Thread ID Register
+                "tpidrprw": None,
+            }
+        )
+
+
+class ARMMachineMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # MPU Region Number Register
+                "rgnr": None,
+                # Data Region Base Address Register
+                "drbar": None,
+                # Data Region Size and Enable Register
+                "drsr": None,
+                # Data Region Access Control Register
+                "dracr": None,
+            }
+        )
+
+
+class ARMMachineMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Translation Table Base Register 0
+                "ttbr0": None,
+                # Translation Table Base Register 1
+                "ttbr1": None,
+                # Translation Table Base Control Register
+                "ttbcr": None,
+                # Domain Access Control Register
+                "dacr": None,
+                # Physical Address Register
+                "par": None,
+                # Primary Region Remap Register
+                "prrr": None,
+                # Normal Memory Remap Register
+                "nmrr": None,
+                # Vector Base Address Register
+                "vbar": None,
+            }
+        )
+
+
+class ARMMachineMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Counter Frequency Register
+                "cntfrq": None,
+                # Timer PL1 Control Register
+                "cntkctl": None,
+                # Physical Count Register
+                "cntpct": None,
+                # Virtual Count Register
+                "cntvct": None,
+                # PL1 Physical Timer Control Register
+                "cntp_ctl": None,
+                # PL1 Physical Timer CompareValue Register
+                "cntp_cval": None,
+                # Virtual Timer Control Register
+                "cntv_ctl": None,
+                # Virtual Timer CompareValue Register
+                "cntv_cval": None,
+            }
+        )
+
+
+class ARMMachineMixinFPD16:
+    """Mixin for ARM machine models with a 16-register FPU
+
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
     """
 
     def __init__(self):
@@ -181,14 +517,6 @@ class ARMMachineMixinFP:
                 # *** Floating point control registers ***
                 # Floating-point Status and Control Register
                 "fpscr": "fpscr",
-                # Floating-point Exception Control Register
-                "fpexc": "fpexc",
-                # Floating-point System ID Register
-                "fpsid": "fpsid",
-                # Media and VFP Feature Register 0
-                "mvfr0": "mvfr0",
-                # Media and VFP Feature Register 1
-                "mvfr1": "mvfr1",
                 # *** Floating point registers ***
                 "d0": "d0",
                 "s0": "s0",
@@ -238,6 +566,44 @@ class ARMMachineMixinFP:
                 "d15": "d15",
                 "s30": "s30",
                 "s31": "s31",
+            }
+        )
+
+
+class ARMMachineMixinFP(ARMMachineMixinFPD16):
+    """Mixin for ARM CPUs with FP extensions
+
+    This is one kind of floating-point extension
+    which offers 64-bit scalar operations.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Exception Control Register
+                "fpexc": "fpexc",
+                # Floating-point System ID Register
+                "fpsid": "fpsid",
+                # Media and VFP Feature Register 0
+                "mvfr0": "mvfr0",
+                # Media and VFP Feature Register 1
+                "mvfr1": "mvfr1",
+            }
+        )
+
+
+class ARMMachineMixinVFPv2(ARMMachineMixinFP):
+    """Mixin for little-endian ARM CPUs with VFPv2"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Instruction Register
+                "fpinst": "fpinst",
+                # Floating-point Instruction Register 2
+                "fpinst2": "fpinst2",
             }
         )
 
@@ -346,21 +712,299 @@ class ARMMachineMixinVFPEL:
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMMachineMixinVFPv8(ARMMachineMixinVFPEL):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    # Ghidra's ARMv8 language decodes vsel and the scalar vrint instructions
+    # as cdp and cdp2, and its emulator doesn't implement the userops
+    # vcvt{a,n,p,m}, vmaxnm and vminnm lift to.
+    userops: typing.Mapping[str, Userop] = {
+        **ARMMachineDef.userops,
+        "coprocessor_function": coprocessor_function,
+        "coprocessor_function2": coprocessor_function2,
+        "FloatToSignedRound": float_to_signed_round,
+        "FloatToUnsignedRound": float_to_unsigned_round,
+        "VectorFloatToSignedRound": vector_float_to_signed_round,
+        "VectorFloatToUnsignedRound": vector_float_to_unsigned_round,
+        "FPMaxNum": fp_max_num,
+        "FPMinNum": fp_min_num,
+    }
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Media and VFP Feature Register 2
+                "mvfr2": "mvfr2",
+            }
+        )
+
+
+class ARMMachineMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Protection Region Selection Register
+                "prselr": None,
+                # Protection Region Base Address Register
+                "prbar": None,
+                # Protection Region Limit Address Register
+                "prlar": None,
+                # Memory Attribute Indirection Register 0
+                "mair0": None,
+                # Memory Attribute Indirection Register 1
+                "mair1": None,
+                # Vector Base Address Register
+                "vbar": None,
+            }
+        )
+
+
+class ARMMachineMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": None,
+                # Hypervisor Saved PSR
+                "spsr_hyp": None,
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": None,
+                # Hyp Configuration Register
+                "hcr": None,
+                # Hyp Coprocessor Trap Register
+                "hcptr": None,
+                # Hyp System Trap Register
+                "hstr": None,
+                # Hyp Debug Configuration Register
+                "hdcr": None,
+                # Hyp System Control Register
+                "hsctlr": None,
+                # Hyp Vector Base Address Register
+                "hvbar": None,
+                # Hyp Syndrome Register
+                "hsr": None,
+                # Hyp Data Fault Address Register
+                "hdfar": None,
+                # Hyp Instruction Fault Address Register
+                "hifar": None,
+                # Hyp Software Thread ID Register
+                "htpidr": None,
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": None,
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": None,
+                # Virtualization Processor ID Register
+                "vpidr": None,
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": None,
+                # Hyp Protection Region Selection Register
+                "hprselr": None,
+                # Hyp Protection Region Base Address Register
+                "hprbar": None,
+                # Hyp Protection Region Limit Address Register
+                "hprlar": None,
+                # Virtual Offset Register
+                "cntvoff": None,
+                # Timer PL2 Control Register
+                "cnthctl": None,
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": None,
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": None,
+            }
+        )
+
+
+class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs."""
+
+    userops: typing.Mapping[str, Userop] = {
+        **ARMMachineDef.userops,
+        "setMainStackPointerLimit": set_main_stack_pointer_limit,
+        "setProcStackPointerLimit": set_proc_stack_pointer_limit,
+        "getMainStackPointerLimit": get_main_stack_pointer_limit,
+        "getProcessStackPointerLimit": get_process_stack_pointer_limit,
+    }
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main Stack Pointer Limit Register
+                "msplim": "msplim",
+                # Process Stack Pointer Limit Register
+                "psplim": "psplim",
+            }
+        )
+
+
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+
+    # `mov pc, <shift>` calls the SetThumbMode macro, and so the setISAMode
+    # userop, even in the v4 language, which has no Thumb and no TMode
+    # context register; Ghidra's emulator then fails on the null context.
+    # With no Thumb state it's a no-op.
+    nop_userops = ARMMachineDef.nop_userops | {"setISAMode"}
+
+    # No Thumb state for an odd pc or cpsr's T bit to select
+    isa_bit_context = None
+    split_bits = {"cpsr": ARMMachineDef._psr_bits, "psr": ARMMachineDef._psr_bits}
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv5TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
 
 
-class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+# Big-endian ARMv4 and ARMv5 are BE32; the platforms name Ghidra's ARM:BE
+# languages, whose instructions are big-endian too.
+
+
+class ARMv4BEMachineDef(ARMv4MachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv4TBEMachineDef(ARMv4TMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv5TBEMachineDef(ARMv5TMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv6KMachineDef(
+    ARMMachineMixinVFPv2,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinV6SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V6K
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
 
 
-class ARMv7AMachineDef(ARMMachineMixinVFPEL, ARMMachineMixinRA, ARMMachineDef):
+class ARMv7EMMachineDef(ARMMachineMixinFPD16, ARMMachineMixinMMainline, ARMMachineDef):
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv7AMachineDef(
+    ARMMachineMixinVFPEL,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
+
+
+class ARMv8AMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8A
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8RMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinV8RHypervisor,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinPMSAv8,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V8R
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
+    arch = Architecture.ARM_V8M
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    arch = Architecture.ARM_V7R
+    byteorder = Byteorder.LITTLE
+
+
+# Big-endian ARMv6 and later are BE8; the platforms name Ghidra's ARM:LEBE
+# languages, with little-endian instructions and big-endian data.
+#
+# Those languages keep the little-endian register layout in a big-endian
+# register space, so d0 is the high half of q0, not the low half. That is
+# fixed up for q registers, but Ghidra's own semantics still put s0 in the
+# high half of d0, so code that mixes s and d views of a register runs
+# wrong there.
+_Q_REGISTERS = frozenset(f"q{i}" for i in range(16))
+
+
+class ARMv6KBEMachineDef(ARMv6KMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv7ABEMachineDef(ARMv7AMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS
+
+
+class ARMv7RBEMachineDef(ARMv7RMachineDef):
+    byteorder = Byteorder.BIG
+
+
+class ARMv8ABEMachineDef(ARMv8AMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS
+
+
+class ARMv8RBEMachineDef(ARMv8RMachineDef):
+    byteorder = Byteorder.BIG
+    swapped_halves = _Q_REGISTERS

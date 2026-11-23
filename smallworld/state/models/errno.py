@@ -368,22 +368,101 @@ class AArch64ErrnoResolver(ErrnoResolver):
     # aarch64 uses generic errno
 
 
+class AArch64BEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class AArch64V85AErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64_V8_5A, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+
+
+class AArch64V85ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64_V8_5A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
 class AMD64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
     # amd64 uses generic errno
 
 
-class ArmELErrnoResolver(ErrnoResolver):
-    platform = Platform(Architecture.ARM_V6M, Byteorder.LITTLE)
+class ArmV6KErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6K, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armel uses generic errno
+    # ARMv6K uses generic errno
 
 
-class ArmHFErrnoResolver(ErrnoResolver):
+class ArmV7AErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.ARM_V7A, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armhf uses generic errno
+    # ARMv7-A uses generic errno
+
+
+class ArmV4TErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V4T, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv4T uses generic errno
+
+
+class ArmV5TErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V5T, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv5T uses generic errno
+
+
+class ArmV4TBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V4T, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV5TBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V5T, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV6MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv6-M uses generic errno
+
+
+class ArmV7EMErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7EM, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7E-M uses generic errno
+
+
+class ArmV7MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7-M uses generic errno
+
+
+class ArmV7RErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7R, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7-R uses generic errno
+
+
+class ArmV8AErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-A AArch32 uses generic errno
+
+
+class ArmV8RErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-R uses generic errno
+
+
+class ArmV8MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-M uses generic errno
 
 
 class I386ErrnoResolver(ErrnoResolver):
@@ -402,6 +481,18 @@ class M68KErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.M68K, Byteorder.BIG)
     abi = ABI.SYSTEMV
     # la64 uses generic errno
+
+
+class MCS51SDCCErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCC
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
+
+
+class MCS51SDCCStackAutoErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.MCS51, Byteorder.BIG)
+    abi = ABI.SDCCSTACKAUTO
+    # SDCC's errno.h defines only EDOM and ERANGE, with the generic values
 
 
 class MIPSErrnoResolver(ErrnoResolver):
@@ -555,6 +646,16 @@ class MIPSELErrnoResolver(MIPSErrnoResolver):
     # mipsel uses the MIPS errno list
 
 
+class MicroMIPSBEErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.BIG)
+    # microMIPS uses the MIPS errno list
+
+
+class MicroMIPSELErrnoResolver(MIPSErrnoResolver):
+    platform = Platform(Architecture.MIPS32_MICROMIPS, Byteorder.LITTLE)
+    # microMIPS uses the MIPS errno list
+
+
 class MIPS64BEErrnoResolver(MIPSErrnoResolver):
     platform = Platform(Architecture.MIPS64, Byteorder.BIG)
     # mips64 uses the MIPS errno list
@@ -690,10 +791,46 @@ class SPARC32ErrnoResolver(ErrnoResolver):
     }
 
 
+class PowerPC64ErrnoResolver(PowerPCErrnoResolver):
+    # Linux shares one errno list between 32- and 64-bit PowerPC.
+    platform = Platform(Architecture.POWERPC64, Byteorder.BIG)
+
+
+class RiscV32ErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.RISCV32, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # riscv32 uses the generic errno list
+
+
 class RiscV64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.RISCV64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
     # riscv64 uses the generic errno list
+
+
+class ArmV6KBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6K, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
 
 
 __all__ = ["ErrnoResolver"]

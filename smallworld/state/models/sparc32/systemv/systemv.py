@@ -56,6 +56,10 @@ class SPARC32SysVCallingContext(CStdCallingContext):
 
     _four_byte_arg_regs = [f"o{i}" for i in range(0, 6)]
     _eight_byte_arg_regs = [f"o{i}" for i in range(0, 6)]
+    # SPARC passes arguments as one sequence of words: an eight-byte value
+    # takes the next two, wherever they fall, and is split between the last
+    # register and the stack when only one register is left.
+    _align_eight_byte_regs = False
     _eight_byte_args_split = True
 
     _soft_float = True

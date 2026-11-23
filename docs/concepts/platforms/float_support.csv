@@ -1,25 +1,34 @@
 ,                               angr,       ghidra,     panda,      styx,       unicorn
-aarch64 scalar,                 **Yes**,    **Yes**,    No,         No,         **Yes**
-aarch64 vector,                 Untested,   Untested,   No,         No,         Untested
+aarch64 scalar,                 **Yes**,    **Yes**,    **Yes**,    No Support, **Yes**
+aarch64 vector,                 Untested,   Untested,   Untested,   No Support, Untested
 amd64 x87,                      No,         No,         No,         No,         No
 amd64 mmx,                      No,         No,         No,         No,         No
 amd64 sse,                      **Yes**,    **Yes**,    No,         No,         **Yes**
 amd64 avx2,                     **Yes**,    **Yes**,    No,         No,         **Yes**
 amd64 avx512,                   No Support, Untested,   No,         No,         Untested
-arm-v7 double scalar,           **Yes**,    **Yes**,    No,         Untested,   **Yes**
-arm-v7 quad scalar,             No Support, Untested,   No,         Untested,   Untested
-arm-v7 double vector,           Untested,   Untested,   No,         Untested,   Untested
-arm-v7 quad vector,             No Support, Untested,   No,         Untested,   Untested
+arm-v7 double scalar,           **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7e-m single scalar,        **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7 double vector,           Untested,   Untested,   Untested,   Untested,   Untested
+arm-v7 quad vector,             No Support, Untested,   Untested,   Untested,   Untested
 i386 x87,                       No,         No,         No,         No,         No
 i386 mmx,                       No,         No,         No,         No,         No
 i386 sse,                       **Yes**,    **Yes**,    No,         No,         **Yes**
+loongarch64 scalar,             Untested,   Untested,   No Support, No,         No Support
+m68k,                           No,         Untested,   No Support, No,         Untested
 mips32,                         No,         Untested,   No,         No,         No Support
+mips32-micromips,               No,         Untested,   No,         No,         No Support
 mips64,                         No,         Untested,   No,         No,         No Support
-powerpc32,                      No,         Untested,   No,         Untested,   No Support
-powerpc64,                      No,         Untested,   No Support, No,         No Support
+powerpc32 single,               No Support, **Yes**,    No,         No,         **Yes**
+powerpc32 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
+powerpc32-vle spe,              No,         No,         No Support, No,         No Support
+powerpc64 single,               No Support, **Yes**,    No,         No,         **Yes**
+powerpc64 double,               **Yes**,    **Yes**,    No,         No,         **Yes**
+riscv32,                        No,         Untested,   No Support, No,         No Support
 riscv64,                        Untested,   Untested,   No Support, No,         No Support
-superh-sh2a-fpu single,         No,         **Yes**,    **Yes**,    **Yes**,    No Support
+superh-sh2a-fpu single,         **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh2a-fpu double,         No,         No,         **Yes**,    No,         No Support
 superh-sh4 single,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
 superh-sh4 double,              No,         **Yes**,    **Yes**,    **Yes**,    No Support
+tricore,                        Untested,   Untested,   Untested,   No,         Untested
+v850e2m single,                 **Yes**,    **Yes**,    No Support, No Support, No Support
 xtensa,                         No,         Untested,   No Support, No,         No Support

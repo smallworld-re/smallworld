@@ -27,13 +27,13 @@ endif
 ALL_CFLAGS = $(CFLAGS) $(GEN_CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(SAN_CFLAGS)
 
 # List of platforms 
-PLATFORMS = AARCH64 AMD64 ARMEL ARMHF I386 MIPS MIPSEL MIPS64 MIPS64EL PPC
+PLATFORMS = AARCH64 AMD64 ARMV6K ARMV7A I386 MIPS MIPSEL MIPS64 MIPS64EL PPC
 
 # Platform-specific clang target
 AARCH64_TARGET = --target=aarch64-unknown-linux-gnu
 AMD64_TARGET =
-ARMEL_TARGET = --target=arm-linux-gnueabi
-ARMHF_TARGET = --target=arm-linux-gnueabihf
+ARMV6K_TARGET = --target=armv6k-linux-gnueabi
+ARMV7A_TARGET = --target=armv7a-linux-gnueabihf
 I386_TARGET = --target=i686-linux-gnu
 MIPS_TARGET = --target=mips-linux-gnu
 MIPSEL_TARGET = --target=mipsel-linux-gnu
@@ -46,8 +46,8 @@ PPC_TARGET = --target=powerpc-linux-gnu
 # a target-appropriate linker toolchain; it always uses gcc.
 AMD64_LINK = gcc 
 AARCH64_LINK = aarch64-unknown-linux-gnu-gcc
-ARMEL_LINK = arm-linux-gnueabi-gcc
-ARMHF_LINK = arm-linux-gnueabihf-gcc
+ARMV6K_LINK = arm-linux-gnueabi-gcc
+ARMV7A_LINK = arm-linux-gnueabihf-gcc
 I386_LINK = i686-linux-gnu-gcc
 MIPS_LINK = mips-linux-gnu-gcc
 MIPSEL_LINK = mipsel-linux-gnu-gcc

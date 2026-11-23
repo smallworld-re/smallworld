@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import abc
 import typing
+import warnings
 
 import claripy
 
-from .. import platforms, utils
+from .. import exceptions, platforms, utils
 
 
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
@@ -473,29 +474,99 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         pass
 
+    def get_isa_mode(self) -> int:
+        """Read which instruction set the CPU is running, on a platform with
+        two (see :class:`.IsaBit`).
+
+        Returns:
+            1 for the alternate instruction set (Thumb, microMIPS), 0 for the
+            standard one: the bit 0 of a jump target that selects it.
+
+        Raises:
+            ConfigurationError: if the platform has one instruction set.
+            UnsupportedRegisterError: if this emulator runs only one of them.
+        """
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            return 1
+        if platdef.isa_mode_register is not None:
+            register, bit = platdef.isa_mode_register
+            return (self.read_register(register) >> bit) & 1
+        return self.read_register("isa_mode")
+
+    def set_isa_mode(self, mode: int) -> None:
+        """Choose the instruction set the CPU runs next, on a platform with
+        two (see :class:`.IsaBit`).
+
+        Arguments:
+            mode: 1 for the alternate instruction set, 0 for the standard one.
+
+        Raises:
+            ConfigurationError: if the platform has one instruction set.
+            UnsupportedRegisterError: if this emulator runs only one of them.
+        """
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            if mode != 1:
+                raise exceptions.ConfigurationError(
+                    f"{self.platform} runs only its alternate instruction set"
+                )
+            return
+        if platdef.isa_mode_register is not None:
+            register, bit = platdef.isa_mode_register
+            value = self.read_register(register)
+            self.write_register(register, value & ~(1 << bit) | (int(mode) & 1) << bit)
+            return
+        self.write_register("isa_mode", mode)
+
+    def _check_isa_bit(self) -> platforms.PlatformDef:
+        # The defaults above use the register bit the platform names, or else
+        # the isa_mode pseudo-register; an emulator whose register interface
+        # can't reach the mode overrides them.
+        platdef = platforms.PlatformDef.for_platform(self.platform)
+        if platdef.isa_bit is platforms.IsaBit.NONE:
+            raise exceptions.ConfigurationError(
+                f"{self.platform} has one instruction set"
+            )
+        return platdef
+
     def get_thumb(self) -> bool:
-        """For applicable platforms, checks if the CPU is in ARM or Thumb mode.
+        """Whether an ARM CPU is running Thumb code.
+
+        .. deprecated::
+            Use :meth:`get_isa_mode`, which this calls.
 
         Returns:
             True if in Thumb mode, otherwise False.
 
         Raises:
-            ConfigurationError: if not using an ARM32 platform.
-            NotImplementedError: if not using a supported emulator.
+            ConfigurationError: if the platform has one instruction set.
         """
-        raise NotImplementedError("get_thumb() is not supported for this emulator")
+        warnings.warn(
+            "get_thumb() is deprecated; use get_isa_mode()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return bool(self.get_isa_mode())
 
     def set_thumb(self, enabled=True) -> None:
-        """For applicable platforms, set the CPU to Thumb or ARM mode.
+        """Put an ARM CPU in Thumb or ARM mode.
+
+        .. deprecated::
+            Use :meth:`set_isa_mode`, which this calls.
 
         Arguments:
             enabled: True for Thumb mode, False for ARM mode.
 
         Raises:
-            ConfigurationError: if not using an ARM32 platform.
-            NotImplementedError: if not using a supported emulator.
+            ConfigurationError: if the platform has one instruction set.
         """
-        raise NotImplementedError("set_thumb() is not supported for this emulator")
+        warnings.warn(
+            "set_thumb() is deprecated; use set_isa_mode()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.set_isa_mode(int(bool(enabled)))
 
     @abc.abstractmethod
     def __repr__(self) -> str:
@@ -557,6 +628,11 @@ class FunctionHookable(metaclass=abc.ABCMeta):
         After the hook function is called, the Emulator will step out of the
         current function so that the hook essentially replaces a function call
         to the given address.
+
+        A hook that changes the program counter itself carries on wherever it
+        set it, on every backend, without popping a return address: if it
+        returns from the call that way, it must pop the return address too,
+        as :meth:`smallworld.state.models.Model.run` does.
 
         Arguments:
             address: The address of the hook.

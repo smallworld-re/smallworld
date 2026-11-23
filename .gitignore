@@ -5,6 +5,8 @@
 !tests/case_timings.json
 # use/def validation corpora are tracked test data
 !tests/pcode_use_def/corpus_*.json
+# expected results for the mcs51_diff scenario, from tests/mcs51_diff/generate.py
+!tests/mcs51_diff/*.json
 *.elf
 *.so
 *~
@@ -20,6 +22,5 @@ tmp/
 core.*
 /result
 /docs/build
-unicornafl-flake/result
 tests/downstream_flake/flake.lock
 .coverage*

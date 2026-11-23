@@ -28,22 +28,33 @@ let
 
   ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
+  # The JDK pyghidra launches Ghidra with. This has to satisfy the
+  # `application.java.min` of whatever Ghidra nixpkgs ships, which is not
+  # necessarily nixpkgs' default `jdk`: Ghidra 12.2 needs Java 25 while
+  # `pkgs.jdk` is still 21, and Ghidra's launcher rejects the older one as an
+  # "unsupported java version". nixpkgs' ghidra does not expose the JDK it
+  # was built with, so keep this in step with it by hand.
+  ghidraJdk = pkgs: pkgs.jdk25;
+
+  # Ghidra with SmallWorld's 8051 language fixes; see nix/ghidra.nix.
+  ghidraFor = pkgs: pkgs.callPackage ./ghidra.nix { jdk = ghidraJdk pkgs; };
+
   # Ghidra is the only tool in the regular runtime that needs both binaries on
   # PATH and matching environment variables in every shell/program wrapper.
   mkGhidraRuntime = pkgs: {
     tools = [
-      pkgs.ghidra
-      pkgs.jdk
+      (ghidraFor pkgs)
+      (ghidraJdk pkgs)
     ];
 
     env = {
-      GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-      JAVA_HOME = pkgs.jdk;
+      GHIDRA_INSTALL_DIR = ghidraInstallDir (ghidraFor pkgs);
+      JAVA_HOME = ghidraJdk pkgs;
     };
 
     setupHook = ''
-      export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
-      export JAVA_HOME=${pkgs.jdk}
+      export GHIDRA_INSTALL_DIR=${ghidraInstallDir (ghidraFor pkgs)}
+      export JAVA_HOME=${ghidraJdk pkgs}
     '';
   };
 
@@ -517,8 +528,8 @@ let
             Cmd = [ "/bin/sh" ];
             Env = [
               "LD_LIBRARY_PATH=/lib"
-              "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-              "JAVA_HOME=${pkgs.jre}"
+              "GHIDRA_INSTALL_DIR=${ghidraInstallDir (ghidraFor pkgs)}"
+              "JAVA_HOME=${ghidraJdk pkgs}"
             ];
           };
         };

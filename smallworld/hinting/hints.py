@@ -270,7 +270,7 @@ class OutputHint(hinting.Hint):
     memory: typing.Dict[int, str]
 
 
-# This is used by the TraceExecutor
+# This is used by the TraceExecution analysis
 
 
 @dataclass(frozen=True)

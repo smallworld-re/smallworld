@@ -276,6 +276,42 @@ class TritonAArch64MachineDef(TritonMachineDef):
     address_size = 8
     interrupt_mnemonics = {"svc", "hvc", "smc"}
     halt_mnemonics = {"wfi", "wfe"}
+    # Triton models nop and nothing else in the hint space. The rest are no-ops
+    # on ARMv8.0. On ARMv8.3 and later the pointer authentication hints sign
+    # and authenticate lr, x17 or a zero modifier; stepping over them leaves the
+    # pointers unsigned, which code that signs and authenticates in pairs (as
+    # -mbranch-protection does) can't tell apart.
+    nop_mnemonics = {
+        "bti",
+        "paciaz",
+        "paciasp",
+        "pacibz",
+        "pacibsp",
+        "pacia1716",
+        "pacib1716",
+        "autiaz",
+        "autiasp",
+        "autibz",
+        "autibsp",
+        "autia1716",
+        "autib1716",
+        "xpaclri",
+        "yield",
+        "sev",
+        "sevl",
+        "dgh",
+        "esb",
+        "psb",
+        "tsb",
+        "csdb",
+        "hint",
+    }
     syscall_mnemonics = {"svc"}
     syscall_number_register = "x8"
     _registers = _AARCH64_REGISTERS
+
+
+class TritonAArch64V85AMachineDef(TritonAArch64MachineDef):
+    """Triton machine definition for AArch64 ARMv8.5-A."""
+
+    arch = Architecture.AARCH64_V8_5A

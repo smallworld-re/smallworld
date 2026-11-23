@@ -35,8 +35,16 @@
 
     # PANDA is the only major dependency that still needs custom Nix glue.
     # See `nix/panda-packages.nix` for the explanation.
+    #
+    # Pinned to the last revision before upstream rebuilt PANDA as an in-tree
+    # patch series on QEMU 11.1. That rewrite dropped the `libpanda-ng-src`
+    # and `panda-qemu-src` flake inputs `nix/panda-packages.nix` reads from
+    # PANDA's lock file, and it has no TriCore, SuperH or macOS support, so
+    # everything in `nix/patches/panda-*` and `libpanda-*` would have to be
+    # ported to the new engine first. Without the pin, the scheduled
+    # `nix flake update` moves us onto it and breaks evaluation.
     panda-ng = {
-      url = "github:panda-re/panda-ng";
+      url = "github:panda-re/panda-ng/fdfbf0a53860ad8460953880814ddae61635a0c8";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -66,7 +74,26 @@
       forEachSystem = lib.genAttrs supportedSystems;
 
       pkgsFor = system: nixpkgs.legacyPackages.${system};
-      pythonFor = system: (pkgsFor system).python312;
+      # nixpkgs builds its Python 3.12 package set from source, test suites
+      # included, and `pyvex` (which angr links against) depends on
+      # `bitstring`. bitstring's tests pull in `pytest-benchmark`, which
+      # drags in elasticsearch -> respx -> starlette -> `httpx2`, whose test
+      # suite opens IPv6 sockets and so fails on hosts without IPv6 - our CI
+      # runners among them. Skip bitstring's checks so none of that chain is
+      # built at all: it is test-only tooling for a package we do not touch.
+      pythonFor =
+        system:
+        let
+          python = (pkgsFor system).python312.override {
+            self = python;
+            packageOverrides = _final: prev: {
+              bitstring = prev.bitstring.overridePythonAttrs (_: {
+                doCheck = false;
+              });
+            };
+          };
+        in
+        python;
 
       pandaPackages = import ./nix/panda-packages.nix {
         inherit

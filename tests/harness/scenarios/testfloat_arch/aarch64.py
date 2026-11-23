@@ -150,6 +150,26 @@ SPECS: Dict[str, TestFloatSpec] = {
         setup={},
         kernels=KERNELS,
     ),
+    # Big-endian AArch64 stores data big-endian but instructions little-endian,
+    # so the patch words above apply unchanged.
+    "aarch64be": TestFloatSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        engines=("unicorn", "angr", "panda", "pcode"),
+        in_register="x0",
+        out_register="x1",
+        count_register="x2",
+        setup={},
+        kernels=KERNELS,
+    ),
+    "aarch64v85abe": TestFloatSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        engines=("unicorn", "angr", "panda", "pcode"),
+        in_register="x0",
+        out_register="x1",
+        count_register="x2",
+        setup={},
+        kernels=KERNELS,
+    ),
 }
 
 # angr's VEX engine implements no square root at all: irop.py has no Sqrt

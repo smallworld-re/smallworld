@@ -11,4 +11,5 @@ SmallWorld's floating-point support is patchy due to patchy back-end support
 | i386 SSE         | yes  |       | yes     |                                         |
 | mips             |      |       |         | Fails differently in both emulators     |
 | mips64           |      |       | no      | Arch not supported in Unicorn           |
-| ppc              |      |       | no      | Arch not supported in Unicorn           |
+| ppc              | yes  |       | yes     | Double precision; angr lacks single     |
+| ppc64            | yes  |       | yes     | Double precision; angr lacks single     |

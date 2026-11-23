@@ -28,6 +28,17 @@ class HookHandler(angr.SimProcedure):
     def run(self, *args, callback, parent):
         emu = ConcreteAngrEmulator(self.state, parent)
         callback(emu)
+        # A hook that moved the program counter, as a model calling back into
+        # the program does, carries on there instead of returning.
+        if not self.state.regs.ip.symbolic and self.state.addr != self.addr:
+            self.inhibit_autoret = True
+            self.jump(self.state.regs.ip)
+            return None
+        ret = parent.machdef.function_return_address(emu)
+        if ret is not None:
+            # The machine pops its own return address; don't let angr try.
+            self.inhibit_autoret = True
+            self.jump(ret)
         return None
 
 
@@ -122,6 +133,10 @@ class AngrEmulator(
             str, typing.Union[int, claripy.ast.bv.BV]
         ] = dict()
         self._register_labels: typing.Dict[str, str] = dict()
+        # The instruction-set mode set before initialization, on a machine
+        # that keeps it where angr's registers don't reach (see
+        # AngrMachineDef.read_isa_mode); None if none was set.
+        self._pending_isa_mode: typing.Optional[int] = None
         self._memory_maps: typing.List[typing.Tuple[int, int]] = list()
         self._memory_contents: typing.List[
             typing.Tuple[int, typing.Union[bytes, claripy.ast.bv.BV]]
@@ -172,6 +187,8 @@ class AngrEmulator(
         self._exit_points: typing.Set[int] = set()
         self._constraints: typing.List[claripy.ast.bool.Bool] = list()
         self._extensions: typing.Dict[str, typing.Any] = dict()
+
+        self.machdef.initialize_state(self)
 
     def initialize(self):
         """Initialize the emulator
@@ -349,6 +366,15 @@ class AngrEmulator(
         for name, content in self._register_contents.items():
             self.write_register_content(name, content)
 
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS:
+            # The pending writes left the core in this mode, or it starts in
+            # the machine's reset mode.
+            mode = self._pending_isa_mode
+            if mode is None:
+                mode = self.machdef.read_isa_mode(None)
+            if mode is not None:
+                self.set_isa_mode(mode)
+
         for name, label in self._register_labels.items():
             self.write_register_label(name, label)
 
@@ -409,11 +435,18 @@ class AngrEmulator(
                 "Reading registers not supported once execution begins."
             )
 
+        is_pc = self._is_pc(name)
         if name == "pc":
             name = self.platdef.pc_register
 
+        if name in self.machdef.synthesized_registers:
+            return self.machdef.read_synthesized(self.state, name)
+
         off, size = self.machdef.angr_reg(name)
-        return self.state.registers.load(off, size)
+        value = self.state.registers.load(off, size)
+        if is_pc:
+            value = self.machdef.pc_from_engine(self.state, value)
+        return value
 
     def read_register_content(self, name: str) -> int:
         out = self.read_register_symbolic(name)
@@ -438,6 +471,10 @@ class AngrEmulator(
 
         if name == "pc":
             name = self.platdef.pc_register
+
+        if name in self.machdef.synthesized_registers:
+            # Built from several of angr's registers, so never a pure label
+            return None
 
         try:
             # This considers all BVSs to be labeled values;
@@ -464,6 +501,13 @@ class AngrEmulator(
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
+        if content is not None and self._is_pc(name):
+            content = self._pc_to_engine(content)
+
+        if name in self.machdef.synthesized_registers and content is not None:
+            self._write_synthesized(name, content)
+            return
+
         if not self._initialized and content is not None:
             if name == "pc":
                 name = self.platdef.pc_register
@@ -505,6 +549,70 @@ class AngrEmulator(
         self, name: str, type: typing.Optional[typing.Any] = None
     ) -> None:
         pass
+
+    def _is_pc(self, name: str) -> bool:
+        """Whether a register name, or an alias such as r15, names pc."""
+        if name == "pc" or name == self.platdef.pc_register:
+            return True
+        try:
+            return (
+                self.machdef.angr_reg(name)[0]
+                == self.machdef.angr_reg(self.platdef.pc_register)[0]
+            )
+        except (KeyError, exceptions.UnsupportedRegisterError):
+            # Left for the register lookup itself to report
+            return False
+
+    def _pc_to_engine(
+        self, content: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        """The value angr's pc holds for a write of `content` to pc"""
+        if isinstance(content, claripy.ast.bv.BV):
+            if content.symbolic:
+                return content
+            size: typing.Optional[int] = content.size()
+            value = content.concrete_value
+        else:
+            size = None
+            value = content
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS and value & 1:
+            # An odd pc selects the alternate instruction set, as a jump to
+            # it does; an even one leaves the mode as it is, so pc can be
+            # written back as read. pc_to_engine() still sees the bit, so
+            # it needn't read the mode back from the state.
+            try:
+                self.set_isa_mode(1)
+            except exceptions.UnsupportedRegisterError:
+                # This machine runs one of them only.
+                pass
+        state = self.state if self._initialized else None
+        value = self.machdef.pc_to_engine(state, value)
+        return value if size is None else claripy.BVV(value, size)
+
+    def _write_synthesized(
+        self, name: str, content: typing.Union[int, claripy.ast.bv.BV]
+    ) -> None:
+        if not self._initialized:
+            # Replayed by initialize(), once there is a state to build it in.
+            self._register_contents[name] = content
+            isa_mode_register = self.platdef.isa_mode_register
+            if isa_mode_register is not None and isa_mode_register[0] == name:
+                # The mode it holds is pending until then, too.
+                concrete: typing.Optional[int]
+                if isinstance(content, int):
+                    concrete = content
+                else:
+                    concrete = None if content.symbolic else content.concrete_value
+                if concrete is not None:
+                    self._pending_isa_mode = (concrete >> isa_mode_register[1]) & 1
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        else:
+            size = self.platdef.registers[name].size * 8
+            value = claripy.BVV(content, size) if isinstance(content, int) else content
+            self.machdef.write_synthesized(self.state, name, value)
 
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
@@ -753,13 +861,15 @@ class AngrEmulator(
                 # Unclobber it, just in case
                 state.inspect.action_attrs_set = True
 
-            bp = self.state.inspect.b(
-                "instruction",
-                when=angr.BP_BEFORE,
-                action=hook_handler,
-                instruction=address,
-            )
-            self.state.scratch.insn_bps[address] = bp
+            self.state.scratch.insn_bps[address] = [
+                self.state.inspect.b(
+                    "instruction",
+                    when=angr.BP_BEFORE,
+                    action=hook_handler,
+                    instruction=addr,
+                )
+                for addr in self.machdef.code_addresses(address)
+            ]
 
     def unhook_instruction(self, address: int) -> None:
         if not self._initialized:
@@ -778,10 +888,11 @@ class AngrEmulator(
             )
 
         else:
-            bp = self.state.scratch.insn_bps[address]
+            bps = self.state.scratch.insn_bps[address]
             del self.state.scratch.insn_bps[address]
 
-            self.state.inspect.remove_breakpoint("instruction", bp)
+            for bp in bps:
+                self.state.inspect.remove_breakpoint("instruction", bp)
 
     def hook_instructions(
         self, function: typing.Callable[[emulator.Emulator], None]
@@ -842,10 +953,11 @@ class AngrEmulator(
 
         else:
             hook = HookHandler(callback=function, parent=self)
-            self.proj.hook(address, hook, 0)
+            for addr in self.machdef.code_addresses(address):
+                self.proj.hook(addr, hook, 0)
+                self.state.scratch.func_bps[addr] = None
 
             self.map_memory(address, 1)
-            self.state.scratch.func_bps[address] = None
 
     def unhook_function(self, address: int) -> None:
         if not self._initialized:
@@ -855,7 +967,38 @@ class AngrEmulator(
             raise NotImplementedError("Cannot unhook functions once emulation starts")
 
         else:
-            self.proj.unhook(address)
+            for addr in self.machdef.code_addresses(address):
+                self.proj.unhook(addr)
+
+    def get_isa_mode(self) -> int:
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            return super().get_isa_mode()
+        state = self.state if self._initialized else None
+        if state is None and self._pending_isa_mode is not None:
+            return self._pending_isa_mode
+        mode = self.machdef.read_isa_mode(state)
+        return super().get_isa_mode() if mode is None else mode
+
+    def set_isa_mode(self, mode: int) -> None:
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            super().set_isa_mode(mode)
+            return
+        if not self._initialized:
+            if self.machdef.read_isa_mode(None) is None:
+                # The generic path queues it as a register write.
+                super().set_isa_mode(mode)
+            else:
+                # initialize() sets it once every pending write is in.
+                self._pending_isa_mode = int(mode) & 1
+            return
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        if not self.machdef.write_isa_mode(self.state, mode):
+            super().set_isa_mode(mode)
 
     def hook_syscall(
         self, number: int, function: typing.Callable[[emulator.Emulator], None]
@@ -1443,7 +1586,9 @@ class AngrEmulator(
 
         # As soon as we start executing, disable value access
         self._dirty = True
-        if self._linear:
+        # Disassembling the block lifts it once more, so do it only when the
+        # message will be shown.
+        if self._linear and log.isEnabledFor(logging.DEBUG):
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
                 try:
                     disas = self.state.block(opt_level=0).disassembly
@@ -1528,7 +1673,9 @@ class AngrEmulator(
         )
 
         def filter_func(state):
-            ip = state.solver.eval_exact(state._ip, 1)[0]
+            ip = self.machdef.pc_from_engine(
+                state, state.solver.eval_exact(state._ip, 1)[0]
+            )
             if (
                 not self.state.scratch.bounds.is_empty()
                 and not self.state.scratch.bounds.contains_value(ip)

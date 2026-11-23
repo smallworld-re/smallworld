@@ -9,7 +9,7 @@ Provides two scenario names:
   unified entry point auto-detects ``StyxEmulator`` and routes through
   ``styxafl``). Mirrors ``fuzz.afl_fuzz`` but uses the Styx backend.
 
-Scope: 32-bit ARM only (``armhf``, ``armel``) — Styx has no 64-bit ARM target.
+Scope: 32-bit ARM only (``armv7a``, ``armv5t``) — Styx has no 64-bit ARM target.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class _StyxFuzzSpec:
 
 
 _SIMPLE_SPECS = {
-    "armhf": _StyxFuzzSpec(
+    "armv7a": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -51,31 +51,181 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         heap_size=0x1000,
     ),
-    "armel": _StyxFuzzSpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+    "armv7abe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
         exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv8a": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv8abe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv8r": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv8rbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        heap_size=0x1000,
+    ),
+    "armv5t": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+        heap_size=0x1000,
+    ),
+    "armv5tbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+        heap_size=0x1000,
+    ),
+    "armv4": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+        heap_size=0x1000,
+    ),
+    "armv4be": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+        heap_size=0x1000,
+    ),
+    "armv4t": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+        heap_size=0x1000,
+    ),
+    "armv4tbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
         heap_size=0x1000,
     ),
 }
 
 
 _AFL_SPECS = {
-    "armhf": _StyxFuzzSpec(
+    "armv7a": _StyxFuzzSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
         exit_offset=92,
     ),
-    "armel": _StyxFuzzSpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+    "armv7abe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
         exit_offset=92,
+    ),
+    "armv8a": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv8abe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv8r": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv8rbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+    ),
+    "armv5t": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+    ),
+    "armv5tbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+    ),
+    "armv4": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+    ),
+    "armv4be": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+    ),
+    "armv4t": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
+    ),
+    "armv4tbe": _StyxFuzzSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=84,
     ),
 }
 

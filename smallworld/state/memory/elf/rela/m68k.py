@@ -11,8 +11,9 @@ R_68K_NUM = 43
 
 
 class M68KElfRelocator(ElfRelocator):
-    arch = platforms.Architecture.M68K
-    byteorder = platforms.Byteorder.BIG
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.M68K, platforms.Byteorder.BIG)}
+    )
 
     def _compute_value(self, rela: ElfRela, elf):
         if (

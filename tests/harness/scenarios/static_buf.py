@@ -10,6 +10,7 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     model_base,
     set_register,
     split_variant,
@@ -32,11 +33,45 @@ class StaticBufferSpec:
     model_address: int | None = None
     model_code_offset: int | None = None
     exit_offset: int | None = None
+    fake_return_size: int = 8
+    # Subtracted from the buffer's flat address to give the pointer the model
+    # returns, for platforms whose pointers are offsets into an address space.
+    model_pointer_base: int = 0
 
 
 _SPECS = {
     "aarch64": StaticBufferSpec(
         platform=PlatformSpec("AARCH64", "LITTLE"),
+        pc_register="pc",
+        result_register="w0",
+        model_register="x0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "aarch64v85a": StaticBufferSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        result_register="w0",
+        model_register="x0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "aarch64be": StaticBufferSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        result_register="w0",
+        model_register="x0",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "aarch64v85abe": StaticBufferSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
         pc_register="pc",
         result_register="w0",
         model_register="x0",
@@ -55,7 +90,7 @@ _SPECS = {
         stack_pointer_register="rsp",
         model_code_offset=0x2800,
     ),
-    "armel": StaticBufferSpec(
+    "armv5t": StaticBufferSpec(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         result_register="r0",
@@ -65,8 +100,188 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
-    "armhf": StaticBufferSpec(
+    "armv5tbe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv4": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv4be": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V4", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv4t": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv4tbe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv6k": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv6kbe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv6m": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7m": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7em": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv8m": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7a": StaticBufferSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7abe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7r": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv7rbe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv8a": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv8abe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv8r": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r0",
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "armv8rbe": StaticBufferSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pc_register="pc",
         result_register="r0",
         model_register="r0",
@@ -83,6 +298,16 @@ _SPECS = {
         engines=("unicorn", "angr", "panda", "pcode"),
         entry_offset=4,
         stack_pointer_register="esp",
+        model_address=0x1000,
+    ),
+    "la32": StaticBufferSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        model_register="a0",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
         model_address=0x1000,
     ),
     "la64": StaticBufferSpec(
@@ -125,6 +350,26 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "micromips": StaticBufferSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pc_register="pc",
+        result_register="v0",
+        model_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "micromipsel": StaticBufferSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pc_register="pc",
+        result_register="v0",
+        model_register="v0",
+        engines=("unicorn", "angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "mips64": StaticBufferSpec(
         platform=PlatformSpec("MIPS64", "BIG"),
         pc_register="pc",
@@ -155,15 +400,35 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "ppcvle": StaticBufferSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pc_register="pc",
+        result_register="r3",
+        model_register="r3",
+        engines=("angr",),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "ppc64": StaticBufferSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
         result_register="r3",
         model_register="r3",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         entry_offset=4,
         stack_pointer_register="sp",
         stack_pointer_adjust=-0x80,
+        model_address=0x1000,
+    ),
+    "riscv32": StaticBufferSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        model_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        entry_offset=2,
+        stack_pointer_register="sp",
         model_address=0x1000,
     ),
     "riscv64": StaticBufferSpec(
@@ -191,6 +456,26 @@ _SPECS = {
     #     the defect is specific to `bsr`, and this scenario keeps `bsr` on
     #     purpose to cover that path where it works.)
     # styx is absent from the SH-4 rows entirely: its SH-4 arch spec is a stub.
+    "sh1": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH1", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "sh2": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH2", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "sh2a": StaticBufferSpec(
         platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
         pc_register="pc",
@@ -241,6 +526,29 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    # The buffer's flat address, 0x10000, is XDATA offset 0 on the 8051.
+    "mcs51": StaticBufferSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        result_register="dptr",
+        model_register="dptr",
+        engines=("angr", "pcode"),
+        entry_offset=1,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+        fake_return_size=2,
+        model_pointer_base=0x10000,
+    ),
+    "v850": StaticBufferSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pc_register="pc",
+        result_register="r10",
+        model_register="r10",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -280,9 +588,6 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
-            "ppc64": "Unicorn ppc64 support buggy",
-            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
-            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
             **_SH4_BSR_SKIPS,
         },
     ),
@@ -316,15 +621,19 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     code = load_raw_code(smallworld, "static_buf", arch)
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
 
     set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
-    stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+    stack.push_integer(
+        0xFFFFFFFF & ((1 << (8 * spec.fake_return_size)) - 1),
+        spec.fake_return_size,
+        "fake return address",
+    )
     set_register(
         cpu,
         spec.stack_pointer_register,
-        stack.get_pointer() + spec.stack_pointer_adjust,
+        stack.get_pointer() + stack_adjust + spec.stack_pointer_adjust,
     )
 
     static_buffer_address = 0x10000
@@ -354,7 +663,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
                 ),
             )
             emulator.write_memory(static_buffer_address, data)
-            emulator.write_register(spec.model_register, static_buffer_address)
+            emulator.write_register(
+                spec.model_register, static_buffer_address - spec.model_pointer_base
+            )
 
     foobar = FoobarModel(model_address)
     foobar.static_buffer_address = static_buffer_address

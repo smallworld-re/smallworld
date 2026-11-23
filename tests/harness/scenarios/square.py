@@ -11,26 +11,57 @@ NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
+    "aarch64be",
+    "aarch64v85abe",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv5tbe",
+    "armv4",
+    "armv4be",
+    "armv4t",
+    "armv4tbe",
+    "armv6k",
+    "armv6kbe",
+    "armv6m",
+    "armv7m",
+    "armv7em",
+    "armv8m",
+    "armv7a",
+    "armv7abe",
+    "armv7r",
+    "armv7rbe",
+    "armv8a",
+    "armv8abe",
+    "armv8r",
+    "armv8rbe",
     "i386",
+    "la32",
     "la64",
     "m68k",
+    "mcs51",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "msp430",
     "msp430x",
     "ppc",
     "ppc64",
+    "ppcvle",
+    "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "sparc32",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -41,9 +72,34 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
-    # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
-    per_arch={"la64": {"result_register": "v0"}},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv5tbe": _ARM_ENGINES,
+        "armv4": _ARM_ENGINES,
+        "armv4be": _ARM_ENGINES,
+        "armv4t": _ARM_ENGINES,
+        "armv4tbe": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
+        "armv6kbe": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7em": _ARM_ENGINES,
+        "armv8m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "armv7abe": _ARM_ENGINES,
+        "armv7r": _ARM_ENGINES,
+        "armv7rbe": _ARM_ENGINES,
+        "armv8a": _ARM_ENGINES,
+        "armv8abe": _ARM_ENGINES,
+        "armv8r": _ARM_ENGINES,
+        "armv8rbe": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
+    # LoongArch's mul.w writes a0; the binary reads v0, which aliases the same reg.
+    per_arch={
+        "la32": {"result_register": "v0"},
+        "la64": {"result_register": "v0"},
+    },
 )
 
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
@@ -85,13 +141,15 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "square"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={
             **{
                 arch: {"signext": True}
                 for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
-            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
+            **{
+                arch: {"sixteenbit": True}
+                for arch in ("mcs51", "msp430", "msp430x", "x86_16")
+            },
         },
     ),
     run_factory=assert_outputs(_square_expectations),

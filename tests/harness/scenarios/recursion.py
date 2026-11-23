@@ -9,6 +9,7 @@ from .common import (
     ARCH_REGISTERS,
     PlatformSpec,
     build_specs,
+    concrete,
     enroll_triton,
     load_raw_code,
     make_emulator,
@@ -48,34 +49,93 @@ def _fake_return(arch: str, label: str = "fake return address") -> StackItem:
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
+    "aarch64be",
+    "aarch64v85abe",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv5tbe",
+    "armv4",
+    "armv4be",
+    "armv4t",
+    "armv4tbe",
+    "armv6k",
+    "armv6kbe",
+    "armv6m",
+    "armv7m",
+    "armv7em",
+    "armv8m",
+    "armv7a",
+    "armv7abe",
+    "armv7r",
+    "armv7rbe",
+    "armv8a",
+    "armv8abe",
+    "armv8r",
+    "armv8rbe",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
+    "riscv32",
     "riscv64",
     "sparc32",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
 _PER_ARCH: dict[str, dict[str, Any]] = {
     "aarch64": {"stack_items": (_fake_return("aarch64"),), "stack_pointer_adjust": 8},
+    "aarch64v85a": {
+        "stack_items": (_fake_return("aarch64v85a"),),
+        "stack_pointer_adjust": 8,
+    },
+    "aarch64be": {
+        "stack_items": (_fake_return("aarch64be"),),
+        "stack_pointer_adjust": 8,
+    },
+    "aarch64v85abe": {
+        "stack_items": (_fake_return("aarch64v85abe"),),
+        "stack_pointer_adjust": 8,
+    },
     "amd64": {"stack_items": (_fake_return("amd64"),)},
-    "armel": {"stack_items": (_fake_return("armel"),)},
-    "armhf": {"stack_items": (_fake_return("armhf"),)},
+    "armv5t": {"stack_items": (_fake_return("armv5t"),)},
+    "armv5tbe": {"stack_items": (_fake_return("armv5tbe"),)},
+    "armv4": {"stack_items": (_fake_return("armv4"),)},
+    "armv4be": {"stack_items": (_fake_return("armv4be"),)},
+    "armv4t": {"stack_items": (_fake_return("armv4t"),)},
+    "armv4tbe": {"stack_items": (_fake_return("armv4tbe"),)},
+    "armv6k": {"stack_items": (_fake_return("armv6k"),)},
+    "armv6kbe": {"stack_items": (_fake_return("armv6kbe"),)},
+    "armv6m": {"stack_items": (_fake_return("armv6m"),)},
+    "armv7m": {"stack_items": (_fake_return("armv7m"),)},
+    "armv7em": {"stack_items": (_fake_return("armv7em"),)},
+    "armv8m": {"stack_items": (_fake_return("armv8m"),)},
+    "armv7a": {"stack_items": (_fake_return("armv7a"),)},
+    "armv7abe": {"stack_items": (_fake_return("armv7abe"),)},
+    "armv7r": {"stack_items": (_fake_return("armv7r"),)},
+    "armv7rbe": {"stack_items": (_fake_return("armv7rbe"),)},
+    "armv8a": {"stack_items": (_fake_return("armv8a"),)},
+    "armv8abe": {"stack_items": (_fake_return("armv8abe"),)},
+    "armv8r": {"stack_items": (_fake_return("armv8r"),)},
+    "armv8rbe": {"stack_items": (_fake_return("armv8rbe"),)},
     # i386 and m68k pass the argument on the stack rather than in a register.
     "i386": {
         "arg_register": None,
         "stack_items": (StackItem("argument", 4), _fake_return("i386")),
     },
+    "la32": {"stack_items": (_fake_return("la32"),)},
     "la64": {"stack_items": (_fake_return("la64"),)},
     "m68k": {
         "arg_register": None,
@@ -83,9 +143,17 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     },
     "mips": {"stack_items": (_fake_return("mips"),)},
     "mipsel": {"stack_items": (_fake_return("mipsel"),)},
+    "micromips": {"stack_items": (_fake_return("micromips"),)},
+    "micromipsel": {"stack_items": (_fake_return("micromipsel"),)},
     "mips64": {"stack_items": (_fake_return("mips64"),)},
     "mips64el": {"stack_items": (_fake_return("mips64el"),)},
     "ppc": {
+        "stack_items": (
+            StackItem(0xFFFFFFFF, 4, "placeholder for lr"),
+            StackItem(0xFFFFFFFF, 4, "empty space"),
+        ),
+    },
+    "ppcvle": {
         "stack_items": (
             StackItem(0xFFFFFFFF, 4, "placeholder for lr"),
             StackItem(0xFFFFFFFF, 4, "empty space"),
@@ -95,13 +163,23 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
         "stack_items": (_fake_return("ppc64"),),
         "stack_pointer_adjust": -0x80,
     },
+    "riscv32": {
+        "stack_items": (_fake_return("riscv32"),),
+        "stack_pointer_adjust": 4,
+    },
     "riscv64": {
         "stack_items": (_fake_return("riscv64"),),
         "stack_pointer_adjust": 8,
     },
     "sparc32": {},
     "tricore": {"entry_offset": 0x38},
+    # main is the last instruction; mc91 keeps lp on the stack itself.
+    "v850": {"entry_offset": 0x2A},
     "xtensa": {"stack_items": (_fake_return("xtensa"),)},
+    "x86_16": {
+        "arg_register": None,
+        "stack_items": (StackItem("argument", 2), StackItem(0xFFFF, 2)),
+    },
 }
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
@@ -111,7 +189,29 @@ _PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 _SPECS = build_specs(
     RecursionSpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv5tbe": _ARM_ENGINES,
+        "armv4": _ARM_ENGINES,
+        "armv4be": _ARM_ENGINES,
+        "armv4t": _ARM_ENGINES,
+        "armv4tbe": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
+        "armv6kbe": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7em": _ARM_ENGINES,
+        "armv8m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "armv7abe": _ARM_ENGINES,
+        "armv7r": _ARM_ENGINES,
+        "armv7rbe": _ARM_ENGINES,
+        "armv8a": _ARM_ENGINES,
+        "armv8abe": _ARM_ENGINES,
+        "armv8r": _ARM_ENGINES,
+        "armv8rbe": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     per_arch=_PER_ARCH,
 )
 
@@ -148,7 +248,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
             # styx-mpc866m's event controller has unimplemented tick/latch/
             # execute (todo! in event-controllers/ppc/styx-mpc866m/src/lib.rs);
             # short emulations don't trigger it, but recursion runs long enough
@@ -208,5 +307,5 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
     emulator.add_exit_point(code.address + code.get_capacity())
     final_cpu = machine.emulate(emulator).get_cpu()
-    print(hex(getattr(final_cpu, spec.result_register).get()))
+    print(hex(concrete(getattr(final_cpu, spec.result_register).get())))
     return 0

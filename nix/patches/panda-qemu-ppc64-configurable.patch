@@ -1,0 +1,21 @@
+Build the configurable machine into the ppc64 target too.
+
+meson's `when:` keys only name a target's own architecture (TARGET_PPC64 for
+ppc64-softmmu); TARGET_PPC, its base architecture, reaches config-target.h but
+not those conditions.  So the TARGET_PPC line below left ppc64 without the
+"configurable" machine SmallWorld runs PowerPC on, the same way aarch64 and
+x86_64 needed their own lines.  configurable_machine.c itself is written
+against TARGET_PPC, which ppc64 does define.
+
+Generated on top of panda-qemu-superh.patch, which adds the TARGET_SH4 line.
+
+--- a/hw/avatar/meson.build
++++ b/hw/avatar/meson.build
+@@ -24,6 +24,7 @@
+ ))
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_X86_64'], if_true: files('configurable_machine.c'))
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_PPC'], if_true: files('configurable_machine.c'))
++specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_PPC64'], if_true: files('configurable_machine.c'))
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_SH4'], if_true: files('configurable_machine.c'))
+ 
+ specific_ss.add(when: ['CONFIG_AVATAR', 'TARGET_AVR'], if_true: files(

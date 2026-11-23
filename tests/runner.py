@@ -33,7 +33,12 @@ machine.add(cpu)
 filepath = pathlib.Path(__file__).parent / args.path
 
 if arch in (
-    smallworld.platforms.Architecture.ARM_V6M,
+    smallworld.platforms.Architecture.ARM_V4T,
+    smallworld.platforms.Architecture.ARM_V5T,
+    smallworld.platforms.Architecture.ARM_V6K,
+    smallworld.platforms.Architecture.ARM_V7M,
+    smallworld.platforms.Architecture.ARM_V7EM,
+    smallworld.platforms.Architecture.ARM_V8M,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS32,
     smallworld.platforms.Architecture.MIPS64,
@@ -56,6 +61,10 @@ if hasattr(cpu, "t9"):
     # This is a MIPS variant
     # Their calling convention uses t9 to compute a global pointer
     cpu.t9.set(entrypoint)
+if arch == smallworld.platforms.Architecture.POWERPC64:
+    # An ELFv2 function's global entry point derives the TOC pointer, r2,
+    # from its own address in r12.
+    cpu.r12.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0xC000000, 0x4000)
@@ -63,6 +72,12 @@ machine.add(stack)
 
 # Push a return address onto the stack
 fake_return_address = 0x7FFFFFF0
+if arch == smallworld.platforms.Architecture.POWERPC64:
+    # An ELFv2 caller's frame header is 32 bytes: back chain, CR save,
+    # LR save, and the TOC save slot that calls through the PLT use.
+    # The return address goes in lr.
+    stack.push_bytes(b"\0" * 24, "Frame header")
+    cpu.lr.set(fake_return_address)
 stack.push_integer(fake_return_address, 8, "fake return address")
 machine.add_exit_point(fake_return_address)
 if arch == smallworld.platforms.Architecture.SPARC32:
@@ -177,15 +192,20 @@ def _is_success_exit_unaligned_read() -> bool:
 # Emulate
 emulator: smallworld.emulators.Emulator
 if arch in (
-    smallworld.platforms.Architecture.ARM_V7A,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS64,
     smallworld.platforms.Architecture.POWERPC32,
+    smallworld.platforms.Architecture.RISCV32,
     smallworld.platforms.Architecture.RISCV64,
 ):
     emulator = smallworld.emulators.GhidraEmulator(platform)
 else:
     emulator = smallworld.emulators.UnicornEmulator(platform)
+    if hasattr(cpu, "fpexc") and hasattr(cpu, "cpacr"):
+        # Enable the ARM FPU as an OS would for a user process. Unicorn resets
+        # ARM CPUs with it disabled, so the first VFP/NEON instruction faults.
+        cpu.cpacr.set(0x00F00000)  # Full access to coprocessors 10 and 11
+        cpu.fpexc.set(0x40000000)  # FPEXC.EN
 
 
 try:

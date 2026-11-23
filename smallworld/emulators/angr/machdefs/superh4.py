@@ -14,9 +14,10 @@ from ....platforms.defs.superh4 import (
     SH4_STATUS_REGISTER,
 )
 from .machdef import GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
-# The Linux/SH syscall convention and the IRSB-rewriting helpers are shared with
-# SH-2A and live in `superh.py`, which `machdefs/__init__.py` already imports
+# The Linux/SH syscall convention is shared with SH-2A and lives in
+# `superh.py`, which `machdefs/__init__.py` already imports
 # first.  Both SuperH generations spell `trapa` identically and use the same
 # kernel ABI; only the sleigh *modelling* of the instruction differs, so only the
 # way the trap is located in the lifted block differs here.  See the long comment
@@ -28,9 +29,6 @@ from .superh import (
     SUPERH_TRAP_USEROP,
     SimCCSuperHLinuxSyscall,
     covers_one_instruction,
-    lift_for_rewrite,
-    pcode_arch,
-    rewrite_as_syscall,
 )
 
 SH4_BE_PCODE_LANGUAGE = "SuperH4:BE:32:default"
@@ -54,7 +52,7 @@ class SuperH4MachineDef(GhidraMachineDef):
     # (R0_BANK, GBR, PC, MACH, FPSCR, ...) this map is lowercase throughout -
     # unlike the Ghidra machdef, which talks to sleigh directly and must preserve
     # the original case.
-    _registers: typing.Dict[str, str] = {
+    _registers = {
         # *** General-Purpose Registers ***
         **{f"r{i}": f"r{i}" for i in range(0, 16)},
         # ArchPcode synthesizes `sp` and `ip`, but not `fp`/`ra`/`lr`.

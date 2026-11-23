@@ -1,5 +1,41 @@
 variant,               single precision, double precision
-superh-sh2a-fpu angr,  skipped,          skipped
+aarch64 angr,          4 pass / 1 skip,  4 pass / 1 skip
+aarch64 ghidra,        3 pass / 2 skip,  5 pass
+aarch64 panda,         5 pass,           5 pass
+aarch64 unicorn,       5 pass,           5 pass
+arm-v7a angr,          4 pass / 1 skip,  4 pass / 1 skip
+arm-v7a ghidra,        3 pass / 2 skip,  5 pass
+arm-v7a panda,         5 pass,           5 pass
+arm-v7a styx,          5 pass,           5 pass
+arm-v7a unicorn,       5 pass,           5 pass
+arm-v7em angr,         4 pass / 1 skip,  5 skip
+arm-v7em ghidra,       3 pass / 2 skip,  5 skip
+arm-v7em panda,        5 pass,           5 skip
+arm-v7em styx,         5 pass,           5 skip
+arm-v7em unicorn,      5 pass,           5 skip
+arm-v7r angr,          4 pass / 1 skip,  4 pass / 1 skip
+arm-v7r ghidra,        3 pass / 2 skip,  5 pass
+arm-v7r panda,         5 pass,           5 pass
+arm-v7r styx,          skipped,          skipped
+arm-v7r unicorn,       5 pass,           5 pass
+arm-v8a angr,          4 pass / 1 skip,  4 pass / 1 skip
+arm-v8a ghidra,        3 pass / 2 skip,  5 pass
+arm-v8a panda,         5 pass,           5 pass
+arm-v8a styx,          skipped,          skipped
+arm-v8a unicorn,       5 pass,           5 pass
+arm-v8r angr,          4 pass / 1 skip,  4 pass / 1 skip
+arm-v8r ghidra,        3 pass / 2 skip,  5 pass
+arm-v8r panda,         5 pass,           5 pass
+arm-v8r styx,          skipped,          skipped
+arm-v8r unicorn,       5 pass,           5 pass
+powerpc32 angr,        5 skip,           4 pass / 1 skip
+powerpc32 ghidra,      3 pass / 2 skip,  5 pass
+powerpc32 panda,       4 pass / 1 skip,  4 pass / 1 skip
+powerpc32 unicorn,     5 pass,           5 pass
+powerpc64 angr,        5 skip,           4 pass / 1 skip
+powerpc64 ghidra,      3 pass / 2 skip,  5 pass
+powerpc64 unicorn,     5 pass,           5 pass
+superh-sh2a-fpu angr,  5 pass,           5 skip
 superh-sh2a-fpu ghidra,3 pass / 2 skip,  5 skip
 superh-sh2a-fpu panda, 5 pass,           5 pass
 superh-sh2a-fpu styx,  5 pass,           5 skip

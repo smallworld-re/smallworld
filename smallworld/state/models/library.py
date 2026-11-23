@@ -4,7 +4,7 @@ import logging
 import typing
 
 from ...emulators import Emulator
-from ...platforms import ABI, Platform, PlatformDef
+from ...platforms import ABI, IsaBit, Platform, PlatformDef
 from ..memory import Memory
 from ..memory.elf import ElfExecutable
 from ..state import BytesValue
@@ -13,6 +13,14 @@ from .model import Model
 from .tls import RELOCATED_TLS_MODULE, TlsArenaBorrower, TlsArenaOwner
 
 log = logging.getLogger(__name__)
+
+# The alignment of a model's static buffer: the strictest of the types they
+# hold (struct tm, errno, long long, double).
+_STATIC_ALIGN = 8
+
+
+def _align(size: int) -> int:
+    return (size + _STATIC_ALIGN - 1) & ~(_STATIC_ALIGN - 1)
 
 
 class ElfModelLibrary(Memory):
@@ -64,7 +72,7 @@ class ElfModelLibrary(Memory):
 
             self.models[name] = model
             self.code_size += 4
-            data_size += model.static_space_required
+            data_size += _align(model.static_space_required)
 
         # The region holds, in order: model trampolines (code_size), the
         # exported variables (stdin/stdout/stderr, ...), then per-model static
@@ -73,7 +81,8 @@ class ElfModelLibrary(Memory):
         # variable size -- harmless until a model whose buffer sits at the edge
         # is actually invoked. Account for them.
         variables_size = sum(size for _, size in self.variables)
-        super().__init__(address, self.code_size + variables_size + data_size)
+        data_start = _align(self.code_size + variables_size)
+        super().__init__(address, data_start + data_size)
 
         data_offset = self.code_size
 
@@ -82,6 +91,10 @@ class ElfModelLibrary(Memory):
             self[data_offset] = BytesValue(b"\0" * size, None)
             data_offset += size
 
+        # Each buffer starts aligned, as the struct or integer it holds
+        # must be: a CPU without unaligned access (ARMv6-M) faults otherwise.
+        data_offset = data_start
+
         # This should be stable in supported versions of python
         for _, model in self.models.items():
             if model.static_space_required > 0:
@@ -89,7 +102,7 @@ class ElfModelLibrary(Memory):
                 self[data_offset] = BytesValue(
                     b"\0" * model.static_space_required, None
                 )
-                data_offset += model.static_space_required
+                data_offset += _align(model.static_space_required)
 
         self._share_tls_arena()
 
@@ -107,6 +120,11 @@ class ElfModelLibrary(Memory):
     @abc.abstractmethod
     def alt_names(self) -> typing.Dict[str, str]:
         raise NotImplementedError()
+
+    def _thumb_only(self) -> bool:
+        # A CPU that runs only its alternate instruction set (M-profile's
+        # Thumb) needs bit 0 set on every code address.
+        return self.platdef.isa_bit is IsaBit.REQUIRED
 
     def link(self, elf: ElfExecutable) -> None:
         for rela in itertools.chain(elf._dynamic_relas, elf._static_relas):
@@ -136,7 +154,12 @@ class ElfModelLibrary(Memory):
                 )
             if model.unsupported:
                 log.warning(f"Harness requires {model.name}, which is unsupported")
-            elf.update_symbol_value(sym, model._address)
+            address = model._address
+            if self._thumb_only():
+                # On a Thumb-only CPU (M-profile), a function address must
+                # carry the Thumb bit; an even one means ARM state, which faults.
+                address |= 1
+            elf.update_symbol_value(sym, address)
 
         # The models hand out TLS storage but cannot reach the ELF; this is
         # the one place holding both, and without it every thread-local reads
@@ -146,14 +169,22 @@ class ElfModelLibrary(Memory):
         # Descriptors carry a resolver address rather than a symbol, so no
         # relocation reaches them; they load with a null resolver and are
         # bound here, the first point at which the model has an address.
+        relocator = elf.relocator
+        if relocator is None:
+            return
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
-            elf.bind_tlsdesc_resolver(tlsdesc._address)
-        elif elf.tlsdesc_descriptors:
+            address = tlsdesc._address
+            if self._thumb_only():
+                # Code reaches the resolver with blx, so it needs the Thumb
+                # bit as every other model address does.
+                address |= 1
+            relocator.bind_tls_descriptor_resolver(elf, address)
+        elif relocator.tls_descriptors:
             # Silence here would surface much later as a call to address zero,
             # with nothing tying it back to TLS.
             log.warning(
-                f"{len(elf.tlsdesc_descriptors)} TLS descriptors need a resolver, "
+                f"{len(relocator.tls_descriptors)} TLS descriptors need a resolver, "
                 f"but this library provides no __tlsdesc_resolve model; "
                 f"thread-local accesses will call address zero"
             )

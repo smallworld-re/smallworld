@@ -7,9 +7,11 @@ from typing import Literal, Mapping, Sequence
 
 from .common import (
     PlatformSpec,
+    concrete,
     load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -65,9 +67,7 @@ def _configure_stack(
     if spec.stack is None:
         return
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(
-        platform, spec.stack.base, spec.stack.size
-    )
+    stack, adjust = make_stack(smallworld, platform, spec.stack.base, spec.stack.size)
     machine.add(stack)
 
     # i386 passes the first argument on the stack; the other migrated families
@@ -85,7 +85,7 @@ def _configure_stack(
     set_register(
         cpu,
         spec.stack.pointer_register,
-        stack.get_pointer() + spec.stack.pointer_adjust,
+        stack.get_pointer() + adjust + spec.stack.pointer_adjust,
     )
 
 
@@ -94,7 +94,7 @@ def _print_result(cpu, spec: RawBinarySpec) -> None:
     if spec.print_mode == "register":
         print(register)
         return
-    print(hex(register.get()))
+    print(hex(concrete(register.get())))
 
 
 def run_integer_case(

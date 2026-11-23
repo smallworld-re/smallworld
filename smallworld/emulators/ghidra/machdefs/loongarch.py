@@ -154,8 +154,12 @@ class LoongArchMachineDef(GhidraMachineDef):
     }
 
 
+class LoongArch32MachineDef(LoongArchMachineDef):
+    arch = Architecture.LOONGARCH32
+
+
 class LoongArch64MachineDef(LoongArchMachineDef):
     arch = Architecture.LOONGARCH64
 
 
-__all__ = ["LoongArch64MachineDef"]
+__all__ = ["LoongArch32MachineDef", "LoongArch64MachineDef"]

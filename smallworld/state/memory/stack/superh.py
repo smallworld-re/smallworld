@@ -31,6 +31,22 @@ class SH2AFPUStack(SuperHStack):
     )
 
 
+class SH2Stack(SuperHStack):
+    """A stack for an SH-2 CPU."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.SUPERH_SH2, platforms.Byteorder.BIG
+    )
+
+
+class SH1Stack(SuperHStack):
+    """A stack for an SH-1 CPU."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.SUPERH_SH1, platforms.Byteorder.BIG
+    )
+
+
 class SuperH4BEStack(SuperHStack):
     """A stack for an SH-4 CPU, big-endian."""
 

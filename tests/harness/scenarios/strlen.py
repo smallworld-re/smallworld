@@ -8,6 +8,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    concrete,
     enroll_triton,
     load_raw_code,
     make_emulator,
@@ -36,24 +37,54 @@ class StrlenSpec:
 
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
+    "aarch64be",
+    "aarch64v85abe",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv5tbe",
+    "armv4",
+    "armv4be",
+    "armv4t",
+    "armv4tbe",
+    "armv6k",
+    "armv6kbe",
+    "armv6m",
+    "armv7m",
+    "armv7em",
+    "armv8m",
+    "armv7a",
+    "armv7abe",
+    "armv7r",
+    "armv7rbe",
+    "armv8a",
+    "armv8abe",
+    "armv8r",
+    "armv8rbe",
     "i386",
+    "la32",
     "la64",
     "m68k",
     "mips",
     "mipsel",
+    "micromips",
+    "micromipsel",
     "mips64",
     "mips64el",
     "ppc",
     "ppc64",
+    "ppcvle",
+    "riscv32",
     "riscv64",
+    "sh1",
+    "sh2",
     "sh2a",
     "sh4",
     "sh4el",
     "sparc32",
     "tricore",
+    "v850",
+    "x86_16",
     "xtensa",
 )
 
@@ -65,11 +96,34 @@ _SPECS = build_specs(
     StrlenSpec,
     _ARCHS,
     field_aliases={"return_address_size": "pointer_size"},
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "armv5t": _ARM_ENGINES,
+        "armv5tbe": _ARM_ENGINES,
+        "armv4": _ARM_ENGINES,
+        "armv4be": _ARM_ENGINES,
+        "armv4t": _ARM_ENGINES,
+        "armv4tbe": _ARM_ENGINES,
+        "armv6k": _ARM_ENGINES,
+        "armv6kbe": _ARM_ENGINES,
+        "armv6m": _ARM_ENGINES,
+        "armv7m": _ARM_ENGINES,
+        "armv7em": _ARM_ENGINES,
+        "armv8m": _ARM_ENGINES,
+        "armv7a": _ARM_ENGINES,
+        "armv7abe": _ARM_ENGINES,
+        "armv7r": _ARM_ENGINES,
+        "armv7rbe": _ARM_ENGINES,
+        "armv8a": _ARM_ENGINES,
+        "armv8abe": _ARM_ENGINES,
+        "armv8r": _ARM_ENGINES,
+        "armv8rbe": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     per_arch={
         # i386 and m68k take the string pointer on the stack rather than in a reg.
         "i386": {"arg_register": None, "stack_argument_size": 4},
         "m68k": {"arg_register": None, "stack_argument_size": 4},
+        "x86_16": {"arg_register": None, "stack_argument_size": 2},
         # tricore receives a pointer in a4, not the canonical integer-arg d4.
         "tricore": {"arg_register": "a4"},
         # Only amd64 prints the stack and pointer address; others print result only.
@@ -114,7 +168,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
             **_SH4_CALL_SKIPS,
         },
     ),
@@ -181,5 +234,5 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     emulator.add_exit_point(code.address + code.get_capacity())
 
     final_machine = machine.emulate(emulator)
-    print(hex(getattr(final_machine.get_cpu(), spec.result_register).get()))
+    print(hex(concrete(getattr(final_machine.get_cpu(), spec.result_register).get())))
     return 0

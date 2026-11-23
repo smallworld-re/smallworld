@@ -5,9 +5,11 @@ import logging
 from typing import Sequence
 
 from .common import (
+    THUMB_ONLY_ARCHS,
     PlatformSpec,
     add_code_bounds,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -37,6 +39,27 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "aarch64v85a": ElfSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "aarch64be": ElfSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "aarch64v85abe": ElfSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
     "amd64": ElfSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pointer_size=8,
@@ -44,15 +67,141 @@ _SPECS = {
         stack_pointer_register="rsp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
-    "armel": ElfSpec(
+    "armv6k": ElfSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv6kbe": ElfSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv5t": ElfSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv5tbe": ElfSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv4": ElfSpec(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv4be": ElfSpec(
+        platform=PlatformSpec("ARM_V4", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv4t": ElfSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv4tbe": ElfSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv6m": ElfSpec(
         platform=PlatformSpec("ARM_V6M", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
-    "armhf": ElfSpec(
+    "armv7m": ElfSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7em": ElfSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8m": ElfSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7a": ElfSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7abe": ElfSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7r": ElfSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv7rbe": ElfSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8a": ElfSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8abe": ElfSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8r": ElfSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "armv8rbe": ElfSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -64,6 +213,13 @@ _SPECS = {
         pc_register="eip",
         stack_pointer_register="esp",
         engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "la32": ElfSpec(
+        platform=PlatformSpec("LOONGARCH32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
     ),
     "la64": ElfSpec(
         platform=PlatformSpec("LOONGARCH64", "LITTLE"),
@@ -107,6 +263,20 @@ _SPECS = {
         stack_pointer_register="sp",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    "micromips": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "micromipsel": ElfSpec(
+        platform=PlatformSpec("MIPS32_MICROMIPS", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+    ),
     "ppc": ElfSpec(
         platform=PlatformSpec("POWERPC32", "BIG"),
         pointer_size=4,
@@ -114,12 +284,30 @@ _SPECS = {
         stack_pointer_register="r1",
         engines=("unicorn", "angr", "panda", "pcode"),
     ),
+    # The loader tells VLE from plain PowerPC32 by the SHF_PPC_VLE section
+    # flag, and refuses a platform that disagrees with it.
+    "ppcvle": ElfSpec(
+        platform=PlatformSpec("POWERPC32_VLE", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="r1",
+        engines=("angr",),
+    ),
     "ppc64": ElfSpec(
         platform=PlatformSpec("POWERPC64", "BIG"),
         pointer_size=8,
         pc_register="pc",
         stack_pointer_register="r1",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
+    ),
+    "riscv32": ElfSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        print_register="a0",
+        use_platform_loader=False,
     ),
     "riscv64": ElfSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -145,6 +333,13 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         print_register="o0",
     ),
+    "v850": ElfSpec(
+        platform=PlatformSpec("V850", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "pcode"),
+    ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -159,14 +354,29 @@ _SPECS = {
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-_SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
-}
+_SKIP_REASONS = {}
 
 _UNICORN_BOUND_EXITS = {
     "aarch64": 0xAC,
-    "armel": 0x88,
-    "armhf": 0x88,
+    "aarch64v85a": 0xAC,
+    "aarch64be": 0xAC,
+    "aarch64v85abe": 0xAC,
+    "armv6k": 0x88,
+    "armv6kbe": 0x88,
+    "armv5t": 0x88,
+    "armv5tbe": 0x88,
+    "armv4": 0x88,
+    "armv4be": 0x88,
+    "armv4t": 0x88,
+    "armv4tbe": 0x88,
+    "armv7a": 0x88,
+    "armv7abe": 0x88,
+    "armv7r": 0x88,
+    "armv7rbe": 0x88,
+    "armv8a": 0x88,
+    "armv8abe": 0x88,
+    "armv8r": 0x88,
+    "armv8rbe": 0x88,
 }
 
 
@@ -180,7 +390,6 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "elf"),
     variants_source=from_arch_table(
         _SPECS,
-        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),
     run_factory=just_run(args=("foobar",)),
 )
@@ -221,7 +430,41 @@ def _configure_exitpoints(
             stack.push_integer(exitpoint, 8, None)
         return
 
-    if arch in {"aarch64", "armel", "armhf"} and engine == "panda":
+    if arch in THUMB_ONLY_ARCHS:
+        # Stop at _start's 2-byte `bx lr`: returning would need a Thumb-bit
+        # return address, and the M profile has no other way out.
+        exitpoint = (
+            instruction_address(arch, entrypoint) + code.get_symbol_size("_start") - 2
+        )
+        machine.add_exit_point(exitpoint)
+        return
+
+    if (
+        arch
+        in {
+            "aarch64",
+            "aarch64v85a",
+            "aarch64be",
+            "aarch64v85abe",
+            "armv6k",
+            "armv6kbe",
+            "armv5t",
+            "armv5tbe",
+            "armv4",
+            "armv4be",
+            "armv4t",
+            "armv4tbe",
+            "armv7a",
+            "armv7abe",
+            "armv7r",
+            "armv7rbe",
+            "armv8a",
+            "armv8abe",
+            "armv8r",
+            "armv8rbe",
+        }
+        and engine == "panda"
+    ):
         exitpoint = entrypoint + code.get_symbol_size("_start") - 4
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
@@ -238,7 +481,7 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
-    if arch in {"mips", "mipsel"} and engine == "unicorn":
+    if arch in {"mips", "mipsel", "micromips", "micromipsel"} and engine == "unicorn":
         set_register(cpu, "ra", 0xFFFF0)
         emulator.add_exit_point(0xFFFF0)
         return
@@ -269,8 +512,17 @@ def _configure_exitpoints(
         machine.add_exit_point(0xFFFF0)
         return
 
+    if arch == "v850":
+        set_register(cpu, "lp", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
+        return
+
     if arch == "ppc" and engine == "panda":
         machine.add_exit_point(entrypoint + 0x34)
+
+    if arch == "ppc64" and engine == "panda":
+        # Stop on _start's closing blr; PANDA faults fetching the return address.
+        machine.add_exit_point(entrypoint + code.get_symbol_size("_start") - 4)
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:

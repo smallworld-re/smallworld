@@ -63,6 +63,8 @@ class TestFloatSpec:
     compares_flags: bool = False
     stack_base: int = 0x2000
     stack_size: int = 0x4000
+    # Where the input region starts; the output region follows it.
+    data_base: int = 0x00100000
 
 
 @dataclasses.dataclass(frozen=True)
@@ -119,12 +121,6 @@ def encode_patch(patch: bytes, big: bool) -> bytes:
 # module may cite them.
 # --------------------------------------------------------------------------
 
-# angr's pcode engine implements no floating-point operations at all: every
-# OpBehaviorFloat* class in angr/engines/pcode/behavior.py inherits the base
-# evaluate_binary/evaluate_unary, which raise AngrError("Not implemented!").
-# That is upstream and affects every pcode-backed architecture.
-ANGR_NO_FP = "angr's pcode engine implements no floating-point ops (upstream)"
-
 # Ghidra's p-code emulator flushes gradual-underflow results to zero in
 # single-precision multiply and divide instead of returning the subnormal.
 # Minimal case: 0x00000001 (the least positive subnormal) * 0x3F000001 (0.5)
@@ -140,7 +136,7 @@ GHIDRA_FLUSHES_SUBNORMALS = (
 
 # ARM's VFP square root lowers to VEX's *scalar* Iop_SqrtF32 / Iop_SqrtF64, and
 # angr implements neither: `vexop_to_simop` raises UnsupportedIROpError("no
-# calculate function identified for Iop_SqrtF32"). Measured on armhf.angr for
+# calculate function identified for Iop_SqrtF32"). Measured on armv7a.angr for
 # both precisions independently. This is specific to the scalar ops rather than
 # to square root in general - amd64's `sqrtss`/`sqrtsd` lower to the SIMD
 # Iop_Sqrt32F0x4 / Iop_Sqrt64F0x2, which angr does implement, so amd64.angr and

@@ -8,8 +8,11 @@
   sparcGcc,
   sparcGlibc,
   sparcLinuxHeaders,
+  sdcc,
+  ppcVleBinutils,
   superHBinutils,
   tricoreGcc,
+  v850Binutils,
   xtensaGcc,
   pkgsCross,
   x86_64_glibc_path,
@@ -25,15 +28,22 @@ stdenv.mkDerivation {
     gdb
     sparcBinutils
     sparcGcc
+    ppcVleBinutils
     superHBinutils
     tricoreGcc
+    v850Binutils
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
+    # Builds elf_core.ppc64.elf; see the PPC64_GLIBC_CC note in the Makefile.
+    pkgsCross.ppc64.stdenv.cc
+    # Builds the 8051 tests; see mcs51_asm.sh and mcs51_cc.sh.
+    sdcc
   ];
   buildInputs = [
     pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
+    pkgsCross.ppc64.glibc
     sparcGlibc
   ];
   env = {
@@ -44,6 +54,7 @@ stdenv.mkDerivation {
     # generic include path below would hand it another target's (m68k's)
     # glibc headers, so the Makefile puts SPARC's first.
     SPARC32_LIBC_CFLAGS = "-isystem ${sparcGlibc.dev}/include -isystem ${sparcLinuxHeaders}/include";
+    PPC64_SYSROOT = pkgsCross.ppc64.glibc.outPath;
   };
   shellHook = ''
     export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
@@ -64,6 +75,11 @@ stdenv.mkDerivation {
     ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
     ln -sf asm_wrapper.sh sparc-unknown-linux-gnu-asm
     ln -sf elf_wrapper.sh sparc-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh v850-elf-asm
+    ln -sf elf_wrapper.sh v850-elf-elfasm
+    # zig cannot assemble PowerPC VLE; GNU as does, given -mvle.
+    ln -sf asm_wrapper.sh powerpc-none-eabi-asm
+    ln -sf elf_wrapper.sh powerpc-none-eabi-elfasm
 
     make -j$(nproc)
     cd elf_core
@@ -71,7 +87,7 @@ stdenv.mkDerivation {
     make
   '';
   installPhase = ''
-    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     mkdir -p $out
     cp -r test_binaries.tar $out
   '';

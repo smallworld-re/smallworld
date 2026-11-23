@@ -1,4 +1,4 @@
-"""Standalone SmallWorld + AFL++ fuzz harness (Styx backend, armel target).
+"""Standalone SmallWorld + AFL++ fuzz harness (Styx backend, armv5t target).
 
 Run from this directory under AFL++::
 
@@ -15,7 +15,7 @@ import smallworld
 
 smallworld.logging.setup_logging(level=logging.INFO)
 
-# armel = 32-bit ARM, little-endian, V5T baseline.
+# armv5t = 32-bit ARM, little-endian, V5T baseline.
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.ARM_V5T,
     smallworld.platforms.Byteorder.LITTLE,
@@ -26,7 +26,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
 # Load the raw fuzz target at 0x1000.
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "fuzz.armel.bin", address=0x1000
+    "fuzz.armv5t.bin", address=0x1000
 )
 
 # Heap holds the 4-byte size field followed by the input buffer that vuln() reads.
@@ -50,8 +50,8 @@ machine.add(code)
 
 
 emulator = smallworld.emulators.StyxEmulator(platform)
-# 0x1000 + 92 = nop at the end of vuln(); normal exit.
-emulator.add_exit_point(0x1000 + 92)
+# 0x1000 + 84 = nop at the end of vuln(); normal exit.
+emulator.add_exit_point(0x1000 + 84)
 
 # Out-of-bounds-write detection. The heap lives at 0x2000–0x6000 and the
 # code at 0x1000–0x105c; anything above 0x10000 is "the program just wrote

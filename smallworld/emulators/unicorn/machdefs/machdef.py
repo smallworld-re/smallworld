@@ -1,6 +1,8 @@
 import abc
 import typing
 
+import unicorn
+
 from .... import exceptions, platforms, utils
 
 # from ....platforms import Architecture
@@ -55,19 +57,98 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
-    def configure_engine(self, engine: typing.Any) -> None:
+    def is_fetch_fault(self, intno: int) -> bool:
+        """Whether interrupt `intno` reports a failed instruction fetch
+
+        Some cores report a fetch from unmapped memory as an exception
+        rather than as a Unicorn fetch error.
+        """
+        return False
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
         """Adjust a newly created Unicorn engine's processor state
 
         Called once, before any memory or register is set, for state
-        Unicorn's CPU reset leaves unsuitable for running user code.
+        Unicorn's CPU reset leaves unsuitable for running user code, such
+        as disabled FPUs. The default does nothing.
 
         Arguments:
-            engine: the `unicorn.Uc` instance
+            engine: The new engine
 
         Raises:
             ConfigurationError: if this Unicorn build cannot run the machine.
         """
         pass
+
+    def adjust_register_write(self, name: str, value: int) -> int:
+        """The value to write to a register, for a write of `value`.
+
+        For bits the platform holds fixed, which a harness's write must not
+        change. The default writes the value unchanged.
+
+        Arguments:
+            name: The register's name
+            value: The value written
+
+        Returns:
+            The value to give Unicorn
+        """
+        return value
+
+    def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
+        """The capstone mode to decode the next instruction with.
+
+        For a machine whose instruction set can change at runtime. The
+        default is the platform's mode, unchanged.
+
+        Arguments:
+            engine: The Unicorn engine
+            mode: The platform's capstone mode
+
+        Returns:
+            The capstone mode for the instruction set the CPU runs now
+        """
+        return mode
+
+    def pc_from_engine(self, engine: typing.Any, value: int) -> int:
+        """Convert the engine's program counter register to SmallWorld's pc.
+
+        Arguments:
+            engine: The Unicorn engine
+            value: The contents of the register that `pc` maps to
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def pc_to_engine(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the engine's program counter register.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The value to write to the register that `pc` maps to
+        """
+        return pc
+
+    def pc_to_start(self, engine: typing.Any, pc: int) -> int:
+        """Convert SmallWorld's pc to the address emu_start() begins at.
+
+        Unicorn takes some execution modes from the low bit of the start
+        address, as it does when the pc register is written, so this is
+        `pc_to_engine()` unless a machine's pc register is not the address.
+
+        Arguments:
+            engine: The Unicorn engine
+            pc: The address of the next instruction
+
+        Returns:
+            The address to pass to emu_start()
+        """
+        return self.pc_to_engine(engine, pc)
 
     def handle_interrupt(self, intno: int, pc: int) -> None:
         """Handle a Unicorn interrupt

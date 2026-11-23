@@ -8,9 +8,13 @@ from .utils import _emu_strlen
 
 # NOTE: time_t and clock_t are longs.
 # As such, all your 32-bit routers are vulnerable to the 2038 bug.
+# (Not RiscV32: glibc gave it a 64-bit time_t from the start.)
 
 
 class TimeModel(CStdModel):
+    # The C type of time_t. The `__*64` subclasses below make it 64-bit.
+    time_t = ArgumentType.LONG
+
     def time_struct_to_tuple(self, ptr: int, emulator: Emulator):
         # Load the fields out of the struct
         tm_sec = self.read_integer(ptr, ArgumentType.INT, emulator)
@@ -96,7 +100,7 @@ class Time(TimeModel):
         intval = int(time.time())
 
         if ptr != 0:
-            self.write_integer(ptr, intval, ArgumentType.LONG, emulator)
+            self.write_integer(ptr, intval, self.time_t, emulator)
 
         self.set_return_value(emulator, intval)
 
@@ -119,7 +123,7 @@ class Localtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timetuple = time.localtime(tv)
 
@@ -147,7 +151,7 @@ class Gmtime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timetuple = time.gmtime(tv)
 
@@ -173,7 +177,7 @@ class Ctime(TimeModel):
 
         assert isinstance(ptr, int)
 
-        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+        tv = self.read_integer(ptr, self.time_t, emulator)
 
         timestr = time.ctime(tv)
         timebytes = timestr.encode("utf-8") + b"\n\0"
@@ -333,6 +337,49 @@ class Clock(TimeModel):
         self.set_return_value(emulator, int(floatval))
 
 
+# Since musl 1.2 every 32-bit target has a 64-bit time_t, and glibc does with
+# _TIME_BITS=64. The headers redirect each function taking or returning one to
+# a `__*64` symbol, called like the original with 64-bit time_t; struct tm is
+# unchanged.
+
+
+class Time64(Time):
+    name = "__time64"
+
+    # time_t time(time_t *tloc);
+    time_t = ArgumentType.LONGLONG
+    return_type = ArgumentType.LONGLONG
+
+
+class Localtime64(Localtime):
+    name = "__localtime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Gmtime64(Gmtime):
+    name = "__gmtime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Ctime64(Ctime):
+    name = "__ctime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Difftime64(Difftime):
+    name = "__difftime64"
+
+    # double difftime(time_t time1, time_t time0);
+    argument_types = [ArgumentType.LONGLONG, ArgumentType.LONGLONG]
+
+
+class Mktime64(Mktime):
+    name = "__mktime64"
+
+    # time_t mktime(struct tm *tp);
+    return_type = ArgumentType.LONGLONG
+
+
 __all__ = [
     "Time",
     "Localtime",
@@ -343,4 +390,10 @@ __all__ = [
     "Difftime",
     "Mktime",
     "Clock",
+    "Time64",
+    "Localtime64",
+    "Gmtime64",
+    "Ctime64",
+    "Difftime64",
+    "Mktime64",
 ]

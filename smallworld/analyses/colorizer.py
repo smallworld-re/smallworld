@@ -270,7 +270,7 @@ class Colorizer(analysis.Analysis):
             # through the pyghidra-backed analysis -- aren't re-derived.
             if sw_insn is None:
                 cs_insn = self._get_instr_at_pc(emu, pc)
-                sw_insn = Instruction.from_capstone(cs_insn)
+                sw_insn = Instruction.from_capstone(cs_insn, platform=self.platform)
             logger.debug(f"instr={sw_insn}")
             if operand_list is None:
                 operand_list = sw_insn.reads if is_read else sw_insn.writes
@@ -321,7 +321,7 @@ class Colorizer(analysis.Analysis):
 
         def before_instruction_cb(emu, pc, te):
             cs_insn = self._get_instr_at_pc(emu, pc)
-            sw_insn = Instruction.from_capstone(cs_insn)
+            sw_insn = Instruction.from_capstone(cs_insn, platform=self.platform)
             check_rws(emu, pc, te, True, sw_insn=sw_insn)
             # A memory operand names registers, and its address is
             # defined by their values at instruction *entry* -- so it

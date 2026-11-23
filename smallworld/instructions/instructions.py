@@ -8,7 +8,7 @@ import capstone
 
 from smallworld.platforms import Platform, PlatformDef
 
-from .. import emulators, utils
+from .. import emulators, exceptions, utils
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,12 @@ class Instruction(metaclass=abc.ABCMeta):
             md = capstone.Cs(self.cs_arch, self.cs_mode)
             md.detail = True
 
-            _instruction = md.disasm(instruction, address).__next__()
+            _instruction = next(md.disasm(instruction, address), None)
+            if _instruction is None:
+                raise exceptions.InstructionDecodeError(
+                    f"{instruction.hex()} at {address:#x} doesn't decode "
+                    f"as an instruction for {self.platform}"
+                )
 
         self._instruction = _instruction
         self.disasm = f"{self._instruction.address:x} {self._instruction.mnemonic} {self._instruction.op_str}"
@@ -205,12 +210,29 @@ class Instruction(metaclass=abc.ABCMeta):
         cls,
         instruction: capstone.CsInsn,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
+        platform: typing.Optional[Platform] = None,
     ) -> "Instruction":
         """Construct from an existing Capstone instruction.
 
         Arguments:
             instruction: An existing Capstone instruction.
+            platform: The platform the instruction runs on. Without it, the
+                format is the first whose Capstone architecture and mode
+                match, which is ambiguous where several platforms share
+                them (every 32-bit ARM platform that runs A32, say).
         """
+        if platform is not None:
+            try:
+                return utils.find_subclass(
+                    cls,
+                    check=lambda x: x.platform == platform,
+                    instruction=instruction.bytes,
+                    address=instruction.address,
+                    _instruction=instruction,
+                    use_def_backend=use_def_backend,
+                )
+            except ValueError:
+                raise ValueError(f"No instruction format for {platform}")
         try:
             return utils.find_subclass(
                 cls,
@@ -276,7 +298,7 @@ class Instruction(metaclass=abc.ABCMeta):
 
     #: Whether the Ghidra-pcode backend can analyze this instruction format.
     #: False where the platform's SLEIGH language needs a non-default
-    #: context register the analysis does not set (ARMV6MThumbInstruction).
+    #: context register the analysis does not set.
     #: Such a platform still has a ghidra_language_id for its emulator.
     supports_pcode_use_def: bool = True
 
@@ -337,7 +359,7 @@ class Instruction(metaclass=abc.ABCMeta):
             # below cannot see it -- the reported length is still the
             # branch's.
             raw = self.instruction[: self._instruction.size]
-            result = analyze(raw, language_id, self.address)
+            result = analyze(raw, language_id, self.address, platdef.ghidra_context)
         except UseDefError as e:
             logger.info(
                 f"pcode analysis cannot express {self.instruction.hex()} on "

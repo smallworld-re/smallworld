@@ -10,57 +10,98 @@ NATIVE_PARITY = True
 # visible; drop the reason if Triton ever grows floating-point semantics.
 _TRITON_NO_FLOAT = "Triton implements no floating-point instruction semantics"
 
+_SH4_ANGR_PR = (
+    "SH-4's sleigh takes precision from FPSCR_PR, which SmallWorld cannot set "
+    "and angr leaves unconstrained, so fadd forks; with it set, angr's p-code "
+    "engine still cannot take fadd's branch on it"
+)
+
 _VARIANTS = (
     ("aarch64", None),
+    ("aarch64v85a", None),
+    ("aarch64be", None),
+    ("aarch64v85abe", None),
     ("aarch64.angr", None),
+    ("aarch64v85a.angr", None),
+    ("aarch64be.angr", None),
+    ("aarch64v85abe.angr", None),
     ("aarch64.pcode", None),
+    ("aarch64v85a.pcode", None),
+    ("aarch64be.pcode", None),
+    ("aarch64v85abe.pcode", None),
+    ("aarch64.panda", None),
+    ("aarch64v85a.panda", None),
+    ("aarch64be.panda", None),
+    ("aarch64v85abe.panda", None),
     ("aarch64.triton", _TRITON_NO_FLOAT),
+    ("aarch64v85a.triton", _TRITON_NO_FLOAT),
     ("amd64", None),
     ("amd64.angr", None),
     ("amd64.pcode", None),
     ("amd64.triton", _TRITON_NO_FLOAT),
-    ("armhf.angr", None),
-    ("armhf.pcode", None),
-    ("armhf.triton", _TRITON_NO_FLOAT),
+    # FPv4-SP: single precision only, so its script adds floats.
+    ("armv7em", None),
+    ("armv7em.angr", None),
+    ("armv7em.pcode", None),
+    ("armv7em.triton", _TRITON_NO_FLOAT),
+    ("armv7a", None),
+    ("armv7abe", None),
+    ("armv7r", None),
+    ("armv7rbe", None),
+    ("armv8a", None),
+    ("armv8abe", None),
+    ("armv8r", None),
+    ("armv8rbe", None),
+    ("armv7a.angr", None),
+    ("armv7abe.angr", None),
+    ("armv7r.angr", None),
+    ("armv7rbe.angr", None),
+    ("armv8a.angr", None),
+    ("armv8abe.angr", None),
+    ("armv8r.angr", None),
+    ("armv8rbe.angr", None),
+    ("armv7a.pcode", None),
+    ("armv7abe.pcode", None),
+    ("armv7r.pcode", None),
+    ("armv7rbe.pcode", None),
+    ("armv8a.pcode", None),
+    ("armv8abe.pcode", None),
+    ("armv8r.pcode", None),
+    ("armv8rbe.pcode", None),
+    ("armv7a.triton", _TRITON_NO_FLOAT),
+    ("armv7r.triton", _TRITON_NO_FLOAT),
+    ("armv8a.triton", _TRITON_NO_FLOAT),
+    ("armv8r.triton", _TRITON_NO_FLOAT),
     ("i386", None),
     ("i386.angr", None),
     ("i386.pcode", None),
     ("i386.triton", _TRITON_NO_FLOAT),
+    ("ppc", None),
+    ("ppc.angr", None),
+    ("ppc.pcode", None),
+    ("ppc64", None),
+    ("ppc64.angr", None),
+    ("ppc64.pcode", None),
     # SuperH selects precision from FPSCR rather than the opcode, so these run
     # single-precision with PR=0; 2.2 + 1.1 comes out as 3.3000002, which still
     # carries the "3.3" this scenario asserts on.  Double precision is broken on
     # Styx for SuperH, so it stays out of reach here.
-    #
-    # The angr variants are blocked upstream rather than by anything SuperH
-    # specific: every OpBehaviorFloat* class in angr's pcode engine
-    # (angr/engines/pcode/behavior.py) still has its evaluate_binary body
-    # commented out as unported C++, so the base class raises
-    # AngrError("Not implemented!").  That makes floating-point arithmetic
-    # unavailable for *any* pcode-backed architecture in angr, not just SuperH.
-    # The runner scripts are written and correct; drop the skip when angr
-    # implements the behaviors.
     ("sh2a.pcode", None),
-    (
-        "sh2a.angr",
-        (
-            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
-        ),
-    ),
+    ("sh2a.angr", None),
     ("sh2a.styx", None),
+    # SH-4's sleigh reads precision from FPSCR_PR, a register of its own that
+    # only `lds Rm,FPSCR` refreshes, and SmallWorld cannot set it.  Ghidra
+    # starts it at 0, single precision; angr leaves it unconstrained, so `fadd`
+    # forks into its single- and double-precision paths.  Were it set, angr
+    # would still fail: its p-code engine cannot branch within an instruction
+    # (see testfloat_arch/superh.py).
     ("sh4.pcode", None),
-    (
-        "sh4.angr",
-        (
-            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
-        ),
-    ),
+    ("sh4.angr", _SH4_ANGR_PR),
     ("sh4el.pcode", None),
-    (
-        "sh4el.angr",
-        (
-            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
-        ),
-    ),
+    ("sh4el.angr", _SH4_ANGR_PR),
+    # V850E2M's FPU, which works on the general registers.
+    ("v850.pcode", None),
+    ("v850.angr", None),
 )
 
 SCENARIO_INFO = ScenarioInfo(

@@ -99,12 +99,18 @@ _ARM32_CONDITION_CODES = {
 # SmallWorld architectures that use Triton's ARM32 target (all little-endian).
 _ARM32_ARCHITECTURES = frozenset(
     {
+        platforms.Architecture.ARM_V4,
+        platforms.Architecture.ARM_V4T,
         platforms.Architecture.ARM_V5T,
+        platforms.Architecture.ARM_V6K,
         platforms.Architecture.ARM_V6M,
-        platforms.Architecture.ARM_V6M_THUMB,
         platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
         platforms.Architecture.ARM_V7R,
         platforms.Architecture.ARM_V7A,
+        platforms.Architecture.ARM_V8A,
+        platforms.Architecture.ARM_V8R,
+        platforms.Architecture.ARM_V8M,
     }
 )
 
@@ -259,6 +265,7 @@ class TritonEmulator(
             if value & 1:
                 self.ctx.setThumb(True)
                 value &= ~1
+        self.machdef.check_register_write(name, value)
         self.ctx.setConcreteRegisterValue(self._reg(name), value)
 
     # ------------------------------------------------------------------ memory
@@ -334,6 +341,9 @@ class TritonEmulator(
         what is left over is reported as an execution failure.
         """
         mnemonic = self._canonical_mnemonic(self._mnemonic(inst))
+        if mnemonic in self.machdef.nop_mnemonics:
+            self.write_register_content("pc", pc + inst.getSize())
+            return
         if mnemonic in self.machdef.halt_mnemonics:
             if not self._arm32_condition_holds(self._mnemonic(inst)):
                 # A predicated halt whose condition is false: a no-op.
@@ -344,6 +354,10 @@ class TritonEmulator(
             raise exceptions.EmulationExitpoint(
                 f"execution halted at pc={hex(pc)} ({mnemonic})"
             )
+        if mnemonic in self.machdef.nop_mnemonics:
+            # A valid instruction with no effect SmallWorld models.
+            self.write_register_content("pc", pc + inst.getSize())
+            return
         if mnemonic in self.machdef.interrupt_mnemonics:
             # A valid trap instruction Triton does not model. Run the hooks and
             # resume at the next instruction, which is what the architecture
@@ -756,19 +770,19 @@ class TritonEmulator(
 
     # ------------------------------------------------------------------ thumb
 
-    def get_thumb(self) -> bool:
-        if not self._is_arm32():
-            raise exceptions.ConfigurationError(
-                "get_thumb() is only meaningful on ARM32 platforms"
-            )
-        return bool(self.ctx.isThumb())
+    # Triton keeps Thumb state in its context, apart from its registers: its
+    # cpsr is APSR, which has no T bit.
 
-    def set_thumb(self, enabled: bool = True) -> None:
-        if not self._is_arm32():
-            raise exceptions.ConfigurationError(
-                "set_thumb() is only meaningful on ARM32 platforms"
-            )
-        self.ctx.setThumb(bool(enabled))
+    def get_isa_mode(self) -> int:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            return super().get_isa_mode()
+        return int(self.ctx.isThumb())
+
+    def set_isa_mode(self, mode: int) -> None:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            super().set_isa_mode(mode)
+            return
+        self.ctx.setThumb(bool(mode))
 
     # ---------------------------------------------------------- syscall hooks
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Callable, Mapping, Sequence, Union
 
+from .common import ARCH_REGISTERS, split_variant
+
 VariantInfo = tuple[str, "str | None", dict[str, Any]]
 VariantsSource = Callable[[], Sequence[VariantInfo]]
 
@@ -34,6 +36,14 @@ class ScenarioInfo:
     description_factory: DescriptionFactory | None = None
 
 
+def default_skip_reason(variant: str) -> str | None:
+    """The platform-wide skip reason for ``variant``, if it has one: the
+    reason its arch row in ``common.ARCH_REGISTERS`` gives for its engine."""
+    arch, engine = split_variant(variant)
+    info = ARCH_REGISTERS.get(arch)
+    return None if info is None else info.engine_skip_reasons.get(engine)
+
+
 def from_arch_table(
     specs: Mapping[str, Any],
     *,
@@ -62,7 +72,8 @@ def from_arch_table(
             kwargs = arch_kw.get(arch, {})
             for engine in spec.engines:
                 variant = arch if engine == "unicorn" else f"{arch}.{engine}"
-                out.append((variant, skips.get(variant), dict(kwargs)))
+                reason = skips.get(variant) or default_skip_reason(variant)
+                out.append((variant, reason, dict(kwargs)))
         out.extend(extra_variants)
         return out
 
@@ -155,11 +166,12 @@ def from_variants(
     kwargs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> VariantsSource:
     """Variants enumerated from an explicit ``[(variant, skip_reason), ...]``
-    list. ``kwargs`` optionally attaches a per-variant kwargs dict, used by
+    list. A variant with no skip reason takes its platform-wide default, if
+    any. ``kwargs`` optionally attaches a per-variant kwargs dict, used by
     run-factories that vary expectations per variant.
     """
     kw = {variant: dict(item) for variant, item in (kwargs or {}).items()}
-    frozen = tuple((v, s) for v, s in variants)
+    frozen = tuple((v, s or default_skip_reason(v)) for v, s in variants)
 
     def _impl() -> Sequence[VariantInfo]:
         return tuple((v, s, dict(kw.get(v, {}))) for v, s in frozen)

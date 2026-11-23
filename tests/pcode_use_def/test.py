@@ -122,15 +122,19 @@ class PcodeNamingTests(unittest.TestCase):
 
     def test_arm_condition_flags_reach_the_status_register(self):
         """Ghidra's four one-bit ARM flags map to the platform's status
-        register -- cpsr on the R/A-series, psr on the M-series -- so `cmp`
+        register -- psr on the M-profile, cpsr everywhere else -- so `cmp`
         no longer reports writing nothing. The cost is a spurious read on
         plain data-processing instructions; see the note in arm.py."""
         for arch, expected in (
             ("ARM_V7A", "cpsr"),
             ("ARM_V7R", "cpsr"),
-            ("ARM_V5T", "psr"),
+            ("ARM_V5T", "cpsr"),
+            ("ARM_V6K", "cpsr"),
             ("ARM_V6M", "psr"),
             ("ARM_V7M", "psr"),
+            ("ARM_V8A", "cpsr"),
+            ("ARM_V8R", "cpsr"),
+            ("ARM_V8M", "psr"),
         ):
             with self.subTest(arch=arch):
                 for flag in ("ng", "zr", "cy", "ov"):
@@ -398,9 +402,7 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
     def test_mips64_names_resolve_to_the_right_physical_register(self):
         self._start_jvm()  # machdefs import Ghidra's Java classes at module scope
 
-        from smallworld.emulators.ghidra.machdefs.mips64 import (
-            MIPS64BEMachineDef,
-        )
+        from smallworld.emulators.ghidra.machdefs.mips64 import MIPS64BEMachineDef
         from smallworld.platforms.defs.mips64 import MIPS64BE
 
         self._check(MIPS64BEMachineDef, MIPS64BE)
@@ -624,12 +626,7 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         PlatformDef at all. Asserted behaviourally; a timing test would flake.
         """
         from smallworld.instructions import Instruction
-        from smallworld.platforms import (
-            Architecture,
-            Byteorder,
-            Platform,
-            PlatformDef,
-        )
+        from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
 
         platform = Platform(Architecture.MIPS32, Byteorder.BIG)
         insn = Instruction.from_bytes(
@@ -874,21 +871,29 @@ class SegmentAddressTests(unittest.TestCase):
         self.assertIsNone(BSIDMemoryReferenceOperand.from_json(legacy).segment)
 
 
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class ThumbUseDefBackendTests(unittest.TestCase):
-    """Thumb must not go through p-code. Needs no pyghidra: the refusal
-    happens before the backend is reached."""
+    """M-profile platforms use Ghidra's Thumb-only Cortex language, so their
+    Thumb goes through p-code. Under the ARM-mode v6/v7 languages these
+    bytes decoded as an unrelated ARM instruction."""
 
-    def test_thumb_falls_back_to_capstone(self):
+    def test_m_profile_thumb_uses_pcode(self):
         from smallworld.instructions import Instruction, RegisterOperand
         from smallworld.platforms import Architecture, Byteorder, Platform
 
-        platform = Platform(Architecture.ARM_V6M_THUMB, Byteorder.LITTLE)
-        insn = Instruction.from_bytes(
-            b"\x08\x46", 0x1000, platform, use_def_backend="pcode"
-        )  # Thumb `mov r0, r1`; as ARM these bytes are andeq r0,r0,r6,lsl #16
-        self.assertFalse(insn._use_pcode())
-        self.assertEqual(insn.reads, {RegisterOperand("r1")})
-        self.assertEqual(insn.writes, {RegisterOperand("r0")})
+        for arch in (
+            Architecture.ARM_V6M,
+            Architecture.ARM_V7M,
+        ):
+            with self.subTest(arch=arch):
+                platform = Platform(arch, Byteorder.LITTLE)
+                # Thumb `mov r0, r1`; as ARM these bytes are andeq r0,r0,r6,lsl #16
+                insn = Instruction.from_bytes(
+                    b"\x08\x46", 0x1000, platform, use_def_backend="pcode"
+                )
+                self.assertTrue(insn._use_pcode())
+                self.assertEqual(insn.reads, {RegisterOperand("r1")})
+                self.assertEqual(insn.writes, {RegisterOperand("r0")})
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
@@ -1099,6 +1104,62 @@ class AddressOnlyReadsCapstoneFallbackTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
+class DecodeStateTests(unittest.TestCase):
+    """A cached SLEIGH context keeps state from earlier analyses; none of it
+    may change what a later one reports."""
+
+    def _rw(self, arch, byteorder, hexbytes, address):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture[arch], Byteorder[byteorder])
+        instruction = Instruction.from_bytes(bytes.fromhex(hexbytes), address, platform)
+        return (
+            sorted(str(o) for o in instruction.reads),
+            sorted(str(o) for o in instruction.writes),
+        )
+
+    def _cleared(self):
+        from smallworld.instructions import pcode_use_def
+
+        pcode_use_def.analyze.cache_clear()
+        pcode_use_def._contexts.clear()
+        pcode_use_def._delay_slot_sizes.clear()
+
+    def test_jalx_leaves_code_above_its_target_alone(self):
+        # Decoding a jalx records that its target and everything above it is
+        # in the other encoding; code there must still decode as itself.
+        cases = [
+            # jalx 0x2000, then li v0, 5 at 0x3000.
+            ("MIPS32", "BIG", "74000800", 0x1000, "24020005", 0x3000),
+            # jalx 0x2000, then addiu v0, zero, 5 at 0x3002.
+            ("MIPS32_MICROMIPS", "BIG", "f0000800", 0x1004, "30400005", 0x3002),
+        ]
+        for arch, byteorder, jalx, jalx_at, after, after_at in cases:
+            with self.subTest(arch=arch):
+                self._cleared()
+                expected = self._rw(arch, byteorder, after, after_at)
+                self._cleared()
+                self._rw(arch, byteorder, jalx, jalx_at)
+                self.assertEqual(self._rw(arch, byteorder, after, after_at), expected)
+
+    def test_delay_slot_width_change_at_one_address(self):
+        # A 32-bit then a 16-bit delay-slot branch at the same address, and
+        # the reverse: SLEIGH left the second translated with no p-code.
+        jr, jr16 = "00190f3c", "4599"
+        for first, second in ((jr, jr16), (jr16, jr)):
+            with self.subTest(first=first, second=second):
+                self._cleared()
+                expected = self._rw("MIPS32_MICROMIPS", "BIG", second, 0x1000)
+                self._cleared()
+                self._rw("MIPS32_MICROMIPS", "BIG", first, 0x1000)
+                self.assertEqual(
+                    self._rw("MIPS32_MICROMIPS", "BIG", second, 0x1000), expected
+                )
+                self.assertIn("RegisterOperand(t9)", expected[0])
+
+
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
 
@@ -1250,16 +1311,21 @@ class InstructionUseDefTests(unittest.TestCase):
         ("AARCH64", "LITTLE", "1f0001eb", "cmp x0, x1", {"x0", "x1"}, {"nzcv"}),
         ("AARCH64", "LITTLE", "2000019a", "adc x0, x1, x1", {"nzcv", "x1"}, {"x0"}),
         ("AARCH64", "LITTLE", "20049f9a", "cset x0, eq", {"nzcv"}, {"x0"}),
+        # microMIPS, whose language decodes standard MIPS32 unless the
+        # platform's ISA_MODE context value is applied. Capstone reports the
+        # jump-register forms' targets as written, and jraddiusp as nothing.
+        ("MIPS32_MICROMIPS", "BIG", "00190f3c", "jr t9", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "BIG", "4599", "jr16 t9", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "BIG", "45f9", "jalrs16 t9", {"t9"}, {"pc", "ra"}),
+        ("MIPS32_MICROMIPS", "BIG", "4702", "jraddiusp 8", {"ra", "sp"}, {"sp"}),
+        ("MIPS32_MICROMIPS", "BIG", "03f90f3c", "jalr t9", {"t9"}, {"pc", "ra"}),
+        ("MIPS32_MICROMIPS", "LITTLE", "9945", "jr16 t9 (el)", {"t9"}, {"pc"}),
+        ("MIPS32_MICROMIPS", "LITTLE", "4169", "lw16 v0, 4(a0) (el)", {"a0"}, {"v0"}),
     ]
 
     def test_reads_writes_are_platform_valid(self):
         from smallworld.instructions import Instruction, RegisterOperand
-        from smallworld.platforms import (
-            Architecture,
-            Byteorder,
-            Platform,
-            PlatformDef,
-        )
+        from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
 
         for arch, bo, hexbytes, desc, must_read, must_write in self.SAMPLES:
             with self.subTest(instruction=desc):
