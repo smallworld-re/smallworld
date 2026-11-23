@@ -17,10 +17,41 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 # Command Prefixes
 
 AARCH64_ID := aarch64-linux-gnu.2.40
+AARCH64BE_ID := aarch64_be-linux-gnu.2.40
+AARCH64V85A_ID := $(AARCH64_ID)
+AARCH64V85ABE_ID := $(AARCH64BE_ID)
 AMD64_ID := x86_64-linux-gnu.2.40
 AMD64_MINGW_ID := x86_64-windows-gnu.2.40
-ARMEL_ID := arm-linux-gnueabi.2.40
-ARMHF_ID := arm-linux-gnueabihf.2.40
+# 32-bit ARM is named by platform ID. The float ABI is implied by the
+# platform: armv5t, armv6k, armv6m, armv7m, and armv8m are soft-float
+# (gnueabi); armv7a, armv7r, armv8a, and armv8r hard-float (gnueabihf).
+# armv8a is ARMv8-A in the AArch32 state. armv6m and armv7m are Thumb-only,
+# so their sources start with `.thumb`. Each is pinned to a CPU via its ASFLAGS/CFLAGS,
+# since zig otherwise targets ARMv7-A.
+ARMV4_ID := arm-linux-gnueabi.2.40
+ARMV4T_ID := arm-linux-gnueabi.2.40
+ARMV5T_ID := arm-linux-gnueabi.2.40
+# Big-endian ARMv4 and ARMv5 are BE32: lld links armeb as BE32 unless asked
+# for BE8, which these cores don't support.
+ARMV4BE_ID := armeb-linux-gnueabi.2.40
+ARMV4TBE_ID := armeb-linux-gnueabi.2.40
+ARMV5TBE_ID := armeb-linux-gnueabi.2.40
+ARMV6K_ID := arm-linux-gnueabi.2.40
+ARMV6M_ID := arm-linux-gnueabi.2.40
+ARMV7A_ID := arm-linux-gnueabihf.2.40
+ARMV7M_ID := arm-linux-gnueabi.2.40
+ARMV7EM_ID := arm-linux-gnueabihf.2.40
+ARMV8A_ID := arm-linux-gnueabihf.2.40
+ARMV8M_ID := arm-linux-gnueabi.2.40
+ARMV8R_ID := arm-linux-gnueabihf.2.40
+ARMV7R_ID := arm-linux-gnueabihf.2.40
+# Big-endian ARMv6 and later are BE8: lld links armeb for them as BE8, with
+# code little-endian and data big-endian.
+ARMV6KBE_ID := armeb-linux-gnueabi.2.40
+ARMV7ABE_ID := armeb-linux-gnueabihf.2.40
+ARMV7RBE_ID := armeb-linux-gnueabihf.2.40
+ARMV8ABE_ID := armeb-linux-gnueabihf.2.40
+ARMV8RBE_ID := armeb-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
 # zig has no LoongArch32 libc, and its LLVM no 32-bit LoongArch CPU to compile
@@ -52,9 +83,35 @@ XTENSA_ID := xtensa-lx106-elf
 # Assembler Commands for Assembly
 
 AARCH64_ASM_AS := zig build-exe -target $(AARCH64_ID) 
+AARCH64BE_ASM_AS := zig build-exe -target $(AARCH64BE_ID)
+AARCH64V85A_ASM_AS := zig build-exe -target $(AARCH64V85A_ID)
+AARCH64V85ABE_ASM_AS := zig build-exe -target $(AARCH64V85ABE_ID)
 AMD64_ASM_AS := ./nasm_wrapper.sh
-ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
-ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
+# zig's own start code and compiler-rt return with bx, which ARMv4 lacks, so
+# its assembly is linked freestanding without them. (build-obj would skip the
+# link, but leaves every bl as an unresolved relocation: a branch to itself.)
+ARMV4_ASM_AS := zig build-exe -target arm-freestanding-eabi -fno-compiler-rt
+ARMV4T_ASM_AS := zig build-exe -target $(ARMV4T_ID)
+ARMV5T_ASM_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV4BE_ASM_AS := zig build-exe -target armeb-freestanding-eabi -fno-compiler-rt
+ARMV4TBE_ASM_AS := zig build-exe -target $(ARMV4TBE_ID)
+ARMV5TBE_ASM_AS := zig build-exe -target $(ARMV5TBE_ID)
+ARMV6K_ASM_AS := zig build-exe -target $(ARMV6K_ID)
+# armv6m/armv7m build raw binaries only. build-obj skips linking, which would
+# pull in zig's Linux start code; its syscall asm uses r7, which Thumb reserves.
+ARMV6M_ASM_AS := zig build-obj -target $(ARMV6M_ID)
+ARMV7A_ASM_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7M_ASM_AS := zig build-obj -target $(ARMV7M_ID)
+ARMV7EM_ASM_AS := zig build-obj -target $(ARMV7EM_ID)
+ARMV8A_ASM_AS := zig build-exe -target $(ARMV8A_ID)
+ARMV8M_ASM_AS := zig build-obj -target $(ARMV8M_ID)
+ARMV8R_ASM_AS := zig build-exe -target $(ARMV8R_ID)
+ARMV7R_ASM_AS := zig build-exe -target $(ARMV7R_ID)
+ARMV6KBE_ASM_AS := zig build-exe -target $(ARMV6KBE_ID)
+ARMV7ABE_ASM_AS := zig build-exe -target $(ARMV7ABE_ID)
+ARMV7RBE_ASM_AS := zig build-exe -target $(ARMV7RBE_ID)
+ARMV8ABE_ASM_AS := zig build-exe -target $(ARMV8ABE_ID)
+ARMV8RBE_ASM_AS := zig build-exe -target $(ARMV8RBE_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA32_ASM_AS := zig build-exe -target $(LA32_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
@@ -88,9 +145,32 @@ X86_16_ASM_AS := zig build-exe -target $(X86_16_ID)
 # Assembler Commands for ELF
 
 AARCH64_ELF_AS := zig build-exe -target $(AARCH64_ID) 
+AARCH64BE_ELF_AS := zig build-exe -target $(AARCH64BE_ID)
+AARCH64V85A_ELF_AS := zig build-exe -target $(AARCH64V85A_ID)
+AARCH64V85ABE_ELF_AS := zig build-exe -target $(AARCH64V85ABE_ID)
 AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
-ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
-ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
+ARMV4_ELF_AS := zig build-exe -target arm-freestanding-eabi -fno-compiler-rt
+ARMV4T_ELF_AS := zig build-exe -target $(ARMV4T_ID)
+ARMV5T_ELF_AS := zig build-exe -target $(ARMV5T_ID)
+ARMV4BE_ELF_AS := zig build-exe -target armeb-freestanding-eabi -fno-compiler-rt
+ARMV4TBE_ELF_AS := zig build-exe -target $(ARMV4TBE_ID)
+ARMV5TBE_ELF_AS := zig build-exe -target $(ARMV5TBE_ID)
+ARMV6K_ELF_AS := zig build-exe -target $(ARMV6K_ID)
+# The M profile's assembly needs no runtime, and zig's compiler-rt doesn't
+# build for ARMv6-M (see ARMV6M_ELF_CFLAGS).
+ARMV6M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
+ARMV7A_ELF_AS := zig build-exe -target $(ARMV7A_ID)
+ARMV7M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
+ARMV7EM_ELF_AS := zig build-exe -target thumb-freestanding-eabihf -fno-compiler-rt
+ARMV7R_ELF_AS := zig build-exe -target $(ARMV7R_ID)
+ARMV8A_ELF_AS := zig build-exe -target $(ARMV8A_ID)
+ARMV8M_ELF_AS := zig build-exe -target thumb-freestanding-eabi -fno-compiler-rt
+ARMV8R_ELF_AS := zig build-exe -target $(ARMV8R_ID)
+ARMV6KBE_ELF_AS := zig build-exe -target $(ARMV6KBE_ID)
+ARMV7ABE_ELF_AS := zig build-exe -target $(ARMV7ABE_ID)
+ARMV7RBE_ELF_AS := zig build-exe -target $(ARMV7RBE_ID)
+ARMV8ABE_ELF_AS := zig build-exe -target $(ARMV8ABE_ID)
+ARMV8RBE_ELF_AS := zig build-exe -target $(ARMV8RBE_ID)
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA32_ELF_AS := zig build-exe -target $(LA32_ID)
 LA64_ELF_AS := zig build-exe -target $(LA64_ID)
@@ -120,10 +200,31 @@ XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 # Objcopy Commands
 
 AARCH64_OBJCOPY := zig objcopy
+AARCH64BE_OBJCOPY := zig objcopy
+AARCH64V85A_OBJCOPY := zig objcopy
+AARCH64V85ABE_OBJCOPY := zig objcopy
 # NASM doesn't produce a .o; we can skip this
 AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
-ARMEL_OBJCOPY := zig objcopy
-ARMHF_OBJCOPY := zig objcopy
+ARMV4_OBJCOPY := zig objcopy
+ARMV4T_OBJCOPY := zig objcopy
+ARMV5T_OBJCOPY := zig objcopy
+ARMV4BE_OBJCOPY := zig objcopy
+ARMV4TBE_OBJCOPY := zig objcopy
+ARMV5TBE_OBJCOPY := zig objcopy
+ARMV6K_OBJCOPY := zig objcopy
+ARMV6M_OBJCOPY := zig objcopy
+ARMV7A_OBJCOPY := zig objcopy
+ARMV7M_OBJCOPY := zig objcopy
+ARMV7EM_OBJCOPY := zig objcopy
+ARMV8A_OBJCOPY := zig objcopy
+ARMV8M_OBJCOPY := zig objcopy
+ARMV8R_OBJCOPY := zig objcopy
+ARMV7R_OBJCOPY := zig objcopy
+ARMV6KBE_OBJCOPY := zig objcopy
+ARMV7ABE_OBJCOPY := zig objcopy
+ARMV7RBE_OBJCOPY := zig objcopy
+ARMV8ABE_OBJCOPY := zig objcopy
+ARMV8RBE_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA32_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
@@ -156,10 +257,31 @@ X86_16_OBJCOPY := zig objcopy
 # C compiler commands
 
 AARCH64_CC := zig cc -target $(AARCH64_ID) 
+AARCH64BE_CC := zig cc -target $(AARCH64BE_ID)
+AARCH64V85A_CC := zig cc -target $(AARCH64V85A_ID)
+AARCH64V85ABE_CC := zig cc -target $(AARCH64V85ABE_ID)
 AMD64_CC := zig cc -target $(AMD64_ID)  
 AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
-ARMEL_CC := zig cc -target $(ARMEL_ID)
-ARMHF_CC := zig cc -target $(ARMHF_ID) 
+ARMV4T_CC := zig cc -target $(ARMV4T_ID)
+ARMV5T_CC := zig cc -target $(ARMV5T_ID)
+ARMV4TBE_CC := zig cc -target $(ARMV4TBE_ID)
+ARMV5TBE_CC := zig cc -target $(ARMV5TBE_ID)
+ARMV6K_CC := zig cc -target $(ARMV6K_ID)
+ARMV7A_CC := zig cc -target $(ARMV7A_ID)
+ARMV7R_CC := zig cc -target $(ARMV7R_ID)
+ARMV8A_CC := zig cc -target $(ARMV8A_ID)
+# glibc can't build for the Thumb-only M profile (its syscall asm uses r7,
+# which Thumb reserves), so their C tests build against musl instead.
+ARMV6M_CC := zig cc -target thumb-linux-musleabi
+ARMV7M_CC := zig cc -target thumb-linux-musleabi
+ARMV7EM_CC := zig cc -target thumb-linux-musleabihf
+ARMV8M_CC := zig cc -target thumb-linux-musleabi
+ARMV8R_CC := zig cc -target $(ARMV8R_ID)
+ARMV6KBE_CC := zig cc -target $(ARMV6KBE_ID)
+ARMV7ABE_CC := zig cc -target $(ARMV7ABE_ID)
+ARMV7RBE_CC := zig cc -target $(ARMV7RBE_ID)
+ARMV8ABE_CC := zig cc -target $(ARMV8ABE_ID)
+ARMV8RBE_CC := zig cc -target $(ARMV8RBE_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
 LA64_CC := zig cc -target $(LA64_ID) 
@@ -184,6 +306,29 @@ XTENSA_CC := $(XTENSA_ID)-gcc
 # *************************
 
 GENERAL_ASFLAGS := $(ASFLAGS)
+# ARM CPUs: ARMv5T matches Panda's ARM926; ARMv7-A matches the Cortex-A9 that
+# Panda and Styx use, a subset of Unicorn's Cortex-A15.
+ARMV4_ASFLAGS := -mcpu=strongarm
+ARMV4T_ASFLAGS := -mcpu=arm7tdmi
+ARMV5T_ASFLAGS := -mcpu=arm926ej_s
+ARMV4BE_ASFLAGS := $(ARMV4_ASFLAGS)
+ARMV4TBE_ASFLAGS := $(ARMV4T_ASFLAGS)
+ARMV5TBE_ASFLAGS := $(ARMV5T_ASFLAGS)
+ARMV6K_ASFLAGS := -mcpu=arm1176jzf_s
+ARMV6M_ASFLAGS := -mcpu=cortex_m0
+ARMV7A_ASFLAGS := -mcpu=cortex_a9
+ARMV7M_ASFLAGS := -mcpu=cortex_m3
+# zig's cortex_m4 model has no FPU; the Cortex-M4F's FPv4-SP is vfp4d16sp.
+ARMV7EM_ASFLAGS := -mcpu=cortex_m4+vfp4d16sp
+ARMV8A_ASFLAGS := -mcpu=cortex_a53
+ARMV8M_ASFLAGS := -mcpu=cortex_m33
+ARMV8R_ASFLAGS := -mcpu=cortex_r52
+ARMV7R_ASFLAGS := -mcpu=cortex_r5
+ARMV6KBE_ASFLAGS := $(ARMV6K_ASFLAGS)
+ARMV7ABE_ASFLAGS := $(ARMV7A_ASFLAGS)
+ARMV7RBE_ASFLAGS := $(ARMV7R_ASFLAGS)
+ARMV8ABE_ASFLAGS := $(ARMV8A_ASFLAGS)
+ARMV8RBE_ASFLAGS := $(ARMV8R_ASFLAGS)
 MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
 MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
 XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
@@ -209,8 +354,36 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 
 # C flags
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
-ARMEL_CFLAGS := -marm -mfloat-abi=soft
-ARMHF_CFLAGS := -marm
+ARMV4T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm7tdmi
+ARMV5T_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm926ej_s
+ARMV4TBE_CFLAGS := $(ARMV4T_CFLAGS)
+ARMV5TBE_CFLAGS := $(ARMV5T_CFLAGS)
+ARMV6K_CFLAGS := -marm -mfloat-abi=soft -mcpu=arm1176jzf_s
+# lld's PLT entries are Thumb-2, so ARMv6-M code calls through addresses
+# loaded from its literal pools instead; see ARMV6M_ELF_CFLAGS.
+ARMV6M_CFLAGS := -mcpu=cortex_m0 -mfloat-abi=soft -mlong-calls
+ARMV7A_CFLAGS := -marm -mcpu=cortex_a9
+ARMV7M_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft
+# Without +vfp4d16sp (see ARMV7EM_ASFLAGS), zig builds soft-float code even
+# with -mfloat-abi=hard.
+ARMV7EM_CFLAGS := -mcpu=cortex_m4+vfp4d16sp -mfloat-abi=hard
+ARMV7R_CFLAGS := -marm -mcpu=cortex_r5
+# zig assembles .s files for its baseline CPU whatever -mcpu says, so
+# ARMv8.5-A sources enable their instructions with an .arch directive.
+AARCH64V85A_CFLAGS := -mcpu=generic+v8_5a
+AARCH64V85ABE_CFLAGS := -mcpu=generic+v8_5a
+ARMV8A_CFLAGS := -marm -mcpu=cortex_a53
+ARMV8M_CFLAGS := -mcpu=cortex_m33 -mfloat-abi=soft
+ARMV8R_CFLAGS := -marm -mcpu=cortex_r52
+ARMV6KBE_CFLAGS := $(ARMV6K_CFLAGS)
+# At -O0, LLVM's FastISel passes a variadic double from a VFP register in
+# r2:r3 low word first even on big-endian, where AAPCS puts the high word
+# first; SelectionDAG gets it right, so use that.
+BE8_HF_CFLAGS := -mllvm -fast-isel=false
+ARMV7ABE_CFLAGS := $(ARMV7A_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV7RBE_CFLAGS := $(ARMV7R_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV8ABE_CFLAGS := $(ARMV8A_CFLAGS) $(BE8_HF_CFLAGS)
+ARMV8RBE_CFLAGS := $(ARMV8R_CFLAGS) $(BE8_HF_CFLAGS)
 LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
@@ -229,8 +402,66 @@ PPC_CFLAGS := -mfloat-abi=hard
 
 # ELF Executable C flags
 AARCH64_ELF_CFLAGS := -pie
+AARCH64BE_ELF_CFLAGS := -pie
+AARCH64V85A_ELF_CFLAGS := -pie
+AARCH64V85ABE_ELF_CFLAGS := -pie
 AMD64_ELF_CFLAGS := -pie
-ARMHF_ELF_CFLAGS := -pie
+ARMV7A_ELF_CFLAGS := -pie
+ARMV7R_ELF_CFLAGS := -pie
+# zig's compiler-rt needs libgcc's __sync_* atomics on ARMv4T and ARMv5, which
+# zig doesn't ship; see arm_sync_shims.c. ARMv4 has no C tests: glibc's start
+# code and zig's compiler-rt return with bx, which it lacks.
+ARMV4T_ELF_LDLIBS := arm_sync_shims.c
+ARMV5T_ELF_LDLIBS := arm_sync_shims.c
+ARMV4TBE_ELF_LDLIBS := arm_sync_shims.c
+ARMV5TBE_ELF_LDLIBS := arm_sync_shims.c
+ARMV8A_ELF_CFLAGS := -pie
+# zig links musl statically by default, which leaves no library imports for
+# the models to replace.
+ARMV7M_ELF_CFLAGS := -dynamic
+ARMV7EM_ELF_CFLAGS := -dynamic
+ARMV8M_ELF_CFLAGS := -dynamic
+# zig can't link a Linux program for ARMv6-M: its musl start code and its
+# compiler-rt use Thumb-2 instructions. So ARMv6-M ELFs compile for the
+# Cortex-M0, but link for the Cortex-M3 (giving Thumb-2 start code, which the
+# tests never run, as they start at main), without zig's compiler-rt, and
+# with compiler-rt built for the Cortex-M0 instead. They link as PIEs, so the
+# literal-pool addresses of library functions become dynamic relocations,
+# which the models fill in, rather than addresses of Thumb-2 PLT entries.
+#
+# These aren't realistic ARMv6-M programs (real ones are bare-metal and
+# statically linked), and they test a different linking path than the other
+# ARM platforms: imports are R_ARM_ABS32 text relocations, not GOT entries
+# (JUMP_SLOT, GLOB_DAT), every call is a literal-pool load and blx, shared
+# objects can't interpose on their own functions, and the build attributes
+# say Cortex-M3. GOT linking for the M profile is covered by ARMv7-M and
+# ARMv8-M.
+ARMV6M_ELF_CFLAGS := -dynamic -pie -Wl,-z,notext
+ARMV6M_ELF_LINK_CFLAGS := -mcpu=cortex_m3 -mfloat-abi=soft -rtlib=none -Wl,--gc-sections
+ARMV6M_ELF_LDLIBS := compiler_rt.armv6m.o
+ARMV6M_ELF_DEPS := compiler_rt.armv6m.o
+# A shared object's long calls to its own functions bind directly, rather than
+# through lld's PLT, which is ARM code here.
+ARMV6M_SO_CFLAGS := -Wl,-Bsymbolic -Wl,-z,notext
+
+# C tests a platform can't build, by source. musl lacks these glibc-specific
+# functions, or the tests use glibc's internal types (sigset_t's members).
+MUSL_C_ELF_UNBUILDABLE := \
+	c99/ctype_tolower_loc c99/ctype_toupper_loc c99/gets \
+	c99/__fprintf_chk c99/__printf_chk c99/__snprintf_chk c99/__sprintf_chk \
+	posix/bsd_signal posix/pthread_sigmask posix/sigaction posix/sigaddset \
+	posix/sigdelset posix/sigemptyset posix/sigfillset posix/sigpending \
+	posix/sigprocmask
+MUSL_C_ELF_EXCLUDE := $(foreach t,$(MUSL_C_ELF_UNBUILDABLE),$(t)/$(notdir $(t)).elf.c)
+ARMV6M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV7M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV7EM_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV8M_C_ELF_EXCLUDE := $(MUSL_C_ELF_EXCLUDE)
+ARMV8R_ELF_CFLAGS := -pie
+ARMV7ABE_ELF_CFLAGS := -pie
+ARMV7RBE_ELF_CFLAGS := -pie
+ARMV8ABE_ELF_CFLAGS := -pie
+ARMV8RBE_ELF_CFLAGS := -pie
 I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
 RISCV32_ELF_CFLAGS := -pie
@@ -247,10 +478,31 @@ M68K_ELF_LDLIBS := -lm
 
 # Arch-specific extensions.
 AARCH64_EXT := aarch64
+AARCH64BE_EXT := aarch64be
+AARCH64V85A_EXT := aarch64v85a
+AARCH64V85ABE_EXT := aarch64v85abe
 AMD64_EXT := amd64
 AMD64_MINGW_EXT := amd64
-ARMEL_EXT := armel
-ARMHF_EXT := armhf
+ARMV4_EXT := armv4
+ARMV4T_EXT := armv4t
+ARMV5T_EXT := armv5t
+ARMV4BE_EXT := armv4be
+ARMV4TBE_EXT := armv4tbe
+ARMV5TBE_EXT := armv5tbe
+ARMV6K_EXT := armv6k
+ARMV6M_EXT := armv6m
+ARMV7A_EXT := armv7a
+ARMV7M_EXT := armv7m
+ARMV7EM_EXT := armv7em
+ARMV8A_EXT := armv8a
+ARMV8M_EXT := armv8m
+ARMV8R_EXT := armv8r
+ARMV7R_EXT := armv7r
+ARMV6KBE_EXT := armv6kbe
+ARMV7ABE_EXT := armv7abe
+ARMV7RBE_EXT := armv7rbe
+ARMV8ABE_EXT := armv8abe
+ARMV8RBE_EXT := armv8rbe
 I386_EXT := i386
 I386_MINGW_EXT := i386
 LA32_EXT := la32
@@ -282,9 +534,30 @@ X86_16_EXT := x86_16
 
 # Arch-specific source extensions
 AARCH64_SRC_EXT := $(AARCH64_EXT)
+AARCH64BE_SRC_EXT := $(AARCH64_EXT)
+AARCH64V85A_SRC_EXT := $(AARCH64_EXT)
+AARCH64V85ABE_SRC_EXT := $(AARCH64_EXT)
 AMD64_SRC_EXT := $(AMD64_EXT)
-ARMEL_SRC_EXT := $(ARMEL_EXT)
-ARMHF_SRC_EXT := $(ARMHF_EXT)
+ARMV4_SRC_EXT := $(ARMV4_EXT)
+ARMV4T_SRC_EXT := $(ARMV4T_EXT)
+ARMV5T_SRC_EXT := $(ARMV5T_EXT)
+ARMV4BE_SRC_EXT := $(ARMV4_EXT)
+ARMV4TBE_SRC_EXT := $(ARMV4T_EXT)
+ARMV5TBE_SRC_EXT := $(ARMV5T_EXT)
+ARMV6K_SRC_EXT := $(ARMV6K_EXT)
+ARMV6M_SRC_EXT := $(ARMV6M_EXT)
+ARMV7A_SRC_EXT := $(ARMV7A_EXT)
+ARMV7M_SRC_EXT := $(ARMV7M_EXT)
+ARMV7EM_SRC_EXT := $(ARMV7EM_EXT)
+ARMV8A_SRC_EXT := $(ARMV8A_EXT)
+ARMV8M_SRC_EXT := $(ARMV8M_EXT)
+ARMV8R_SRC_EXT := $(ARMV8R_EXT)
+ARMV7R_SRC_EXT := $(ARMV7R_EXT)
+ARMV6KBE_SRC_EXT := $(ARMV6K_EXT)
+ARMV7ABE_SRC_EXT := $(ARMV7A_EXT)
+ARMV7RBE_SRC_EXT := $(ARMV7R_EXT)
+ARMV8ABE_SRC_EXT := $(ARMV8A_EXT)
+ARMV8RBE_SRC_EXT := $(ARMV8R_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA32_SRC_EXT := $(LA32_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
@@ -377,16 +650,23 @@ AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 define C_ELF_TEMPLATE
 
 # A platform that can build only some C sources lists its ELF sources in
-# $(1)_C_ELF_ONLY, and then builds no objects or shared libraries.
+# $(1)_C_ELF_ONLY, and then builds no objects or shared libraries. A platform
+# that can't build some C ELF sources lists them in $(1)_C_ELF_EXCLUDE.
 $(1)_C_OBJS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS)))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(or $$($(1)_C_ELF_ONLY),$$(C_ELF_SRCS)))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(filter-out $$($(1)_C_ELF_EXCLUDE),$$(or $$($(1)_C_ELF_ONLY),$$(C_ELF_SRCS))))
 $(1)_C_SOS := $$(if $$($(1)_C_ELF_ONLY),,$$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS)))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
 
-%.$$($(1)_EXT).so : %.so.c
+%.$$($(1)_EXT).so : %.so.c $$($(1)_ELF_DEPS)
+ifeq ($$($(1)_ELF_LINK_CFLAGS),)
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
+else
+	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -o $$@.o $$<
+	$$($(1)_CC) $$($(1)_ELF_LINK_CFLAGS) $$($(1)_SO_CFLAGS) -shared -o $$@ $$@.o $$($(1)_ELF_LDLIBS)
+	rm $$@.o
+endif
 
 $(1)_C_GNU2_OBJS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.o.c,%.gnu2.$$($(1)_EXT).o,$$(C_GNU2_OBJ_SRCS)))
 
@@ -414,8 +694,15 @@ $(1)_C_GNU_SOS := $$(if $$($(1)_GNU_CFLAGS),$$(patsubst %.gnu.so.c,%.gnu.$$($(1)
 	$$(if $$($(1)_GNU_CFLAGS),,$$(error no general-dynamic dialect flag for $(1); refusing to build $$@))
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU_CFLAGS) -fPIC -shared -o $$@ $$<
 
-%.$$($(1)_EXT).elf : %.elf.c
+# A platform with link flags of its own compiles and links separately.
+%.$$($(1)_EXT).elf : %.elf.c $$($(1)_ELF_DEPS)
+ifeq ($$($(1)_ELF_LINK_CFLAGS),)
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$< $$($(1)_ELF_LDLIBS)
+else
+	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@.o $$<
+	$$($(1)_CC) $$($(1)_ELF_LINK_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$@.o $$($(1)_ELF_LDLIBS)
+	rm $$@.o
+endif
 
 endef
 
@@ -577,13 +864,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+PLATFORMS := AARCH64 AARCH64BE AARCH64V85A AARCH64V85ABE AMD64 AMD64_MINGW ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA LA32 MCS51 MICROMIPS MICROMIPSEL PPCVLE RISCV32 SH2 SH1 V850 X86_16
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA32 LA64 M68K MCS51 MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 PPCVLE RISCV32 RISCV64 SH4 SH4EL SH2A SH2 SH1 TRICORE V850 X86_16 XTENSA
+ASM_PLATFORMS := AARCH64 AARCH64BE AARCH64V85A AARCH64V85ABE AMD64 ARMV4 ARMV4T ARMV5T ARMV4BE ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 SH4 SH4EL SH2A TRICORE XTENSA LA32 MCS51 MICROMIPS MICROMIPSEL PPCVLE RISCV32 SH2 SH1 V850 X86_16
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MICROMIPS MICROMIPSEL MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV32 RISCV64
+C_ELF_PLATFORMS := AARCH64 AARCH64BE AARCH64V85A AARCH64V85ABE AMD64 ARMV4T ARMV5T ARMV4TBE ARMV5TBE ARMV6K ARMV6M ARMV7A ARMV7EM ARMV7M ARMV7R ARMV8A ARMV8M ARMV8R ARMV6KBE ARMV7ABE ARMV7RBE ARMV8ABE ARMV8RBE I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 MICROMIPS MICROMIPSEL RISCV32
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
@@ -613,6 +900,16 @@ $(foreach platform,MICROMIPS MICROMIPSEL,$(eval $(call MICROMIPS_SO_TEMPLATE,$(p
 # Populate the C ELF templates
 $(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))
 
+# zig's compiler-rt, built for the Cortex-M0. As a freestanding build, it
+# leaves out __aeabi_read_tp, which ARMv6-M can't implement as zig does.
+# Function sections let the link drop the helpers a test doesn't use.
+# -fno-builtin, as zig builds its own compiler-rt: otherwise memset's loop is
+# lowered to a call to __aeabi_memset, which calls memset, and recurses.
+ZIG_LIB = $(shell zig env | sed -n 's/^ *\.lib_dir = "\(.*\)",$$/\1/p')
+
+compiler_rt.$(ARMV6M_EXT).o :
+	zig build-obj $(ZIG_LIB)/compiler_rt.zig -target thumb-freestanding-eabi -mcpu cortex_m0 -O ReleaseSmall -fPIC -ffunction-sections -fno-builtin -femit-bin=$@
+
 # Populate the C PE templates
 $(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
@@ -632,6 +929,20 @@ elf_core/elf_core.ppc64.elf: export NIX_LDFLAGS :=
 
 # Populate the general templates
 $(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
+
+# sysv again, built as Thumb-2 for ARMv7-A, as armhf distributions build. Its
+# functions' symbols carry the Thumb bit, which a model's hook must ignore.
+ARMV7A_THUMB_ELFS := sysv/sysv.armv7a_thumb.elf
+
+# zig ignores -mthumb, and has no glibc for a thumb- target, so the source
+# (which needs only compiler headers) is compiled freestanding for Thumb, with
+# the same AAPCS-VFP ABI, and linked against glibc as ARM.
+sysv/sysv.armv7a_thumb.elf : sysv/sysv.elf.c
+	zig cc -target thumb-freestanding-eabihf -mcpu=cortex_a9 -fPIC -c $(GENERAL_CFLAGS) -o $@.o $<
+	$(ARMV7A_CC) $(ARMV7A_ELF_CFLAGS) -o $@ $@.o
+	rm $@.o
+
+armv7a : $(ARMV7A_THUMB_ELFS)
 
 # **********************
 # *** Global Targets ***

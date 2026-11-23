@@ -30,8 +30,11 @@ _BASE_REGS = {
     "fp": "r11",
     "ip": "r12",
     "sp": "sp",
+    "r13": "sp",
     "lr": "r14",  # Triton exposes the link register only as "r14"
+    "r14": "r14",
     "pc": "pc",
+    "r15": "pc",
 }
 
 # Program-status register. Triton has no cpsr/psr; APSR is its only status
@@ -40,11 +43,18 @@ _BASE_REGS = {
 _M_REGS = {"psr": "apsr"}
 _RA_REGS = {"cpsr": "apsr"}
 
-_V5T_REGS = {**_BASE_REGS, **_M_REGS}
+_V4_REGS = {**_BASE_REGS, **_RA_REGS}
+_V4T_REGS = {**_BASE_REGS, **_RA_REGS}
+_V5T_REGS = {**_BASE_REGS, **_RA_REGS}
+_V6K_REGS = {**_BASE_REGS, **_RA_REGS}
 _V6M_REGS = {**_BASE_REGS, **_M_REGS}
 _V7M_REGS = {**_BASE_REGS, **_M_REGS}
+_V7EM_REGS = {**_BASE_REGS, **_M_REGS}
 _V7R_REGS = {**_BASE_REGS, **_RA_REGS}
 _V7A_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8A_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8R_REGS = {**_BASE_REGS, **_RA_REGS}
+_V8M_REGS = {**_BASE_REGS, **_M_REGS}
 
 
 class TritonARMMachineDef(TritonMachineDef):
@@ -59,8 +69,20 @@ class TritonARMMachineDef(TritonMachineDef):
     interrupt_mnemonics = {"svc", "swi"}
     # No halt_mnemonics: Triton's ARM32 target does model wfi/wfe (as no-ops),
     # so they never reach the run loop's unmodelled-instruction handling.
+    # The preload hints are unconditional, so they need no condition handling.
+    nop_mnemonics = {"pld", "pldw", "pli"}
     syscall_mnemonics = {"svc", "swi"}
     syscall_number_register = "r7"
+
+
+class TritonARMv4MachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V4
+    _registers = _V4_REGS
+
+
+class TritonARMv4TMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V4T
+    _registers = _V4T_REGS
 
 
 class TritonARMv5TMachineDef(TritonARMMachineDef):
@@ -68,19 +90,30 @@ class TritonARMv5TMachineDef(TritonARMMachineDef):
     _registers = _V5T_REGS
 
 
+class TritonARMv6KMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V6K
+    _registers = _V6K_REGS
+
+
 class TritonARMv6MMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V6M
     _registers = _V6M_REGS
-
-
-class TritonARMv6MThumbMachineDef(TritonARMv6MMachineDef):
-    arch = Architecture.ARM_V6M_THUMB
+    # M-profile is Thumb-only.
     is_thumb = True
 
 
 class TritonARMv7MMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V7M
     _registers = _V7M_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True
+
+
+class TritonARMv7EMMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V7EM
+    _registers = _V7EM_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True
 
 
 class TritonARMv7RMachineDef(TritonARMMachineDef):
@@ -91,3 +124,20 @@ class TritonARMv7RMachineDef(TritonARMMachineDef):
 class TritonARMv7AMachineDef(TritonARMMachineDef):
     arch = Architecture.ARM_V7A
     _registers = _V7A_REGS
+
+
+class TritonARMv8AMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8A
+    _registers = _V8A_REGS
+
+
+class TritonARMv8RMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8R
+    _registers = _V8R_REGS
+
+
+class TritonARMv8MMachineDef(TritonARMMachineDef):
+    arch = Architecture.ARM_V8M
+    _registers = _V8M_REGS
+    # M-profile is Thumb-only.
+    is_thumb = True

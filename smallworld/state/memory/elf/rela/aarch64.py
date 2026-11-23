@@ -274,7 +274,6 @@ R_AARCH64_AUTH_GLOB_DAT = (
 R_AARCH64_AUTH_TLSDESC = 1043  # Fill an authenticated TLS descriptor pair in the GOT.
 R_AARCH64_AUTH_IRELATIVE = 1044  # Pointer-authenticated IFUNC relocation.
 
-DT_PLTGOT = 3  # Dynamic tag for the GOT base address.
 MOVW_OP_MOVN = 0
 MOVW_OP_MOVZ = 2
 
@@ -283,9 +282,6 @@ class AArch64ElfRelocator(ElfRelocator):
     supported_platforms = frozenset(
         {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE)}
     )
-
-    def _symbol_name(self, rela: ElfRela) -> str:
-        return rela.symbol.name if rela.symbol.name else "<anonymous>"
 
     def _symbol_value(self, rela: ElfRela) -> int:
         return rela.symbol.value + rela.symbol.baseaddr
@@ -347,12 +343,6 @@ class AArch64ElfRelocator(ElfRelocator):
     def _page(self, value: int) -> int:
         return value & ~0xFFF
 
-    def _missing_context(self, rela: ElfRela, detail: str) -> None:
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
-            f"{detail}, which is not available to AArch64ElfRelocator._compute_value()"
-        )
-
     def _patch_mov_imm16(self, orig: int, imm16: int, movop=None) -> int:
         patched = (orig & ~(0xFFFF << 5)) | ((imm16 & 0xFFFF) << 5)
         if movop is not None:
@@ -391,6 +381,11 @@ class AArch64ElfRelocator(ElfRelocator):
     def _patch_ldst_uimm12(self, orig: int, value: int, scale: int) -> int:
         imm12 = (value >> scale) & 0xFFF
         return (orig & ~(0xFFF << 10)) | (imm12 << 10)
+
+    def _patch_ldst_lo12(self, orig: int, value: int, scale: int) -> int:
+        # A LO12 relocation takes the address's offset into its 4KiB page,
+        # which the instruction encodes scaled by the access size.
+        return self._patch_ldst_uimm12(orig, value & 0xFFF, scale)
 
     def _apply_mov_unsigned(
         self, rela: ElfRela, elf, value: int, shift: int, check_bits=None
@@ -439,37 +434,13 @@ class AArch64ElfRelocator(ElfRelocator):
         imm16 = (~((value >> shift) & 0xFFFF)) & 0xFFFF
         return self._pack_insn(self._patch_mov_imm16(orig, imm16, movop=MOVW_OP_MOVN))
 
-    def _got_base(self, rela: ElfRela, elf) -> int:
-        dtags = getattr(elf, "_dtags", {})
-        if DT_PLTGOT in dtags:
-            return elf._rebase_file(dtags[DT_PLTGOT])
-
-        lief_elf = getattr(elf, "_elf", None)
-        section_offsets = getattr(elf, "_section_offsets", {})
-        if lief_elf is not None:
-            for name in (".got.plt", ".got"):
-                for idx, section in enumerate(lief_elf.sections):
-                    if section.name != name:
-                        continue
-                    if getattr(section, "virtual_address", 0):
-                        return elf._rebase_file(section.virtual_address)
-                    if idx in section_offsets:
-                        return elf.address + section_offsets[idx]
-
-        self._missing_context(rela, "the GOT base address")
-        raise Exception("Reached an unreachable line")
-
-    def _proxy_offset(self, rela: ElfRela, proxy_types, detail: str) -> int:
-        offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
-        if len(offsets) == 1:
-            return offsets[0]
-        if len(offsets) == 0:
-            self._missing_context(rela, detail)
-
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} has "
-            f"multiple candidate proxy entries for {detail}: "
-            f"{', '.join(map(hex, offsets))}"
+    def _got_entry(self, rela: ElfRela, elf) -> int:
+        return self._got_entry_for(
+            rela,
+            elf,
+            (R_AARCH64_GLOB_DAT, R_AARCH64_AUTH_GLOB_DAT),
+            self._word_size(elf),
+            self._symbol_value(rela),
         )
 
     def _tls_pair_base(self, rela: ElfRela, elf, proxy_types, detail: str) -> int:
@@ -577,11 +548,7 @@ class AArch64ElfRelocator(ElfRelocator):
             self._check_range(value, -(1 << 31), 1 << 31, rela, "32-bit GOTREL32")
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_GOTPCREL32:
-            got_entry = self._proxy_offset(
-                rela,
-                (R_AARCH64_GLOB_DAT, R_AARCH64_AUTH_GLOB_DAT),
-                "the symbol's GOT entry address",
-            )
+            got_entry = self._got_entry(rela, elf)
             value = got_entry - rela.offset + self._get_data_addend(rela, elf, 4)
             self._check_range(value, -(1 << 31), 1 << 31, rela, "32-bit GOTPCREL32")
             return self._pack(value, 4)
@@ -727,31 +694,31 @@ class AArch64ElfRelocator(ElfRelocator):
         elif rela.type == R_AARCH64_LDST8_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 0)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 0)
             )
         elif rela.type == R_AARCH64_LDST16_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 2, rela, "LDST16_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 1)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 1)
             )
         elif rela.type == R_AARCH64_LDST32_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 4, rela, "LDST32_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 2)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 2)
             )
         elif rela.type == R_AARCH64_LDST64_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 8, rela, "LDST64_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 3)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 3)
             )
         elif rela.type == R_AARCH64_LDST128_ABS_LO12_NC:
             value = symval + self._get_rela_addend(rela)
             self._check_aligned(value, 16, rela, "LDST128_ABS_LO12_NC")
             return self._pack_insn(
-                self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 4)
+                self._patch_ldst_lo12(self._read_insn(rela, elf), value, 4)
             )
         elif rela.type == R_AARCH64_TSTBR14:
             value = symval + self._get_rela_addend(rela) - rela.offset
@@ -798,32 +765,37 @@ class AArch64ElfRelocator(ElfRelocator):
             R_AARCH64_LD64_GOT_LO12_NC,
             R_AARCH64_LD64_GOTPAGE_LO15,
         ):
-            got_entry = self._proxy_offset(
-                rela,
-                (R_AARCH64_GLOB_DAT, R_AARCH64_AUTH_GLOB_DAT),
-                "the symbol's GOT entry address",
-            )
-            got_base = self._got_base(rela, elf)
+            got_entry = self._got_entry(rela, elf)
+            # Only the GOT-relative forms look up the GOT's base; the rest work
+            # on a synthesized entry in an object file, which has no GOT.
             if rela.type == R_AARCH64_MOVW_GOTOFF_G0:
-                return self._apply_mov_signed(rela, elf, got_entry - got_base, 0, 16)
+                return self._apply_mov_signed(
+                    rela, elf, got_entry - self._got_base(rela, elf), 0, 16
+                )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G0_NC:
                 return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 0, movk=True
+                    rela, elf, got_entry - self._got_base(rela, elf), 0, movk=True
                 )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G1:
-                return self._apply_mov_signed(rela, elf, got_entry - got_base, 16, 32)
+                return self._apply_mov_signed(
+                    rela, elf, got_entry - self._got_base(rela, elf), 16, 32
+                )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G1_NC:
                 return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 16, movk=True
+                    rela, elf, got_entry - self._got_base(rela, elf), 16, movk=True
                 )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G2:
-                return self._apply_mov_signed(rela, elf, got_entry - got_base, 32, 48)
+                return self._apply_mov_signed(
+                    rela, elf, got_entry - self._got_base(rela, elf), 32, 48
+                )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G2_NC:
                 return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 32, movk=True
+                    rela, elf, got_entry - self._got_base(rela, elf), 32, movk=True
                 )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G3:
-                return self._apply_mov_signed(rela, elf, got_entry - got_base, 48)
+                return self._apply_mov_signed(
+                    rela, elf, got_entry - self._got_base(rela, elf), 48
+                )
             elif rela.type == R_AARCH64_GOT_LD_PREL19:
                 value = got_entry - rela.offset
                 self._check_range(value, -(1 << 20), 1 << 20, rela, "GOT_LD_PREL19")
@@ -832,7 +804,7 @@ class AArch64ElfRelocator(ElfRelocator):
                     self._patch_imm19(self._read_insn(rela, elf), value)
                 )
             elif rela.type == R_AARCH64_LD64_GOTOFF_LO15:
-                value = got_entry - got_base
+                value = got_entry - self._got_base(rela, elf)
                 self._check_range(value, 0, 1 << 15, rela, "LD64_GOTOFF_LO15")
                 self._check_aligned(value, 8, rela, "LD64_GOTOFF_LO15")
                 return self._pack_insn(
@@ -847,10 +819,10 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
-                value = got_entry - self._page(got_base)
+                value = got_entry - self._page(self._got_base(rela, elf))
                 self._check_range(value, 0, 1 << 15, rela, "LD64_GOTPAGE_LO15")
                 self._check_aligned(value, 8, rela, "LD64_GOTPAGE_LO15")
                 return self._pack_insn(
@@ -942,7 +914,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "TLSIE_LD64_GOTTPREL_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
                 value = got_entry - rela.offset
@@ -1006,7 +978,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             elif rela.type == R_AARCH64_TLSDESC_ADD_LO12:
                 return self._pack_insn(
@@ -1088,7 +1060,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_AUTH_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "AUTH_LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), got_entry, 3)
                 )
             elif rela.type == R_AARCH64_AUTH_LD64_GOTPAGE_LO15:
                 value = got_entry - self._page(got_base)
@@ -1133,7 +1105,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_AUTH_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "AUTH_TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
+                    self._patch_ldst_lo12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             else:
                 return self._pack_insn(
@@ -1229,3 +1201,41 @@ class AArch64ElfRelocator(ElfRelocator):
                 f"Unknown relocation type for {self._symbol_name(rela)}: "
                 f"{hex(rela.type)}"
             )
+
+
+class AArch64BEElfRelocator(AArch64ElfRelocator):
+    """Relocator for big-endian aarch64.
+
+    Data is big-endian, but instructions are always little-endian, even in
+    object files, so instruction relocations stay little-endian.
+    """
+
+    supported_platforms = frozenset(
+        {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.BIG)}
+    )
+
+    def _pack_insn(self, value: int) -> bytes:
+        return (value & 0xFFFFFFFF).to_bytes(4, "little")
+
+    def _read_insn(self, rela: ElfRela, elf) -> int:
+        return elf.read_int(rela.offset, 4, platforms.Byteorder.LITTLE)
+
+
+class AArch64V85AElfRelocator(AArch64ElfRelocator):
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+            )
+        }
+    )
+
+
+class AArch64V85ABEElfRelocator(AArch64BEElfRelocator):
+    supported_platforms = frozenset(
+        {
+            platforms.Platform(
+                platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+            )
+        }
+    )

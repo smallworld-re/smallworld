@@ -1,6 +1,27 @@
-from .aarch64 import AArch64
+from .aarch64 import AArch64, AArch64BE, AArch64V85A, AArch64V85ABE
 from .amd64 import AMD64, AMD64AVX512
-from .arm import ARMv5T, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
+from .arm import (
+    ARMv4,
+    ARMv4BE,
+    ARMv4T,
+    ARMv4TBE,
+    ARMv5T,
+    ARMv5TBE,
+    ARMv6K,
+    ARMv6KBE,
+    ARMv6M,
+    ARMv7A,
+    ARMv7ABE,
+    ARMv7EM,
+    ARMv7M,
+    ARMv7R,
+    ARMv7RBE,
+    ARMv8A,
+    ARMv8ABE,
+    ARMv8M,
+    ARMv8R,
+    ARMv8RBE,
+)
 from .i386 import I386
 from .loongarch import LoongArch32, LoongArch64
 from .m68k import M68K
@@ -20,13 +41,30 @@ from .xtensa import Xtensa, XtensaBE
 
 __all__ = [
     "AArch64",
+    "AArch64BE",
+    "AArch64V85A",
+    "AArch64V85ABE",
     "AMD64",
     "AMD64AVX512",
+    "ARMv4",
+    "ARMv4T",
     "ARMv5T",
+    "ARMv4BE",
+    "ARMv4TBE",
+    "ARMv5TBE",
+    "ARMv6K",
     "ARMv6M",
-    "ARMv6MThumb",
+    "ARMv7EM",
     "ARMv7M",
     "ARMv7R",
+    "ARMv8A",
+    "ARMv8M",
+    "ARMv8R",
+    "ARMv6KBE",
+    "ARMv7ABE",
+    "ARMv7RBE",
+    "ARMv8ABE",
+    "ARMv8RBE",
     "ARMv7A",
     "I386",
     "IsaBit",

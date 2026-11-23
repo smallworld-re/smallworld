@@ -23,9 +23,24 @@ SmallWorld currently provides basic C calling convention definitions for the fol
 
 - System V
     - aarch64
+    - aarch64 big-endian
+    - aarch64 v8.5a
+    - aarch64 v8.5a big-endian
     - amd64
-    - armel (arm v5t)
-    - armhf (arm v7a)
+    - arm v4t (soft-float)
+    - arm v5t (soft-float)
+    - arm v4t and v5t big-endian (BE32, soft-float)
+    - arm v6k (soft-float)
+    - arm v6m (soft-float)
+    - arm v7a (hard-float)
+    - arm v7em (hard-float)
+    - arm v7m (soft-float)
+    - arm v7r (hard-float)
+    - arm v8a (hard-float)
+    - arm v8r (hard-float)
+    - arm v6k big-endian (BE8, soft-float)
+    - arm v7a, v7r, v8a and v8r big-endian (BE8, hard-float)
+    - arm v8m (soft-float)
     - i386
     - mips
     - mipsel

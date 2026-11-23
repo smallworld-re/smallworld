@@ -39,12 +39,6 @@ class RISCV64ElfRelocator(ElfRelocator):
         # sums can wrap, so to_bytes would OverflowError on a raw value.
         return (value & ((1 << (self._width * 8)) - 1)).to_bytes(self._width, "little")
 
-    def _missing_context(self, rela: ElfRela, detail: str) -> None:
-        raise ConfigurationError(
-            f"Relocation {rela.type} for {rela.symbol.name or '<anonymous>'} requires "
-            f"{detail}, which is not available to {type(self).__name__}"
-        )
-
     def _compute_value(self, rela: ElfRela, elf):
         if rela.type == self._absolute or rela.type == R_RISCV_JUMP_SLOT:
             # Different semantics, all behave the same

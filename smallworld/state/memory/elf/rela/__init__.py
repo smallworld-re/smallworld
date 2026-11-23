@@ -1,9 +1,20 @@
-from .aarch64 import AArch64ElfRelocator
+from .aarch64 import (
+    AArch64BEElfRelocator,
+    AArch64ElfRelocator,
+    AArch64V85ABEElfRelocator,
+    AArch64V85AElfRelocator,
+)
 from .amd64 import AMD64ElfRelocator
 from .arm import (
+    Armv4BEElfRelocator,
+    Armv4ElfRelocator,
+    Armv4TBEElfRelocator,
+    Armv4TElfRelocator,
+    Armv5TBEElfRelocator,
     Armv5TElfRelocator,
     Armv6MElfRelocator,
     Armv7AElfRelocator,
+    Armv7EMElfRelocator,
     Armv7MElfRelocator,
     Armv7RElfRelocator,
 )
@@ -27,10 +38,19 @@ from .xtensa import XtensaElfRelocator
 
 __all__ = [
     "AArch64ElfRelocator",
+    "AArch64BEElfRelocator",
+    "AArch64V85AElfRelocator",
+    "AArch64V85ABEElfRelocator",
     "AMD64ElfRelocator",
+    "Armv4ElfRelocator",
+    "Armv4TElfRelocator",
     "Armv5TElfRelocator",
+    "Armv4BEElfRelocator",
+    "Armv4TBEElfRelocator",
+    "Armv5TBEElfRelocator",
     "Armv6MElfRelocator",
     "Armv7AElfRelocator",
+    "Armv7EMElfRelocator",
     "Armv7MElfRelocator",
     "Armv7RElfRelocator",
     "I386ElfRelocator",

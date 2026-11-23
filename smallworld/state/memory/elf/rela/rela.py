@@ -4,6 +4,7 @@ import abc
 import typing
 
 from ..... import platforms, utils
+from .....exceptions import ConfigurationError
 from .. import elf
 from ..structs import ElfRela
 
@@ -12,6 +13,8 @@ from ..structs import ElfRela
 #: isolation, so there is exactly one TLS block, and it gets the
 #: conventional ID 1; the TLS models name its storage arena by the same ID.
 RELOCATED_TLS_MODULE = 1
+
+DT_PLTGOT = 3  # Dynamic tag for the GOT base address.
 
 
 class ElfRelocator:
@@ -67,6 +70,102 @@ class ElfRelocator:
         if key not in self._synthetic_slots:
             self._synthetic_slots[key] = elf.reserve_synthetic(size, label)
         return self._synthetic_slots[key]
+
+    def _symbol_name(self, rela: ElfRela) -> str:
+        return rela.symbol.name if rela.symbol.name else "<anonymous>"
+
+    def _missing_context(self, rela: ElfRela, detail: str) -> typing.NoReturn:
+        raise ConfigurationError(
+            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
+            f"{detail}, which is not available to "
+            f"{type(self).__name__}._compute_value()"
+        )
+
+    def _proxy_offset(
+        self, rela: ElfRela, proxy_types: typing.Collection[int], detail: str
+    ) -> int:
+        """The one offset among a symbol's relocations of `proxy_types`.
+
+        A relocation that needs an address the linker built, such as the
+        symbol's GOT entry, finds it as the target of another relocation of
+        the same symbol that fills it in.
+        """
+        offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
+        if len(offsets) == 1:
+            return offsets[0]
+        if len(offsets) == 0:
+            self._missing_context(rela, detail)
+        raise ConfigurationError(
+            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} has "
+            f"multiple candidate proxy entries for {detail}: "
+            f"{', '.join(map(hex, offsets))}"
+        )
+
+    def _find_got_base(self, elf) -> typing.Optional[int]:
+        """The address of the image's GOT, or None if it has none.
+
+        DT_PLTGOT gives it in a linked image; otherwise it is the start of
+        .got.plt, or of .got.
+        """
+        dtags = getattr(elf, "_dtags", {})
+        if DT_PLTGOT in dtags:
+            return elf._rebase_file(dtags[DT_PLTGOT])
+
+        lief_elf = getattr(elf, "_elf", None)
+        section_offsets = getattr(elf, "_section_offsets", {})
+        if lief_elf is not None:
+            for name in (".got.plt", ".got"):
+                for idx, section in enumerate(lief_elf.sections):
+                    if section.name != name:
+                        continue
+                    if getattr(section, "virtual_address", 0):
+                        return elf._rebase_file(section.virtual_address)
+                    if idx in section_offsets:
+                        return elf.address + section_offsets[idx]
+        return None
+
+    def _got_base(self, rela: ElfRela, elf) -> int:
+        got_base = self._find_got_base(elf)
+        if got_base is None:
+            self._missing_context(rela, "the GOT base address")
+        return got_base
+
+    def _got_entry_for(
+        self,
+        rela: ElfRela,
+        elf,
+        proxy_types: typing.Collection[int],
+        size: int,
+        value: int,
+    ) -> int:
+        """The address of the GOT entry for `rela`'s symbol.
+
+        That is the target of the relocation of `proxy_types` (GLOB_DAT and
+        the like) that fills it in. An object file has no GOT -- building one
+        is the linker's job -- so there this synthesizes the symbol's entry
+        and fills it with `value`, as that relocation would; it is rewritten
+        whenever the symbol is re-relocated.
+
+        Arguments:
+            rela: The relocation that needs the entry
+            elf: The image being relocated
+            proxy_types: The relocation types that fill in a GOT entry
+            size: A GOT entry's size in bytes
+            value: What the symbol's entry holds
+
+        Returns:
+            The entry's address
+        """
+        if self._find_got_base(elf) is None and not any(
+            r.type in proxy_types for r in rela.symbol.relas
+        ):
+            slot = self.synthetic_slot(
+                elf, ("got", rela.symbol.idx), size, "synthetic GOT entry"
+            )
+            mask = (1 << (size * 8)) - 1
+            elf.write_bytes(slot, (value & mask).to_bytes(size, self.byteorder.value))
+            return slot
+        return self._proxy_offset(rela, proxy_types, "the symbol's GOT entry address")
 
     @property
     def arch(self) -> platforms.Architecture:

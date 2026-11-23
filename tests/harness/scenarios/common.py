@@ -31,6 +31,11 @@ class ArchInfo:
     stack_pointer_register: str
     pointer_size: int
     engines: tuple[str, ...]
+    # Why an engine in `engines` can't run this architecture's scenarios,
+    # by engine; every scenario skips those variants.
+    engine_skip_reasons: Mapping[str, str] = dataclasses.field(
+        default_factory=dict, hash=False
+    )
 
 
 _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
@@ -42,8 +47,43 @@ _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
 # absent. Scenarios enroll Triton through :func:`enroll_triton` rather than
 # spelling this set out again.
 TRITON_ARCHS = frozenset(
-    {"aarch64", "amd64", "armel", "armhf", "i386", "riscv32", "riscv64"}
+    {
+        "aarch64",
+        "aarch64v85a",
+        "amd64",
+        "armv5t",
+        "armv4",
+        "armv4t",
+        "armv6k",
+        "armv6m",
+        "armv7a",
+        "armv7r",
+        "armv8a",
+        "armv8r",
+        "armv7m",
+        "armv7em",
+        "armv8m",
+        "i386",
+        "riscv32",
+        "riscv64",
+    }
 )
+
+#: ARM platforms that run only Thumb code. A branch or return to a code
+#: address must set its Thumb bit (bit 0), but the core executes, and reports
+#: PC, at the address with that bit clear.
+THUMB_ONLY_ARCHS = frozenset({"armv6m", "armv7m", "armv7em", "armv8m"})
+
+
+def code_pointer(arch: str, address: int) -> int:
+    """The value to branch or return to ``address`` with on ``arch``."""
+    return address | 1 if arch in THUMB_ONLY_ARCHS else address
+
+
+def instruction_address(arch: str, address: int) -> int:
+    """The address the core executes at for code pointer ``address``."""
+    return address & ~1 if arch in THUMB_ONLY_ARCHS else address
+
 
 ARCH_REGISTERS: dict[str, ArchInfo] = {
     "aarch64": ArchInfo(
@@ -55,6 +95,39 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=_ENGINES_ALL,
     ),
+    "aarch64v85a": ArchInfo(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "aarch64be": ArchInfo(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "aarch64v85abe": ArchInfo(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
     "amd64": ArchInfo(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",
@@ -64,7 +137,7 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=_ENGINES_ALL,
     ),
-    "armel": ArchInfo(
+    "armv5t": ArchInfo(
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -73,7 +146,127 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=4,
         engines=_ENGINES_ALL,
     ),
-    "armhf": ArchInfo(
+    "armv5tbe": ArchInfo(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv4": ArchInfo(
+        platform=PlatformSpec("ARM_V4", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv4be": ArchInfo(
+        platform=PlatformSpec("ARM_V4", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv4t": ArchInfo(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv4tbe": ArchInfo(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's BE32 is word-invariant, which SmallWorld doesn't model",
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv6k": ArchInfo(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv6kbe": ArchInfo(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv6m": ArchInfo(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "panda": "PANDA's Cortex-M0 board has flash where the tests load code",
+        },
+    ),
+    "armv7m": ArchInfo(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv7em": ArchInfo(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armv8m": ArchInfo(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
+    ),
+    "armv7a": ArchInfo(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
@@ -81,6 +274,90 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         stack_pointer_register="sp",
         pointer_size=4,
         engines=_ENGINES_ALL,
+    ),
+    "armv7abe": ArchInfo(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv7r": ArchInfo(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv7-R target",
+        },
+    ),
+    "armv7rbe": ArchInfo(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv8a": ArchInfo(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
+    ),
+    "armv8abe": ArchInfo(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
+    ),
+    "armv8r": ArchInfo(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "Styx has no ARMv8 target",
+        },
+    ),
+    "armv8rbe": ArchInfo(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+        engine_skip_reasons={
+            "styx": "No big-endian ARM machine is configured for Styx",
+        },
     ),
     "i386": ArchInfo(
         platform=PlatformSpec("X86_32", "LITTLE"),

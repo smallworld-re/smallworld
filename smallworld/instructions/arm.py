@@ -1,15 +1,31 @@
+import typing
+
 import capstone
 
 from smallworld import platforms
 
 from .bsid import BSIDMemoryReferenceOperand
-from .instructions import Instruction, MemoryReferenceOperand
+from .instructions import Instruction, MemoryReferenceOperand, _log_fallback_once
 
 
 class ARMInstruction(Instruction):
     angr_arch = "ARM"
     cs_arch = capstone.CS_ARCH_ARM
     cs_mode = capstone.CS_MODE_ARM
+
+    def _pcode_platdef(self) -> typing.Optional[platforms.PlatformDef]:
+        # A Thumb instruction on a platform that also runs A32 can't use the
+        # pcode backend: the platform's language decodes A32 by default, and
+        # the analysis has no way to select Thumb.
+        if self._instruction._cs.mode & capstone.CS_MODE_THUMB and not (
+            self.cs_mode & capstone.CS_MODE_THUMB
+        ):
+            _log_fallback_once(
+                f"Thumb instructions on {self.platform} can't use the pcode "
+                f"backend; using Capstone"
+            )
+            return None
+        return super()._pcode_platdef()
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         return BSIDMemoryReferenceOperand(
@@ -21,28 +37,58 @@ class ARMInstruction(Instruction):
         )
 
 
+class ARMV4Instruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV4TInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+    )
+
+
 class ARMV5TInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
     )
 
 
-class ARMV6MInstruction(ARMInstruction):
+class ARMBEInstruction(ARMInstruction):
+    # BE32: instructions are big-endian, like data.
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_BIG_ENDIAN
+
+
+class ARMV4BEInstruction(ARMBEInstruction):
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V4, platforms.Byteorder.BIG
     )
 
 
-class ARMV6MThumbInstruction(ARMInstruction):
-    cs_mode = capstone.CS_MODE_THUMB
-    # This platform's language id is the ARM-mode one: Ghidra reaches Thumb
-    # through the TMode context register, which the analysis does not set,
-    # so Thumb bytes decode as a valid but unrelated ARM instruction.
-    # _pcode_use_def's length check catches 16-bit Thumb; a 32-bit Thumb-2
-    # instruction is four bytes either way, so refuse outright.
-    supports_pcode_use_def = False
+class ARMV4TBEInstruction(ARMBEInstruction):
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG
+    )
+
+
+class ARMV5TBEInstruction(ARMBEInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG
+    )
+
+
+class ARMV6KInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV6MInstruction(ARMInstruction):
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
     )
 
 
@@ -53,12 +99,78 @@ class ARMV7AInstruction(ARMInstruction):
 
 
 class ARMV7MInstruction(ARMInstruction):
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV7EMInstruction(ARMInstruction):
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
     )
 
 
 class ARMV7RInstruction(ARMInstruction):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV8AInstruction(ARMInstruction):
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV8RInstruction(ARMInstruction):
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV8MInstruction(ARMInstruction):
+    # M-profile is Thumb-only, and has its own special registers.
+    cs_mode = capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS | capstone.CS_MODE_V8
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+    )
+
+
+# BE8: instructions are little-endian, so these decode as their
+# little-endian counterparts do.
+
+
+class ARMV6KBEInstruction(ARMV6KInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG
+    )
+
+
+class ARMV7ABEInstruction(ARMV7AInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+    )
+
+
+class ARMV7RBEInstruction(ARMV7RInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG
+    )
+
+
+class ARMV8ABEInstruction(ARMV8AInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG
+    )
+
+
+class ARMV8RBEInstruction(ARMV8RInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG
     )

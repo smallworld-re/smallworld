@@ -463,3 +463,25 @@ class AArch64(PlatformDef):
         # Vector registers
         # TODO: Figure out how to model these
     }
+
+
+class AArch64BE(AArch64):
+    """Platform definition for big-endian aarch64.
+
+    Data is big-endian, but AArch64 instructions are always little-endian.
+    """
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "AARCH64:BE:64:v8A"
+
+
+class AArch64V85A(AArch64):
+    """Platform definition for aarch64 ARMv8.5-A."""
+
+    architecture = Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABE(AArch64BE):
+    """Platform definition for big-endian aarch64 ARMv8.5-A."""
+
+    architecture = Architecture.AARCH64_V8_5A

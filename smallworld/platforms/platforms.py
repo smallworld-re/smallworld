@@ -32,7 +32,11 @@ class Architecture(enum.Enum):
     """64-bit x86 supporting AVX512 extensions."""
 
     AARCH64 = "aarch64"
-    """arm64 v8a or later"""
+    """arm64 v8a (ARMv8.0-A)"""
+
+    AARCH64_V8_5A = "aarch64-v8.5a"
+    """arm64 v8.5a, adding the v8.1-v8.5 instructions, such as LSE atomics,
+    pointer authentication and BTI"""
 
     M68K = "m68k"
     """Motorola 68k"""
@@ -57,23 +61,41 @@ class Architecture(enum.Enum):
     POWERPC64 = "powerpc64"
     """64-bit PowerPC"""
 
+    ARM_V4 = "arm-v4"
+    """arm32 v4, modeled on the StrongARM SA-1110; ARM state only, no Thumb"""
+
+    ARM_V4T = "arm-v4t"
+    """arm32 v4t, modeled on the ARM7TDMI and TI925T"""
+
     ARM_V5T = "arm-v5t"
     """arm32 v5t"""
 
-    ARM_V6M = "arm-v6m"
-    """arm32 v6m, ARM isa"""
+    ARM_V6K = "arm-v6k"
+    """arm32 v6k, modeled on the ARM1176"""
 
-    ARM_V6M_THUMB = "arm-v6m-thumb"
-    """arm32 v6m, THUMB isa"""
+    ARM_V6M = "arm-v6m"
+    """arm32 v6m, Thumb only, as M-profile has no ARM state"""
 
     ARM_V7M = "arm-v7m"
     """arm32 v7m"""
+
+    ARM_V7EM = "arm-v7em"
+    """arm32 v7e-m with the FPv4-SP FPU, modeled on the Cortex-M4F"""
 
     ARM_V7R = "arm-v7r"
     """arm32 v7r"""
 
     ARM_V7A = "arm-v7a"
     """arm32 v7a"""
+
+    ARM_V8A = "arm-v8a"
+    """arm32 v8a, in the AArch32 execution state"""
+
+    ARM_V8R = "arm-v8r"
+    """arm32 v8r"""
+
+    ARM_V8M = "arm-v8m"
+    """arm32 v8m mainline"""
 
     LOONGARCH32 = "loongarch32"
     """32-bit LoongArch"""

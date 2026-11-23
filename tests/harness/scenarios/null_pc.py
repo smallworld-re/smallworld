@@ -43,9 +43,30 @@ class NullPcSpec:
 # msp430 is intentionally excluded (its binary does not do what we want).
 _ARCHS = (
     "aarch64",
+    "aarch64v85a",
+    "aarch64be",
+    "aarch64v85abe",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv5tbe",
+    "armv4",
+    "armv4be",
+    "armv4t",
+    "armv4tbe",
+    "armv6k",
+    "armv6kbe",
+    "armv6m",
+    "armv7m",
+    "armv7em",
+    "armv8m",
+    "armv7a",
+    "armv7abe",
+    "armv7r",
+    "armv7rbe",
+    "armv8a",
+    "armv8abe",
+    "armv8r",
+    "armv8rbe",
     "i386",
     "la32",
     "la64",
@@ -85,14 +106,10 @@ _SPECS = build_specs(
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-# PANDA is a supported engine for several arches but is mid-migration and not
-# yet runnable, so its variants are skipped just as they are in the unmapped
-# scenario.
+# The PANDA variants still waiting on panda-ng haven't been retested since
+# the switch; the ARM ones have and run.
 _SKIP_REASONS = {
-    "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
-    "armel.panda": "Waiting for panda-ng",
-    "armhf.panda": "Waiting for panda-ng",
     "i386.panda": "Waiting for panda-ng",
     "mips.panda": "Waiting for panda-ng",
     "mipsel.panda": "Waiting for panda-ng",

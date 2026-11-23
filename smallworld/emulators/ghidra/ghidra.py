@@ -181,8 +181,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Get the register value in bytes
         val = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        val = self.machdef.fix_register_bytes(name, self.bytes_java_to_py(val))
+        value = int.from_bytes(val, self._byteorder_name())
 
-        return int.from_bytes(val, self._byteorder_name())
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag = 1 if self.read_sleigh_register(sleigh_name) else 0
+            value = (value & ~(1 << bit)) | (flag << bit)
+        return value
 
     def write_register_content(
         self, name: str, value: typing.Union[None, int, claripy.ast.bv.BV]
@@ -208,9 +213,17 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # Mask to handle negative ints via two's-complement wraparound.
         value_unsigned = value & ((1 << (size * 8)) - 1)
         val = value_unsigned.to_bytes(size, self._byteorder_name())
+        val = self.machdef.fix_register_bytes(name, val)
 
         state.setVar(reg, self.bytes_py_to_java(val))
         self._note_register_write(reg.getAddress().getOffset(), size)
+
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag = self.machdef.language.getRegister(sleigh_name)
+            if flag.isProcessorContext():
+                self.machdef.write_context(self._thread, flag, (value >> bit) & 1)
+            else:
+                state.setVar(flag, self.bytes_py_to_java(bytes([(value >> bit) & 1])))
 
     def _note_register_write(self, offset: int, size: int) -> None:
         if self._recording_writes and self._writes is not None:
@@ -756,6 +769,26 @@ class GhidraEmulator(AbstractGhidraEmulator):
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             raise exceptions.EmulationBounds()
+
+    def current_instruction_bytes(self) -> bytes:
+        """The bytes of the instruction being executed, in memory order, for a
+        userop that decodes the instruction itself."""
+        return self.bytes_java_to_py(self._thread.getInstruction().getBytes())
+
+    def read_sleigh_register(self, name: str) -> int:
+        """Read a register by its SLEIGH name, for a userop that needs one the
+        machine definition doesn't expose, such as ARM's Thumb mode."""
+        reg = self.machdef.language.getRegister(name)
+        if reg.isProcessorContext():
+            # Context registers, such as ARM's TMode, aren't in the state.
+            value = self._thread.getContext().getRegisterValue(reg)
+            return int(str(value.getUnsignedValue()))
+        state = self._thread.getState()
+        val = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        byteorder: typing.Literal["little", "big"] = (
+            "big" if self.platform.byteorder is platforms.Byteorder.BIG else "little"
+        )
+        return int.from_bytes(self.bytes_java_to_py(val), byteorder)
 
     def step_block(self) -> None:
         raise NotImplementedError("Not sure how to step by block.")

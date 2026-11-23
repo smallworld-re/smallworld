@@ -43,6 +43,24 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x400000,
     ),
+    "aarch64v85a": UnmappedSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x400000,
+    ),
+    "aarch64be": UnmappedSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x400000,
+    ),
+    "aarch64v85abe": UnmappedSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x400000,
+    ),
     "amd64": UnmappedSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pc_register="rip",
@@ -50,13 +68,101 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
-    "armel": UnmappedSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+    "armv6k": UnmappedSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
     ),
-    "armhf": UnmappedSpec(
+    "armv6kbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv5t": UnmappedSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv5tbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv4t": UnmappedSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv4tbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv7m": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv7em": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv6m": UnmappedSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8m": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+    ),
+    "armv7a": UnmappedSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv7abe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv7r": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv7rbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8a": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8abe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8r": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        load_address=0x4000000,
+    ),
+    "armv8rbe": UnmappedSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pc_register="pc",
         engines=("unicorn", "angr", "pcode", "panda"),
         load_address=0x4000000,

@@ -10,9 +10,28 @@ NATIVE_PARITY = True
 
 _ARCH_MATRIX = (
     ("aarch64", "AARCH64", "LITTLE"),
+    ("aarch64v85a", "AARCH64_V8_5A", "LITTLE"),
+    ("aarch64be", "AARCH64", "BIG"),
+    ("aarch64v85abe", "AARCH64_V8_5A", "BIG"),
     ("amd64", "X86_64", "LITTLE"),
-    ("armel", "ARM_V6M", "LITTLE"),
-    ("armhf", "ARM_V7A", "LITTLE"),
+    ("armv5t", "ARM_V5T", "LITTLE"),
+    ("armv5tbe", "ARM_V5T", "BIG"),
+    ("armv4t", "ARM_V4T", "LITTLE"),
+    ("armv4tbe", "ARM_V4T", "BIG"),
+    ("armv6k", "ARM_V6K", "LITTLE"),
+    ("armv6kbe", "ARM_V6K", "BIG"),
+    ("armv6m", "ARM_V6M", "LITTLE"),
+    ("armv7a", "ARM_V7A", "LITTLE"),
+    ("armv7abe", "ARM_V7A", "BIG"),
+    ("armv7m", "ARM_V7M", "LITTLE"),
+    ("armv7em", "ARM_V7EM", "LITTLE"),
+    ("armv7r", "ARM_V7R", "LITTLE"),
+    ("armv7rbe", "ARM_V7R", "BIG"),
+    ("armv8a", "ARM_V8A", "LITTLE"),
+    ("armv8abe", "ARM_V8A", "BIG"),
+    ("armv8m", "ARM_V8M", "LITTLE"),
+    ("armv8r", "ARM_V8R", "LITTLE"),
+    ("armv8rbe", "ARM_V8R", "BIG"),
     ("i386", "X86_32", "LITTLE"),
     ("la64", "LOONGARCH64", "LITTLE"),
     ("m68k", "M68K", "BIG"),
@@ -107,6 +126,41 @@ _FLOAT_RETURN_SKIPS = {
 # same skips as the return-only tests: the arches above are the ones without FP
 # support, and the n64 MIPS variants (which fabs exercises end to end) stay in.
 _FLOAT_RETURN_TESTS = {"C99DifftimeTests", "C99AtofTests", "C99FabsTests"}
+
+# Skips by function for platforms whose tests build against musl. The M
+# profile is Thumb-only, which glibc can't build for. musl differs from the
+# glibc ABI the models implement in a few ways, measured case by case.
+_MUSL = "M-profile tests build against musl (glibc can't build for Thumb-only CPUs)"
+_MUSL_FUNCTION_SKIPS = {
+    "ctype_tolower_loc": f"{_MUSL}, which lacks glibc-only __ctype_tolower_loc",
+    "ctype_toupper_loc": f"{_MUSL}, which lacks glibc-only __ctype_toupper_loc",
+    "__fprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __fprintf_chk",
+    "__printf_chk": f"{_MUSL}, which lacks glibc-only fortified __printf_chk",
+    "__snprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __snprintf_chk",
+    "__sprintf_chk": f"{_MUSL}, which lacks glibc-only fortified __sprintf_chk",
+    "gets": f"{_MUSL}, which doesn't declare gets",
+    "bsd_signal": f"{_MUSL}, which doesn't declare bsd_signal",
+    "pthread_sigmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigaction": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigaddset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigdelset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigemptyset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigfillset": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigpending": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "sigprocmask": f"{_MUSL}; the test reads glibc's sigset_t internals",
+    "dup": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
+    "open": f"{_MUSL}, whose 64-bit off_t lseek the glibc-ABI model doesn't match",
+    "ctype_b_loc": f"{_MUSL}, whose ctype calls isalnum and other unmodeled "
+    "classifiers",
+}
+
+# Per-architecture skips, by function.
+_ARCH_FUNCTION_SKIPS: dict[str, dict[str, str]] = {
+    "armv6m": _MUSL_FUNCTION_SKIPS,
+    "armv7m": _MUSL_FUNCTION_SKIPS,
+    "armv7em": _MUSL_FUNCTION_SKIPS,
+    "armv8m": _MUSL_FUNCTION_SKIPS,
+}
 
 
 def _library_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
@@ -214,7 +268,11 @@ def _build_scenario_infos() -> tuple[ScenarioInfo, ...]:
             "custom_run": item.get("custom_run_test", ""),
         }
         variants = tuple(
-            (arch, _FLOAT_RETURN_SKIPS.get(arch) if returns_float else None)
+            (
+                arch,
+                (_FLOAT_RETURN_SKIPS.get(arch) if returns_float else None)
+                or _ARCH_FUNCTION_SKIPS.get(arch, {}).get(function),
+            )
             for arch, _full, _bo in _ARCH_MATRIX
         )
         if library == "c99" and function in _MCS51_FUNCTIONS:

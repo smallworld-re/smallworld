@@ -11,6 +11,10 @@ class BoundedExplorationMixin:
     def step_state(self, simgr, state, **kwargs):
         if not state._ip.symbolic:
             ip = state._ip.concrete_value
+            if ip & 1 and state.arch.name.startswith("ARM"):
+                # angr addresses ARM Thumb code with the Thumb bit set;
+                # measure the block from the instruction's real address.
+                ip &= ~1
             r, found = state.scratch.memory_map.find_closest_range(ip)
             if not found:
                 return dict()

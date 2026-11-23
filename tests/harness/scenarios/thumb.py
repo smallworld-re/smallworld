@@ -7,18 +7,36 @@ from .spec import ScenarioInfo, from_variants
 NATIVE_PARITY = True
 
 _VARIANT_ARCH_NAMES = {
-    "armhf": ("ARM_V7A", "ARM_V7M", "ARM_V7R"),
-    "armel": ("ARM_V5T", "ARM_V6M"),
+    # M-profile is Thumb-only, so it can't run this ARM/Thumb interworking test.
+    "armv5t": ("ARM_V5T",),
+    "armv5tbe": ("ARM_V5T",),
+    "armv4t": ("ARM_V4T",),
+    "armv4tbe": ("ARM_V4T",),
+    "armv6k": ("ARM_V6K",),
+    "armv6kbe": ("ARM_V6K",),
+    "armv7a": ("ARM_V7A",),
+    "armv7abe": ("ARM_V7A",),
+    "armv8a": ("ARM_V8A",),
+    "armv8abe": ("ARM_V8A",),
+    "armv8r": ("ARM_V8R",),
+    "armv8rbe": ("ARM_V8R",),
+    "armv7r": ("ARM_V7R",),
+    "armv7rbe": ("ARM_V7R",),
 }
+
+# angr runs the same test from thumb.<variant>.angr.py.
+_VARIANT_ARCH_NAMES.update(
+    {f"{variant}.angr": names for variant, names in _VARIANT_ARCH_NAMES.items()}
+)
 
 _VARIANTS = tuple((variant, None) for variant in _VARIANT_ARCH_NAMES)
 
 _TRACE_PATTERNS = (
     r"single step at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
-    r"single step at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+    r"single step at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: movs?(?:\.w)? r1, #1>",
     r"single step at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
     r"step block at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
-    r"step block at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+    r"step block at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: movs?(?:\.w)? r1, #1>",
     r"step block at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
 )
 
@@ -27,17 +45,19 @@ def _thumb_run_factory(info, variant: str, kwargs: Mapping[str, Any]):
     from .. import manifest
 
     arch_names = _VARIANT_ARCH_NAMES[variant]
+    # The trace lines are the ones Unicorn logs as it steps.
+    trace_patterns = () if variant.endswith(".angr") else _TRACE_PATTERNS
 
     def run(runner):
         stdout, stderr = manifest._run_script(runner, f"thumb/thumb.{variant}.py")
         for arch_name in arch_names:
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x6")
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x4")
-            for pattern in _TRACE_PATTERNS[:3]:
+            for pattern in trace_patterns[:3]:
                 runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x6")
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x4")
-            for pattern in _TRACE_PATTERNS[3:]:
+            for pattern in trace_patterns[3:]:
                 runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x6")
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x4")

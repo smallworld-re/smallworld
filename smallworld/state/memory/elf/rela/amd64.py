@@ -84,9 +84,6 @@ class AMD64ElfRelocator(ElfRelocator):
         # null.
         self._tls_resolver = 0
 
-    def _symbol_name(self, rela: ElfRela) -> str:
-        return rela.symbol.name if rela.symbol.name else "<anonymous>"
-
     def _symbol_value(self, rela: ElfRela) -> int:
         return rela.symbol.value + rela.symbol.baseaddr
 
@@ -109,12 +106,6 @@ class AMD64ElfRelocator(ElfRelocator):
         address and collapse the distinction between adjacent thread-locals.
         """
         return rela.symbol.value + self._get_addend(rela, elf, size)
-
-    def _missing_context(self, rela: ElfRela, detail: str) -> None:
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
-            f"{detail}, which is not available to AMD64ElfRelocator._compute_value()"
-        )
 
     def is_tls_descriptor(self, rela: ElfRela) -> bool:
         return rela.type == R_X86_64_TLSDESC

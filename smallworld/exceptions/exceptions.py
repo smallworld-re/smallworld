@@ -236,6 +236,12 @@ class AnalysisError(Error):
     """Some kind of error in analysis."""
 
 
+class InstructionDecodeError(Error):
+    """Raised when bytes don't decode as an instruction."""
+
+    pass
+
+
 __all__ = [
     "Error",
     "ConfigurationError",
@@ -267,4 +273,5 @@ __all__ = [
     "UnsupportedModelError",
     "UnsupportedRegisterError",
     "AnalysisError",
+    "InstructionDecodeError",
 ]

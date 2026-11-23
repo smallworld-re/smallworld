@@ -1,6 +1,8 @@
 import archinfo
 
 from ....platforms import Architecture, Byteorder
+from ..be8 import aarch64_be_arch
+from ..v8fp import AArch64BEV8FPEngine, V8FPEngine
 from .machdef import AngrMachineDef
 
 
@@ -8,7 +10,9 @@ class AArch64MachineDef(AngrMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
 
-    angr_arch = archinfo.arch_aarch64.ArchAArch64()
+    # Big-endian AArch64 builds its arch with a function, typed as any Arch.
+    angr_arch: archinfo.Arch = archinfo.arch_aarch64.ArchAArch64()
+    angr_engine = V8FPEngine
 
     _registers = {
         # *** General Purpose Registers ***
@@ -291,3 +295,19 @@ class AArch64MachineDef(AngrMachineDef):
         "h31": "h31",
         "b31": "b31",
     }
+
+
+class AArch64BEMachineDef(AArch64MachineDef):
+    # VEX lifts big-endian AArch64 through AArch64BEEngine, which lifts for a
+    # little-endian guest and makes memory big-endian.
+    angr_arch = aarch64_be_arch()
+    angr_engine = AArch64BEV8FPEngine
+    byteorder = Byteorder.BIG
+
+
+class AArch64V85AMachineDef(AArch64MachineDef):
+    arch = Architecture.AARCH64_V8_5A
+
+
+class AArch64V85ABEMachineDef(AArch64BEMachineDef):
+    arch = Architecture.AARCH64_V8_5A

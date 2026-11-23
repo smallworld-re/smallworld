@@ -32,25 +32,25 @@ PREREQS := $(patsubst %,%.prereq,aarch64-unknown-linux-gnu arm-linux-gnueabi arm
 	objcopy -O binary -j .text $*.amd64.o $*.amd64.bin
 	rm $*.amd64.o
 
-%.armel.elf: %.armel.elf.s
-	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
-	arm-linux-gnueabi-ld $*.armel.elf.o -o $*.armel.elf
-	rm $*.armel.elf.o
+%.armv6k.elf: %.armv6k.elf.s
+	arm-linux-gnueabi-as -march=armv6k $*.armv6k.elf.s -o $*.armv6k.elf.o
+	arm-linux-gnueabi-ld $*.armv6k.elf.o -o $*.armv6k.elf
+	rm $*.armv6k.elf.o
 
-%.armel.bin: %.armel.s
-	arm-linux-gnueabi-as $*.armel.s -o $*.armel.o
-	arm-linux-gnueabi-objcopy -O binary -j .text $*.armel.o $*.armel.bin
-	rm $*.armel.o
+%.armv6k.bin: %.armv6k.s
+	arm-linux-gnueabi-as -march=armv6k $*.armv6k.s -o $*.armv6k.o
+	arm-linux-gnueabi-objcopy -O binary -j .text $*.armv6k.o $*.armv6k.bin
+	rm $*.armv6k.o
 
-%.armhf.elf: %.armhf.elf.s
-	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o
-	arm-linux-gnueabihf-ld $*.armhf.elf.o -o $*.armhf.elf
-	rm $*.armhf.elf.o
+%.armv7a.elf: %.armv7a.elf.s
+	arm-linux-gnueabihf-as -march=armv7-a $*.armv7a.elf.s -o $*.armv7a.elf.o
+	arm-linux-gnueabihf-ld $*.armv7a.elf.o -o $*.armv7a.elf
+	rm $*.armv7a.elf.o
 
-%.armhf.bin: %.armhf.s
-	arm-linux-gnueabihf-as $*.armhf.s -o $*.armhf.o
-	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armhf.o $*.armhf.bin
-	rm $*.armhf.o
+%.armv7a.bin: %.armv7a.s
+	arm-linux-gnueabihf-as -march=armv7-a $*.armv7a.s -o $*.armv7a.o
+	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armv7a.o $*.armv7a.bin
+	rm $*.armv7a.o
 
 %.i386.elf: %.i386.elf.s
 	i686-linux-gnu-as $*.i386.elf.s -o $*.i386.elf.o

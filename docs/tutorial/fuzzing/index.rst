@@ -8,20 +8,20 @@ Introduction
 In this tutorial you will be guided through building a simple fuzzing harness
 and fuzzing it with `AFL++`_. It assumes you are already familiar with building
 a SmallWorld harness and with `AFL++`_. For this tutorial we will be using a
-very simple 32-bit ARM (armel) binary that reads four bytes (which we're going
+very simple 32-bit ARM (armv5t) binary that reads four bytes (which we're going
 to pretend is a size) and exits if they are 11 or less, then reads the next
 four bytes and compares them one-by-one to the values 98, 97, 100, and 33
 exiting if they are not equal. If it makes it through all of the compares it
 crashes by writing to an unmapped address.
 
-.. literalinclude:: fuzz.armel.s
-  :language: NASM
+.. literalinclude:: fuzz.armv5t.s
+  :language: none
 
 .. _AFL++: https://aflplus.plus/
 
 The source for this example is in the SmallWorld repo in ``docs/tutorial/fuzzing`` as
-``fuzz.armel.s`` and ``fuzz.armel.bin`` (a copy of
-``tests/fuzz/fuzz.armel.bin``).
+``fuzz.armv5t.s`` and ``fuzz.armv5t.bin`` (a copy of
+``tests/fuzz/fuzz.armv5t.bin``).
 
 Building Our Harness
 --------------------
@@ -77,7 +77,7 @@ Running With AFL++
 ------------------
 Run the standalone script under `AFL++`_ directly. The example below assumes:
   1. You have already have AFL++ setup (you can use are nix devshell if you want)
-  2. ``cd``-ed into ``docs/tutorial/fuzzing`` so the script can find ``fuzz.armel.bin``
+  2. ``cd``-ed into ``docs/tutorial/fuzzing`` so the script can find ``fuzz.armv5t.bin``
 and the ``inputs/`` seed directory:
   3. Created a folder ``outputs/``
   

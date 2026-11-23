@@ -98,8 +98,6 @@ NATIVE_PARITY = True
 _SCENARIO = "testfloat"
 
 CODE_BASE = 0x1000
-IN_BASE = 0x00100000
-OUT_BASE = 0x00200000
 REGION_SIZE = 0x00100000
 
 DEFAULT_CASES = 3000
@@ -258,13 +256,16 @@ def run_function(spec: TestFloatSpec, variant: str, func: str, count: int) -> in
     )
     machine.add(code)
 
+    in_base = spec.data_base
+    out_base = in_base + REGION_SIZE
+
     packed_inputs = _pack(flat, width, big)
     out_size = len(cases) * width
-    # IN_BASE and OUT_BASE are REGION_SIZE apart, and `--cases` is caller-supplied
+    # The input and output regions are REGION_SIZE apart, and `--cases` is caller-supplied
     # (the module docstring advertises `--cases 46464` for an exhaustive sweep), so
     # bound both regions rather than letting a large sweep silently run the input
     # array into the output one. A binary f64 function packs 16 bytes per case, so
-    # the input region reaches OUT_BASE at 65536 cases.
+    # the input region reaches the output one at 65536 cases.
     for what, size in (("input", len(packed_inputs)), ("output", out_size)):
         if size > REGION_SIZE:
             raise ValueError(
@@ -274,11 +275,11 @@ def run_function(spec: TestFloatSpec, variant: str, func: str, count: int) -> in
             )
 
     inputs = smallworld.state.memory.RawMemory.from_bytes(
-        packed_inputs, address=IN_BASE
+        packed_inputs, address=in_base
     )
     machine.add(inputs)
     outputs = smallworld.state.memory.RawMemory.from_bytes(
-        b"\0" * out_size, address=OUT_BASE
+        b"\0" * out_size, address=out_base
     )
     machine.add(outputs)
 
@@ -289,17 +290,22 @@ def run_function(spec: TestFloatSpec, variant: str, func: str, count: int) -> in
 
     getattr(cpu, "sp").set(stack.get_pointer())
     getattr(cpu, "pc").set(CODE_BASE + kernel.entry)
-    getattr(cpu, spec.in_register).set(IN_BASE)
-    getattr(cpu, spec.out_register).set(OUT_BASE)
+    getattr(cpu, spec.in_register).set(in_base)
+    getattr(cpu, spec.out_register).set(out_base)
     getattr(cpu, spec.count_register).set(len(cases))
     for name, value in spec.setup.get(precision, {}).items():
         getattr(cpu, name).set(value)
+    if engine == "panda" and hasattr(cpu, "cpacr"):
+        # PANDA resets ARM CPUs with coprocessors 10 and 11, the FPU,
+        # inaccessible; grant access as an OS would. The ARM kernels set
+        # FPEXC.EN themselves.
+        cpu.cpacr.set(0x00F00000)
 
     emulator = make_emulator(smallworld, platform, engine)
     emulator.add_exit_point(CODE_BASE + EXIT_OFFSET)
     machine.emulate(emulator)
 
-    raw = emulator.read_memory_content(OUT_BASE, len(cases) * width)
+    raw = emulator.read_memory_content(out_base, len(cases) * width)
     results = _unpack(raw, width, big)
 
     lines = [

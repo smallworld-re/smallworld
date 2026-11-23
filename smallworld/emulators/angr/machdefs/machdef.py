@@ -3,6 +3,7 @@ import typing
 
 import angr
 import archinfo
+import claripy
 
 from .... import exceptions, platforms, utils
 from .pcode_float import FloatPcodeEngine
@@ -30,13 +31,19 @@ class AngrMachineDef:
         """The angr architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    # Is this thumb?
+    # Is this Thumb-only (M-profile)?
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False
 
+    # Registers angr has no storage for, which this machine builds from
+    # angr's state instead (ARM: cpsr). See read_synthesized() and
+    # write_synthesized().
+    synthesized_registers: typing.FrozenSet[str] = frozenset()
+
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
-    # This only needs to be overridden if you're a pcode machine.
+    # This only needs to be overridden if you're a pcode machine, or a VEX
+    # machine whose lifting needs fixing up (see be8.py and v8m.py).
     angr_engine: typing.Optional[typing.Type[angr.engines.SimEngine]] = None
 
     # Does angr support single-instruction stepping for this ISA.
@@ -48,7 +55,10 @@ class AngrMachineDef:
     # and is not safe to step in this manner.
     supports_single_step: bool = True
 
-    _registers: typing.Dict[str, str]
+    #: SmallWorld register name -> angr register name, or (angr register
+    #: name, size) for a register angr lacks that starts at that one and spans
+    #: `size` bytes (e.g. an ARM NEON q register over two d registers).
+    _registers: typing.Dict[str, typing.Union[str, typing.Tuple[str, int]]]
 
     def function_return_address(self, emulator: typing.Any) -> typing.Optional[int]:
         """Pop the return address after a function hook, if angr cannot.
@@ -82,12 +92,16 @@ class AngrMachineDef:
         if name not in self._registers:
             raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
         angr_name = self._registers[name]
+        size = None
+        if isinstance(angr_name, tuple):
+            angr_name, size = angr_name
 
         if angr_name not in self.angr_arch.registers:
             raise exceptions.UnsupportedRegisterError(
                 f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
-        return self.angr_arch.registers[angr_name]
+        offset, angr_size = self.angr_arch.registers[angr_name]
+        return offset, angr_size if size is None else size
 
     def pc_to_engine(self, state: typing.Optional[angr.SimState], pc: int) -> int:
         """Convert SmallWorld's pc to the value angr stores in its pc register.
@@ -104,6 +118,67 @@ class AngrMachineDef:
             The value to store in the pc register
         """
         return pc
+
+    def pc_from_engine(
+        self, state: angr.SimState, value: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        """Convert the value angr stores in its pc register to SmallWorld's pc.
+
+        The inverse of :meth:`pc_to_engine`. The default reads the value
+        unchanged.
+
+        Arguments:
+            state: The emulator's angr state
+            value: The contents of angr's pc register, or an address angr
+                reached
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def code_addresses(self, address: int) -> typing.Tuple[int, ...]:
+        """The addresses angr may use for the code at `address`.
+
+        Hooks and exit points cover them all. The default is `address` alone.
+
+        Arguments:
+            address: The address of an instruction
+
+        Returns:
+            Each address angr may reach that instruction at
+        """
+        return (address,)
+
+    def read_isa_mode(
+        self, state: typing.Optional[angr.SimState]
+    ) -> typing.Optional[int]:
+        """The CPU's instruction-set mode, where angr keeps it outside the
+        register the platform names; see :meth:`.Emulator.get_isa_mode`.
+
+        Arguments:
+            state: The emulator's angr state, or None before it has one,
+                for the mode the CPU starts in
+
+        Returns:
+            The mode, or None, the default, to leave it to the emulator's
+            generic path
+        """
+        return None
+
+    def write_isa_mode(self, state: angr.SimState, mode: int) -> bool:
+        """Set the CPU's instruction-set mode, where angr keeps it outside the
+        register the platform names; see :meth:`.Emulator.set_isa_mode`.
+
+        Arguments:
+            state: The emulator's angr state
+            mode: The mode to set
+
+        Returns:
+            Whether it was set; False, the default, leaves it to the
+            emulator's generic path
+        """
+        return False
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture
@@ -144,9 +219,36 @@ class AngrMachineDef:
         else:
             exit_points = state.scratch.exit_points
 
+        exit_points = {a for p in exit_points for a in self.code_addresses(p)}
+
         return state.project.factory.successors(
             state, extra_stop_points=exit_points, **kwargs
         )
+
+    def read_synthesized(self, state: angr.SimState, name: str) -> claripy.ast.bv.BV:
+        """Build a register in `synthesized_registers` from angr's state.
+
+        Arguments:
+            state: The emulator's angr state
+            name: The register's name
+
+        Returns:
+            The register's value
+        """
+        raise exceptions.UnsupportedRegisterError(f"No {name} for {self.arch}")
+
+    def write_synthesized(
+        self, state: angr.SimState, name: str, value: claripy.ast.bv.BV
+    ) -> None:
+        """Write a register in `synthesized_registers` to where angr's state
+        keeps its parts.
+
+        Arguments:
+            state: The emulator's angr state
+            name: The register's name
+            value: Its new value
+        """
+        raise exceptions.UnsupportedRegisterError(f"No {name} for {self.arch}")
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

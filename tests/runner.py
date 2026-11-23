@@ -33,7 +33,12 @@ machine.add(cpu)
 filepath = pathlib.Path(__file__).parent / args.path
 
 if arch in (
-    smallworld.platforms.Architecture.ARM_V6M,
+    smallworld.platforms.Architecture.ARM_V4T,
+    smallworld.platforms.Architecture.ARM_V5T,
+    smallworld.platforms.Architecture.ARM_V6K,
+    smallworld.platforms.Architecture.ARM_V7M,
+    smallworld.platforms.Architecture.ARM_V7EM,
+    smallworld.platforms.Architecture.ARM_V8M,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS32,
     smallworld.platforms.Architecture.MIPS64,
@@ -181,7 +186,6 @@ def _is_success_exit_unaligned_read() -> bool:
 # Emulate
 emulator: smallworld.emulators.Emulator
 if arch in (
-    smallworld.platforms.Architecture.ARM_V7A,
     smallworld.platforms.Architecture.LOONGARCH64,
     smallworld.platforms.Architecture.MIPS64,
     smallworld.platforms.Architecture.POWERPC32,
@@ -191,6 +195,11 @@ if arch in (
     emulator = smallworld.emulators.GhidraEmulator(platform)
 else:
     emulator = smallworld.emulators.UnicornEmulator(platform)
+    if hasattr(cpu, "fpexc") and hasattr(cpu, "cpacr"):
+        # Enable the ARM FPU as an OS would for a user process. Unicorn resets
+        # ARM CPUs with it disabled, so the first VFP/NEON instruction faults.
+        cpu.cpacr.set(0x00F00000)  # Full access to coprocessors 10 and 11
+        cpu.fpexc.set(0x40000000)  # FPEXC.EN
 
 
 try:
