@@ -10,13 +10,14 @@ from .i386 import i386MachineDef
 from .loongarch import LoongArch32MachineDef, LoongArch64MachineDef
 from .m68k import M68KMachineDef
 from .machdef import AngrMachineDef
+from .mcs51 import MCS51MachineDef
 from .micromips import MicroMIPSBEMachineDef, MicroMIPSELMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .msp430 import MSP430MachineDef, MSP430XMachineDef
 from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
 from .ppc_vle import PowerPC32VLEMachineDef
-from .riscv import RISCV64MachineDef
+from .riscv import RISCV32MachineDef, RISCV64MachineDef
 from .superh import SH1MachineDef, SH2AFPUMachineDef, SH2MachineDef
 from .superh4 import SuperH4BEMachineDef, SuperH4ELMachineDef
 from .tricore import TriCoreMachineDef
@@ -33,6 +34,7 @@ __all__ = [
     "ARMv6MThumbMachineDef",
     "ARMv7MMachineDef",
     "i386MachineDef",
+    "MCS51MachineDef",
     "LoongArch32MachineDef",
     "LoongArch64MachineDef",
     "M68KMachineDef",
@@ -47,6 +49,7 @@ __all__ = [
     "PowerPC32MachineDef",
     "PowerPC32VLEMachineDef",
     "PowerPC64MachineDef",
+    "RISCV32MachineDef",
     "RISCV64MachineDef",
     "SH1MachineDef",
     "SH2MachineDef",

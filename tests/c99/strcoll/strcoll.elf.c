@@ -1,6 +1,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef __SDCC
+// SDCC's string.h makes strcoll a macro for strcmp.
+#undef strcoll
+#endif
+
 int main() {
     char *good = (char *)(size_t)0xdead0;
 

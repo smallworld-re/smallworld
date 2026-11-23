@@ -1,4 +1,11 @@
 variant,               single precision, double precision
+powerpc32 angr,        5 skip,           4 pass / 1 skip
+powerpc32 ghidra,      3 pass / 2 skip,  5 pass
+powerpc32 panda,       4 pass / 1 skip,  4 pass / 1 skip
+powerpc32 unicorn,     5 pass,           5 pass
+powerpc64 angr,        5 skip,           4 pass / 1 skip
+powerpc64 ghidra,      3 pass / 2 skip,  5 pass
+powerpc64 unicorn,     5 pass,           5 pass
 superh-sh2a-fpu angr,  5 pass,           5 skip
 superh-sh2a-fpu ghidra,3 pass / 2 skip,  5 skip
 superh-sh2a-fpu panda, 5 pass,           5 pass

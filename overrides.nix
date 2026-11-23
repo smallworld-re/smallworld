@@ -38,7 +38,6 @@ let
         "future"
         "markupsafe"
         "mulpyplexer"
-        "pypcode"
         "pyxbe"
         "pyyaml"
         "timeout-decorator"
@@ -76,6 +75,27 @@ setuptoolsOverrides
     pythonRelaxDeps = (old.pythonRelaxDeps or [ ]) ++ [ "jpype1" ];
     pythonRemoveDeps = (old.pythonRemoveDeps or [ ]) ++ [ "jpype1" ];
     dontCheckRuntimeDeps = true;
+  });
+
+  # pypcode: patch its Intel 8051 language as nix/ghidra.nix patches Ghidra's,
+  # so angr emulates 8051 arithmetic and bit addressing as the hardware does;
+  # see nix/patches/ghidra-8051.patch.  pypcode bundles Ghidra's language
+  # sources and its own SLEIGH compiler, which must do the recompiling so the
+  # .sla matches pypcode's format.  The compiler comes from the wheel, so
+  # patch its ELF interpreter first; the fixup phase would only do that after
+  # postInstall.
+  pypcode = (addSetuptools "pypcode").overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.patch ];
+    postInstall = (old.postInstall or "") + ''
+      pypcode=$out/${python.sitePackages}/pypcode
+      lang=$pypcode/processors/8051/data/languages
+      if type autoPatchelf >/dev/null 2>&1; then
+        autoPatchelf $pypcode/bin
+      fi
+      chmod u+w $lang $lang/8051_main.sinc $lang/8051.sla
+      patch -p6 -d $lang < ${./nix/patches/ghidra-8051.patch}
+      $pypcode/bin/sleigh $lang/8051.slaspec $lang/8051.sla
+    '';
   });
 
   # unicornafl: needs the C unicorn library at build time.

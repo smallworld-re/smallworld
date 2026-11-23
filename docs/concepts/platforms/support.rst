@@ -249,11 +249,55 @@ logs a warning; pass ``platform`` to choose ``powerpc32`` instead.
 The test suite assembles VLE with GNU binutils (``as -mvle``), since zig's LLVM
 assembler has no VLE support.
 
+**powerpc64 Unicorn:** Stock Unicorn can't run PowerPC64 code at all.
+SmallWorld's build carries two patches (``nix/patches/unicorn-ppc64-*.patch``):
+one makes an explicit PPC64 CPU model select that model rather than a PPC32 one,
+and the other starts PPC64 CPUs in hypervisor mode, without which the first
+instruction fetch faults.  The default CPU is a POWER10, running in real mode;
+the Book E cores (e5500, e6500) still need a TLB set up before they can fetch.
+With a Unicorn built without those patches, ``PPC64MachineDef`` logs a warning.
+In real mode the CPU ignores the top four bits of an effective address, so
+memory at or above 2\ :sup:`60` is unreachable, and an access there lands on
+whatever is mapped at the same address with those bits cleared: a load from
+``0xF000000010000000`` reads ``0x10000000``.  Map PPC64 memory below 2\ :sup:`60`.
+
+**powerpc64 Panda:** SmallWorld's PANDA build is patched
+(``nix/patches/panda-qemu-ppc64-configurable.patch``) to include the
+configurable machine in the ppc64 target.  The CPU is a POWER8: POWER9 and
+POWER10 reset with the hypervisor bit clear, so their first instruction fetch
+faults, as on stock Unicorn.  An unmapped instruction fetch surfaces as a
+machine check, which SmallWorld reports as ``EmulationFetchUnmappedFailure``.
+
+**powerpc64 ABI:** SmallWorld models the ELFv2 ABI, which is what current
+toolchains (including the zig build of the test suite) emit.  For ELFv1
+binaries, which use function descriptors, the PLT relocation
+(``R_PPC64_JMP_SLOT``) raises ``NotImplementedError``, and the library models
+don't cover ELFv1.  An ELFv2 function's
+global entry point computes the TOC pointer, ``r2``, from its own address in
+``r12``, so a harness that starts at a function must set ``r12`` to it.
+
 **riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
 and a large number of extensions.  I can't get the assembler to build
 for some of the extensions, so I haven't tested anywhere near all of them.
 Also, the standards for this ISA are still being developed,
 so some things like the syscall convention are something of a guess.
+
+**riscv32:** SmallWorld models RV32GC, following Ghidra's ``RISCV:LE:32:default``.
+The floating-point registers are 64 bits wide, as the "D" extension requires.
+archinfo has no RV32 model, so angr runs RV32 through its pcode engine instead of VEX.
+That path handles ``ecall`` as a syscall, ``ebreak`` as a breakpoint trap,
+and the ``fence`` instructions as no-ops.  It can't run 32-bit code loaded at
+or above 0x80000000, the usual RAM base of RV32 boards (SuperH has the same
+limit), so load RV32 code below it to run it on angr.  Nor can it do floating
+point; see the floating-point notes below.  Triton keeps only 32 bits of each
+floating-point register, so it can't run double-precision RV32 code, and
+refuses to write a value that doesn't fit; Ghidra doesn't decode
+``fence.tso``.
+C models follow ilp32d: a fixed 8-byte argument takes the next two argument
+registers, or ``a7`` and the stack when only ``a7`` is left, and a
+floating-point argument with no FP argument register left goes in integer
+registers, as on riscv64.  ELF images with ``R_RISCV_COPY`` or
+``R_RISCV_TLS_TPREL32`` relocations are refused, as on riscv64.
 
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
@@ -452,6 +496,249 @@ hook:
   because sleigh lifts a branch and its delay slot under a single IMARK, leaving
   no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
   is architecturally prohibited on SuperH anyway, but assemblers accept it.
+
+**mcs51:** The Intel 8051 runs on Ghidra and angr. It is a
+Harvard machine whose code, external RAM (XDATA), internal RAM and special
+function registers are separate address spaces. SmallWorld lays them side by
+side in one flat map, which ``smallworld.platforms.defs.mcs51`` defines: code at
+0x00000, XDATA at 0x10000, internal RAM at 0x20000, SFRs at 0x20100 and Ghidra's
+bit space at 0x30100. SFRs have room for 256 pages of 256, for devices that
+page them (see below): SFR ``sfr`` on page ``page`` is at ``0x20100 + (page <<
+8) + sfr``, and SFRs that are not paged, as none are on most devices, are on
+page 0. Map memory and hook accesses at those flat addresses;
+registers still hold the CPU's own 8- and 16-bit values, so SP of 0x60 means
+flat address 0x20060. Both backends run Ghidra's 8051 language - angr through
+pypcode's copy of it - and SmallWorld's 8051 angr engine maps the 8051's spaces
+onto the same flat map. That language is written for decompilation and emulates
+arithmetic and bit addressing wrongly, so SmallWorld's Nix environment applies
+``nix/patches/ghidra-8051.patch`` to both copies (see ``nix/ghidra.nix`` and the
+``pypcode`` entry in ``overrides.nix``): the carry out of ``addc``/``subb``, the
+auxiliary carry and overflow flags, the user flag F0, bit addressing,
+``mov sp,#n`` and ``movx @Ri``, whose address takes its high byte from an SFR,
+all follow the hardware there. A Ghidra or pypcode without the
+patch fails the ``mcs51_flags`` scenario. The language never computes the
+parity flag either, so both backends recompute it from the accumulator around
+every instruction, as the hardware does every cycle. Nor does it model register
+banks: on the 8051, R0-R7 are eight bytes of internal RAM 0x00-0x1F in the bank
+PSW's RS bits select, and compiled code reaches them by address too (SDCC's
+``push ar7``). When internal RAM 0x00-0x1F is mapped, both backends keep R0-R7
+and the selected bank in step around every instruction, and the ``cpu.r0`` to
+``cpu.r7`` a machine starts with are written into the bank PSW selects - all
+eight, so one left unset writes 0 over what the bank held, and a harness that
+loads internal RAM from a snapshot must set them from it too; otherwise R0-R7
+are plain registers.
+Silicon Labs' CIP-51 devices - the C8051 families and the newer EFM8 - run the 8051's
+instructions and are emulated as an 8051, with one difference SmallWorld
+models: ``movx @Ri`` takes its high address byte from the device's EMI0CN, not
+P2.  The ``xpage_sfr`` register, which is not the hardware's but a property of
+the device, names that SFR; it is P2's address, 0xA0, unless the harness sets
+it to EMI0CN's (0xAA on most devices, 0xA2 on the C8051F04x, F06x, F12x and F13x,
+0xAF on the C8051F00x, F01x, F02x and F2xx, 0xE7 on the EFM8BB2; SDCC's device
+headers declare it as ``_XPAGE``, but SDCC has none for the EFM8, whose
+address is from its reference manual).  ``mcs51_xpage_sfr()``, in ``smallworld.platforms.defs.mcs51``,
+looks the address up by part number, for these and the other 8051s whose
+paging SFR SDCC's headers declare (Chipcon and TI's CC and MSC12xx, Axsem's
+AX8052, Infineon's XC866); a program built with SDCC records it in its linker
+map as ``__XPAGE``, which an image loaded with ``Executable.from_ihex()``
+reports through ``get_map_value()``::
+
+    cpu.xpage_sfr.set(mcs51_xpage_sfr("C8051F330"))
+    cpu.xpage_sfr.set(code.get_map_value("__XPAGE"))  # or, from the map
+
+MOVX @Ri takes the page from the ``xpage`` register, which the emulators keep
+in step with the SFR ``xpage_sfr`` names, or at 0 where that SFR is not
+mapped, so a harness that maps no SFRs still runs MOVX @Ri, in XDATA's first
+page.
+
+A CIP-51 device also has more interrupt sources than the 8052, enabled and
+prioritized through EIE1 and EIP1 as well as IE and IP.  To emulate a device,
+add an ``MCS51Device`` to the machine, beside the CPU: it sets ``xpage_sfr``
+and makes the emulator take the device's interrupts instead of the 8052's
+(don't set the CPU's ``xpage_sfr`` too; which would win is undefined)::
+
+    machine.add(smallworld.state.cpus.MCS51Device("C8051F330"))
+
+The C8051F330-F335's interrupts are tabulated, as ``C8051F33xInterrupt``,
+from the data sheet's interrupt summary, and the EFM8BB2's, as
+``EFM8BB2Interrupt``, from its reference manual.  The EFM8BB2 has four
+priority levels, each source's low bit in IP, EIP1 or EIP2 and high bit in
+IPH, EIP1H or EIP2H; sources enabled through EIE2, and their flags, on SFR
+pages 0x10 and 0x20; and request flags beyond a source's flag SFR - the FIFO
+request flags of SPI0, SMBus0, UART1 and I2C0, and PCA0's COVF, in PCA0PWM -
+which request it too, each gated by its own enable bit.  Its Port Match
+interrupt has no request flag, since its pins request it, so it is never
+taken, and ``mcs51_raise_interrupt`` refuses it.  Any other
+device whose paging SFR ``mcs51_xpage_sfr()`` knows is accepted too, with a
+warning: it pages MOVX @Ri as it should, but the emulator takes only the
+8052's interrupts, which it has among its own.  Request flags that a second bit gates, as Timer 2's
+low-byte flag is by TF2LEN and each PCA module's by its ECCFn, request their
+interrupt only while that bit is set.  A write to IE or IP holds interrupts
+for an instruction, as on Intel's 8051.  Neither the C8051F33x's data sheet
+nor the EFM8BB2's reference manual says whether a write to the other SFRs
+that enable interrupts or set their priorities does - EIE1 and EIP1 on the
+C8051F33x; EIE1, EIE2, IPH, EIP1, EIP1H, EIP2 and EIP2H on the EFM8BB2 -
+and SmallWorld assumes each does.  Ghidra's own CIP-51 language adds nothing
+an emulator uses, and pypcode lacks it.
+
+SFRs start as the harness maps them, not at the device's reset values, which
+an ``MCS51Device`` does not set: SFRs a harness maps as zero are zero, where
+the hardware would have set some bits.  Firmware usually leaves such bits
+alone, relying on their reset values, so a harness for it must set them.  On
+the EFM8BB2 they include SFRPGCN's SFRPGEN, which enables the SFR page stack;
+SPI0FCN1's SPIFEN, without which SPIF requests no interrupt; and UART1FCN1's
+RIE and TIE, without which RI and TI request none.  Check the reference
+manual's register definitions for the others a program depends on.
+
+Silicon Labs' larger devices also page their SFRs: SFRPAGE selects the page
+through which the CPU reaches most of them, so that one address holds a
+different SFR on each page, and taking an interrupt pushes SFRPAGE onto a
+stack - SFRNEXT and SFRLAST on the C8051 devices - and selects the
+interrupt's page, the page of its request flags, which RETI pops.
+An ``MCS51Device`` for the C8051F04x or F06x pages them so, from
+``MCS51_C8051F04X_SFR_PAGING``, which is taken from SDCC's ``C8051F040.h`` and
+``C8051F060.h``: the SFRs they list under "All Pages" are on page 0, and the
+rest on the page SFRPAGE selects.  For the C8051F12x and F13x,
+``MCS51_C8051F12X_SFR_PAGING`` is the same with PSBANK on every page too, from
+``C8051F120.h``.  The C8051F36x's, ``MCS51_C8051F36X_SFR_PAGING``, from
+``C8051F360.h``, has SFRPAGE at 0xA7, pages 0 and 0x0F, and SFR0CN, on page
+0x0F, in place of SFRPGCN.  Map the pages a program uses, and SFRPAGE,
+SFRNEXT, SFRLAST and the SFR that enables the stack, with its bit 0 - SFRPGCN
+or SFR0CN, on page 0x0F; paging is only modeled when they are mapped, and the
+emulators warn, once, when they are not.
+
+The EFM8BB2's, ``MCS51_EFM8BB2_SFR_PAGING``, is taken from its reference
+manual, which lists each SFR's pages: 0x00, 0x10 and 0x20.  SFRPAGE is at
+0xA7, and many SFRs are on page 0 and one other page, where they are page 0's
+too - ADC0GTL, at 0xC3, is on pages 0 and 0x10, while page 0x20 has SMB0FCN0
+there - so which SFRs are paged depends on the page; the emulators follow
+SFRPAGE with ``sfr_paged_lo`` and ``sfr_paged_hi`` too, which on angr needs
+SFRPAGE to have a single value.  SFRPGCN, on page 0x10, enables the page
+stack with bit 0, SFRPGEN, as the manual says.  The manual does not say
+which page an interrupt whose flags are on two pages selects; SmallWorld
+takes it to be page 0.
+
+The EFM8BB2's page stack is five levels deep: SFRPAGE, and four below it
+that are no SFRs, and that firmware reads only through SFRSTACK, on page
+0x10, which shows the level SFRPGCN's SFRPGIDX selects (0 for SFRPAGE, 1-4
+for the levels below).  The hardware has no address for those four levels,
+so SmallWorld keeps them in the SFR space where no SFR is, below page 0x10's
+SFRs: level n at SFR address ``0x1000 + n``, that is, at
+``MCS51_SFR_BASE + 0x1001`` to ``MCS51_SFR_BASE + 0x1004``.  Taking an
+interrupt pushes SFRPAGE into level 1, and each level into the next, the
+bottom one lost; RETI pops them back, leaving the bottom level as it was.
+The emulators write SFRSTACK, which firmware only reads, with the level
+selected: angr as each block starts, and Ghidra after an instruction or hook
+writes SFRPAGE or SFRPGCN, and after an interrupt pushes the stack or RETI
+pops it.  So a write to SFRSTACK, which the hardware ignores, lasts until
+then.  A harness can read or set the levels as memory, to inspect or set up
+the stack; on Ghidra, SFRSTACK shows a level a hook sets only from the next
+of those events, while angr shows it from the next block.
+
+Map pages 0-0x20, or at least SFRPAGE, 0x1001-0x1004, SFRPGCN and SFRSTACK.
+Paging is only modeled when they are mapped; when they are not, every SFR is
+reached on page 0, and the emulators log a warning, once, naming the SFRs
+that are missing.  The levels at 0x1001-0x1004 are below page 0x10's SFRs,
+so a harness that maps only 0x80-0xFF of each page leaves them out.
+
+A hook or model that writes SFRPAGE changes the page from the next
+instruction on Ghidra, and the next block on angr.  For the C8051 devices,
+SDCC's headers do not say which bit enables the stack, nor does SmallWorld
+have a data sheet that says how their stack works; both are taken from
+memory of Silicon Labs' data sheets for now, and the C8051F36x's stack is
+taken to work as the C8051F04x's does.  The
+C8051F92x and F93x, and Infineon's XC866, which page their SFRs differently,
+are emulated with their SFRs unpaged, with a warning, and the C8051F12x's
+banked flash is not modeled.
+
+To page another device's SFRs, describe them with an ``MCS51SFRPaging``, in
+``smallworld.platforms.defs.mcs51``, and add it to the table
+``mcs51_sfr_paging()`` looks part numbers up in.  SFR addresses in it have the
+page above them where it matters: ``0x10CF`` is SFR 0xCF on page 0x10.  Its
+fields are:
+
+- ``sfrpage``: SFRPAGE's address.
+- ``shared``: the SFRs on every page.  SmallWorld keeps them on page 0.
+- ``also_shared``: for a device with SFRs on some pages but not all, as the
+  EFM8BB2's, the SFRs on page 0 that are on each other page too, by page.
+  Reached on those pages, they are page 0's.  With it, which SFRs are paged
+  depends on the page, as ``paged_masks(page)`` says, and the emulators
+  follow SFRPAGE to set ``sfr_paged_lo`` and ``sfr_paged_hi``.
+- ``stack``: the page stack's levels below SFRPAGE, top first: SFRNEXT and
+  SFRLAST on the C8051 devices, and on the EFM8BB2 the four kept below page
+  0x10's SFRs.
+- ``stack_enable``: the SFR, and the mask of its bits, that enable the stack.
+- ``stack_view``: for a device whose stack's levels are no SFRs, as the
+  EFM8BB2's, the SFR and mask that select a level, and the SFR that shows it
+  (SFRPGCN's SFRPGIDX and SFRSTACK); ``mcs51_sfr_stack_view()`` says what it
+  reads.
+
+``sfrs()`` lists the SFRs that must be mapped for paging to be modeled.
+
+Silicon Labs' devices write their own flash with MOVX: while PSCTL's PSWE
+bit is set, a MOVX write goes to code memory instead of XDATA, clearing the
+flash byte's bits that are clear in the byte written, or, with PSEE set too,
+erasing the page that holds it to 0xFF; FLKEY must be unlocked, by writing
+0xA5 then 0xF1, before each write or erase, and writing it wrongly, or
+writing flash while it is locked, disables writes until reset.  An
+``MCS51Device`` for the C8051F330-F335 does all that, from
+``MCS51_C8051F33X_FLASH``, which is taken from the data sheet, and one for the
+EFM8BB2 from ``MCS51_EFM8BB2_FLASH``, taken from its reference manual, whose
+flash at 0xF800-0xFBFF is in 64-byte pages rather than 512-byte; map the flash
+pages the program writes, and PSCTL and FLKEY, without which MOVX writes go
+to XDATA as on other devices.  On angr, a MOVX write through a symbolic
+address goes to XDATA, and one to flash must write a concrete byte.  Other
+devices' MOVX writes go to XDATA, with a warning.  The flash security lock
+byte, and the resets the data sheet says a locked page's misuse causes, are
+not modeled.
+
+XDATA is whatever the harness maps there: SmallWorld does not model how much
+XRAM a device has, nor that some devices repeat it through XDATA's 64 KiB.
+The EFM8BB2's 2 KiB of XRAM, at 0x0000-0x07FF, repeats every 2 KiB up to
+0xFFFF (its reference manual's "shadow XRAM"), so on the hardware, 0x0800 is
+0x0000 again; in SmallWorld, a program that reaches XRAM through such an
+address reaches a different byte, or unmapped memory.  Map XDATA as the
+device has it, or map the repeats the program uses and keep them in step
+from a hook.
+Both backends take the 8052's six interrupts, or a device's, as the hardware
+does, when the SFRs that control them are mapped: between any two
+instructions, an interrupt whose request flag is set, which IE enables and
+whose IP priority beats every interrupt in service, is called through its
+vector, the higher priority first and then in polling order, and the flags
+the hardware clears are cleared.  ``reti``, recognized by its opcode since
+Ghidra's language makes it a plain return, ends the service; a handler that
+returns with ``ret`` stays in service, as on hardware.  After ``reti`` or a
+write to IE or IP, one more instruction runs first.  Nothing raises a request
+on its own: there are no timers, serial port or pins, so a harness requests
+an interrupt by setting its flag, from a hook or a model, as hardware would;
+``mcs51_raise_interrupt`` does that.  Without pins, the external interrupts'
+flags are cleared when taken even in level-triggered mode.  On angr, a block
+ends after any instruction that writes one of those SFRs - TCON, SCON, IE, IP
+or T2CON on the 8052 - and around any instruction a hook or memory-mapped
+model may run at, which can write them too: before and after an instruction
+with an instruction hook, and after one that may touch memory a hook
+watches; so checking for interrupts between blocks is as good as checking
+between every two instructions, and hooks see, and set, R0-R7, parity and
+paging as on Ghidra.  The state that decides how the 8051 runs - those
+SFRs, PSW's register bank select bits, and ``xpage_sfr`` - must each have a
+single value on angr, which raises ``SymbolicValueError`` for one that could
+take more.
+The 8051's stack grows up through internal RAM; ``MCS51Stack`` models it, and
+SP holds ``stack.get_pointer() - MCS51_IDATA_BASE``. Multi-byte values go on it
+low byte first, as ``lcall`` pushes a return address.
+C models for the 8051 follow SDCC's calling conventions, ``ABI.SDCC`` and
+``ABI.SDCCSTACKAUTO``; see :ref:`models`.  ``Executable.from_ihex()`` loads
+the Intel HEX images SDCC builds, and with the linker's map, finds symbols in
+the right space.  The ``mcs51_sdcc`` scenarios load C compiled by SDCC that
+way, and run it from the reset vector, some of them built for the C8051F330,
+the C8051F020 and the EFM8BB2, whose EMI0CN are at different addresses.
+The ``mcs51_diff`` scenario checks both backends against SDCC's 8051 simulator,
+ucsim_51: its programs run from a random starting state and must end in the
+state ucsim_51 reaches. ``tests/mcs51_diff/generate.py`` records that state;
+rerun it after changing a program, and review the diff.
+The analyses that run their trace on the Unicorn emulator - trace execution,
+the colorizer, code coverage and crash triage, and the coverage frontier and
+loop detection analyses that read their hints - do not run on the 8051, which
+Unicorn does not support.
 
 **V850:** *v850* is Renesas V850E1, V850E2 and V850E2M, little-endian, on angr
 and Ghidra. Both use Ghidra's ``V850:LE:32:default`` language, which pip's
@@ -747,7 +1034,8 @@ lets the guest walk an array. The contract has the same *shape* everywhere - an
 input cursor, an output cursor and a case count - but each architecture names its
 own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
 on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
-``esi``/``edi``/``ecx`` on i386 and ``rdi``/``rsi``/``rdx`` on amd64. On SuperH
+``esi``/``edi``/``ecx`` on i386, ``rdi``/``rsi``/``rdx`` on amd64 and
+``r3``/``r4``/``r5`` on PowerPC, where the kernel moves the count into ``CTR``. On SuperH
 ``r7`` additionally carries the FPSCR value that the kernel installs with
 ``lds`` - a direct register write would leave the split ``FPSCR_PR`` stale, as
 described above. A
@@ -784,7 +1072,9 @@ and square root.
     :header-rows: 1
     :stub-columns: 1
 
-Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell.
+Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell. The
+PowerPC rows were measured at the default 3000 cases, and 32- and 64-bit PowerPC
+share one kernel and give identical results.
 
 Every skip is an upstream defect, reduced to a minimal case first:
 
@@ -818,7 +1108,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
   ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
-- **Panda is skipped on every non-SuperH architecture here**, always because its
+- **PowerPC single precision** is skipped under ``angr``. PowerPC computes
+  single-precision results in its double-format registers and rounds once, so
+  VEX lifts ``fadds`` and its siblings to ``Iop_AddF64r32`` and friends, and
+  ``stfs`` to ``Iop_TruncF64asF32``; angr implements none of them. PowerPC
+  square root lowers to scalar ``Iop_SqrtF64`` and is skipped under ``angr``
+  for the same reason as armhf's. Double-precision add, subtract, multiply and
+  divide pass.
+- **Panda is skipped on x86 and armhf**, always because its
   bare ``-M configurable`` machine brings the CPU up with the floating-point
   unit switched off and nothing in the harness able to switch it on. On x86-64
   the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
@@ -829,6 +1126,14 @@ Every skip is an upstream defect, reduced to a minimal case first:
   ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
   the exception because its FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
+- **PowerPC under Panda:** QEMU's system-mode reset leaves ``MSR[FP]`` clear,
+  so ``PandaEmulator`` sets ``MSR[FP]``, ``MSR[VEC]`` and ``MSR[VSX]`` when it
+  starts, as ``UnicornEmulator`` does.  powerpc32 passes everything but square
+  root: Panda's ``ppc32`` CPU is a PowerPC 604, which lacks the optional
+  ``fsqrt``/``fsqrts`` instructions.  powerpc64 (a POWER8) has not been
+  measured locally, so it has no row in the table above; CI runs it.  Panda's
+  floating-point registers still aren't exposed through SmallWorld, hence
+  **No** in the floating-point table.
 
 Panda passes all ten functions on sh2a-fpu, sh4 and sh4el, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in

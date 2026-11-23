@@ -5,6 +5,7 @@ import pdb
 import typing
 
 from ... import emulators, exceptions, platforms, utils
+from ...platforms.defs.mcs51 import mcs51_return_address
 from .. import state
 
 logger = logging.getLogger(__name__)
@@ -307,6 +308,7 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS32_MICROMIPS
             or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV32
             or self.platform.architecture == platforms.Architecture.RISCV64
             or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
             or self.platform.architecture == platforms.Architecture.SUPERH_SH1
@@ -314,13 +316,16 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.SUPERH_SH4
             or self.platform.architecture == platforms.Architecture.TRICORE
         ):
-            # mips32, mips64, riscv64, superh and tricore: branch to register
+            # mips32, mips64, riscv32, riscv64, superh and tricore: branch to register
             # 'ra'.  On SuperH that is an alias of the architectural PR register,
             # where bsr/jsr deposit the return address and rts branches back to.
             return emulator.read_register("ra")
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
+        elif self.platform.architecture == platforms.Architecture.MCS51:
+            # 8051: pop the return address from the stack in internal RAM.
+            return mcs51_return_address(emulator, pop=pop)
 
         raise exceptions.ConfigurationError(
             f"Don't know how to return for {self.platform.architecture}"

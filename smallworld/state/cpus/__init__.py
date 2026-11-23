@@ -6,11 +6,12 @@ from .cpu import __all__ as __cpu__
 from .i386 import I386
 from .loongarch import LoongArch32, LoongArch64
 from .m68k import M68K
+from .mcs51 import MCS51, MCS51Device
 from .mips import MIPSBE, MIPSEL, MicroMIPSBE, MicroMIPSEL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
 from .powerpc import PowerPC32, PowerPC32VLE, PowerPC64
-from .riscv import RISCV64
+from .riscv import RISCV32, RISCV64
 from .superh import SH1, SH2, SH2AFPU
 from .superh4 import SuperH4BE, SuperH4EL
 from .tricore import TriCore
@@ -31,6 +32,8 @@ __all__ = __cpu__ + [
     "LoongArch32",
     "LoongArch64",
     "M68K",
+    "MCS51",
+    "MCS51Device",
     "MIPS64EL",
     "MIPS64BE",
     "MIPSEL",
@@ -42,6 +45,7 @@ __all__ = __cpu__ + [
     "PowerPC32",
     "PowerPC32VLE",
     "PowerPC64",
+    "RISCV32",
     "RISCV64",
     "SH1",
     "SH2",

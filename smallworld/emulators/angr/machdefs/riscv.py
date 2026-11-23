@@ -2,9 +2,12 @@ import typing
 
 import angr
 import archinfo
+import pypcode
 
 from ....platforms import Architecture, Byteorder
-from .machdef import AngrMachineDef
+from ....platforms.defs.riscv import RISCV_FPR_ABI_NAMES, RISCV_GPR_ABI_NAMES
+from .machdef import AngrMachineDef, GhidraMachineDef
+from .pcode_rewrite import lift_for_rewrite, pcode_arch, rewrite_as_syscall
 
 # angr has no default calling convention for RISCV64
 # Let's fix that.
@@ -257,3 +260,109 @@ class RISCV64MachineDef(AngrMachineDef):
         "f31": "f31",
         "ft11": "ft11",
     }
+
+
+# archinfo has no RISCV32 model, so RV32 runs on angr's pcode engine.
+#
+# Sleigh lowers a handful of ordinary RV32 instructions to userops,
+# which angr's pcode engine can't execute.  Measured against
+# `RISCV:LE:32:default`, the only ones reachable from user-mode RV32GC
+# are `ecall`, `ebreak`, `fence`, `fence.i` and `wfi`; the A, M, F, D
+# and Zicsr extensions all lower to plain pcode (though angr's pcode engine
+# implements none of the floating-point ops F and D lower to).
+#
+# `successors()` rewrites the first three into something angr understands,
+# and drops the two fences, which have no user-visible effect in angr.
+# `wfi` (and the privileged instructions) are left alone,
+# so angr still reports them as unsupported.
+RISCV32_PCODE_LANGUAGE = "RISCV:LE:32:default"
+
+RISCV_SYSCALL_USEROP = "ecall"
+RISCV_TRAP_USEROP = "ebreak"
+RISCV_NOP_USEROPS = {"fence", "fence.i"}
+
+
+class RISCV32MachineDef(GhidraMachineDef):
+    arch = Architecture.RISCV32
+    byteorder = Byteorder.LITTLE
+    pcode_language = RISCV32_PCODE_LANGUAGE
+
+    # Sleigh only knows the ABI names, so map the numeric names onto them.
+    _registers = {
+        # *** General-Purpose Registers ***
+        **{f"x{i}": name for i, name in enumerate(RISCV_GPR_ABI_NAMES)},
+        **{name: name for name in RISCV_GPR_ABI_NAMES},
+        # *** Program Counter ***
+        "pc": "pc",
+        # *** Floating-Point Registers ***
+        **{f"f{i}": name for i, name in enumerate(RISCV_FPR_ABI_NAMES)},
+        **{name: name for name in RISCV_FPR_ABI_NAMES},
+    }
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        """Rewrite the RV32 userops angr can't execute.
+
+        Userops are identified by name rather than by index;
+        see `SuperH4MachineDef.successors()` for why.
+        """
+        irsb = lift_for_rewrite(state, kwargs)
+
+        imark_index = None
+        i = 0
+        while i < len(irsb._ops):
+            op = irsb._ops[i]
+            if op.opcode == pypcode.OpCode.IMARK:
+                imark_index = i
+            elif op.opcode == pypcode.OpCode.CALLOTHER:
+                userop = op.inputs[0].getUserDefinedOpName()
+                if userop in RISCV_NOP_USEROPS:
+                    irsb._ops.pop(i)
+                    continue
+                if (
+                    userop in (RISCV_SYSCALL_USEROP, RISCV_TRAP_USEROP)
+                    and imark_index is not None
+                ):
+                    # End the block after this instruction's IMARK.
+                    # The IMARK's size covers compressed encodings like `c.ebreak`.
+                    insn = irsb._ops[imark_index].inputs[0]
+                    rewrite_as_syscall(irsb, imark_index + 1, insn.offset + insn.size)
+                    if userop == RISCV_TRAP_USEROP:
+                        irsb.jumpkind = "Ijk_SigTRAP"
+                    break
+            i += 1
+
+        kwargs["irsb"] = irsb
+        return super().successors(state, **kwargs)
+
+
+class SimCCRISCV32(angr.calling_conventions.SimCC):
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
+    FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 4)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 4)
+    ARCH = pcode_arch(RISCV32_PCODE_LANGUAGE)  # type: ignore
+
+
+class SimCCRISCV32LinuxSyscall(angr.calling_conventions.SimCCSyscall):
+    # Same as RISCV64: a7 holds the syscall number,
+    # and the kernel takes at most six arguments.
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5"]
+    FP_ARG_REGS: typing.List[str] = []
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 4)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 4)
+    ARCH = pcode_arch(RISCV32_PCODE_LANGUAGE)  # type: ignore
+
+    @classmethod
+    def _match(cls, arch, args, sp_data):
+        # Never match; only occurs durring syscalls
+        return False
+
+    @staticmethod
+    def syscall_num(state):
+        return state.regs.a7
+
+
+angr.calling_conventions.register_default_cc(RISCV32_PCODE_LANGUAGE, SimCCRISCV32)
+angr.calling_conventions.register_syscall_cc(
+    RISCV32_PCODE_LANGUAGE, "default", SimCCRISCV32LinuxSyscall
+)

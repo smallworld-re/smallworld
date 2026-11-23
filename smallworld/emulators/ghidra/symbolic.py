@@ -88,6 +88,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             platform
         )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
+        # This emulator addresses only the language's default space.
+        if self.machdef.address_spaces is not None:
+            raise exceptions.ConfigurationError(
+                f"GhidraSymbolicEmulator does not support {platform}"
+            )
 
         self._jctx: Z3Context = Z3Context()
         self._emu = SymZ3PcodeEmulator(self.machdef.language)

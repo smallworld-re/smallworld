@@ -39,6 +39,9 @@ class ElfSymbol:
     relas: typing.List["ElfRela"] = field(
         default_factory=list
     )  # List of associated relas
+    # The whole st_other byte.  visibility is its low two bits; the rest is
+    # architecture-specific (on PowerPC64 ELFv2, the local entry offset).
+    other: int = 0
 
 
 rela_patterns = [

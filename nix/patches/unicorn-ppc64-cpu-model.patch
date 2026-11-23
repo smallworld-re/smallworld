@@ -1,0 +1,71 @@
+Fix explicit PPC64 CPU model selection.
+
+ppc_cpus lists the PPC32 models first and the PPC64 models after them, so a
+UC_CPU_PPC64_* value has to be offset past the PPC32 entries to index it.  The
+default model applied that offset, but an explicit model only used it in the
+bounds check, so uc_ctl_set_cpu_model() with any UC_CPU_PPC64_* value built one
+of the first PPC32 CPUs instead (UC_CPU_PPC64_970FX_V1_0 came up as a 401).
+
+Index through a local instead, so uc->cpu_model keeps the caller's enum value
+and UC_CTL_CPU_MODEL reads back what was set, for the default model as well.
+
+diff --git a/qemu/target/ppc/translate_init.inc.c b/qemu/target/ppc/translate_init.inc.c
+index d2fb197..01b154b 100644
+--- a/qemu/target/ppc/translate_init.inc.c
++++ b/qemu/target/ppc/translate_init.inc.c
+@@ -11015,6 +11023,7 @@ PowerPCCPU *cpu_ppc_init(struct uc_struct *uc)
+     CPUState *cs;
+     CPUClass *cc;
+     PowerPCCPUClass *pcc;
++    int cpu_index;
+ 
+     // vsr
+     cpu = qemu_memalign(16, sizeof(*cpu));
+@@ -11023,20 +11032,26 @@ PowerPCCPU *cpu_ppc_init(struct uc_struct *uc)
+     }
+     memset(cpu, 0, sizeof(*cpu));
+ #ifdef TARGET_PPC64
++    /*
++     * ppc_cpus lists the PPC32 models first, so a UC_CPU_PPC64_* value
++     * indexes it from just past the last of them.  The default used to apply
++     * that offset and an explicit model didn't, so every explicit PPC64
++     * model came up as one of the first PPC32 ones (970fx_v1.0 as a 401).
++     */
+     if (uc->cpu_model == INT_MAX) {
+-        uc->cpu_model = UC_CPU_PPC64_POWER10_V1_0 + UC_CPU_PPC32_7457A_V1_2 + 1; // power10_v1.0
+-    } else if (uc->cpu_model + UC_CPU_PPC32_7457A_V1_2 + 1 >= ARRAY_SIZE(ppc_cpus)) {
+-        free(cpu);
+-        return NULL;
++        uc->cpu_model = UC_CPU_PPC64_POWER10_V1_0; // power10_v1.0
+     }
++    cpu_index = uc->cpu_model + UC_CPU_PPC32_7457A_V1_2 + 1;
+ #else
+     if (uc->cpu_model == INT_MAX) {
+         uc->cpu_model = UC_CPU_PPC32_7457A_V1_2; // 7457a_v1.2
+-    } else if (uc->cpu_model >= ARRAY_SIZE(ppc_cpus)) {
++    }
++    cpu_index = uc->cpu_model;
++#endif
++    if (cpu_index >= ARRAY_SIZE(ppc_cpus)) {
+         free(cpu);
+         return NULL;
+     }
+-#endif
+ 
+ 
+     cs = (CPUState *)cpu;
+@@ -11051,10 +11066,10 @@ PowerPCCPU *cpu_ppc_init(struct uc_struct *uc)
+     ppc_cpu_class_init(uc, cc);
+     /* init PowerPC family class */
+     pcc = &cpu->cc;
+-    pcc->pvr = ppc_cpus[uc->cpu_model].pvr;
+-    pcc->svr = ppc_cpus[uc->cpu_model].svr;
+-    if (ppc_cpus[uc->cpu_model].cpu_family_class_init) {
+-        ppc_cpus[uc->cpu_model].cpu_family_class_init(cc, uc);
++    pcc->pvr = ppc_cpus[cpu_index].pvr;
++    pcc->svr = ppc_cpus[cpu_index].svr;
++    if (ppc_cpus[cpu_index].cpu_family_class_init) {
++        ppc_cpus[cpu_index].cpu_family_class_init(cc, uc);
+     }
+     /* init CPUState */
+     cpu_common_initfn(uc, cs);

@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  sdcc,
   ppcVleBinutils,
   superHBinutils,
   tricoreGcc,
@@ -27,16 +28,22 @@ stdenv.mkDerivation {
     v850Binutils
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
+    # Builds elf_core.ppc64.elf; see the PPC64_GLIBC_CC note in the Makefile.
+    pkgsCross.ppc64.stdenv.cc
+    # Builds the 8051 tests; see mcs51_asm.sh and mcs51_cc.sh.
+    sdcc
   ];
   buildInputs = [
     pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
+    pkgsCross.ppc64.glibc
   ];
   env = {
     AMD64_SYSROOT = x86_64_glibc_path;
     AARCH64_SYSROOT = pkgsCross.aarch64-multiplatform.glibc.outPath;
     PPC_SYSROOT = pkgsCross.ppc32.glibc.outPath;
+    PPC64_SYSROOT = pkgsCross.ppc64.glibc.outPath;
   };
   shellHook = ''
     export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
@@ -67,7 +74,7 @@ stdenv.mkDerivation {
     make
   '';
   installPhase = ''
-    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     mkdir -p $out
     cp -r test_binaries.tar $out
   '';

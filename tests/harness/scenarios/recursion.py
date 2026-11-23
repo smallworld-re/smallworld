@@ -65,6 +65,7 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "ppcvle",
+    "riscv32",
     "riscv64",
     "tricore",
     "v850",
@@ -110,6 +111,10 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
         "stack_items": (_fake_return("ppc64"),),
         "stack_pointer_adjust": -0x80,
     },
+    "riscv32": {
+        "stack_items": (_fake_return("riscv32"),),
+        "stack_pointer_adjust": 4,
+    },
     "riscv64": {
         "stack_items": (_fake_return("riscv64"),),
         "stack_pointer_adjust": 8,
@@ -147,7 +152,6 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
             # styx-mpc866m's event controller has unimplemented tick/latch/
             # execute (todo! in event-controllers/ppc/styx-mpc866m/src/lib.rs);
             # short emulations don't trigger it, but recursion runs long enough

@@ -81,6 +81,9 @@ class Architecture(enum.Enum):
     LOONGARCH64 = "loongarch64"
     """64-bit LoongArch"""
 
+    RISCV32 = "riscv-32"
+    """32-bit RiscV"""
+
     RISCV64 = "riscv-64"
     """64-bit RiscV"""
 
@@ -110,6 +113,9 @@ class Architecture(enum.Enum):
 
     MSP430X = "msp430x"
     """TI msp430x"""
+
+    MCS51 = "mcs51"
+    """Intel MCS-51 (8051)"""
 
 
 class Byteorder(enum.Enum):
@@ -151,6 +157,14 @@ class ABI(enum.Enum):
 
     THISCALL = "thiscall"
     """Microsoft thiscall (x86-32 C++ member functions; ``this`` in ecx)."""
+
+    SDCC = "sdcc"
+    """SDCC's default 8051 convention: the first argument in DPL, DPH, B and
+    A, the rest in static memory each function owns (``_f_PARM_2``...)."""
+
+    SDCCSTACKAUTO = "sdcc-stack-auto"
+    """SDCC's reentrant 8051 convention (``--stack-auto``, ``__reentrant``):
+    the first argument in DPL, DPH, B and A, the rest on the stack."""
 
     NONE = "none"
     """No ABI"""

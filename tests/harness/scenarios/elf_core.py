@@ -9,8 +9,6 @@ _ZIG_QEMU_MIPS = "Pending fix for zig/QEMU MIPS ABI conflict"
 _ZIG_QEMU_MIPS_LOAD = "Pending fix to zig/QEMU MIPS ABI problem"
 _MIPS64_LD_LOAD = "Pending solution to crashes in mips64 ld.so"
 _MIPS64_LD_ACTUATE = "Pending fix for crashes in mips64 ld.so"
-_PPC64_LD_LOAD = "Pending solution to crashes in ppc64 ld.so"
-_PPC64_LD_ACTUATE = "Pending fix for crashes in ppc64 ld.so"
 _PANDA_NG = "Waiting for panda-ng"
 
 _LOAD_VARIANTS = (
@@ -24,7 +22,7 @@ _LOAD_VARIANTS = (
     ("mips64", _MIPS64_LD_LOAD),
     ("mips64el", _MIPS64_LD_LOAD),
     ("ppc", None),
-    ("ppc64", _PPC64_LD_LOAD),
+    ("ppc64", None),
 )
 
 _ACTUATE_VARIANTS = (
@@ -71,9 +69,9 @@ _ACTUATE_VARIANTS = (
     ("ppc.angr", None),
     ("ppc.panda", _PANDA_NG),
     ("ppc.pcode", None),
-    ("ppc64", _PPC64_LD_ACTUATE),
-    ("ppc64.angr", _PPC64_LD_ACTUATE),
-    ("ppc64.pcode", _PPC64_LD_ACTUATE),
+    ("ppc64", None),
+    ("ppc64.angr", None),
+    ("ppc64.pcode", None),
 )
 
 SCENARIO_INFOS = (

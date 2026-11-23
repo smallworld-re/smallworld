@@ -336,6 +336,7 @@
             AMD64_SYSROOT = x86LinuxPkgs.glibc.outPath;
             AARCH64_SYSROOT = pkgs.pkgsCross.aarch64-multiplatform.glibc.outPath;
             PPC_SYSROOT = pkgs.pkgsCross.ppc32.glibc.outPath;
+            PPC64_SYSROOT = pkgs.pkgsCross.ppc64.glibc.outPath;
           };
 
           shellHook = ''

@@ -13,6 +13,7 @@ from .common import (
     make_gets_model,
     make_platform,
     make_puts_model,
+    make_stack,
     set_register,
     split_variant,
 )
@@ -127,6 +128,18 @@ _SPECS = {
         ),
         puts_address=0x1002,
     ),
+    # The buffer is in internal RAM, and r0 holds its offset there.
+    "mcs51": HookingSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pointer_size=2,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=2,
+        engines=("angr", "pcode"),
+        string_source=StringSource(register="r0", address_base=0x20000),
+        puts_address=0x1001,
+        fake_return=0xFFFF,
+    ),
     "mips": HookingSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
         pointer_size=4,
@@ -207,9 +220,19 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         string_source=StringSource(register="r3"),
-        stack_padding_bytes={"pcode": 16},
+        stack_padding_bytes={"unicorn": 16, "panda": 16, "pcode": 16},
+    ),
+    "riscv32": HookingSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="a0"),
+        puts_address=0x1002,
     ),
     "riscv64": HookingSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -331,9 +354,7 @@ _SPECS = {
 # Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
 _SPECS = enroll_triton(_SPECS)
 
-_SKIP_REASONS = {
-    "ppc64": "Unicorn ppc64 support buggy",
-}
+_SKIP_REASONS = {}
 
 
 SCENARIO_PREFIXES = (("hooking", "hooking"),)
@@ -362,7 +383,6 @@ SCENARIO_INFO = ScenarioInfo(
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
         },
-        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),
     run_factory=assert_outputs(_hooking_expectations, stdin="foo bar baz"),
 )
@@ -398,9 +418,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     code = load_raw_code(smallworld, "hooking", arch)
     machine.add(code)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(
-        platform, spec.stack_base, 0x4000
-    )
+    stack, stack_adjust = make_stack(smallworld, platform, spec.stack_base, 0x4000)
     machine.add(stack)
     padding = spec.stack_padding_bytes.get(engine, 0)
     if padding:
@@ -408,7 +426,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     set_register(cpu, spec.pc_register, code.address + spec.pc_offset)
     stack.push_integer(spec.fake_return, spec.pointer_size, "fake return address")
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if not install_tricore_panda_hooking_compatibility(
         arch,

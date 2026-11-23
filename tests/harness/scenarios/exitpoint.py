@@ -9,8 +9,10 @@ from .common import (
     PlatformSpec,
     enroll_triton,
     load_elf_code,
+    load_raw_code,
     make_emulator,
     make_platform,
+    make_stack,
     run_case_subprocess,
     set_register,
     split_variant,
@@ -39,6 +41,10 @@ class ExitpointSpec:
         default_factory=dict
     )
     mid_exit_offset_overrides: dict[str, int] = dataclasses.field(default_factory=dict)
+    # Platforms with no ELF toolchain load exitpoint.<arch>.bin instead, a raw
+    # blob that is all `main`.
+    raw_binary: bool = False
+    fake_exitpoint: int = FAKE_EXITPOINT
 
 
 _SPECS = {
@@ -111,6 +117,18 @@ _SPECS = {
         mid_exit_offset=4,
         load_address=0x8000000,
         fake_return_size=4,
+    ),
+    # SDCC writes no ELF.  The fake exit point must fit the 8051's 16-bit return
+    # address, and 0x5A5A lies outside the code.
+    "mcs51": ExitpointSpec(
+        platform=PlatformSpec("MCS51", "BIG"),
+        pc_register="pc",
+        result_register="dptr",
+        engines=("angr", "pcode"),
+        mid_exit_offset=1,
+        fake_return_size=2,
+        raw_binary=True,
+        fake_exitpoint=0x5A5A,
     ),
     "mips": ExitpointSpec(
         platform=PlatformSpec("MIPS32", "BIG"),
@@ -186,12 +204,21 @@ _SPECS = {
         platform=PlatformSpec("POWERPC64", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("angr", "pcode"),
+        engines=("unicorn", "angr", "pcode"),
         mid_exit_offset=16,
         load_address=0x400000,
         link_register="lr",
         zero_register_overrides={"angr": ("r12",)},
         mid_exit_offset_overrides={"angr": 20},
+    ),
+    "riscv32": ExitpointSpec(
+        platform=PlatformSpec("RISCV32", "LITTLE"),
+        pc_register="pc",
+        result_register="a0",
+        engines=("unicorn", "angr", "pcode"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="ra",
     ),
     "riscv64": ExitpointSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),
@@ -297,7 +324,7 @@ _SKIP_REASONS = {
     "mips64el.panda": "Waiting for panda-ng",
     "mipsel.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
-    "ppc64": "Unicorn ppc64 support buggy",
+    "ppc64.panda": "Waiting for panda-ng",
 }
 
 
@@ -332,33 +359,40 @@ def _build_machine(smallworld, arch: str, engine: str, spec: ExitpointSpec):
     cpu = smallworld.state.cpus.CPU.for_platform(platform)
     machine.add(cpu)
 
-    code = load_elf_code(
-        smallworld,
-        "exitpoint",
-        arch,
-        platform,
-        address=spec.load_address,
-    )
+    if spec.raw_binary:
+        code = load_raw_code(smallworld, "exitpoint", arch)
+        entrypoint = code.address
+    else:
+        code = load_elf_code(
+            smallworld,
+            "exitpoint",
+            arch,
+            platform,
+            address=spec.load_address,
+        )
+        entrypoint = code.get_symbol_value("main")
     machine.add(code)
 
-    entrypoint = code.get_symbol_value("main")
     set_register(cpu, spec.pc_register, entrypoint)
     for register_name in spec.entrypoint_registers:
         set_register(cpu, register_name, entrypoint)
 
-    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack, stack_adjust = make_stack(smallworld, platform, 0x2000, 0x4000)
     machine.add(stack)
     if spec.fake_return_size is not None:
-        stack.push_integer(FAKE_EXITPOINT, spec.fake_return_size, None)
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+        stack.push_integer(spec.fake_exitpoint, spec.fake_return_size, None)
+    set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if spec.link_register is not None:
-        set_register(cpu, spec.link_register, FAKE_EXITPOINT)
+        set_register(cpu, spec.link_register, spec.fake_exitpoint)
     for register_name in spec.zero_register_overrides.get(engine, ()):
         set_register(cpu, register_name, 0)
 
-    for start, end in code.bounds:
-        machine.add_bound(start, end)
+    if spec.raw_binary:
+        machine.add_bound(code.address, code.address + code.get_capacity())
+    else:
+        for start, end in code.bounds:
+            machine.add_bound(start, end)
 
     return machine, platform, code, entrypoint
 
@@ -383,18 +417,22 @@ def _run_exit_test(
         )
 
 
-def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
+def _mid_exitpoint(
+    entrypoint: int, platform, code, engine: str, spec: ExitpointSpec
+) -> int:
     from smallworld import platforms
 
-    if platforms.PlatformDef.for_platform(code.platform).isa_bit is not (
+    # The platform comes from the caller: a raw binary has none of its own.
+    if platforms.PlatformDef.for_platform(platform).isa_bit is not (
         platforms.IsaBit.NONE
     ):
         # main's symbol value carries the ISA bit; the code is at the even
         # address.
         entrypoint &= ~1
+    main_size = code.get_capacity() if spec.raw_binary else code.get_symbol_size("main")
     return (
         entrypoint
-        + code.get_symbol_size("main")
+        + main_size
         - spec.mid_exit_offset_overrides.get(engine, spec.mid_exit_offset)
     )
 
@@ -424,11 +462,11 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         return 0
 
     if ns.panda_subtest in {None, "fake"}:
-        _run_exit_test(smallworld, arch, engine, spec, FAKE_EXITPOINT)
+        _run_exit_test(smallworld, arch, engine, spec, spec.fake_exitpoint)
         if ns.panda_subtest == "fake":
             return 0
 
-    _, _, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
-    mid_exitpoint = _mid_exitpoint(entrypoint, code, engine, spec)
+    _, platform, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
+    mid_exitpoint = _mid_exitpoint(entrypoint, platform, code, engine, spec)
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
     return 0

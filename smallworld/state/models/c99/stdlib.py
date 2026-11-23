@@ -4,8 +4,6 @@ import typing
 
 import claripy
 
-from smallworld.state.models.funcptr import FunctionPointer
-
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
@@ -254,11 +252,10 @@ class Bsearch(CStdModel):
             assert isinstance(self.compar, int)
 
             # comparison function pointer
-            self.compare_func_ptr = FunctionPointer(
+            self.compare_func_ptr = self.function_pointer(
                 self.compar,
                 [ArgumentType.POINTER, ArgumentType.POINTER],
                 ArgumentType.INT,
-                self.platform,
             )
 
             # initialize searching variables and comparison stack frame
@@ -785,11 +782,10 @@ class QSort(CStdModel):
             assert isinstance(self.compar, int)
 
             # comparison function pointer
-            self.compare_func_ptr = FunctionPointer(
+            self.compare_func_ptr = self.function_pointer(
                 self.compar,
                 [ArgumentType.POINTER, ArgumentType.POINTER],
                 ArgumentType.INT,
-                self.platform,
             )
 
             # A run of 0 or 1 elements is already sorted, and C performs no
@@ -863,12 +859,15 @@ class Rand(CStdModel):
 
     rand = random.Random()
 
+    #: RAND_MAX in the C library being modeled: glibc's by default.
+    rand_max = 2147483647
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # TODO: Rand is easy to do simply, harder to do right.
         # If someone is relying on srand/rand to produce a specific sequence,
         # this won't behave correctly.
-        val = self.rand.randint(0, 2147483647)
+        val = self.rand.randint(0, self.rand_max)
         self.set_return_value(emulator, val)
 
 
