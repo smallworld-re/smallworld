@@ -704,7 +704,13 @@ class UnicornEmulator(
 
     def current_instruction(self) -> capstone.CsInsn:
         pc = self.read_register("pc")
-        code = self.read_memory(pc, 15)
+        # The longest instruction on any platform is 15 bytes (x86), but code
+        # may end closer than that to the end of its mapping.
+        size = 15
+        mapped, found = self.memory_map.find_closest_range(pc)
+        if found and mapped is not None:
+            size = min(size, mapped[1] - pc)
+        code = self.read_memory(pc, size)
         if code is None:
             raise AssertionError("invalid state")
         self._update_disassembler_mode()
