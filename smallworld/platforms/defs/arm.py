@@ -3,7 +3,7 @@ import typing
 import capstone
 
 from ..platforms import Architecture, Byteorder
-from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
+from .platformdef import IsaBit, PlatformDef, RegisterAliasDef, RegisterDef
 
 #: Ghidra's 32-bit ARM model exposes the condition flags as four one-bit
 #: registers. SmallWorld models them as fields of the program status
@@ -41,6 +41,10 @@ class ARMPlatformDef(PlatformDef):
 
     capstone_arch = capstone.CS_ARCH_ARM
     capstone_mode = capstone.CS_MODE_ARM
+
+    # Bit 0 of a code address is the Thumb bit; CPSR.T holds the mode.
+    isa_bit = IsaBit.SELECTS
+    isa_mode_register = ("cpsr", 5)
 
     conditional_branch_mnemonics = {
         # Conditional branch
@@ -191,6 +195,9 @@ class ARMPlatformMixinM:
     ARMv7-M adds more priority masks
     (see :class:`ARMPlatformMixinMMainline`).
     """
+
+    # M-profile runs only Thumb, so every code address carries the Thumb bit.
+    isa_bit = IsaBit.REQUIRED
 
     ghidra_register_aliases = _flag_aliases("psr")
     status_register: typing.Optional[str] = "psr"
@@ -994,6 +1001,8 @@ class ARMv4(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatform
 
     architecture = Architecture.ARM_V4
     ghidra_language_id = "ARM:LE:32:v4"
+    # No Thumb state, so bit 0 of an address is just part of it.
+    isa_bit = IsaBit.NONE
 
 
 class ARMv4T(ARMPlatformMixinV5SystemControl, ARMPlatformMixinBanked, ARMPlatformDef):

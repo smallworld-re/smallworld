@@ -3,10 +3,8 @@ import itertools
 import logging
 import typing
 
-import capstone
-
 from ...emulators import Emulator
-from ...platforms import ABI, Platform, PlatformDef
+from ...platforms import ABI, IsaBit, Platform, PlatformDef
 from ..memory import Memory
 from ..memory.elf import ElfExecutable
 from ..state import BytesValue
@@ -124,10 +122,9 @@ class ElfModelLibrary(Memory):
         raise NotImplementedError()
 
     def _thumb_only(self) -> bool:
-        # Platforms Capstone lacks have a mode of -1, which has every bit set.
-        return self.platdef.capstone_arch == capstone.CS_ARCH_ARM and bool(
-            self.platdef.capstone_mode & capstone.CS_MODE_THUMB
-        )
+        # A CPU that runs only its alternate instruction set (M-profile's
+        # Thumb) needs bit 0 set on every code address.
+        return self.platdef.isa_bit is IsaBit.REQUIRED
 
     def link(self, elf: ElfExecutable) -> None:
         for rela in itertools.chain(elf._dynamic_relas, elf._static_relas):

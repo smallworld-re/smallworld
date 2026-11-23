@@ -14804,6 +14804,70 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         self.assertEqual(emu.read_register("pc"), 0x1001)
 
 
+class ArmIsaModeTests(unittest.TestCase):
+    """get_isa_mode/set_isa_mode on ARM read and write cpsr's T bit, or the
+    backend's own Thumb state where its registers don't reach it."""
+
+    A_PROFILE = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+    )
+    CODE = 0x1000
+    # movs r0, #42 twice, in Thumb; mov r0, #7 twice, in ARM.
+    THUMB = (0x202A).to_bytes(2, "little") * 2
+    ARM = (0xE3A00007).to_bytes(4, "little") * 2
+
+    def _emulators(self):
+        yield "unicorn", lambda p: emulators.UnicornEmulator(p)
+        yield "angr", lambda p: emulators.AngrEmulator(p)
+
+        def ghidra(p):
+            _ensure_pyghidra_started()
+            return emulators.GhidraEmulator(p)
+
+        yield "ghidra", ghidra
+        if _TRITON_AVAILABLE:
+            yield "triton", lambda p: emulators.TritonEmulator(p)
+        if _STYX_AVAILABLE:
+            yield "styx", lambda p: emulators.StyxEmulator(p)
+
+    def _run(self, emu, mode):
+        code = self.THUMB if mode else self.ARM
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_code(self.CODE, code)
+        emu.write_register("r0", 0)
+        emu.write_register("pc", self.CODE)
+        emu.set_isa_mode(mode)
+        self.assertEqual(emu.get_isa_mode(), mode)
+        emu.add_exit_point(self.CODE + len(code))
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 0x2A if mode else 7)
+        self.assertEqual(emu.get_isa_mode(), mode)
+
+    def test_mode_selects_the_instruction_set(self):
+        for name, make in self._emulators():
+            for mode in (1, 0):
+                with self.subTest(emulator=name, mode=mode):
+                    self._run(make(self.A_PROFILE), mode)
+
+    def test_m_profile_runs_only_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        self.assertEqual(emu.get_isa_mode(), 1)
+        emu.set_isa_mode(1)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_armv4_has_no_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+
+
 class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
     """The isa_mode pseudo-register and an odd pc on the symbolic Ghidra
     emulator, which handles them as the concrete one does."""

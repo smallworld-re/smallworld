@@ -391,6 +391,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with two. A function model placed at an odd address on such a platform
   hooks the even one, and returns to the instruction set that bit 0 of its
   return address selects, where the backend can switch.
+- ARM's 32-bit platforms use the ISA-mode API: `isa_bit` is `SELECTS` where
+  the CPU has Thumb, `REQUIRED` on M-profile, which runs only Thumb, and
+  `NONE` on ARMv4. `PlatformDef.isa_mode_register` names the register bit
+  that holds the mode, cpsr's T bit on ARM, which `get_isa_mode()` and
+  `set_isa_mode()` read and write; on M-profile they report Thumb and refuse
+  ARM. `PandaEmulator` and `TritonEmulator`, whose cpsr doesn't hold the T
+  bit, reach the mode through their own Thumb state, PANDA through the new
+  `PandaMachineDef.read_isa_mode()` and `write_isa_mode()`.
 - Machine-definition hooks that convert SmallWorld's pc to the backend's:
   `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
   pc writes, and `UnicornMachineDef.pc_to_start()`, for the address

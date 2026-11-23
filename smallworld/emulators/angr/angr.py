@@ -982,6 +982,23 @@ class AngrEmulator(
             return (address & ~1, address | 1)
         return (address,)
 
+    def get_isa_mode(self) -> int:
+        if self.machdef.thumb_bit_in_pc:
+            # angr keeps Thumb state in its pc, and before initialization in
+            # _pending_thumb, where reading cpsr can't reach it.
+            self._check_isa_bit()
+            return int(self.get_thumb())
+        return super().get_isa_mode()
+
+    def set_isa_mode(self, mode: int) -> None:
+        if self.machdef.thumb_bit_in_pc:
+            if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+                super().set_isa_mode(mode)
+                return
+            self.set_thumb(bool(mode))
+            return
+        super().set_isa_mode(mode)
+
     def get_thumb(self) -> bool:
         if not self.machdef.thumb_bit_in_pc:
             raise exceptions.ConfigurationError(

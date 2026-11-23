@@ -770,6 +770,20 @@ class TritonEmulator(
 
     # ------------------------------------------------------------------ thumb
 
+    # Triton keeps Thumb state in its context, apart from its registers: its
+    # cpsr is APSR, which has no T bit.
+
+    def get_isa_mode(self) -> int:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            return super().get_isa_mode()
+        return int(self.ctx.isThumb())
+
+    def set_isa_mode(self, mode: int) -> None:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            super().set_isa_mode(mode)
+            return
+        self.ctx.setThumb(bool(mode))
+
     def get_thumb(self) -> bool:
         if not self._is_arm32():
             raise exceptions.ConfigurationError(

@@ -571,6 +571,29 @@ class PandaEmulator(
                 f"Failed reading {panda_reg_name} (id: {name})"
             ) from e
 
+    def get_isa_mode(self) -> int:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            # The CPU runs one instruction set; the generic path says so.
+            return super().get_isa_mode()
+        if not self.panda_thread.panda:
+            raise exceptions.EmulationError("PANDA not started")
+        mode = self.panda_thread.machdef.read_isa_mode(
+            self.panda_thread.panda, self.cpu
+        )
+        return super().get_isa_mode() if mode is None else mode
+
+    def set_isa_mode(self, mode: int) -> None:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            # The CPU runs one instruction set; the generic path says so.
+            super().set_isa_mode(mode)
+            return
+        if not self.panda_thread.panda:
+            raise exceptions.EmulationError("PANDA not started")
+        if not self.panda_thread.machdef.write_isa_mode(
+            mode, self.panda_thread.panda, self.cpu
+        ):
+            super().set_isa_mode(mode)
+
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:

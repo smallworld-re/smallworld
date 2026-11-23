@@ -4,8 +4,6 @@ import logging
 import pdb
 import typing
 
-import capstone
-
 from ... import emulators, exceptions, platforms, utils
 from ...platforms.defs.mcs51 import mcs51_return_address
 from .. import state
@@ -116,13 +114,6 @@ class Model(Hook):
             # A function's symbol value, and any pointer relocated to it,
             # carries the ISA bit, but the CPU runs the code at the even
             # address, so a hook at the odd one would never fire.
-            self._address &= ~1
-
-        if self.platdef.capstone_arch == capstone.CS_ARCH_ARM:
-            # On ARM32 a Thumb function's symbol value, and any pointer
-            # relocated to it, carries the Thumb bit, but the core executes
-            # at the even address, so a hook there would never fire. No
-            # ARM32 instruction sits at an odd address, so clear it.
             self._address &= ~1
 
     # Flag indicating this model is unsupported.

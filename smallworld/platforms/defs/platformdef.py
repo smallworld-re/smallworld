@@ -46,6 +46,13 @@ class PlatformDef(metaclass=abc.ABCMeta):
     #: :meth:`.Emulator.set_isa_mode` read and set the current one.
     isa_bit: IsaBit = IsaBit.NONE
 
+    #: Where the CPU keeps its instruction-set mode, as (register, bit), for
+    #: a platform whose isa_bit is SELECTS and whose mode is an architectural
+    #: register bit (ARM: cpsr's T bit). None means the ``isa_mode``
+    #: pseudo-register, which machine definitions map to wherever their
+    #: engine keeps the mode (microMIPS).
+    isa_mode_register: typing.Optional[typing.Tuple[str, int]] = None
+
     #: Ghidra/SLEIGH language id (arch+byteorder) -- the single source of
     #: truth for both the Ghidra emulator's machine defs and the pcode
     #: analysis. None if this platform has no Ghidra language.

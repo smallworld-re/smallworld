@@ -1,4 +1,5 @@
 import re
+import typing
 
 from .... import exceptions
 from ....platforms import Architecture, Byteorder
@@ -39,6 +40,16 @@ class ARMMachineDef(PandaMachineDef):
                 f"Fetched unmapped memory at {hex(pc)}", pc, address=pc
             )
         super().handle_interrupt(intno, pc)
+
+    # QEMU keeps the Thumb state apart from cpsr, which PANDA doesn't expose,
+    # in env.thumb.
+
+    def read_isa_mode(self, panda_obj, panda_cpu) -> typing.Optional[int]:
+        return int(panda_obj.cpu_env(panda_cpu).thumb) & 1
+
+    def write_isa_mode(self, mode: int, panda_obj, panda_cpu) -> bool:
+        panda_obj.cpu_env(panda_cpu).thumb = int(mode) & 1
+        return True
 
     # PANDA's register accessors reach only the core registers, so the FP
     # registers, and cpacr, which gates access to them, live in the CPU state.

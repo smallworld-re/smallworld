@@ -54,6 +54,23 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         """Fix up the CPU's state after SmallWorld writes the program counter."""
         pass
 
+    def read_isa_mode(self, panda_obj, panda_cpu) -> typing.Optional[int]:
+        """The CPU's instruction-set mode, where PANDA's registers can't reach it.
+
+        See :meth:`.Emulator.get_isa_mode`. None, the default, leaves it to
+        the emulator's generic path through the register the platform names.
+        """
+        return None
+
+    def write_isa_mode(self, mode: int, panda_obj, panda_cpu) -> bool:
+        """Set the CPU's instruction-set mode, where PANDA's registers can't
+        reach it.
+
+        See :meth:`.Emulator.set_isa_mode`. Returns whether it was set; False,
+        the default, leaves it to the emulator's generic path.
+        """
+        return False
+
     def is_state_register(self, name: str) -> bool:
         return name in self._state_registers
 

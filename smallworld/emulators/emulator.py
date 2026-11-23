@@ -485,7 +485,12 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             ConfigurationError: if the platform has one instruction set.
             UnsupportedRegisterError: if this emulator runs only one of them.
         """
-        self._check_isa_bit()
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            return 1
+        if platdef.isa_mode_register is not None:
+            register, bit = platdef.isa_mode_register
+            return (self.read_register(register) >> bit) & 1
         return self.read_register("isa_mode")
 
     def set_isa_mode(self, mode: int) -> None:
@@ -499,18 +504,30 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             ConfigurationError: if the platform has one instruction set.
             UnsupportedRegisterError: if this emulator runs only one of them.
         """
-        self._check_isa_bit()
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            if mode != 1:
+                raise exceptions.ConfigurationError(
+                    f"{self.platform} runs only its alternate instruction set"
+                )
+            return
+        if platdef.isa_mode_register is not None:
+            register, bit = platdef.isa_mode_register
+            value = self.read_register(register)
+            self.write_register(register, value & ~(1 << bit) | (int(mode) & 1) << bit)
+            return
         self.write_register("isa_mode", mode)
 
-    def _check_isa_bit(self) -> None:
-        # The defaults above use the isa_mode pseudo-register, for platforms
-        # with no architectural register holding the mode; an emulator whose
-        # platforms keep it elsewhere overrides them.
+    def _check_isa_bit(self) -> platforms.PlatformDef:
+        # The defaults above use the register bit the platform names, or else
+        # the isa_mode pseudo-register; an emulator whose register interface
+        # can't reach the mode overrides them.
         platdef = platforms.PlatformDef.for_platform(self.platform)
         if platdef.isa_bit is platforms.IsaBit.NONE:
             raise exceptions.ConfigurationError(
                 f"{self.platform} has one instruction set"
             )
+        return platdef
 
     def get_thumb(self) -> bool:
         """For applicable platforms, checks if the CPU is in ARM or Thumb mode.
