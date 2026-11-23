@@ -1,6 +1,8 @@
 {
+  lib,
   stdenv,
   nasm,
+  zstd,
   zig,
   gdb,
   qemu-user,
@@ -14,11 +16,45 @@
   x86_64_glibc_path,
 }:
 
+let
+  # zig's global cache pre-populated with every per-target runtime library
+  # (libc stubs, CRT files, compiler-rt) the tests link against. Building
+  # those is most of a cold test build, and they depend only on zig and the
+  # Makefile's targets and flags, so this derivation's source is just the
+  # files zig_warmup.mk reads: editing or adding a test does not rebuild it.
+  # Stored as a zstd tarball to keep it small in the Nix store.
+  zigCache = stdenv.mkDerivation {
+    name = "smallworld-test-zig-cache";
+    src = lib.fileset.toSource {
+      root = ./.;
+      fileset = lib.fileset.unions [
+        ./Makefile
+        ./zig_warmup.mk
+        ./mips_linkerscript.ld
+      ];
+    };
+    nativeBuildInputs = [
+      zig
+      zstd
+    ];
+    buildPhase = ''
+      export ZIG_GLOBAL_CACHE_DIR=$TMPDIR/zig-cache
+      make -f zig_warmup.mk -j$((2 * NIX_BUILD_CORES))
+    '';
+    installPhase = ''
+      mkdir -p $out
+      # tmp/ only holds in-progress work.
+      tar -C "$ZIG_GLOBAL_CACHE_DIR" --exclude=./tmp -cf - . \
+        | zstd -T"''${NIX_BUILD_CORES:-0}" -o $out/zig-cache.tar.zst
+    '';
+  };
+in
 stdenv.mkDerivation {
   name = "smallworld-test-bins";
   src = ./.;
   nativeBuildInputs = [
     nasm
+    zstd
     zig
     qemu-user
     gdb
@@ -68,14 +104,24 @@ stdenv.mkDerivation {
     ln -sf asm_wrapper.sh powerpc-none-eabi-asm
     ln -sf elf_wrapper.sh powerpc-none-eabi-elfasm
 
-    make -j$(nproc)
+    # Start from the pre-built runtime libraries; see zigCache above.
+    export ZIG_GLOBAL_CACHE_DIR=$TMPDIR/zig-cache
+    mkdir -p "$ZIG_GLOBAL_CACHE_DIR"
+    tar -C "$ZIG_GLOBAL_CACHE_DIR" --zstd -xf ${zigCache}/zig-cache.tar.zst
+
+    # Oversubscribe: jobs that block on zig's global cache lock (anything
+    # zigCache missed) would otherwise leave CPUs idle.
+    make -j$((2 * NIX_BUILD_CORES))
     cd elf_core
     ulimit -c unlimited
     make
   '';
   installPhase = ''
-    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' -o -iname '*.ihx' -o -iname '*.map' ')' -print0 \
+      | tar -cvf - --null -T - \
+      | zstd -T"''${NIX_BUILD_CORES:-0}" -o test_binaries.tar.zst
     mkdir -p $out
-    cp -r test_binaries.tar $out
+    cp test_binaries.tar.zst $out
   '';
+  passthru = { inherit zigCache; };
 }
