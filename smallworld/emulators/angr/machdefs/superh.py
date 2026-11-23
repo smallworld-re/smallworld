@@ -187,7 +187,7 @@ class SH2AFPUMachineDef(GhidraMachineDef):
     # aliases. ArchPcode synthesizes `sp` (onto r15) and `ip` (onto pc) but not
     # `fp`/`ra`/`lr`, so each alias resolves to the architectural register it
     # names rather than relying on that synthesis.
-    _registers: typing.Dict[str, str] = {
+    _registers = {
         # *** General-Purpose Registers ***
         **{f"r{i}": f"r{i}" for i in range(0, 16)},
         **SH2A_REGISTER_ALIASES,
@@ -308,7 +308,7 @@ class SH2MachineDef(SH2AFPUMachineDef):
     arch = Architecture.SUPERH_SH2
     pcode_language = SH2_PCODE_LANGUAGE
 
-    _registers: typing.Dict[str, str] = {
+    _registers: typing.Dict[str, typing.Union[str, typing.Tuple[str, int]]] = {
         name: register
         for name, register in SH2AFPUMachineDef._registers.items()
         if name not in SH2A_ONLY_REGISTERS

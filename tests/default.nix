@@ -4,6 +4,10 @@
   zig,
   gdb,
   qemu-user,
+  sparcBinutils,
+  sparcGcc,
+  sparcGlibc,
+  sparcLinuxHeaders,
   sdcc,
   ppcVleBinutils,
   superHBinutils,
@@ -22,6 +26,8 @@ stdenv.mkDerivation {
     zig
     qemu-user
     gdb
+    sparcBinutils
+    sparcGcc
     ppcVleBinutils
     superHBinutils
     tricoreGcc
@@ -38,11 +44,16 @@ stdenv.mkDerivation {
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
     pkgsCross.ppc64.glibc
+    sparcGlibc
   ];
   env = {
     AMD64_SYSROOT = x86_64_glibc_path;
     AARCH64_SYSROOT = pkgsCross.aarch64-multiplatform.glibc.outPath;
     PPC_SYSROOT = pkgsCross.ppc32.glibc.outPath;
+    # The SPARC gcc wrapper carries no libc headers of its own, and the
+    # generic include path below would hand it another target's (m68k's)
+    # glibc headers, so the Makefile puts SPARC's first.
+    SPARC32_LIBC_CFLAGS = "-isystem ${sparcGlibc.dev}/include -isystem ${sparcLinuxHeaders}/include";
     PPC64_SYSROOT = pkgsCross.ppc64.glibc.outPath;
   };
   shellHook = ''
@@ -62,6 +73,8 @@ stdenv.mkDerivation {
     # elf_wrapper.sh mirrors that choice onto `ld` as -EB/-EL.
     ln -sf asm_wrapper.sh sh4-unknown-linux-gnu-asm
     ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh sparc-unknown-linux-gnu-asm
+    ln -sf elf_wrapper.sh sparc-unknown-linux-gnu-elfasm
     ln -sf asm_wrapper.sh v850-elf-asm
     ln -sf elf_wrapper.sh v850-elf-elfasm
     # zig cannot assemble PowerPC VLE; GNU as does, given -mvle.

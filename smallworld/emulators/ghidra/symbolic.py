@@ -26,6 +26,9 @@ from ghidra.pcode.exec import (  # type: ignore[import-not-found]
 )
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
+from java.lang import (
+    AssertionError as JAssertionError,  # type: ignore[import-not-found]
+)
 from java.lang import String as JString  # type: ignore[import-not-found]
 from org.apache.commons.lang3.tuple import (
     Pair as JPair,  # type: ignore[import-not-found]
@@ -329,7 +332,18 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             raise exceptions.SymbolicValueError(
                 f"Register {name} contains a symbolic value"
             )
-        return self._int_from_bytes(concrete)
+        value = self._int_from_bytes(
+            self.machdef.fix_register_bytes(name, self.bytes_java_to_py(concrete))
+        )
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            try:
+                flag = 1 if self.read_sleigh_register(sleigh_name) else 0
+            except exceptions.SymbolicValueError:
+                raise exceptions.SymbolicValueError(
+                    f"Register {name} contains a symbolic value"
+                )
+            value = (value & ~(1 << bit)) | (flag << bit)
+        return value
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if name == "pc":
@@ -349,6 +363,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
         else:
             bv = self._sym_to_claripy(sym)
+        bv = self._merge_split_bits(name, self.machdef.fix_register_bv(name, bv))
         if bv.size() < expected_bits:
             bv = claripy.ZeroExt(expected_bits - bv.size(), bv)
         elif bv.size() > expected_bits:
@@ -379,9 +394,38 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 value = value.concrete_value
             if isinstance(value, int):
                 value = self.machdef.pc_to_engine(self._thread, value)
+        self._write_register(reg, name, value)
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag: typing.Union[int, claripy.ast.bv.BV]
+            if isinstance(value, int):
+                flag = (value >> bit) & 1
+            else:
+                flag = claripy.ZeroExt(7, claripy.Extract(bit, bit, value))
+            flag_reg = self.machdef.language.getRegister(sleigh_name)
+            if flag_reg.isProcessorContext():
+                if isinstance(flag, claripy.ast.bv.BV):
+                    if flag.symbolic:
+                        # Decoding context is always concrete; a label on the
+                        # register leaves the mode it selects as it is.
+                        continue
+                    flag = flag.concrete_value
+                self.machdef.write_context(self._thread, flag_reg, flag)
+            else:
+                self._write_register(flag_reg, sleigh_name, flag)
+
+    def _write_register(
+        self,
+        reg,
+        name: str,
+        value: typing.Union[int, claripy.ast.bv.BV],
+    ) -> None:
         size_bytes = reg.getMinimumByteSize()
         size_bits = size_bytes * 8
         state = self._thread.getState()
+        if name in self.machdef.swapped_halves:
+            if isinstance(value, int):
+                value = claripy.BVV(value & ((1 << size_bits) - 1), size_bits)
+            value = self.machdef.fix_register_bv(name, value)
 
         def _concrete_bytes(intval: int) -> bytes:
             # Mask to handle negative ints via two's-complement wraparound.
@@ -449,8 +493,44 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
         sym = pair.getRight()
         if sym is None:
-            return claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
-        return self._sym_to_claripy(sym)
+            bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
+        else:
+            bv = self._sym_to_claripy(sym)
+        return self._merge_split_bits(name, self.machdef.fix_register_bv(name, bv))
+
+    def _merge_split_bits(self, name: str, bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:
+        """Merge into a register's value the bits the language keeps in
+        registers of their own; see ``GhidraMachineDef.split_bits``."""
+        for bit, sleigh_name in self.machdef.split_bits.get(name, {}).items():
+            flag_reg = self.machdef.language.getRegister(sleigh_name)
+            if flag_reg.isProcessorContext():
+                # Decoding context is always concrete.
+                flag = claripy.BVV(self.machdef.read_context(self._thread, flag_reg), 8)
+                bv = (bv & ~(1 << bit)) | claripy.If(
+                    flag == 0,
+                    claripy.BVV(0, bv.size()),
+                    claripy.BVV(1 << bit, bv.size()),
+                )
+                continue
+            pair = self._thread.getState().getVar(
+                flag_reg,
+                PcodeExecutorStatePiece.Reason.INSPECT,
+            )
+            sym = pair.getRight()
+            if sym is not None and self._sym_references_user_input(sym):
+                flag = self._sym_to_claripy(sym)
+            else:
+                # As in read_register_content: the symbolic side of a flag
+                # that no label reaches is only the concrete value, spelled
+                # out as Ghidra computed it.
+                flag = claripy.BVV(self._int_from_bytes(pair.getLeft()), 8)
+            bit_value = claripy.If(
+                flag == 0,
+                claripy.BVV(0, bv.size()),
+                claripy.BVV(1 << bit, bv.size()),
+            )
+            bv = (bv & ~(1 << bit)) | bit_value
+        return bv
 
     # ------------------------------------------------------------------
     # Memory I/O
@@ -677,6 +757,18 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                     pc,
                     None,
                 ) from e
+            except JAssertionError as exc:
+                # SymZ3's register state takes only fixed register offsets, so
+                # p-code that computes a register-space address (SPARC's
+                # register-window bank, for one) fails an internal assertion.
+                if "symbolic register" not in str(exc):
+                    raise
+                raise exceptions.EmulationExecInvalidFailure(
+                    "GhidraSymbolicEmulator cannot run an instruction that "
+                    "computes a register-space address",
+                    pc,
+                    None,
+                ) from exc
 
         # Cache invalidation: anything we ran may have changed preconditions.
         self._cached_preconditions = None
@@ -765,10 +857,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     def _step_pcode_ops(self) -> None:
         """Per-pcode-op step loop with LOAD/STORE/COPY interception for hooks."""
         skip = False
+        replacement = None
+        fixes = None
+        frame = None
         default_space = self.machdef.language.getDefaultSpace()
         default_space_id = default_space.getSpaceID()
         while True:
-            if skip:
+            if replacement is not None:
+                # Run the machine's corrected op in place of the next one.
+                self._thread.getExecutor().stepOp(
+                    replacement, frame, self._thread.getUseropLibrary()
+                )
+                self._thread.skipPcodeOp()
+                replacement = None
+            elif skip:
                 skip = False
                 self._thread.skipPcodeOp()
             else:
@@ -782,12 +884,23 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 break
 
             code = frame.getCode()
+            if self.machdef.fixes_pcode:
+                if fixes is None:
+                    fixes = self.machdef.pcode_fixes(code)
+                replacement = fixes.get(frame.index())
+                if replacement is not None:
+                    continue
+
             op = code[frame.index()]
             opcode = op.getOpcode()
 
             if opcode == op.STORE:
-                _, addr_var, data_var = op.getInputs()
-                self._process_write_breakpoint(addr_var, data_var)
+                space_var, addr_var, data_var = op.getInputs()
+                # Only the primary address space is memory; a STORE can also
+                # target the register space, where sleigh keeps indexed
+                # register files.
+                if space_var.getAddress().getOffset() == default_space_id:
+                    self._process_write_breakpoint(addr_var, data_var)
             elif opcode == op.LOAD:
                 space_var, addr_var = op.getInputs()
                 out_var = op.getOutput()
@@ -821,6 +934,28 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             elif self.machdef.userop(op) is not None:
                 self._run_userop(op)
                 skip = True
+
+    def current_instruction_bytes(self) -> bytes:
+        """The bytes of the instruction being executed, in memory order, for a
+        userop that decodes the instruction itself."""
+        return self.bytes_java_to_py(self._thread.getInstruction().getBytes())
+
+    def read_sleigh_register(self, name: str) -> int:
+        """Read a register by its SLEIGH name, for a userop that needs one the
+        machine definition doesn't expose, such as ARM's Thumb mode."""
+        reg = self.machdef.language.getRegister(name)
+        if reg.isProcessorContext():
+            # Context registers, such as ARM's TMode, aren't in the state.
+            value = self._thread.getContext().getRegisterValue(reg)
+            return int(str(value.getUnsignedValue()))
+        state = self._thread.getState()
+        pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
+        sym = pair.getRight()
+        if sym is not None and self._sym_references_user_input(sym):
+            raise exceptions.SymbolicValueError(
+                f"Register {name} contains a symbolic value"
+            )
+        return self._int_from_bytes(self.bytes_java_to_py(pair.getLeft()))
 
     def _run_userop(self, op) -> None:
         """Run a userop SmallWorld implements, in place of Ghidra's emulator.

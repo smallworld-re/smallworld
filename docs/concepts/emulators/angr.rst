@@ -63,6 +63,21 @@ In linear mode (the default), it is possible to access emulator state once emula
    ``AngrEmulator`` cannot single-step on platforms with delay slots,
    particularly MIPS and MIPS64.
 
+.. note::
+   On arm32, ``AngrEmulator.set_isa_mode()`` and
+   ``AngrEmulator.get_isa_mode()`` work as they do on Unicorn: they set and
+   report whether the core runs ARM (0) or Thumb (1) code, writing an odd
+   ``pc`` enters Thumb state,
+   and writing an even one keeps the state the core is in.
+
+   angr itself addresses Thumb code with bit 0 set.
+   ``AngrEmulator`` hides that: ``pc`` reads without it,
+   and hooks, exit points and bounds take the address of the instruction,
+   as on the other emulators.
+
+   Once a run is over, an ``AngrEmulator`` can't start another;
+   use a fresh one.
+
 Exit Points and Bounds
 ----------------------
 
@@ -80,6 +95,17 @@ it will raise a ``SymbolicValueError``.
 
 It's possible to access the symbolic expression using ``Emulator.read_register_symbolic()``,
 and write back a symbolic expression using ``Emulator.write_register_symbolic()``.
+
+.. note::
+   angr has no ``cpsr`` on arm32 A- and R-profile platforms,
+   so ``AngrEmulator`` builds one from the condition flags,
+   the Q and GE flags, and Thumb state, and writes those back.
+   angr has no processor modes:
+   the mode and mask bits always read as SVC with A, I and F masked,
+   an A-profile core's state out of reset, E reads set on big-endian
+   (BE8) platforms, and writes to those bits, and to the IT bits,
+   are ignored.
+   ``cpsr`` can't hold a label.
 
 ``Emulator.write_register_label()`` has a special interaction with ``AngrEmulator``.
 It will replace the contents of the register with a symbolic variable
@@ -177,6 +203,41 @@ as ``write_register_label()``.
    ``write_code()`` will switch to using the "data"
    memory backend, with all the performance caveats
    that entails.  Please load your code up front if at all possible.
+
+Floating Point
+--------------
+
+.. warning::
+   angr silently corrupts floating-point registers and memory
+   whose bits form a NaN
+   wherever VEX gives the data a floating-point type:
+   NaN payloads, signalling NaNs,
+   and integers that look like NaNs, such as small negative integers.
+   Such a value comes back as the bits of any other NaN of the same size
+   that is still held anywhere in the Python process,
+   such as in another register, in memory, or in another machine state,
+   so results can depend on what else is running or ran before.
+   Single-precision signalling NaNs are also made quiet
+   even when no other NaN is held.
+   Ordinary numbers, infinities and zeros are unaffected.
+
+   This affects floating-point loads, stores and register moves on
+   AArch64, arm32 (including integers moved through ``s`` registers
+   with ``vmov`` or produced by ``vcvt``), MIPS, MIPS64 and RISC-V,
+   and x87 loads and stores on amd64 and i386.
+   SSE moves on amd64 and i386, and platforms angr runs through Ghidra's
+   Pcode (such as LoongArch), keep the bits of their loads, stores and
+   moves.
+
+   On PowerPC, single-precision floating-point stores (``stfs``) raise an
+   ``EmulationError``, since angr doesn't implement the VEX operation
+   they lift to.
+
+On ARMv8 (arm32 and AArch64), ``AngrEmulator`` corrects VEX's lifting of
+the instructions that round ties away from zero
+(``vrinta``, ``vcvta``, ``frinta``, ``fcvtas`` and ``fcvtau``),
+which VEX lifts as rounding ties to even,
+and of ``vmaxnm`` and ``vminnm``, which angr doesn't otherwise run.
 
 Event Handlers
 --------------

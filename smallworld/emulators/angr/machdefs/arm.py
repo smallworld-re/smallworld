@@ -1,10 +1,60 @@
-import archinfo
+import typing
 
+import angr
+import archinfo
+import claripy
+from angr.engines.vex.claripy import ccall
+
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
+from ..be8 import BE8Engine, be8_arch
+from ..v8fp import BE8V8FPEngine, V8FPEngine
+from ..v8m import ARMv8MEngine, v8m_arch
 from .machdef import AngrMachineDef
 
 
 class ARMMachineDef(AngrMachineDef):
+    # angr keeps Thumb state nowhere but in bit 0 of pc, and addresses Thumb
+    # code with that bit set; SmallWorld's pc is the address the core
+    # executes at.
+
+    def read_isa_mode(
+        self, state: typing.Optional[angr.SimState]
+    ) -> typing.Optional[int]:
+        if state is None:
+            # Out of reset, an A- or R-profile core runs ARM code.
+            return 0
+        pc = typing.cast(claripy.ast.bv.BV, state.regs.pc)
+        if pc.symbolic:
+            raise exceptions.SymbolicValueError("pc is symbolic")
+        return pc.concrete_value & 1
+
+    def write_isa_mode(self, state: angr.SimState, mode: int) -> bool:
+        pc = typing.cast(claripy.ast.bv.BV, state.regs.pc)
+        state.regs.pc = (pc & ~1) | (int(mode) & 1)
+        return True
+
+    def pc_to_engine(self, state: typing.Optional[angr.SimState], pc: int) -> int:
+        if self.is_thumb or pc & 1:
+            return pc | 1
+        if state is None:
+            # The emulator sets the mode once it has a state.
+            return pc
+        mode = self.read_isa_mode(state)
+        assert mode is not None
+        return pc & ~1 | mode
+
+    def pc_from_engine(
+        self, state: angr.SimState, value: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        if isinstance(value, int):
+            return value & ~1
+        size = value.size()
+        return value & claripy.BVV(((1 << size) - 1) & ~1, size)
+
+    def code_addresses(self, address: int) -> typing.Tuple[int, ...]:
+        return (address & ~1, address | 1)
+
     def __init__(self):
         self._registers = {
             # *** General-purpose registers ***
@@ -28,10 +78,14 @@ class ARMMachineDef(AngrMachineDef):
             "fp": "fp",
             # r12 doubles as the Intra-call scratch register
             "r12": "r12",
-            "ip": "ip",
+            # archinfo resolves "ip" to pc, its generic instruction pointer.
+            "ip": "r12",
             "sp": "sp",
+            "r13": "sp",
             "lr": "lr",
+            "r14": "lr",
             "pc": "pc",
+            "r15": "pc",
         }
 
 
@@ -48,11 +102,11 @@ class ARMMachineMixinM:
             {
                 # *** Special Registers ***
                 # Program Status Register
-                # NOTE: PSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
-                # - apsr: Just the condition flags
-                # - ipsr: Just exception information
-                # - epsr: Just execution state info
+                # NOTE: PSR can be accessed through several masked views
+                # via mrs/msr, which I'm not including:
+                # - apsr: Just the condition flags; writable
+                # - ipsr: Just exception information; read-only
+                # - epsr: Just execution state info; reads as zero
                 # - iapsr: apsr | ipsr
                 # - eapsr: apsr | epsr
                 # - iepsr: ipsr | epsr
@@ -60,10 +114,6 @@ class ARMMachineMixinM:
                 "psr": "cpsr",
                 # Exception Mask Register
                 "primask": "primask",
-                # Base Priority Mask Register
-                "basepri": "basepri",
-                # Fault Mask Register
-                "faultmask": "faultmask",
                 # Control register; includes a lot of flags.
                 "control": "control",
                 # *** Stack Pointer Bank ***
@@ -78,8 +128,87 @@ class ARMMachineMixinM:
         )
 
 
-class ARMMachineMixinRA:
-    """Mixin for ARM series A and R CPUs"""
+class ARMMachineMixinMMainline(ARMMachineMixinM):
+    """Mixin for ARMv7-M CPUs, which add priority masks to ARMv6-M"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Base Priority Mask Register
+                "basepri": "basepri",
+                # Fault Mask Register
+                "faultmask": "faultmask",
+            }
+        )
+
+
+class ARMMachineMixinBanked:
+    """Mixin for ARM CPUs with the classic banked-register model (non-M-profile)"""
+
+    # angr has no cpsr. VEX keeps the condition flags as a thunk, Q and GE
+    # in registers of their own, and Thumb state in bit 0 of pc; build cpsr
+    # from those. angr has no processor modes, so the mode and mask bits
+    # read as an A-profile core's out of reset (SVC, with A, I and F
+    # masked) and are ignored on a write, as are the IT bits.
+    synthesized_registers = frozenset({"cpsr"})
+    angr_engine: typing.Any
+
+    _CPSR_FIXED = 0x1D3
+    _CPSR_E = 1 << 9
+    _CPSR_T = 1 << 5
+    _CPSR_Q = 1 << 27
+    _CPSR_GE_SHIFT = 16
+    _CPSR_NZCV = 0xF0000000
+
+    def read_synthesized(self, state: angr.SimState, name: str) -> claripy.ast.bv.BV:
+        if name != "cpsr":
+            raise exceptions.UnsupportedRegisterError(
+                f"No {name} for {type(self).__name__}"
+            )
+        regs = state.regs
+        cpsr = ccall.armg_calculate_flags_nzcv(
+            state, regs.cc_op, regs.cc_dep1, regs.cc_dep2, regs.cc_ndep
+        )
+        fixed = self._CPSR_FIXED
+        if self.angr_engine is not None and issubclass(self.angr_engine, BE8Engine):
+            fixed |= self._CPSR_E
+        cpsr |= claripy.BVV(fixed, 32)
+        cpsr |= claripy.If(
+            regs.qflag32 != 0, claripy.BVV(self._CPSR_Q, 32), claripy.BVV(0, 32)
+        )
+        for i in range(4):
+            cpsr |= claripy.If(
+                getattr(regs, f"geflag{i}") != 0,
+                claripy.BVV(1 << (self._CPSR_GE_SHIFT + i), 32),
+                claripy.BVV(0, 32),
+            )
+        pc = typing.cast(claripy.ast.bv.BV, regs.pc)
+        cpsr |= (pc & 1) << 5
+        return cpsr
+
+    def write_synthesized(
+        self, state: angr.SimState, name: str, value: claripy.ast.bv.BV
+    ) -> None:
+        if name != "cpsr":
+            raise exceptions.UnsupportedRegisterError(
+                f"No {name} for {type(self).__name__}"
+            )
+        regs = state.regs
+        # A copied thunk holds NZCV as they are, in bits 31:28.
+        regs.cc_op = claripy.BVV(ccall.ARMG_CC_OP_COPY, 32)
+        regs.cc_dep1 = value & self._CPSR_NZCV
+        regs.cc_dep2 = claripy.BVV(0, 32)
+        regs.cc_ndep = claripy.BVV(0, 32)
+        regs.qflag32 = value & self._CPSR_Q
+        for i in range(4):
+            setattr(
+                regs,
+                f"geflag{i}",
+                value & (1 << (self._CPSR_GE_SHIFT + i)),
+            )
+        pc = typing.cast(claripy.ast.bv.BV, regs.pc)
+        regs.pc = (pc & ~1) | ((value & self._CPSR_T) >> 5)
 
     def __init__(self):
         super().__init__()
@@ -87,8 +216,9 @@ class ARMMachineMixinRA:
             {
                 # *** Special Registers ***
                 # Current Program Status Register
-                # NOTE: CPSR can be accessed through several masked aliases.
-                # These are read-only, so I'm not including them.
+                # NOTE: CPSR has a few masked views
+                # which I'm not including:
+                # - apsr: Just the condition flags
                 # - isetstate: Just includes instruction set control bits
                 # - itstate: Just includes state bits for Thumb IT instruction
                 "cpsr": "cpsr",
@@ -113,13 +243,6 @@ class ARMMachineMixinRA:
                 "r11_usr": "r11_usr",
                 # User-mode r12
                 "r12_usr": "r12_usr",
-                # Hypervisor Stack Pointer
-                "sp_hyp": "sp_hyp",
-                # Hypervisor Saved PSR
-                "spsr_hyp": "spsr_hyp",
-                # Hypervisor Exception Link Register
-                # NOTE: This isn't so much banked, as it only exists in hypervisor mode.
-                "elr_hyp": "elr_hyp",
                 # Supervisor Stack Pointer
                 "sp_svc": "sp_svc",
                 # Supervisor Link Register
@@ -138,12 +261,6 @@ class ARMMachineMixinRA:
                 "lr_und": "lr_und",
                 # Undefined-mode Saved PSR
                 "spsr_und": "spsr_und",
-                # Monitor-mode Stack Pointer
-                "sp_mon": "sp_mon",
-                # Monitor-mode Link Register
-                "lr_mon": "lr_mon",
-                # Monitor-mode Saved PSR
-                "spsr_mon": "spsr_mon",
                 # IRQ-mode Stack Pointer
                 "sp_irq": "sp_irq",
                 # IRQ-mode Link Register
@@ -170,11 +287,298 @@ class ARMMachineMixinRA:
         )
 
 
-class ARMMachineMixinFP:
-    """Mixin for ARM CPUs with FP extensions
+class ARMMachineMixinSecurity:
+    """Mixin for CPUs with the Security Extensions (TrustZone)."""
 
-    This is one kind of floating-point extension
-    which offers 64-bit scalar operations.
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Monitor-mode Stack Pointer
+                "sp_mon": "sp_mon",
+                # Monitor-mode Link Register
+                "lr_mon": "lr_mon",
+                # Monitor-mode Saved PSR
+                "spsr_mon": "spsr_mon",
+                # Secure Configuration Register
+                "scr": "scr",
+                # Secure Debug Enable Register
+                "sder": "sder",
+                # Non-Secure Access Control Register
+                "nsacr": "nsacr",
+                # Monitor Vector Base Address Register
+                "mvbar": "mvbar",
+            }
+        )
+
+
+class ARMMachineMixinVirtualization:
+    """Mixin for CPUs with the Virtualization Extensions."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": "sp_hyp",
+                # Hypervisor Saved PSR
+                "spsr_hyp": "spsr_hyp",
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": "elr_hyp",
+                # Hyp Configuration Register
+                "hcr": "hcr",
+                # Hyp Coprocessor Trap Register
+                "hcptr": "hcptr",
+                # Hyp System Trap Register
+                "hstr": "hstr",
+                # Hyp Debug Configuration Register
+                "hdcr": "hdcr",
+                # Hyp System Control Register
+                "hsctlr": "hsctlr",
+                # Hyp Vector Base Address Register
+                "hvbar": "hvbar",
+                # Hyp Translation Table Base Register
+                "httbr": "httbr",
+                # Hyp Translation Control Register
+                "htcr": "htcr",
+                # Virtualization Translation Table Base Register
+                "vttbr": "vttbr",
+                # Virtualization Translation Control Register
+                "vtcr": "vtcr",
+                # Hyp Syndrome Register
+                "hsr": "hsr",
+                # Hyp Data Fault Address Register
+                "hdfar": "hdfar",
+                # Hyp Instruction Fault Address Register
+                "hifar": "hifar",
+                # Hyp IPA Fault Address Register
+                "hpfar": "hpfar",
+                # Hyp Software Thread ID Register
+                "htpidr": "htpidr",
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": "hmair0",
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": "hmair1",
+                # Virtualization Processor ID Register
+                "vpidr": "vpidr",
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": "vmpidr",
+                # Virtual Offset Register
+                "cntvoff": "cntvoff",
+                # Timer PL2 Control Register
+                "cnthctl": "cnthctl",
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": "cnthp_ctl",
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": "cnthp_cval",
+            }
+        )
+
+
+class ARMMachineMixinV5SystemControl:
+    """Mixin for ARMv5 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Translation Table Base Register
+                "ttbr": "ttbr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Fault Status Register
+                "fsr": "fsr",
+                # Fault Address Register
+                "far": "far",
+                # FCSE Process ID Register
+                "fcseidr": "fcseidr",
+            }
+        )
+
+
+class ARMMachineMixinV6SystemControl:
+    """Mixin for ARMv6 CPUs with a cp15 system control coprocessor"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Auxiliary Control Register
+                "actlr": "actlr",
+                # Coprocessor Access Control Register
+                "cpacr": "cpacr",
+                # Translation Table Base Register 0
+                "ttbr0": "ttbr0",
+                # Translation Table Base Register 1
+                "ttbr1": "ttbr1",
+                # Translation Table Base Control Register
+                "ttbcr": "ttbcr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Data Fault Status Register
+                "dfsr": "dfsr",
+                # Instruction Fault Status Register
+                "ifsr": "ifsr",
+                # Data Fault Address Register
+                "dfar": "dfar",
+                # Watchpoint Fault Address Register
+                "wfar": "wfar",
+                # Instruction Fault Address Register
+                "ifar": "ifar",
+                # Physical Address Register
+                "par": "par",
+                # Primary Region Remap Register
+                "prrr": "prrr",
+                # Normal Memory Remap Register
+                "nmrr": "nmrr",
+                # Vector Base Address Register
+                "vbar": "vbar",
+                # FCSE Process ID Register
+                "fcseidr": "fcseidr",
+                # Context ID Register
+                "contextidr": "contextidr",
+                # User Read/Write Thread ID Register
+                "tpidrurw": "tpidrurw",
+                # User Read-Only Thread ID Register
+                "tpidruro": "tpidruro",
+                # PL1-only Thread ID Register
+                "tpidrprw": "tpidrprw",
+            }
+        )
+
+
+class ARMMachineMixinV7SystemControl:
+    """Mixin for the cp15 registers common to ARMv7-A and ARMv7-R"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main ID Register
+                "midr": "midr",
+                # Cache Type Register
+                "ctr": "ctr",
+                # Multiprocessor Affinity Register
+                "mpidr": "mpidr",
+                # System Control Register
+                "sctlr": "sctlr",
+                # Auxiliary Control Register
+                "actlr": "actlr",
+                # Coprocessor Access Control Register
+                "cpacr": "cpacr",
+                # Cache Size Selection Register
+                "csselr": "csselr",
+                # Data Fault Status Register
+                "dfsr": "dfsr",
+                # Instruction Fault Status Register
+                "ifsr": "ifsr",
+                # Data Fault Address Register
+                "dfar": "dfar",
+                # Instruction Fault Address Register
+                "ifar": "ifar",
+                # Context ID Register
+                "contextidr": "contextidr",
+                # User Read/Write Thread ID Register
+                "tpidrurw": "tpidrurw",
+                # User Read-Only Thread ID Register
+                "tpidruro": "tpidruro",
+                # PL1-only Thread ID Register
+                "tpidrprw": "tpidrprw",
+            }
+        )
+
+
+class ARMMachineMixinPMSA:
+    """Mixin for ARMv7 CPUs with an MPU (the R-series)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # MPU Region Number Register
+                "rgnr": "rgnr",
+                # Data Region Base Address Register
+                "drbar": "drbar",
+                # Data Region Size and Enable Register
+                "drsr": "drsr",
+                # Data Region Access Control Register
+                "dracr": "dracr",
+            }
+        )
+
+
+class ARMMachineMixinVMSA:
+    """Mixin for ARMv7 CPUs with an MMU and the Large Physical Address Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Translation Table Base Register 0
+                "ttbr0": "ttbr0",
+                # Translation Table Base Register 1
+                "ttbr1": "ttbr1",
+                # Translation Table Base Control Register
+                "ttbcr": "ttbcr",
+                # Domain Access Control Register
+                "dacr": "dacr",
+                # Physical Address Register
+                "par": "par",
+                # Primary Region Remap Register
+                "prrr": "prrr",
+                # Normal Memory Remap Register
+                "nmrr": "nmrr",
+                # Vector Base Address Register
+                "vbar": "vbar",
+            }
+        )
+
+
+class ARMMachineMixinGenericTimer:
+    """Mixin for ARMv7 CPUs with the Generic Timer Extension"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Counter Frequency Register
+                "cntfrq": "cntfrq",
+                # Timer PL1 Control Register
+                "cntkctl": "cntkctl",
+                # Physical Count Register
+                "cntpct": "cntpct",
+                # Virtual Count Register
+                "cntvct": "cntvct",
+                # PL1 Physical Timer Control Register
+                "cntp_ctl": "cntp_ctl",
+                # PL1 Physical Timer CompareValue Register
+                "cntp_cval": "cntp_cval",
+                # Virtual Timer Control Register
+                "cntv_ctl": "cntv_ctl",
+                # Virtual Timer CompareValue Register
+                "cntv_cval": "cntv_cval",
+            }
+        )
+
+
+class ARMMachineMixinFPD16:
+    """Mixin for ARM machine models with a 16-register FPU
+
+    The register file shared by every 16-register ARM FPU:
+    d0-d15, aliased as s0-s31, and FPSCR.
     """
 
     def __init__(self):
@@ -184,14 +588,6 @@ class ARMMachineMixinFP:
                 # *** Floating point control registers ***
                 # Floating-point Status and Control Register
                 "fpscr": "fpscr",
-                # Floating-point Exception Control Register
-                "fpexc": None,
-                # Floating-point System ID Register
-                "fpsid": None,
-                # Media and VFP Feature Register 0
-                "mvfr0": None,
-                # Media and VFP Feature Register 1
-                "mvfr1": None,
                 # *** Floating point registers ***
                 "d0": "d0",
                 "s0": "s0",
@@ -245,7 +641,51 @@ class ARMMachineMixinFP:
         )
 
 
+class ARMMachineMixinFP(ARMMachineMixinFPD16):
+    """Mixin for ARM CPUs with FP extensions
+
+    This is one kind of floating-point extension
+    which offers 64-bit scalar operations.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Exception Control Register
+                "fpexc": None,
+                # Floating-point System ID Register
+                "fpsid": None,
+                # Media and VFP Feature Register 0
+                "mvfr0": None,
+                # Media and VFP Feature Register 1
+                "mvfr1": None,
+            }
+        )
+
+
+class ARMMachineMixinVFPv2(ARMMachineMixinFP):
+    """Mixin for little-endian ARM CPUs with VFPv2"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Floating-point Instruction Register
+                "fpinst": "fpinst",
+                # Floating-point Instruction Register 2
+                "fpinst2": "fpinst2",
+            }
+        )
+
+
 class ARMMachineMixinVFPEL:
+    """Mixin for ARM CPUs with 32-register VFP and NEON
+
+    archinfo has no q registers, but lays out d0-d31 contiguously,
+    so each qN spans d(2N) and d(2N+1).
+    """
+
     def __init__(self):
         super().__init__()
         self._registers.update(
@@ -262,56 +702,56 @@ class ARMMachineMixinVFPEL:
                 # Media and VFP Feature Register 1
                 "mvfr1": None,
                 # *** Floating-point Registers ****
-                "q0": None,
+                "q0": ("d0", 16),
                 "d0": "d0",
                 "s0": "s0",
                 "s1": "s1",
                 "d1": "d1",
                 "s2": "s2",
                 "s3": "s3",
-                "q1": None,
+                "q1": ("d2", 16),
                 "d2": "d2",
                 "s4": "s4",
                 "s5": "s5",
                 "d3": "d3",
                 "s6": "s6",
                 "s7": "s7",
-                "q2": None,
+                "q2": ("d4", 16),
                 "d4": "d4",
                 "s8": "s8",
                 "s9": "s9",
                 "d5": "d5",
                 "s10": "s10",
                 "s11": "s11",
-                "q3": None,
+                "q3": ("d6", 16),
                 "d6": "d6",
                 "s12": "s12",
                 "s13": "s13",
                 "d7": "d7",
                 "s14": "s14",
                 "s15": "s15",
-                "q4": None,
+                "q4": ("d8", 16),
                 "d8": "d8",
                 "s16": "s16",
                 "s17": "s17",
                 "d9": "d9",
                 "s18": "s18",
                 "s19": "s19",
-                "q5": None,
+                "q5": ("d10", 16),
                 "d10": "d10",
                 "s20": "s20",
                 "s21": "s21",
                 "d11": "d11",
                 "s22": "s22",
                 "s23": "s23",
-                "q6": None,
+                "q6": ("d12", 16),
                 "d12": "d12",
                 "s24": "s24",
                 "s25": "s25",
                 "d13": "d13",
                 "s26": "s26",
                 "s27": "s27",
-                "q7": None,
+                "q7": ("d14", 16),
                 "d14": "d14",
                 "s28": "s28",
                 "s29": "s29",
@@ -321,65 +761,326 @@ class ARMMachineMixinVFPEL:
                 # NOTE: This isn't a typo; there are only 32 single-precision sX registers
                 # This does mean that only half the VFP register space can be used
                 # for single-precision arithmetic.
-                "q8": None,
+                "q8": ("d16", 16),
                 "d16": "d16",
                 "d17": "d17",
-                "q9": None,
+                "q9": ("d18", 16),
                 "d18": "d18",
                 "d19": "d19",
-                "q10": None,
+                "q10": ("d20", 16),
                 "d20": "d20",
                 "d21": "d21",
-                "q11": None,
+                "q11": ("d22", 16),
                 "d22": "d22",
                 "d23": "d23",
-                "q12": None,
+                "q12": ("d24", 16),
                 "d24": "d24",
                 "d25": "d25",
-                "q13": None,
+                "q13": ("d26", 16),
                 "d26": "d26",
                 "d27": "d27",
-                "q14": None,
+                "q14": ("d28", 16),
                 "d28": "d28",
                 "d29": "d29",
-                "q15": None,
+                "q15": ("d30", 16),
                 "d30": "d30",
                 "d31": "d31",
             }
         )
 
 
-class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMMachineMixinVFPv8(ARMMachineMixinVFPEL):
+    """Mixin for little-endian ARMv8 AArch32 CPUs with FP and Advanced SIMD"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Media and VFP Feature Register 2
+                "mvfr2": "mvfr2",
+            }
+        )
+
+
+class ARMMachineMixinPMSAv8:
+    """Mixin for ARMv8-R CPUs with the PMSAv8-32 MPU"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Protection Region Selection Register
+                "prselr": "prselr",
+                # Protection Region Base Address Register
+                "prbar": "prbar",
+                # Protection Region Limit Address Register
+                "prlar": "prlar",
+                # Memory Attribute Indirection Register 0
+                "mair0": "mair0",
+                # Memory Attribute Indirection Register 1
+                "mair1": "mair1",
+                # Vector Base Address Register
+                "vbar": "vbar",
+            }
+        )
+
+
+class ARMMachineMixinV8RHypervisor:
+    """Mixin for ARMv8-R CPUs' Hypervisor mode (EL2)"""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Hypervisor Stack Pointer
+                "sp_hyp": "sp_hyp",
+                # Hypervisor Saved PSR
+                "spsr_hyp": "spsr_hyp",
+                # Hypervisor Exception Link Register
+                # NOTE: Hyp mode has no banked lr; it uses lr_usr.
+                "elr_hyp": "elr_hyp",
+                # Hyp Configuration Register
+                "hcr": "hcr",
+                # Hyp Coprocessor Trap Register
+                "hcptr": "hcptr",
+                # Hyp System Trap Register
+                "hstr": "hstr",
+                # Hyp Debug Configuration Register
+                "hdcr": "hdcr",
+                # Hyp System Control Register
+                "hsctlr": "hsctlr",
+                # Hyp Vector Base Address Register
+                "hvbar": "hvbar",
+                # Hyp Syndrome Register
+                "hsr": "hsr",
+                # Hyp Data Fault Address Register
+                "hdfar": "hdfar",
+                # Hyp Instruction Fault Address Register
+                "hifar": "hifar",
+                # Hyp Software Thread ID Register
+                "htpidr": "htpidr",
+                # Hyp Memory Attribute Indirection Register 0
+                "hmair0": "hmair0",
+                # Hyp Memory Attribute Indirection Register 1
+                "hmair1": "hmair1",
+                # Virtualization Processor ID Register
+                "vpidr": "vpidr",
+                # Virtualization Multiprocessor ID Register
+                "vmpidr": "vmpidr",
+                # Hyp Protection Region Selection Register
+                "hprselr": "hprselr",
+                # Hyp Protection Region Base Address Register
+                "hprbar": "hprbar",
+                # Hyp Protection Region Limit Address Register
+                "hprlar": "hprlar",
+                # Virtual Offset Register
+                "cntvoff": "cntvoff",
+                # Timer PL2 Control Register
+                "cnthctl": "cnthctl",
+                # PL2 Physical Timer Control Register
+                "cnthp_ctl": "cnthp_ctl",
+                # PL2 Physical Timer CompareValue Register
+                "cnthp_cval": "cnthp_cval",
+            }
+        )
+
+
+class ARMMachineMixinV8MMainline(ARMMachineMixinMMainline):
+    """Abstract class for ARMv8-M Mainline CPUs."""
+
+    def __init__(self):
+        super().__init__()
+        self._registers.update(
+            {
+                # Main Stack Pointer Limit Register
+                "msplim": "msplim",
+                # Process Stack Pointer Limit Register
+                "psplim": "psplim",
+            }
+        )
+
+
+class ARMv4MachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V4
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv4TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V4T
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv5TMachineDef(
+    ARMMachineMixinV5SystemControl, ARMMachineMixinBanked, ARMMachineDef
+):
     angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
 
 
-class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
-    angr_arch = archinfo.arch_arm.ArchARMEL()
-    arch = Architecture.ARM_V6M
+# Big-endian ARMv4 and ARMv5 are BE32: archinfo's big-endian ARM fetches
+# instructions big-endian too.
+
+
+class ARMv4BEMachineDef(ARMv4MachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
+class ARMv4TBEMachineDef(ARMv4TMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
+class ARMv5TBEMachineDef(ARMv5TMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL(archinfo.Endness.BE)
+    byteorder = Byteorder.BIG
+
+
+class ARMv6KMachineDef(
+    ARMMachineMixinVFPv2,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinV6SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMEL()
+    arch = Architecture.ARM_V6K
     byteorder = Byteorder.LITTLE
 
 
-class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
+    # M-profile is Thumb-only.
     angr_arch = archinfo.arch_arm.ArchARMCortexM()
-    arch = Architecture.ARM_V6M_THUMB
+    arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
     is_thumb = True
 
 
-class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+class ARMv7MMachineDef(ARMMachineMixinMMainline, ARMMachineDef):
+    # M-profile is Thumb-only.
+    angr_arch = archinfo.arch_arm.ArchARMCortexM()
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
+    is_thumb = True
 
 
-class ARMv7AMachineDef(ARMMachineMixinVFPEL, ARMMachineMixinRA, ARMMachineDef):
+class ARMv7EMMachineDef(ARMMachineMixinFPD16, ARMMachineMixinMMainline, ARMMachineDef):
+    # M-profile is Thumb-only. archinfo's Cortex-M arch has the FPU registers.
+    angr_arch = archinfo.arch_arm.ArchARMCortexM()
+    arch = Architecture.ARM_V7EM
+    byteorder = Byteorder.LITTLE
+    is_thumb = True
+
+
+class ARMv7AMachineDef(
+    ARMMachineMixinVFPEL,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
     # TODO: This is a user-space integer only model
-    angr_arch = archinfo.arch_arm.ArchARMHF()
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
     arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
 
 
-# angr does not have good enough R- or A- series support,
-# or any support for NEON that I can see.
+class ARMv8AMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinVirtualization,
+    ARMMachineMixinSecurity,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinVMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
+    angr_engine = V8FPEngine
+    arch = Architecture.ARM_V8A
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8RMachineDef(
+    ARMMachineMixinVFPv8,
+    ARMMachineMixinV8RHypervisor,
+    ARMMachineMixinGenericTimer,
+    ARMMachineMixinPMSAv8,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
+    angr_engine = V8FPEngine
+    arch = Architecture.ARM_V8R
+    byteorder = Byteorder.LITTLE
+
+
+class ARMv8MMachineDef(ARMMachineMixinV8MMainline, ARMMachineDef):
+    # M-profile is Thumb-only.
+    angr_arch = v8m_arch()
+    angr_engine = ARMv8MEngine
+    arch = Architecture.ARM_V8M
+    byteorder = Byteorder.LITTLE
+    is_thumb = True
+
+
+class ARMv7RMachineDef(
+    ARMMachineMixinFP,
+    ARMMachineMixinPMSA,
+    ARMMachineMixinV7SystemControl,
+    ARMMachineMixinBanked,
+    ARMMachineDef,
+):
+    # Typed as any Arch, so the BE8 subclass can use be8_arch().
+    angr_arch: archinfo.Arch = archinfo.arch_arm.ArchARMHF()
+    arch = Architecture.ARM_V7R
+    byteorder = Byteorder.LITTLE
+
+
+# Big-endian ARMv6 and later are BE8: VEX lifts them through BE8Engine,
+# which lifts for a little-endian guest and makes memory big-endian.
+
+
+class ARMv6KBEMachineDef(ARMv6KMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv7ABEMachineDef(ARMv7AMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv7RBEMachineDef(ARMv7RMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8Engine
+    byteorder = Byteorder.BIG
+
+
+class ARMv8ABEMachineDef(ARMv8AMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8V8FPEngine
+    byteorder = Byteorder.BIG
+
+
+class ARMv8RBEMachineDef(ARMv8RMachineDef):
+    angr_arch = be8_arch()
+    angr_engine = BE8V8FPEngine
+    byteorder = Byteorder.BIG

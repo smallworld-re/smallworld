@@ -1,6 +1,18 @@
-from .aarch64 import AArch64Stack
+from .aarch64 import AArch64BEStack, AArch64Stack, AArch64V85ABEStack, AArch64V85AStack
 from .amd64 import AMD64Stack
-from .arm import ARMv5tStack, ARMv6mStack, ARMv7aStack, ARMv7mStack, ARMv7rStack
+from .arm import (
+    ARMv4BEStack,
+    ARMv4Stack,
+    ARMv4tBEStack,
+    ARMv4tStack,
+    ARMv5tBEStack,
+    ARMv5tStack,
+    ARMv6mStack,
+    ARMv7aStack,
+    ARMv7emStack,
+    ARMv7mStack,
+    ARMv7rStack,
+)
 from .i386 import X86Stack
 from .loongarch import LoongArch32Stack, LoongArch64Stack
 from .m68k import M68KStack
@@ -10,6 +22,7 @@ from .mips64 import MIPS64BEStack, MIPS64ELStack
 from .msp430 import MSP430Stack
 from .ppc import PowerPC32Stack, PowerPC32VLEStack, PowerPC64Stack
 from .riscv import RISCV32Stack, RISCV64Stack
+from .sparc import SPARC32Stack
 from .stack import *  # noqa: F401, F403
 from .stack import __all__ as __stack__
 from .superh import (
@@ -26,9 +39,18 @@ from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
     "AArch64Stack",
+    "AArch64BEStack",
+    "AArch64V85AStack",
+    "AArch64V85ABEStack",
     "AMD64Stack",
+    "ARMv4Stack",
+    "ARMv4tStack",
     "ARMv5tStack",
+    "ARMv4BEStack",
+    "ARMv4tBEStack",
+    "ARMv5tBEStack",
     "ARMv6mStack",
+    "ARMv7emStack",
     "ARMv7mStack",
     "ARMv7rStack",
     "ARMv7aStack",
@@ -53,6 +75,7 @@ __all__ = __stack__ + [
     "SH1Stack",
     "SH2Stack",
     "SH2AFPUStack",
+    "SPARC32Stack",
     "SuperH4BEStack",
     "SuperH4ELStack",
     "TriCoreStack",

@@ -146,30 +146,31 @@ class PthreadSigmask(CStdModel):
             # If this thing has alignment issues, I will make ugly noises.
             newvec = emulator.read_memory(newset, 128)
 
-            # OF COURSE MIPS IS DIFFERENT!
-            is_mips = (
-                1
-                if self.platform.architecture
-                in (
-                    Architecture.MIPS32,
-                    Architecture.MIPS32_MICROMIPS,
-                    Architecture.MIPS64,
-                )
-                else 0
-            )
+            # OF COURSE MIPS IS DIFFERENT!  And SPARC, which uses the SunOS
+            # values (arch/sparc/include/uapi/asm/signal.h).
+            if self.platform.architecture in (
+                Architecture.MIPS32,
+                Architecture.MIPS32_MICROMIPS,
+                Architecture.MIPS64,
+            ):
+                sig_block, sig_unblock, sig_setmask = 1, 2, 3
+            elif self.platform.architecture == Architecture.SPARC32:
+                sig_block, sig_unblock, sig_setmask = 1, 2, 4
+            else:
+                sig_block, sig_unblock, sig_setmask = 0, 1, 2
 
-            if how == 0 + is_mips:
+            if how == sig_block:
                 # Case: how == SIG_BLOCK: Set sigmask to newvec | sigmask
                 self.sigmask = bytes(
                     map(lambda x: self.sigmask[x] | newvec[x], range(0, 128))
                 )
-            elif how == 1 + is_mips:
+            elif how == sig_unblock:
                 # Case: how == SIG_UNBLOCK: Set sigmask to ~newvec | sigmask
 
                 self.sigmask = bytes(
                     map(lambda x: self.sigmask[x] & ~newvec[x], range(0, 128))
                 )
-            elif how == 2 + is_mips:
+            elif how == sig_setmask:
                 # Case: how == SIG_SETMASK: Set sigmask to newvec
                 self.sigmask = newvec
             else:

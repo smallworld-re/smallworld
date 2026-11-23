@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import ctypes
+import functools
 import importlib.util
 import io
 import json
@@ -20,6 +21,7 @@ import tracemalloc
 import types
 import typing
 import unittest
+import zlib
 from types import SimpleNamespace
 from unittest import mock
 
@@ -148,7 +150,18 @@ from smallworld.state.memory.elf import ElfExecutable
 from smallworld.state.memory.elf.coredump.coredump import ElfCoreFile
 from smallworld.state.memory.elf.coredump.prstatus.i386 import I386 as I386PrStatus
 from smallworld.state.memory.elf.rela import ElfRelocator
+from smallworld.state.memory.elf.rela.aarch64 import AArch64ElfRelocator
 from smallworld.state.memory.elf.rela.amd64 import AMD64ElfRelocator
+from smallworld.state.memory.elf.rela.arm import (
+    Armv4ElfRelocator,
+    Armv4TBEElfRelocator,
+    Armv4TElfRelocator,
+    Armv5TBEElfRelocator,
+    Armv5TElfRelocator,
+    Armv6KElfRelocator,
+    Armv6MElfRelocator,
+    Armv7AElfRelocator,
+)
 from smallworld.state.memory.elf.rela.i386 import I386ElfRelocator
 from smallworld.state.memory.elf.rela.loongarch import (
     LoongArch32ElfRelocator,
@@ -174,12 +187,18 @@ from smallworld.state.memory.stack.m68k import M68KStack
 from smallworld.state.memory.stack.msp430 import MSP430Stack
 from smallworld.state.memory.stack.riscv import RISCV32Stack, RISCV64Stack
 from smallworld.state.models.aarch64.systemv.systemv import AArch64SysVCallingContext
+from smallworld.state.models.aarch64be.systemv.systemv import (
+    AArch64BESysVCallingContext,
+)
+from smallworld.state.models.aarch64v85abe.systemv.systemv import (
+    AArch64V85ABESysVCallingContext,
+)
 from smallworld.state.models.amd64.systemv.c99.string import (
     AMD64SysVStrcoll,
     AMD64SysVStrxfrm,
 )
 from smallworld.state.models.amd64.systemv.systemv import AMD64SysVCallingContext
-from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVCallingContext
+from smallworld.state.models.armv7a.systemv.systemv import ArmV7ASysVCallingContext
 from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.stdlib import TlsGetAddr
@@ -224,6 +243,7 @@ from smallworld.state.models.powerpc.systemv.systemv import (
 from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv32.systemv.systemv import RiscV32SysVCallingContext
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
+from smallworld.state.models.sparc32.systemv.systemv import SPARC32SysVCallingContext
 from smallworld.state.models.tls import (
     RELOCATED_TLS_MODULE,
     TlsArenaBorrower,
@@ -1009,7 +1029,6 @@ UNIT_TEST_PLATFORMS = {
     "amd64_avx512": (platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE),
     "armv5t": (platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE),
     "armv6m": (platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE),
-    "armv6m_thumb": (platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE),
     "armv7m": (platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE),
     "armv7r": (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE),
     "armv7a": (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
@@ -1042,6 +1061,24 @@ UNIT_TEST_PLATFORMS = {
     "v850": (platforms.Architecture.V850, platforms.Byteorder.LITTLE),
     "x86_16": (platforms.Architecture.X86_16, platforms.Byteorder.LITTLE),
     "xtensa": (platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE),
+    "aarch64be": (platforms.Architecture.AARCH64, platforms.Byteorder.BIG),
+    "aarch64v85abe": (platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG),
+    "armv4": (platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE),
+    "armv4be": (platforms.Architecture.ARM_V4, platforms.Byteorder.BIG),
+    "armv4t": (platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE),
+    "armv4tbe": (platforms.Architecture.ARM_V4T, platforms.Byteorder.BIG),
+    "armv5tbe": (platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG),
+    "armv6k": (platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE),
+    "armv6kbe": (platforms.Architecture.ARM_V6K, platforms.Byteorder.BIG),
+    "armv7abe": (platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG),
+    "armv7em": (platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE),
+    "armv7rbe": (platforms.Architecture.ARM_V7R, platforms.Byteorder.BIG),
+    "armv8a": (platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE),
+    "armv8abe": (platforms.Architecture.ARM_V8A, platforms.Byteorder.BIG),
+    "armv8m": (platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE),
+    "armv8r": (platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE),
+    "armv8rbe": (platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG),
+    "sparc32": (platforms.Architecture.SPARC32, platforms.Byteorder.BIG),
 }
 
 
@@ -1427,7 +1464,7 @@ class UnicornMachdefTests(unittest.TestCase):
 
 @platform_tests(
     "angr",
-    unsupported={name: "Not supported by angr" for name in ("amd64_avx512", "armv7r")},
+    unsupported={name: "Not supported by angr" for name in ("amd64_avx512",)},
 )
 class AngrMachdefTests(unittest.TestCase):
     def run_test(self, platform):
@@ -1482,6 +1519,733 @@ class AngrMachdefTests(unittest.TestCase):
         # The bare `except:` used to discard the underlying failure; it must now
         # be chained so real errors (e.g. a malformed subclass) stay visible.
         self.assertIsInstance(ctx.exception.__cause__, ValueError)
+
+    def test_angr_armv8m_stack_limits_are_separate(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.AngrEmulator(platform)
+        emu.write_code(0x1000, 0x1000 * b"\x00")
+        emu.initialize()
+        emu.write_register_content("msplim", 0x1000)
+        emu.write_register_content("psplim", 0x2000)
+        self.assertEqual(emu.read_register_content("msplim"), 0x1000)
+        self.assertEqual(emu.read_register_content("psplim"), 0x2000)
+
+
+class AngrArmV8MLiftTests(unittest.TestCase):
+    """ARMv8-M's angr engine finds stack-limit moves in what angr lifted.
+
+    The engine re-reads each instruction VEX lifted to nothing, so it must
+    read the same bytes angr did: insn_bytes, then clemory, then state.
+    """
+
+    # msr msplim, r0; mrs r1, psplim
+    CODE = bytes.fromhex("80f30a88" "eff30b81")
+    ADDR = 0x2000
+
+    def setUp(self):
+        import cle
+
+        self.cle = cle
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.AngrEmulator(platform)
+        emu.write_code(0x1000, 0x10 * b"\x00")
+        emu.initialize()
+        self.project = emu.proj
+        self.arch = emu.proj.arch
+
+    def _written(self, irsb):
+        """Which of msplim and r1 the block writes"""
+        import pyvex
+
+        written = {
+            stmt.offset for stmt in irsb.statements if isinstance(stmt, pyvex.stmt.Put)
+        }
+        return {
+            name
+            for name in ("msplim", "r1")
+            if self.arch.get_register_offset(name) in written
+        }
+
+    def _lift(self, **kwargs):
+        return self._written(
+            self.project.factory.default_engine.lift_vex(
+                addr=self.ADDR | 1, thumb=True, size=len(self.CODE), **kwargs
+            )
+        )
+
+    def _clemory(self, data):
+        memory = self.cle.Clemory(self.arch, root=True)
+        memory.add_backer(self.ADDR, data)
+        return memory
+
+    def test_reads_insn_bytes(self):
+        self.assertEqual(
+            self._lift(insn_bytes=self.CODE, arch=self.arch), {"msplim", "r1"}
+        )
+
+    def test_reads_insn_bytes_from_offset(self):
+        self.assertEqual(
+            self._lift(insn_bytes=b"\xff\xff" + self.CODE, offset=2, arch=self.arch),
+            {"msplim", "r1"},
+        )
+
+    def test_reads_clemory(self):
+        self.assertEqual(self._lift(clemory=self._clemory(self.CODE)), {"msplim", "r1"})
+
+    def test_leaves_instructions_it_cant_read(self):
+        # The clemory ends after the msr, so the mrs stays as angr lifted it.
+        self.assertEqual(self._lift(clemory=self._clemory(self.CODE[:4])), {"msplim"})
+
+    def test_factory_block_with_insn_bytes(self):
+        block = self.project.factory.block(
+            self.ADDR | 1, insn_bytes=self.CODE, thumb=True
+        )
+        self.assertEqual(self._written(block.vex), {"msplim", "r1"})
+
+
+def _f64(value: float) -> int:
+    return struct.unpack("<Q", struct.pack("<d", value))[0]
+
+
+def _lanes(values: typing.Sequence[int], bits: int) -> int:
+    """Pack lanes into a vector register's value, lane 0 lowest"""
+    return sum(v << (i * bits) for i, v in enumerate(values))
+
+
+class AngrV8FPTests(unittest.TestCase):
+    """angr rounds ties away from zero, and runs vmaxnm and vminnm.
+
+    VEX lifts vrinta, vcvta, frinta, fcvtas and fcvtau with its ties-to-even
+    rounding mode, and vmaxnm and vminnm to operations angr doesn't run.
+
+    No value here is a NaN bit pattern, which includes small negative
+    integers in S registers: angr corrupts those wherever they pass through
+    a float (NEW-015).
+    """
+
+    A32 = (
+        (platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG),
+    )
+    A64 = (
+        (platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.AARCH64, platforms.Byteorder.BIG),
+    )
+    NOP = {"a32": "00f020e3", "t32": "00bf00bf", "a64": "1f2003d5"}
+
+    INF = 0x7F800000
+
+    # (input, ties-away result) as f32 values, or bits for the specials
+    TIES = (
+        (0.5, 1.0),
+        (-0.5, -1.0),
+        (2.5, 3.0),
+        (-2.5, -3.0),
+        (3.5, 4.0),
+        (1.5, 2.0),
+        (0.49999997, 0.0),
+        (-0.49999997, -0.0),
+        (1.25, 1.0),
+        (1e20, 1e20),
+    )
+
+    def run_one(self, arch, byteorder, isa, insn, registers, thumb=False):
+        emu = emulators.AngrEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes.fromhex(insn + self.NOP[isa]))
+        emu.write_register("pc", 0x1001 if thumb else 0x1000)
+        for name, value in registers.items():
+            emu.write_register(name, value)
+        emu.add_exit_point(0x1000 + len(insn) // 2 + 4)
+        emu.step()
+        return emu
+
+    def check(self, platforms_, isa, insn, inputs, output, cases, thumb=False):
+        """Run insn on each platform and case: (inputs, expected output)"""
+        for arch, byteorder in platforms_:
+            for values, expected in cases:
+                with self.subTest(
+                    insn=insn, arch=arch.name, byteorder=byteorder.name, values=values
+                ):
+                    emu = self.run_one(
+                        arch,
+                        byteorder,
+                        isa,
+                        insn,
+                        dict(zip(inputs, values)),
+                        thumb=thumb,
+                    )
+                    self.assertEqual(hex(emu.read_register(output)), hex(expected))
+
+    def test_vrinta(self):
+        cases = [((_f32(x),), _f32(y)) for x, y in self.TIES]
+        cases += [((self.INF,), self.INF), ((self.INF | 1 << 31,), self.INF | 1 << 31)]
+        self.check(self.A32, "a32", "400af8fe", ("s0",), "s1", cases)
+        self.check(
+            self.A32,
+            "a32",
+            "401bb8fe",
+            ("d0",),
+            "d1",
+            [((_f64(x),), _f64(y)) for x, y in self.TIES],
+        )
+
+    def test_vrinta_thumb(self):
+        self.check(
+            self.A32,
+            "t32",
+            "f8fe400a",
+            ("s0",),
+            "s1",
+            [((_f32(2.5),), _f32(3.0)), ((_f32(-0.5),), _f32(-1.0))],
+            thumb=True,
+        )
+
+    def test_vrintn_still_rounds_ties_to_even(self):
+        self.check(
+            self.A32,
+            "a32",
+            "400af9fe",
+            ("s0",),
+            "s1",
+            [((_f32(2.5),), _f32(2.0)), ((_f32(0.5),), _f32(0.0))],
+        )
+
+    def test_vcvta(self):
+        signed = [
+            ((_f32(2.5),), 3),
+            ((_f32(0.5),), 1),
+            ((_f32(0.49999997),), 0),
+            ((_f32(-0.49999997),), 0),
+        ]
+        self.check(self.A32, "a32", "c01abcfe", ("s0",), "s2", signed)
+        self.check(self.A32, "a32", "401abcfe", ("s0",), "s2", [((_f32(2.5),), 3)])
+        self.check(
+            self.A32,
+            "a32",
+            "c01bbcfe",
+            ("d0",),
+            "s2",
+            [((_f64(3.5),), 4)],
+        )
+        self.check(
+            self.A32,
+            "t32",
+            "bcfec01a",
+            ("s0",),
+            "s2",
+            [((_f32(2.5),), 3)],
+            thumb=True,
+        )
+
+    def test_neon_vrinta_and_vcvta(self):
+        lanes = (0.5, -2.5, 2.5, 1.25)
+        q0 = _lanes([_f32(x) for x in lanes], 32)
+        self.check(
+            self.A32,
+            "a32",
+            "4025baf3",
+            ("q0",),
+            "q1",
+            [((q0,), _lanes([_f32(x) for x in (1.0, -3.0, 3.0, 1.0)], 32))],
+        )
+        self.check(
+            self.A32,
+            "a32",
+            "4020bbf3",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, 3.5, 2.5, 1.25)], 32),),
+                    _lanes([1, 4, 3, 1], 32),
+                )
+            ],
+        )
+
+    def test_frinta(self):
+        self.check(
+            self.A64,
+            "a64",
+            "0140261e",
+            ("s0",),
+            "s1",
+            [((_f32(x),), _f32(y)) for x, y in self.TIES],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0140661e",
+            ("d0",),
+            "d1",
+            [((_f64(x),), _f64(y)) for x, y in self.TIES],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0188216e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, -2.5, 2.5, 1.25)], 32),),
+                    _lanes([_f32(x) for x in (1.0, -3.0, 3.0, 1.0)], 32),
+                )
+            ],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0188616e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f64(-0.5), _f64(2.5)], 64),),
+                    _lanes([_f64(-1.0), _f64(3.0)], 64),
+                )
+            ],
+        )
+
+    def test_frintn_still_rounds_ties_to_even(self):
+        self.check(
+            self.A64, "a64", "0140241e", ("s0",), "s1", [((_f32(2.5),), _f32(2.0))]
+        )
+
+    def test_fcvtas_and_fcvtau(self):
+        self.check(
+            self.A64,
+            "a64",
+            "0100241e",
+            ("s0",),
+            "x1",
+            [((_f32(-2.5),), 0xFFFFFFFD), ((_f32(0.5),), 1)],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "0100649e",
+            ("d0",),
+            "x1",
+            [((_f64(-2.5),), 0xFFFFFFFFFFFFFFFD)],
+        )
+        self.check(self.A64, "a64", "0100251e", ("s0",), "x1", [((_f32(2.5),), 3)])
+        self.check(self.A64, "a64", "01c8215e", ("s0",), "s1", [((_f32(2.5),), 3)])
+        self.check(
+            self.A64,
+            "a64",
+            "01c8214e",
+            ("q0",),
+            "q1",
+            [
+                (
+                    (_lanes([_f32(x) for x in (0.5, -2.5, 2.5, 1.25)], 32),),
+                    _lanes([1, 0xFFFFFFFD, 3, 1], 32),
+                )
+            ],
+        )
+        self.check(
+            self.A64,
+            "a64",
+            "01c8616e",
+            ("q0",),
+            "q1",
+            [((_lanes([_f64(2.5), _f64(0.5)], 64),), _lanes([3, 1], 64))],
+        )
+
+    def test_vmaxnm(self):
+        two, three = _f32(2.0), _f32(3.0)
+        plus0, minus0 = 0, 0x80000000
+        cases = [
+            ((two, three), three),
+            ((three, two), three),
+            ((_f32(-2.0), _f32(-3.0)), _f32(-2.0)),
+            ((plus0, minus0), plus0),
+            ((minus0, plus0), plus0),
+            ((self.INF, two), self.INF),
+        ]
+        self.check(self.A32, "a32", "811ac0fe", ("s1", "s2"), "s3", cases)
+        self.check(self.A32, "t32", "c0fe811a", ("s1", "s2"), "s3", cases, thumb=True)
+
+    def test_vminnm(self):
+        cases = [
+            ((_f64(2.0), _f64(3.0)), _f64(2.0)),
+            ((0, 0x8000000000000000), 0x8000000000000000),
+            ((0x8000000000000000, 0), 0x8000000000000000),
+        ]
+        self.check(self.A32, "a32", "423b81fe", ("d1", "d2"), "d3", cases)
+
+    def test_neon_vmaxnm(self):
+        q0 = _lanes([_f32(1.0), 0, _f32(-4.0), _f32(2.0)], 32)
+        q1 = _lanes([_f32(0.5), 0x80000000, _f32(-5.0), _f32(3.0)], 32)
+        expected = _lanes([_f32(1.0), 0, _f32(-4.0), _f32(3.0)], 32)
+        self.check(
+            self.A32, "a32", "524f00f3", ("q0", "q1"), "q2", [((q0, q1), expected)]
+        )
+
+
+class AngrLiftSourceTests(unittest.TestCase):
+    """SmallWorld's angr engines find a lift's bytes by parameter name.
+
+    They override angr's lift_vex, which isn't a public API, so a change in
+    its parameters must not silently shift where the bytes come from.
+    """
+
+    def test_positional_and_keyword_arguments_bind_alike(self):
+        from smallworld.emulators.angr.v8m import lift_source
+
+        source = (0x1000, None, None, b"\x00\x00\xa0\xe1", 0)
+        self.assertEqual(lift_source(source, {}), source)
+        self.assertEqual(
+            lift_source(
+                (),
+                {"offset": 0, "insn_bytes": source[3], "addr": 0x1000, "size": 4},
+            ),
+            source,
+        )
+
+    def test_a_renamed_parameter_raises(self):
+        from smallworld.emulators.angr.v8m import lift_source
+
+        def lift_vex(self, address=None, state=None, clemory=None, insn_bytes=None):
+            pass
+
+        with self.assertRaisesRegex(TypeError, "no parameter addr, offset"):
+            lift_source((), {}, lift_vex)
+        with self.assertRaisesRegex(TypeError, "lift_vex parameters have changed"):
+            lift_source((), {"addr": 0x1000}, lift_vex)
+
+    def test_the_engine_rewrites_a_lift_called_by_keyword(self):
+        import angr
+        import archinfo
+        import pyvex
+
+        from smallworld.emulators.angr.v8fp import V8FPEngine
+
+        def rounding_modes(irsb):
+            return {
+                stmt.data.args[0].con.value
+                for stmt in irsb.statements
+                if isinstance(stmt, pyvex.stmt.WrTmp)
+                and isinstance(stmt.data, pyvex.expr.Binop)
+                and stmt.data.op == "Iop_RoundF32toInt"
+            }
+
+        vrinta = bytes.fromhex("400af8fe")  # vrinta.f32 s0, s0
+        project = angr.load_shellcode(vrinta, archinfo.ArchARMEL(), load_address=0)
+        engine = V8FPEngine(project)
+        for kwargs in (
+            {"addr": 0x1000, "insn_bytes": vrinta, "arch": project.arch},
+            {"arch": project.arch, "insn_bytes": vrinta, "addr": 0x1000, "offset": 0},
+        ):
+            with self.subTest(kwargs=list(kwargs)):
+                # Ties to even (0) becomes truncation (3) plus a correction.
+                self.assertEqual(rounding_modes(engine.lift_vex(**kwargs)), {3})
+
+
+class AngrUpstreamCanaryTests(unittest.TestCase):
+    """angr, VEX and claripy still have the defects SmallWorld works around.
+
+    Each test asserts an upstream defect a SmallWorld workaround depends on.
+    A failure after an upgrade means upstream changed: review the named
+    workaround, which may now be redundant or wrong, rather than changing the
+    test to pass.
+    """
+
+    def lift(self, arch, code, thumb=False):
+        import pyvex
+
+        # angr lifts Thumb code at the odd address, one byte into the bytes.
+        return pyvex.lift(
+            bytes.fromhex(code),
+            0x1001 if thumb else 0x1000,
+            arch,
+            bytes_offset=1 if thumb else 0,
+            opt_level=1,
+        )
+
+    def test_vex_lifts_ties_away_rounding_as_ties_to_even(self):
+        import archinfo
+        import pyvex
+
+        cases = (
+            (archinfo.ArchARMEL(), "400af8fe", "Iop_RoundF32toInt"),  # vrinta
+            (archinfo.ArchAArch64(), "0040261e", "Iop_RoundF32toInt"),  # frinta
+            (archinfo.ArchAArch64(), "0000241e", "Iop_F32toI32S"),  # fcvtas
+        )
+        for arch, code, op in cases:
+            with self.subTest(code=code):
+                modes = [
+                    stmt.data.args[0]
+                    for stmt in self.lift(arch, code).statements
+                    if isinstance(stmt, pyvex.stmt.WrTmp)
+                    and isinstance(stmt.data, pyvex.expr.Binop)
+                    and stmt.data.op == op
+                ]
+                self.assertEqual(
+                    [str(mode) for mode in modes],
+                    ["0x00000000"],
+                    "VEX's ties-away lifting changed: review "
+                    "smallworld/emulators/angr/v8fp.py's rounding rewrite",
+                )
+
+    def test_angr_has_no_maxnum_or_minnum(self):
+        from angr.engines.vex.claripy import irop
+
+        for op in ("MaxNumF32", "MaxNumF64", "MinNumF32", "MinNumF64"):
+            with self.subTest(op=op):
+                self.assertNotIn(
+                    f"Iop_{op}",
+                    irop.operations,
+                    "angr runs maxNum/minNum now: review "
+                    "smallworld/emulators/angr/v8fp.py's vmaxnm rewrite",
+                )
+
+    def test_vex_lifts_v8m_stack_limit_moves_as_nothing(self):
+        import archinfo
+        import pyvex
+
+        # msr msplim, r0 (Thumb)
+        irsb = self.lift(archinfo.ArchARMCortexM(), "80f30a88", thumb=True)
+        self.assertEqual(
+            [type(stmt) for stmt in irsb.statements],
+            [pyvex.stmt.IMark],
+            "VEX lifts msr msplim now: review smallworld/emulators/angr/v8m.py",
+        )
+
+    def test_vex_lifts_ldrexd_as_one_doubleword(self):
+        import archinfo
+        import pyvex
+
+        # ldrexd r0, r1, [r2]
+        irsb = self.lift(archinfo.ArchARMEL(), "9f0fb2e1")
+        accesses = [
+            irsb.tyenv.lookup(stmt.result)
+            for stmt in irsb.statements
+            if isinstance(stmt, pyvex.stmt.LLSC)
+        ]
+        self.assertEqual(
+            accesses,
+            ["Ity_I64"],
+            "VEX's ldrexd lifting changed: review swap_exclusive_doublewords "
+            "in smallworld/emulators/angr/be8.py",
+        )
+
+    def test_claripy_shares_one_object_between_live_nans(self):
+        # NEW-015: documented in docs/concepts/emulators/angr.rst.
+        held = claripy.BVV(0xFFFFFFFD, 32).raw_to_fp()
+        other = claripy.BVV(0x7FC00002, 32).raw_to_fp()
+        self.assertIs(
+            other,
+            held,
+            "claripy keeps NaN bit patterns now: review NEW-015's warning in "
+            "docs/concepts/emulators/angr.rst",
+        )
+
+    def test_claripy_quiets_single_precision_signalling_nans(self):
+        # NEW-015: documented in docs/concepts/emulators/angr.rst. In a fresh
+        # interpreter, since a NaN another test left alive would replace it.
+        code = (
+            "import claripy\n"
+            "nan = claripy.BVV(0x7F800001, 32).raw_to_fp()\n"
+            "print(nan.raw_to_bv().concrete_value)\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=True
+        )
+        self.assertEqual(
+            int(result.stdout),
+            0x7FC00001,
+            "claripy keeps signalling NaNs now: review NEW-015's warning in "
+            "docs/concepts/emulators/angr.rst",
+        )
+
+
+class AngrThumbTests(unittest.TestCase):
+    """angr addresses Thumb code with bit 0 set; harnesses use the address."""
+
+    # movs r0, #1; movs r1, #2; movs r2, #3; nop; movs r3, #7; nop
+    THUMB = bytes.fromhex("0120" "0221" "0322" "00bf" "0723" "00bf")
+    # cmp r0, r0; nop
+    CMP = bytes.fromhex("000050e1" "00f020e3")
+
+    def emulator(self, arch, code, pc, byteorder=platforms.Byteorder.LITTLE):
+        platform = platforms.Platform(arch, byteorder)
+        emu = emulators.AngrEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        emu.write_register("pc", pc)
+        for reg in ("r0", "r1", "r2", "r3"):
+            emu.write_register(reg, 0)
+        return emu
+
+    def hooked_run(self, arch, pc, unhook=False):
+        emu = self.emulator(arch, self.THUMB, pc)
+        seen = []
+        emu.hook_instruction(0x1002, lambda e: seen.append(e.read_register("r0")))
+        if unhook:
+            emu.unhook_instruction(0x1002)
+        emu.add_exit_point(0x1006)
+        emu.run()
+        return seen
+
+    def test_instruction_hook_fires_on_m_profile(self):
+        for arch in (platforms.Architecture.ARM_V7M, platforms.Architecture.ARM_V8M):
+            with self.subTest(arch=arch):
+                self.assertEqual(self.hooked_run(arch, 0x1000), [1])
+
+    def test_instruction_unhook_on_m_profile(self):
+        self.assertEqual(
+            self.hooked_run(platforms.Architecture.ARM_V7M, 0x1000, unhook=True), []
+        )
+
+    def test_instruction_hook_fires_in_a_profile_thumb_code(self):
+        self.assertEqual(self.hooked_run(platforms.Architecture.ARM_V7A, 0x1001), [1])
+
+    def test_exit_point_in_a_profile_thumb_code(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1001)
+        emu.add_exit_point(0x1006)
+        emu.run()
+        self.assertEqual(emu.read_register("pc"), 0x1006)
+        self.assertEqual(emu.read_register("r3"), 0)
+
+    def test_pc_reads_without_the_thumb_bit(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1001)
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+        self.assertTrue(emu.get_isa_mode())
+        # Writing back the even pc keeps Thumb state, as on Unicorn.
+        emu.write_register("pc", 0x1002)
+        self.assertTrue(emu.get_isa_mode())
+        emu.step()
+        self.assertEqual(emu.read_register("r1"), 2)
+
+    def test_r15_is_the_pc(self):
+        # r15 names the same register, so it gets the same Thumb handling.
+        for arch, pc in (
+            (platforms.Architecture.ARM_V7M, 0x1000),
+            (platforms.Architecture.ARM_V7A, 0x1001),
+        ):
+            with self.subTest(arch=arch.name):
+                emu = self.emulator(arch, self.THUMB, 0x1000)
+                emu.write_register("r15", pc)
+                emu.add_exit_point(0x1006)
+                emu.run()
+                self.assertEqual(emu.read_register("r2"), 3)
+                self.assertEqual(emu.read_register("r15"), 0x1006)
+
+    def test_bl_into_hooked_thumb_function(self):
+        # blx 0x1100 (into Thumb); mov r0, #5
+        code = bytes.fromhex("3e0000fa" "0500a0e3")
+        emu = self.emulator(platforms.Architecture.ARM_V7A, code, 0x1000)
+        seen = []
+        emu.hook_function(0x1100, lambda e: seen.append(e.get_isa_mode()))
+        emu.add_exit_point(0x1008)
+        emu.run()
+        self.assertEqual(seen, [True])
+        # The hook returns to the ARM caller.
+        self.assertEqual(emu.read_register("r0"), 5)
+        self.assertFalse(emu.get_isa_mode())
+
+    def test_set_thumb_before_and_after_initialization(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
+        self.assertFalse(emu.get_isa_mode())
+        emu.set_isa_mode(1)
+        self.assertTrue(emu.get_isa_mode())
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 1)
+        emu.set_isa_mode(0)
+        self.assertFalse(emu.get_isa_mode())
+        self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_m_profile_is_thumb_only(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7M, self.THUMB, 0x1000)
+        self.assertTrue(emu.get_isa_mode())
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_get_thumb_needs_arm32(self):
+        emu = emulators.AngrEmulator(
+            platforms.Platform(
+                platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+            )
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+
+    def test_cpsr_holds_flags_and_thumb_state(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.CMP, 0x1000)
+        emu.add_exit_point(0x1008)
+        emu.step()
+        # Z and C, in SVC mode with A, I and F masked, in ARM state
+        self.assertEqual(emu.read_register("cpsr"), 0x600001D3)
+        emu.write_register("cpsr", 0x88070030)
+        # N, Q and GE[2:0] stick, mode bits read fixed, and T moves pc.
+        self.assertEqual(emu.read_register("cpsr"), 0x880701F3)
+        self.assertTrue(emu.get_isa_mode())
+        self.assertEqual(emu.read_register("pc"), 0x1004)
+
+    def test_cpsr_before_initialization_sets_thumb_state(self):
+        emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
+        emu.write_register("cpsr", 0x20)
+        self.assertTrue(emu.get_isa_mode())
+        emu.add_exit_point(0x1006)
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 1)
+        self.assertEqual(emu.read_register("cpsr") & 0x20, 0x20)
+
+    def test_be8_cpsr_reports_big_endian_data(self):
+        emu = self.emulator(
+            platforms.Architecture.ARM_V7A, self.CMP, 0x1000, platforms.Byteorder.BIG
+        )
+        emu.add_exit_point(0x1008)
+        emu.step()
+        self.assertEqual(emu.read_register("cpsr") & 0x200, 0x200)
+
+
+class AngrArmIpTests(unittest.TestCase):
+    """ip is r12 on angr arm32, not pc.
+
+    The machdef passed "ip" to archinfo, which resolves it to pc, its
+    generic instruction pointer.
+    """
+
+    PLATFORMS = (
+        (platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG),
+    )
+
+    @staticmethod
+    def emulator(arch, byteorder):
+        emu = emulators.AngrEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, bytes(8))
+        emu.write_register("r12", 0x1234)
+        emu.write_register("pc", 0x1000)
+        emu.initialize()
+        return emu
+
+    def test_ip_reads_r12(self):
+        for arch, byteorder in self.PLATFORMS:
+            with self.subTest(arch=arch.name, byteorder=byteorder.name):
+                emu = self.emulator(arch, byteorder)
+                self.assertEqual(emu.read_register("ip"), 0x1234)
+
+    def test_ip_writes_r12(self):
+        for arch, byteorder in self.PLATFORMS:
+            with self.subTest(arch=arch.name, byteorder=byteorder.name):
+                emu = self.emulator(arch, byteorder)
+                emu.write_register("ip", 0x5678)
+                self.assertEqual(emu.read_register("r12"), 0x5678)
+                self.assertEqual(emu.read_register("pc"), 0x1000)
 
 
 class M68KAngrTests(unittest.TestCase):
@@ -1576,8 +2340,6 @@ os._exit(1)
             name: "Not supported by Panda"
             for name in (
                 "amd64_avx512",
-                "armv6m_thumb",
-                "armv7r",
                 "loongarch32",
                 "loongarch64",
                 "m68k",
@@ -1588,6 +2350,7 @@ os._exit(1)
                 "ppcvle",
                 "riscv32",
                 "riscv64",
+                "sparc32",
                 "v850",
                 "x86_16",
                 "xtensa",
@@ -1596,6 +2359,10 @@ os._exit(1)
         **{
             name: "The patched QEMU models SH-2A and SH-4, but not SH-1 or SH-2."
             for name in ("sh1", "sh2")
+        },
+        **{
+            name: "PANDA's BE32 is word-invariant, which SmallWorld doesn't model"
+            for name in ("armv4be", "armv4tbe", "armv5tbe")
         },
     },
 )
@@ -1647,10 +2414,7 @@ class PandaMachdefTests(unittest.TestCase):
 @platform_tests(
     "ghidra",
     unsupported={
-        **{
-            name: "Not supported by ghidra"
-            for name in ("amd64_avx512", "armv6m_thumb", "armv7r")
-        },
+        **{name: "Not supported by ghidra" for name in ("amd64_avx512",)},
         "ppcvle": "Upstream Ghidra has no 32-bit e200 language",
     },
 )
@@ -1709,11 +2473,13 @@ class PlatformDefMetadataTests(unittest.TestCase):
         platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
         return platforms.PlatformDef.for_platform(platform)
 
-    def test_armv6m_thumb_uses_thumb_capstone_mode(self):
+    def test_armv6m_uses_thumb_capstone_mode(self):
         # SW-081: the Thumb platform inherited CS_MODE_ARM, so a disassembler
         # built from capstone_mode decoded ARM instead of Thumb.
-        pdef = self._pdef(platforms.Architecture.ARM_V6M_THUMB)
-        self.assertEqual(pdef.capstone_mode, capstone.CS_MODE_THUMB)
+        pdef = self._pdef(platforms.Architecture.ARM_V6M)
+        self.assertEqual(
+            pdef.capstone_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
+        )
 
     def test_armv7r_has_v7_ghidra_language_id(self):
         # SW-164: v7R inherited None, skipping the p-code use/def analysis.
@@ -1807,6 +2573,486 @@ class GhidraMachdefLanguageIdTests(unittest.TestCase):
 
         # Guard against the loop silently skipping everything.
         self.assertGreater(checked, 0, msg="no concrete machine defs found")
+
+
+SPARC32_PLATFORM = platforms.Platform(
+    platforms.Architecture.SPARC32, platforms.Byteorder.BIG
+)
+
+
+def _sparc32_add(rd, rs1, rs2):
+    """Encode `add %rs1, %rs2, %rd` (register numbers, %i0 = 24)."""
+    return (2 << 30) | (rd << 25) | (rs1 << 14) | rs2
+
+
+class _SPARC32SetO0(state.models.sparc32.SPARC32Model):
+    """Sets %o0 and returns; runs in the caller's register window."""
+
+    name = "sparc32_unit_test_set_o0"
+    platform = SPARC32_PLATFORM
+    abi = platforms.ABI.NONE
+
+    def model(self, emulator):
+        emulator.write_register("o0", 0x99)
+
+
+class UnicornSPARCPatchTests(unittest.TestCase):
+    """Unicorn SPARC32 needs SmallWorld's translator patches, which upstream
+    Unicorn (and its PyPI wheel) lacks."""
+
+    def test_bundled_unicorn_has_fixes(self):
+        from smallworld.emulators.unicorn.machdefs import sparc
+
+        self.assertTrue(sparc.unicorn_has_sparc_fixes())
+
+    def test_unpatched_unicorn_is_refused(self):
+        from smallworld.emulators.unicorn.machdefs import sparc
+
+        with mock.patch.object(sparc, "unicorn_has_sparc_fixes", return_value=False):
+            with self.assertRaisesRegex(
+                exceptions.ConfigurationError, "unicorn-sparc-dynamic-npc-hook"
+            ):
+                emulators.UnicornEmulator(SPARC32_PLATFORM)
+
+
+class SPARC32Tests(unittest.TestCase):
+    """SPARC register windows and returns behave alike on every backend.
+
+    The program calls a function that opens a register window, writes a
+    local, computes its result in %i0 and returns through `ret; restore`.
+    The caller's %l and %i registers must come back unchanged, and the
+    result must arrive in the caller's %o0.  The checks cover the faults
+    each backend needs worked around:
+
+    - Unicorn 2.1.4 sent every jmpl-based return (`ret`, `retl`) to
+      address 1 while a code hook was installed (fixed by
+      nix/patches/unicorn-sparc-dynamic-npc-hook.patch);
+    - Ghidra's `save`/`restore` lose %l2 and %l7, and skip the window copy
+      unless DECOMPILE_MODE is 0;
+    - angr turns the p-code Ghidra emits after a `call` into a second
+      successor.
+    """
+
+    ENTRY = 0x1000
+    EXIT = 0x1008
+    MODEL = 0x2000
+    CODE = {
+        0x1000: 0x40000004,  # call 0x1010
+        0x1004: 0x01000000,  # nop (delay slot)
+        0x1008: 0x01000000,  # exit point
+        0x1010: 0x9DE3BFA0,  # save %sp, -96, %sp
+        0x1014: 0xA4102007,  # mov 7, %l2
+        0x1018: _sparc32_add(24, 24, 24),  # add %i0, %i0, %i0
+        0x101C: 0x81C7E008,  # ret
+        0x1020: 0x81E80000,  # restore (delay slot)
+    }
+    INITIAL = {
+        "o0": 0x15,
+        "l2": 0x22,
+        "l3": 0x33,
+        "l6": 0x66,
+        "l7": 0x77,
+        "i0": 0x44,
+        "sp": 0x8000,
+    }
+    EXPECTED = {
+        "o0": 0x2A,
+        "l2": 0x22,
+        "l3": 0x33,
+        "l6": 0x66,
+        "l7": 0x77,
+        "i0": 0x44,
+        "sp": 0x8000,
+        "pc": 0x1008,
+    }
+
+    def _image(self, code):
+        image = bytearray(max(code) + 4 - self.ENTRY)
+        for address, word in code.items():
+            offset = address - self.ENTRY
+            image[offset : offset + 4] = struct.pack(">I", word)
+        return bytes(image)
+
+    def _load(self, emu, code):
+        emu.map_memory(self.ENTRY, 0x1000)
+        emu.write_code(self.ENTRY, self._image(code))
+        # Stack below %sp only.  Ghidra keeps its register-window bank at
+        # 0x8000 in the register space; mapping RAM there once hid a bug that
+        # treated those stores as memory writes.
+        emu.map_memory(0x7000, 0x1000)
+        for name, value in self.INITIAL.items():
+            emu.write_register(name, value)
+        emu.write_register("pc", self.ENTRY)
+        emu.add_exit_point(self.EXIT)
+
+    def _run(self, emu, step):
+        if step:
+            for _ in range(20):
+                try:
+                    emu.step_instruction()
+                except exceptions.EmulationStop:
+                    return
+                if emu.read_register("pc") == self.EXIT:
+                    return
+            self.fail("did not reach the exit point")
+        else:
+            try:
+                emu.run()
+            except exceptions.EmulationStop:
+                pass
+
+    def _check_call(self, make_emulator):
+        for step in (False, True):
+            with self.subTest(step=step):
+                emu = make_emulator()
+                self._load(emu, self.CODE)
+                self._run(emu, step)
+                got = {name: emu.read_register(name) for name in self.EXPECTED}
+                self.assertEqual(
+                    {k: hex(v) for k, v in got.items()},
+                    {k: hex(v) for k, v in self.EXPECTED.items()},
+                )
+
+    def _check_model_return(self, make_emulator):
+        # A model returns to %o7 + 8, past the call and its delay slot.
+        emu = make_emulator()
+        code = {
+            0x1000: 0x40000000 | ((self.MODEL - 0x1000) >> 2),  # call MODEL
+            0x1004: 0x01000000,  # nop (delay slot)
+            0x1008: 0x01000000,  # exit point
+        }
+        self._load(emu, code)
+        _SPARC32SetO0(self.MODEL).apply(emu)
+        self._run(emu, step=False)
+        self.assertEqual(emu.read_register("pc"), self.EXIT)
+        self.assertEqual(emu.read_register("o0"), 0x99)
+
+    def test_platformdef(self):
+        pdef = platforms.PlatformDef.for_platform(SPARC32_PLATFORM)
+        self.assertEqual(pdef.registers["sp"].parent, "o6")
+        self.assertEqual(pdef.registers["fp"].parent, "i6")
+        self.assertLessEqual({"ret", "retl", "call", "ba,a"}, pdef.delay_slot_mnemonics)
+        self.assertIn("bne,a", pdef.conditional_branch_mnemonics)
+        self.assertNotIn("ba", pdef.conditional_branch_mnemonics)
+
+        md = capstone.Cs(pdef.capstone_arch, pdef.capstone_mode)
+        mnemonics = [i.mnemonic for i in md.disasm(self._image(self.CODE), self.ENTRY)]
+        self.assertEqual(
+            mnemonics,
+            ["call", "nop", "nop", "unimp", "save", "mov", "add", "ret", "restore"],
+        )
+
+    def test_unicorn_call(self):
+        self._check_call(lambda: emulators.UnicornEmulator(SPARC32_PLATFORM))
+
+    def test_unicorn_model_return(self):
+        self._check_model_return(lambda: emulators.UnicornEmulator(SPARC32_PLATFORM))
+
+    def test_angr_call(self):
+        self._check_call(lambda: emulators.AngrEmulator(SPARC32_PLATFORM))
+
+    def test_angr_model_return(self):
+        self._check_model_return(lambda: emulators.AngrEmulator(SPARC32_PLATFORM))
+
+    def test_angr_window_copy_fix(self):
+        # Without the fix, Ghidra's p-code hands back %l3's value for %l2
+        # and %l6's for %l7; make sure the test above would catch that.
+        from smallworld.emulators.angr.machdefs import sparc as angr_sparc
+
+        emu = emulators.AngrEmulator(SPARC32_PLATFORM)
+        self._load(emu, self.CODE)
+        with mock.patch.object(angr_sparc, "_fix_window_copies", lambda irsb: None):
+            self._run(emu, step=False)
+        self.assertEqual(emu.read_register("l2"), 0x33)
+        self.assertEqual(emu.read_register("l7"), 0x66)
+
+    def test_ghidra_call(self):
+        _ensure_pyghidra_started()
+        self._check_call(lambda: emulators.GhidraEmulator(SPARC32_PLATFORM))
+
+    def test_ghidra_model_return(self):
+        _ensure_pyghidra_started()
+        self._check_model_return(lambda: emulators.GhidraEmulator(SPARC32_PLATFORM))
+
+    def test_ghidra_window_copy_fix(self):
+        _ensure_pyghidra_started()
+        emu = emulators.GhidraEmulator(SPARC32_PLATFORM)
+        self._load(emu, self.CODE)
+        with mock.patch.object(type(emu.machdef), "fixes_pcode", False):
+            self._run(emu, step=False)
+        self.assertEqual(emu.read_register("l2"), 0x33)
+        self.assertEqual(emu.read_register("l7"), 0x66)
+
+
+def _sparc32_op3(rd, op3, rs1, imm=None, rs2=0):
+    """Encode a format-3 (op 2) instruction with an immediate or %rs2."""
+    word = (2 << 30) | (rd << 25) | (op3 << 19) | (rs1 << 14)
+    if imm is None:
+        return word | rs2
+    return word | (1 << 13) | (imm & 0x1FFF)
+
+
+_SPARC32_NOP = 0x01000000
+
+_SPARC32_CMP_G0_0 = _sparc32_op3(0, 0x14, 0, 0)  # subcc %g0, 0, %g0: sets Z
+
+
+def _sparc32_mov(imm, rd):
+    return _sparc32_op3(rd, 0x02, 0, imm)  # or %g0, imm, %rd
+
+
+def _sparc32_wr_y(rs1):
+    return _sparc32_op3(0, 0x30, rs1, 0)  # wr %rs1, 0, %y
+
+
+class SPARC32BackendDifferenceTests(unittest.TestCase):
+    """Pins where the SPARC32 backends knowingly differ (see support.rst)."""
+
+    ENTRY = 0x1000
+
+    def _load(self, emu, code, exit_point):
+        emu.map_memory(self.ENTRY, 0x1000)
+        image = bytearray(max(code) + 4 - self.ENTRY)
+        for address, word in code.items():
+            offset = address - self.ENTRY
+            image[offset : offset + 4] = struct.pack(">I", word)
+        emu.write_code(self.ENTRY, bytes(image))
+        for name in ("o0", "o1", "o2", "g1"):
+            emu.write_register(name, 0)
+        emu.write_register("pc", self.ENTRY)
+        emu.add_exit_point(exit_point)
+
+    def _emulators(self):
+        def ghidra():
+            _ensure_pyghidra_started()
+            return emulators.GhidraEmulator(SPARC32_PLATFORM)
+
+        return {
+            "unicorn": lambda: emulators.UnicornEmulator(SPARC32_PLATFORM),
+            "angr": lambda: emulators.AngrEmulator(SPARC32_PLATFORM),
+            "ghidra": ghidra,
+        }
+
+    def _run(self, emu):
+        try:
+            emu.run()
+        except exceptions.EmulationStop:
+            pass
+
+    def _step_from(self, emu, address):
+        """Step until pc is `address`, then step once more; the new pc."""
+        # angr cannot read registers before its first step.
+        if address != self.ENTRY:
+            for _ in range(8):
+                emu.step_instruction()
+                if emu.read_register("pc") == address:
+                    break
+            self.assertEqual(emu.read_register("pc"), address)
+        try:
+            emu.step_instruction()
+        except exceptions.EmulationStop:
+            pass
+        return emu.read_register("pc")
+
+    # cmp sets Z, so `bne,a` is not taken and annuls its slot at 0x100c.
+    UNTAKEN_BNE_A = {
+        0x1000: _SPARC32_CMP_G0_0,
+        0x1004: _SPARC32_NOP,
+        0x1008: 0x32800004,  # bne,a 0x1018
+        0x100C: _sparc32_mov(2, 8),  # annulled
+        0x1010: _sparc32_mov(1, 8),
+        0x1014: _SPARC32_NOP,
+        0x1018: _SPARC32_NOP,  # exit point
+    }
+    BA_A = {
+        0x1000: 0x30800003,  # ba,a 0x100c
+        0x1004: _sparc32_mov(2, 8),  # annulled
+        0x1008: _sparc32_mov(3, 8),  # skipped
+        0x100C: _sparc32_mov(1, 8),
+        0x1010: _SPARC32_NOP,
+        0x1014: _SPARC32_NOP,
+        0x1018: _SPARC32_NOP,  # exit point
+    }
+
+    def test_annulled_branch_run(self):
+        for name, make in self._emulators().items():
+            for label, code in (("bne,a", self.UNTAKEN_BNE_A), ("ba,a", self.BA_A)):
+                with self.subTest(emulator=name, branch=label):
+                    emu = make()
+                    self._load(emu, code, 0x1018)
+                    self._run(emu)
+                    self.assertEqual(emu.read_register("o0"), 1)
+
+    def test_annulled_branch_step(self):
+        # Stepping an annulled branch on Unicorn also runs the instruction
+        # after the annulled slot; angr and Ghidra stop before it.
+        expected = {
+            "unicorn": {"bne,a": (0x1014, 1), "ba,a": (0x1010, 1)},
+            "angr": {"bne,a": (0x1010, 0), "ba,a": (0x100C, 0)},
+            "ghidra": {"bne,a": (0x1010, 0), "ba,a": (0x100C, 0)},
+        }
+        for name, make in self._emulators().items():
+            for label, code, branch in (
+                ("bne,a", self.UNTAKEN_BNE_A, 0x1008),
+                ("ba,a", self.BA_A, 0x1000),
+            ):
+                with self.subTest(emulator=name, branch=label):
+                    emu = make()
+                    self._load(emu, code, 0x1018)
+                    pc = self._step_from(emu, branch)
+                    self.assertEqual(
+                        (pc, emu.read_register("o0")), expected[name][label]
+                    )
+
+    MULSCC = {
+        0x1000: _SPARC32_CMP_G0_0,
+        0x1004: _sparc32_wr_y(0),  # Y = 0: the low bit is clear
+        0x1008: _SPARC32_NOP,
+        0x100C: _SPARC32_NOP,
+        0x1010: _SPARC32_NOP,
+        0x1014: _sparc32_mov(5, 8),
+        0x1018: _sparc32_mov(3, 9),
+        0x101C: _sparc32_op3(10, 0x24, 8, rs2=9),  # mulscc %o0, %o1, %o2
+        0x1020: _SPARC32_NOP,
+        0x1024: _SPARC32_NOP,  # exit point
+    }
+
+    def test_mulscc(self):
+        for name, make in self._emulators().items():
+            for step in (False, True):
+                with self.subTest(emulator=name, step=step):
+                    emu = make()
+                    self._load(emu, self.MULSCC, 0x1024)
+                    if name == "angr":
+                        # Refused at the mulscc, after the code before it.
+                        with self.assertRaises(
+                            exceptions.EmulationExecInvalidFailure
+                        ) as ctx:
+                            if step:
+                                for _ in range(10):
+                                    emu.step_instruction()
+                            else:
+                                emu.run()
+                        self.assertEqual(ctx.exception.pc, 0x101C)
+                        self.assertIn("mulscc", ctx.exception.args[0])
+                        self.assertEqual(emu.read_register("o1"), 3)
+                    else:
+                        if step:
+                            self._step_from(emu, 0x101C)
+                        else:
+                            self._run(emu)
+                        self.assertEqual(emu.read_register("o2"), 2)
+
+    def test_divide_overflow(self):
+        # Y:0 = 0x20_00000000, divided by 16, does not fit in 32 bits.  V8
+        # saturates (Unicorn); Ghidra's sleigh truncates (angr and Ghidra).
+        code = {
+            0x1000: _sparc32_mov(0x20, 1),
+            0x1004: _sparc32_wr_y(1),
+            0x1008: _SPARC32_NOP,
+            0x100C: _SPARC32_NOP,
+            0x1010: _SPARC32_NOP,
+            0x1014: _sparc32_op3(8, 0x0E, 0, 16),  # udiv %g0, 16, %o0
+            0x1018: _sparc32_op3(9, 0x0F, 0, 16),  # sdiv %g0, 16, %o1
+            0x101C: _SPARC32_NOP,
+            0x1020: _SPARC32_NOP,  # exit point
+        }
+        expected = {
+            "unicorn": (0xFFFFFFFF, 0x7FFFFFFF),
+            "angr": (0, 0),
+            "ghidra": (0, 0),
+        }
+        for name, make in self._emulators().items():
+            with self.subTest(emulator=name):
+                emu = make()
+                self._load(emu, code, 0x1020)
+                self._run(emu)
+                self.assertEqual(
+                    (emu.read_register("o0"), emu.read_register("o1")),
+                    expected[name],
+                )
+
+    def test_npc_unsupported(self):
+        for name, make in self._emulators().items():
+            with self.subTest(emulator=name):
+                emu = make()
+                code = {self.ENTRY: _SPARC32_NOP, self.ENTRY + 4: _SPARC32_NOP}
+                self._load(emu, code, self.ENTRY + 8)
+                emu.step_instruction()  # angr reads registers only after a step
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.read_register("npc")
+                with self.assertRaises(exceptions.UnsupportedRegisterError):
+                    emu.write_register("npc", 0x2000)
+
+    def test_symbolic_save_refused(self):
+        _ensure_pyghidra_started()
+        emu = emulators.ghidra.GhidraSymbolicEmulator(SPARC32_PLATFORM)
+        code = SPARC32Tests.CODE
+        self._load(emu, code, SPARC32Tests.EXIT)
+        emu.write_register("sp", 0x8000)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            for _ in range(5):
+                emu.step_instruction()
+        self.assertEqual(ctx.exception.pc, 0x1010)  # save
+
+
+class SPARC32ModelTests(unittest.TestCase):
+    def test_errno(self):
+        from smallworld.state.models.errno import ErrnoResolver
+
+        resolver = ErrnoResolver.for_platform(SPARC32_PLATFORM, platforms.ABI.SYSTEMV)
+        # Generic up to ERANGE, SunOS numbering above.
+        self.assertEqual(resolver.get_label(34), "ERANGE")
+        self.assertEqual(resolver.get_label(11), "EAGAIN")
+        self.assertEqual(resolver.get_label(36), "EINPROGRESS")
+        self.assertEqual(resolver.get_label(63), "ENAMETOOLONG")
+        self.assertEqual(resolver.get_label(90), "ENOSYS")
+        self.assertEqual(resolver.get_description(90), "Function not implemented")
+
+    def test_open_flags(self):
+        from smallworld.state.models.sparc32.systemv.posix.fcntl import SPARC32SysVOpen
+
+        model = SPARC32SysVOpen(0x1000)
+        # (readable, writable, create, truncate, append)
+        self.assertEqual(model._decode_flags(0x202), (True, True, True, False, False))
+        self.assertEqual(model._decode_flags(0x401), (False, True, False, True, False))
+        self.assertEqual(model._decode_flags(0x009), (False, True, False, False, True))
+
+    def test_sigprocmask_how(self):
+        from smallworld.state.models.sparc32.systemv.posix.signal import (
+            SPARC32SysVSigprocmask,
+        )
+
+        emu = emulators.UnicornEmulator(SPARC32_PLATFORM)
+        emu.map_memory(0x4000, 0x1000)
+        newset = 0x4000
+        emu.write_memory(newset, b"\x01" + b"\0" * 127)
+        model = SPARC32SysVSigprocmask(0x1000)
+        model.allow_imprecise = True
+        for how, mask in ((1, b"\x01"), (2, b"\x00"), (4, b"\x01")):
+            with self.subTest(how=how):
+                emu.write_register("o0", how)
+                emu.write_register("o1", newset)
+                emu.write_register("o2", 0)
+                emu.write_register("o7", 0x2000)
+                model.model(emu)
+                self.assertEqual(emu.read_register("o0"), 0)
+                self.assertEqual(model.sigmask[:1], mask)
+        emu.write_register("o0", 3)
+        emu.write_register("o1", newset)
+        model.model(emu)
+        self.assertEqual(emu.read_register("o0"), 0xFFFFFFFF)
+
+    def test_v9_elf_refused(self):
+        path = pathlib.Path(__file__).parent / "rela" / "rela.sparc32.elf"
+        image = bytearray(path.read_bytes())
+        for machine in (18, 43):
+            with self.subTest(e_machine=machine):
+                image[18:20] = machine.to_bytes(2, "big")
+                with self.assertRaisesRegex(exceptions.ConfigurationError, "V8\\+/V9"):
+                    state.memory.code.Executable.from_elf(
+                        io.BytesIO(bytes(image)), platform=SPARC32_PLATFORM
+                    )
 
 
 class CoverageHarnessTests(unittest.TestCase):
@@ -2565,10 +3811,31 @@ class TritonMachdefTests(unittest.TestCase):
             )
         )
 
+    def test_triton_armv4t(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv4(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+            )
+        )
+
     def test_triton_armv5t(self):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv6k(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
             )
         )
 
@@ -2579,17 +3846,17 @@ class TritonMachdefTests(unittest.TestCase):
             )
         )
 
-    def test_triton_armv6m_thumb(self):
-        self.run_test(
-            platforms.Platform(
-                platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-            )
-        )
-
     def test_triton_armv7m(self):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv7em(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
             )
         )
 
@@ -2604,6 +3871,27 @@ class TritonMachdefTests(unittest.TestCase):
         self.run_test(
             platforms.Platform(
                 platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8m(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8M, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8r(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8R, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv8a(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
             )
         )
 
@@ -2639,6 +3927,9 @@ class TritonMachdefTests(unittest.TestCase):
 
     def test_xtensa_raises_configuration_error(self):
         self._assert_rejects(platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE)
+
+    def test_sparc32_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.SPARC32, platforms.Byteorder.BIG)
 
 
 @unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")
@@ -2871,7 +4162,24 @@ class StyxMachdefTests(unittest.TestCase):
     def _machdef_for(self, platform):
         return emulators.styx.machdefs.StyxMachineDef.for_platform(platform)
 
-    def test_armhf_machdef_resolves(self):
+    def test_armv7em_machdef_resolves_fpu(self):
+        # The Cortex-M4F target exposes its FPv4-SP registers.
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7EM, platforms.Byteorder.LITTLE
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "sp", "lr", "pc", "fpscr", "s0", "s31", "d0", "d15"):
+            self.assertTrue(machdef.has_register(name))
+
+    def test_armv5t_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
+            self.assertTrue(machdef.has_register(name))
+
+    def test_armv7a_machdef_resolves(self):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
         )
@@ -2880,16 +4188,8 @@ class StyxMachdefTests(unittest.TestCase):
         for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
             self.assertTrue(
                 machdef.has_register(name),
-                msg=f"armhf machdef missing register '{name}'",
+                msg=f"armv7a machdef missing register '{name}'",
             )
-
-    def test_armel_machdef_resolves(self):
-        platform = platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
-        machdef = self._machdef_for(platform)
-        for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
-            self.assertTrue(machdef.has_register(name))
 
     def test_ppc_machdef_resolves(self):
         platform = platforms.Platform(
@@ -3070,6 +4370,283 @@ class StyxEmulatorTests(unittest.TestCase):
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxHookExecutionTests(unittest.TestCase):
+    """Hooks that touch emulator state while Styx runs."""
+
+    def _run(self, hook):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # ldr r0, [r1]; nop; nop
+        emu.write_code(0x1000, bytes.fromhex("000091e5" "00f020e3" "00f020e3"))
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("r1", 0x2000)
+        emu.add_exit_point(0x1008)
+        hook(emu)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_instruction_hook_reads_and_writes_state(self):
+        def hook(emu):
+            emu.write_memory_content(0x2000, (7).to_bytes(4, "little"))
+
+            def cb(e):
+                e.write_register_content("r2", e.read_register_content("r0") + 1)
+                e.write_memory_content(0x2100, e.read_memory_content(0x2000, 4))
+
+            emu.hook_instruction(0x1004, cb)
+
+        emu = self._run(hook)
+        self.assertEqual(emu.read_register_content("r2"), 8)
+        self.assertEqual(emu.read_memory_content(0x2100, 4), (7).to_bytes(4, "little"))
+
+    def test_memory_read_hook_substitutes_value(self):
+        def hook(emu):
+            emu.hook_memory_read(
+                0x2000, 0x2004, lambda e, addr, size, data: (42).to_bytes(4, "little")
+            )
+
+        self.assertEqual(self._run(hook).read_register_content("r0"), 42)
+
+    def test_memory_read_hook_rejects_a_wrong_length(self):
+        emus = []
+
+        def hook(emu):
+            emus.append(emu)
+            emu.write_memory_content(0x2000, bytes(range(8)))
+            emu.hook_memory_read(0x2000, 0x2004, lambda e, addr, size, data: bytes(8))
+
+        with self.assertRaises(exceptions.EmulationError):
+            self._run(hook)
+        self.assertEqual(emus[0].read_memory_content(0x2004, 4), bytes(range(4, 8)))
+
+    def test_hook_exception_reaches_the_caller(self):
+        # Styx aborts the process on an exception from a hook.
+        def hook(emu):
+            def cb(e):
+                raise ValueError("from the hook")
+
+            emu.hook_instruction(0x1004, cb)
+
+        with self.assertRaisesRegex(ValueError, "from the hook"):
+            self._run(hook)
+
+    def test_emulation_stop_from_a_hook_ends_the_run(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.StyxEmulator(platform)
+        # nop; mov r3, #1; nop
+        emu.write_code(0x1000, bytes.fromhex("00f020e3" "0130a0e3" "00f020e3"))
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("r3", 0)
+        emu.add_exit_point(0x1008)
+
+        def cb(e):
+            raise exceptions.EmulationStop()
+
+        emu.hook_instruction(0x1004, cb)
+        emu.run()
+        # Stopped before the hooked mov, as Unicorn does; ignoring the stop
+        # would run on to the exit point.
+        self.assertEqual(emu.read_register_content("pc"), 0x1004)
+        self.assertEqual(emu.read_register_content("r3"), 0)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxArmHookRegisterTests(unittest.TestCase):
+    """ARM register aliases and the status register inside Styx hooks.
+
+    A hook reaches registers through the CPU it's handed, which knows only
+    the core registers and the status register by their plain names, so
+    aliases (ip, fp, r13, ...) and M-profile's xPSR were unreachable.
+    """
+
+    A_PROFILES = (platforms.Architecture.ARM_V6K, platforms.Architecture.ARM_V7A)
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+    )
+    ALIASES = {
+        "sb": "r9",
+        "sl": "r10",
+        "fp": "r11",
+        "ip": "r12",
+        "r13": "sp",
+        "r14": "lr",
+    }
+
+    def run_hooked(self, arch, cb):
+        emu = emulators.StyxEmulator(
+            platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        )
+        if arch in self.M_PROFILES:
+            emu.write_code(0x1000, bytes.fromhex("00bf00bf00bf"))
+        else:
+            emu.write_code(0x1000, bytes.fromhex("00f020e3" * 3))
+        emu.write_register_content("pc", 0x1000)
+        emu.add_exit_point(0x1008 if arch in self.A_PROFILES else 0x1004)
+        emu.hook_instruction(0x1000, cb)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_aliases_in_a_hook(self):
+        for arch in self.A_PROFILES + self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = {}
+
+                def cb(e):
+                    for n, (alias, base) in enumerate(self.ALIASES.items()):
+                        e.write_register_content(base, 0x100 + n)
+                        seen[f"read {alias}"] = e.read_register_content(alias)
+                        e.write_register_content(alias, 0x200 + n)
+                        seen[f"write {alias}"] = e.read_register_content(base)
+                    seen["read r15"] = e.read_register_content("r15")
+                    seen["read pc"] = e.read_register_content("pc")
+
+                self.run_hooked(arch, cb)
+                for n, alias in enumerate(self.ALIASES):
+                    self.assertEqual(seen[f"read {alias}"], 0x100 + n, alias)
+                    self.assertEqual(seen[f"write {alias}"], 0x200 + n, alias)
+                self.assertEqual(seen["read r15"], seen["read pc"])
+
+    def test_a_profile_cpsr_in_a_hook(self):
+        for arch in self.A_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = []
+                emu = self.run_hooked(
+                    arch, lambda e: seen.append(e.read_register_content("cpsr"))
+                )
+                self.assertEqual(seen, [emu.read_register_content("cpsr")])
+
+    def test_m_profile_psr_in_a_hook(self):
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                seen = []
+
+                def cb(e):
+                    seen.append(e.read_register_content("psr"))
+                    seen.append(e.read_register_content("cpsr"))
+
+                emu = self.run_hooked(arch, cb)
+                psr = emu.read_register_content("psr")
+                # The xPSR's Thumb bit
+                self.assertTrue(psr & (1 << 24))
+                self.assertEqual(seen, [psr, psr])
+
+    def test_fp_registers_in_a_hook_are_unsupported(self):
+        for reg in ("s0", "d0", "fpscr"):
+            for write in (False, True):
+                with self.subTest(reg=reg, write=write):
+
+                    def cb(e):
+                        if write:
+                            e.write_register_content(reg, 0)
+                        else:
+                            e.read_register_content(reg)
+
+                    with self.assertRaisesRegex(
+                        exceptions.UnsupportedRegisterError, "hooks can't reach"
+                    ):
+                        self.run_hooked(platforms.Architecture.ARM_V7EM, cb)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxThumbOnlyPcTests(unittest.TestCase):
+    """Every name for pc keeps the Thumb bit on Thumb-only platforms.
+
+    Only "pc" itself had bit 0 set on the way in, so an even address written
+    as r15 or PC left the core in ARM state, which M-profile doesn't have.
+    """
+
+    def test_pc_names(self):
+        for name in ("pc", "r15", "PC"):
+            with self.subTest(name=name):
+                emu = emulators.StyxEmulator(
+                    platforms.Platform(
+                        platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+                    )
+                )
+                # movs r0, #1; movs r1, #2; movs r2, #3
+                emu.write_code(0x1000, bytes.fromhex("012002210322"))
+                emu.write_register_content(name, 0x1000)
+                emu.add_exit_point(0x1006)
+                try:
+                    emu.run()
+                except exceptions.EmulationExitpoint:
+                    pass
+                self.assertEqual(emu.read_register_content("r2"), 3)
+                self.assertEqual(emu.read_register_content(name), 0x1006)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxArmHookReturnTests(unittest.TestCase):
+    """A Styx function hook returns to its caller's instruction set.
+
+    The return cleared bit 0 of lr on every platform but Thumb-only ones, so
+    a model called from Thumb code returned in ARM state, decoded the caller
+    as ARM and ran on past its exit point.
+    """
+
+    PLATFORMS = (platforms.Architecture.ARM_V5T, platforms.Architecture.ARM_V7A)
+
+    def call_model(self, arch, code, pc, exit_point):
+        emu = emulators.StyxEmulator(
+            platforms.Platform(arch, platforms.Byteorder.LITTLE)
+        )
+        emu.write_code(0x1000, code)
+        emu.write_code(0x1100, bytes(16))
+        emu.write_register_content("r0", 0)
+        emu.write_register_content("pc", pc)
+        emu.add_exit_point(exit_point)
+        emu.hook_function(0x1100, lambda e: None)
+        steps = []
+
+        def count(e):
+            # A wrong return runs on forever; stop it instead.
+            steps.append(e.read_register_content("pc"))
+            if len(steps) > 16:
+                raise exceptions.EmulationStop()
+
+        emu.hook_instructions(count)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_thumb_caller_returns_in_thumb_state(self):
+        # bl 0x1100; movs r0, #5
+        for arch in self.PLATFORMS:
+            with self.subTest(arch=arch.name):
+                emu = self.call_model(
+                    arch, bytes.fromhex("00f07ef80520"), 0x1001, 0x1006
+                )
+                self.assertEqual(emu.read_register_content("pc"), 0x1006)
+                self.assertEqual(emu.read_register_content("r0"), 5)
+                self.assertTrue(emu.read_register_content("cpsr") & 0x20)
+
+    def test_arm_caller_returns_in_arm_state(self):
+        # bl 0x1100; mov r0, #5
+        for arch in self.PLATFORMS:
+            with self.subTest(arch=arch.name):
+                emu = self.call_model(
+                    arch, bytes.fromhex("3e0000eb0500a0e3"), 0x1000, 0x1008
+                )
+                self.assertEqual(emu.read_register_content("pc"), 0x1008)
+                self.assertEqual(emu.read_register_content("r0"), 5)
+                self.assertFalse(emu.read_register_content("cpsr") & 0x20)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxPowerPCExecutionTests(unittest.TestCase):
     """End-to-end execution checks for PowerPC on Styx.
 
@@ -3242,12 +4819,12 @@ class StyxFuzzScenarioTests(unittest.TestCase):
                                 [
                                     "run_case.py",
                                     "styx.afl_fuzz",
-                                    "armhf",
+                                    "armv7a",
                                     "@@",
                                 ],
                             ):
                                 result = styx_fuzz_scenario.run_case(
-                                    "styx.afl_fuzz", "armhf", [seed_path]
+                                    "styx.afl_fuzz", "armv7a", [seed_path]
                                 )
 
         self.assertEqual(result, 0)
@@ -3970,7 +5547,7 @@ class MemoryHookRangeTests(unittest.TestCase):
 
 
 class ArmInstructionPlatformTests(unittest.TestCase):
-    """ARMV5TInstruction claimed ARM_V6M; ARMV6MThumbInstruction was missing."""
+    """ARMV5TInstruction claimed ARM_V6M."""
 
     def test_armv5t_instruction_platform(self):
         from smallworld.instructions.arm import ARMV5TInstruction
@@ -3979,31 +5556,252 @@ class ArmInstructionPlatformTests(unittest.TestCase):
             ARMV5TInstruction.platform.architecture, platforms.Architecture.ARM_V5T
         )
 
+    def test_armv6k_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV6KInstruction
+
+        self.assertEqual(
+            ARMV6KInstruction.platform.architecture, platforms.Architecture.ARM_V6K
+        )
+        self.assertEqual(ARMV6KInstruction.cs_mode, capstone.CS_MODE_ARM)
+
+    def test_armv8m_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8MInstruction
+
+        self.assertEqual(
+            ARMV8MInstruction.platform.architecture, platforms.Architecture.ARM_V8M
+        )
+        self.assertEqual(
+            ARMV8MInstruction.cs_mode,
+            capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS | capstone.CS_MODE_V8,
+        )
+
+    def test_armv8r_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8RInstruction
+
+        self.assertEqual(
+            ARMV8RInstruction.platform.architecture, platforms.Architecture.ARM_V8R
+        )
+        self.assertEqual(
+            ARMV8RInstruction.cs_mode, capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+        )
+
+    def test_armv8a_instruction_platform(self):
+        from smallworld.instructions.arm import ARMV8AInstruction
+
+        self.assertEqual(
+            ARMV8AInstruction.platform.architecture, platforms.Architecture.ARM_V8A
+        )
+        self.assertEqual(
+            ARMV8AInstruction.cs_mode, capstone.CS_MODE_ARM | capstone.CS_MODE_V8
+        )
+
     def test_armv6m_instruction_platform(self):
         from smallworld.instructions.arm import ARMV6MInstruction
 
         self.assertEqual(
             ARMV6MInstruction.platform.architecture, platforms.Architecture.ARM_V6M
         )
-        self.assertEqual(ARMV6MInstruction.cs_mode, capstone.CS_MODE_ARM)
-
-    def test_armv6m_thumb_instruction(self):
-        from smallworld.instructions.arm import ARMV6MThumbInstruction
-
         self.assertEqual(
-            ARMV6MThumbInstruction.platform.architecture,
-            platforms.Architecture.ARM_V6M_THUMB,
+            ARMV6MInstruction.cs_mode, capstone.CS_MODE_THUMB | capstone.CS_MODE_MCLASS
         )
-        self.assertEqual(ARMV6MThumbInstruction.cs_mode, capstone.CS_MODE_THUMB)
+
+    def test_unicorn_failure_reports_the_platforms_format(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.map_memory(0x1000, 0x1000)
+        # vadd.f64 d0, d0, d1, with the FPU still disabled
+        emu.write_memory_content(0x1000, bytes.fromhex("010b30ee"))
+        emu.write_register("pc", 0x1000)
+        emu.add_exit_point(0x1004)
+        with self.assertRaises(exceptions.EmulationExecInvalidFailure) as ctx:
+            emu.run()
+        self.assertEqual(type(ctx.exception.instruction).__name__, "ARMV7AInstruction")
+
+    def test_thumb_on_a_profile_uses_capstone_use_def(self):
+        # The A-profile language decodes A32, so a Thumb instruction there
+        # falls back to Capstone rather than reporting nothing.
+        cs_insn = _disasm_one(
+            b"\x01\x20", 0x1000, capstone.CS_ARCH_ARM, capstone.CS_MODE_THUMB
+        )  # movs r0, #1
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        insn = Instruction.from_capstone(cs_insn, platform=platform)
+        self.assertEqual(type(insn).__name__, "ARMV7AInstruction")
+        self.assertIn("r0", {op.name for op in insn.writes})
+
+    def test_from_capstone_with_platform_picks_its_format(self):
+        # Every A32 platform shares Capstone's ARM architecture and mode, so
+        # only the platform tells their formats apart.
+        cs_insn = _disasm_one(
+            bytes.fromhex("010050e1"),
+            0x1000,
+            capstone.CS_ARCH_ARM,
+            capstone.CS_MODE_ARM,
+        )  # cmp r0, r1
+        for arch in (
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7R,
+            platforms.Architecture.ARM_V8A,
+            platforms.Architecture.ARM_V8R,
+        ):
+            platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+            insn = Instruction.from_capstone(cs_insn, platform=platform)
+            self.assertEqual(insn.platform, platform)
 
     def test_from_bytes_decodes_thumb(self):
         thumb = platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
         # movs r0, #1 in thumb encoding
         insn = Instruction.from_bytes(b"\x01\x20", 0x1000, thumb)
-        self.assertEqual(type(insn).__name__, "ARMV6MThumbInstruction")
+        self.assertEqual(type(insn).__name__, "ARMV6MInstruction")
         self.assertIn("movs", insn.disasm)
+
+
+class MProfileDecodeTests(unittest.TestCase):
+    """M-profile decodes its special-register moves.
+
+    Without CS_MODE_MCLASS, Capstone doesn't know primask, control and the
+    rest, so mrs and msr on them didn't decode at all.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    SPECIAL = {
+        "eff31080": "mrs r0, primask",
+        "80f31188": "msr basepri, r0",
+        "eff31480": "mrs r0, control",
+        "80f30a88": "msr msplim, r0",
+    }
+
+    @staticmethod
+    def platform(arch):
+        return platforms.Platform(arch, platforms.Byteorder.LITTLE)
+
+    def test_platform_capstone_mode_decodes_special_registers(self):
+        for arch in self.M_PROFILES:
+            pdef = platforms.PlatformDef.for_platform(self.platform(arch))
+            for raw, text in self.SPECIAL.items():
+                with self.subTest(arch=arch.name, insn=text):
+                    insn = _disasm_one(
+                        bytes.fromhex(raw),
+                        0x1000,
+                        pdef.capstone_arch,
+                        pdef.capstone_mode,
+                    )
+                    self.assertEqual(f"{insn.mnemonic} {insn.op_str}", text)
+
+    def test_from_bytes_decodes_special_registers(self):
+        for arch in self.M_PROFILES:
+            for raw, text in self.SPECIAL.items():
+                with self.subTest(arch=arch.name, insn=text):
+                    insn = Instruction.from_bytes(
+                        bytes.fromhex(raw), 0x1000, self.platform(arch)
+                    )
+                    self.assertEqual(insn.disasm, f"1000 {text}")
+
+    def test_from_capstone_matches_the_platforms_mode(self):
+        # Without a platform, from_capstone matches the instruction's mode
+        # exactly, so the format must use the platform's mode.
+        pdef = platforms.PlatformDef.for_platform(
+            self.platform(platforms.Architecture.ARM_V8M)
+        )
+        cs_insn = _disasm_one(
+            bytes.fromhex("eff31080"), 0x1000, pdef.capstone_arch, pdef.capstone_mode
+        )
+        insn = Instruction.from_capstone(cs_insn)
+        self.assertEqual(type(insn).__name__, "ARMV8MInstruction")
+
+    def test_undecodable_bytes_raise_decode_error(self):
+        # The first half of a 32-bit Thumb instruction.
+        with self.assertRaises(exceptions.InstructionDecodeError) as ctx:
+            Instruction.from_bytes(
+                bytes.fromhex("eff3"),
+                0x1000,
+                self.platform(platforms.Architecture.ARM_V7M),
+            )
+        self.assertIn("eff3", str(ctx.exception))
+        self.assertIn("0x1000", str(ctx.exception))
+
+
+class UnicornDisassemblerModeTests(unittest.TestCase):
+    """Unicorn's disassembler keeps the platform's mode across interworking.
+
+    Switching between ARM and Thumb reset the mode to bare ARM or Thumb,
+    dropping V8 and MCLASS, so v8 and M-profile special-register
+    instructions stopped decoding as soon as pc was written.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V7EM,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    def stepped(self, arch, code, pc=0x1000, byteorder=platforms.Byteorder.LITTLE):
+        """The instruction after the first, once pc is written and stepped"""
+        emu = emulators.UnicornEmulator(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        for reg in ("r0", "r1", "r2"):
+            emu.write_register(reg, 0)
+        emu.write_register("pc", pc)
+        emu.add_exit_point(0x1100)
+        emu.step()
+        insn = emu.current_instruction()
+        self.assertIsNotNone(insn)
+        return f"{insn.mnemonic} {insn.op_str}"
+
+    def test_v8_arm_code_keeps_v8(self):
+        # nop; crc32b r0, r1, r2
+        for arch in (platforms.Architecture.ARM_V8A, platforms.Architecture.ARM_V8R):
+            with self.subTest(arch=arch.name):
+                self.assertEqual(
+                    self.stepped(arch, bytes.fromhex("00f020e3420001e1")),
+                    "crc32b r0, r1, r2",
+                )
+
+    def test_v8_thumb_code_keeps_v8(self):
+        # nop; crc32b r0, r1, r2, entered through an odd pc
+        self.assertEqual(
+            self.stepped(
+                platforms.Architecture.ARM_V8A,
+                bytes.fromhex("00bfc1fa82f0"),
+                pc=0x1001,
+            ),
+            "crc32b r0, r1, r2",
+        )
+
+    def test_m_profile_keeps_mclass(self):
+        # nop; mrs r0, primask
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                self.assertEqual(
+                    self.stepped(arch, bytes.fromhex("00bfeff31080")),
+                    "mrs r0, primask",
+                )
+
+    def test_be32_keeps_big_endian(self):
+        # mov r0, r0; add r0, r1, r2, big-endian
+        self.assertEqual(
+            self.stepped(
+                platforms.Architecture.ARM_V5T,
+                bytes.fromhex("e1a00000e0810002"),
+                byteorder=platforms.Byteorder.BIG,
+            ),
+            "add r0, r1, r2",
+        )
 
 
 class PPC64InstructionTests(unittest.TestCase):
@@ -4275,14 +6073,14 @@ class SysVFloatArgRegisterTests(unittest.TestCase):
             MIPS64SysVCallingContext._double_arg_regs,
         )
 
-    def test_armhf_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
+    def test_armv7a_fp_arg_regs_are_s0_to_s15_and_d0_to_d7(self):
         # AAPCS-VFP passes floats in s0-s15 (16) and doubles in d0-d7 (8); the
         # lists were truncated to 7 each.
         self.assertEqual(
-            ArmHFSysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
+            ArmV7ASysVCallingContext._float_arg_regs, [f"s{i}" for i in range(16)]
         )
         self.assertEqual(
-            ArmHFSysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
+            ArmV7ASysVCallingContext._double_arg_regs, [f"d{i}" for i in range(8)]
         )
 
 
@@ -4353,9 +6151,9 @@ class EightByteRegisterPairTests(unittest.TestCase):
         self.assertEqual(ctx.get_argument(7, self.ULL, emu), 0x1122334455667788)
         self.assertEqual(ctx.get_argument(8, self.UINT, emu), 99)
 
-    def test_armhf_pairs_are_still_aligned(self):
+    def test_armv7a_pairs_are_still_aligned(self):
         self.assertEqual(
-            self._offsets(ArmHFSysVCallingContext(), [self.UINT, self.ULL]), [0, 2]
+            self._offsets(ArmV7ASysVCallingContext(), [self.UINT, self.ULL]), [0, 2]
         )
 
 
@@ -4947,8 +6745,149 @@ class SysVBigEndianStackIntTests(unittest.TestCase):
         )
 
 
-class ArmHFVfpBackfillTests(unittest.TestCase):
-    """AAPCS-VFP back-fill allocation for armhf hard-float FP args (SW-093).
+class SPARC32SysVCallingContextTests(unittest.TestCase):
+    """SPARC passes arguments as a flat sequence of words: %o0-%o5, then the
+    stack from %sp + 92. An eight-byte value takes the next two words with no
+    alignment, so it can start in an odd register, or be split between %o5
+    and the first stack word."""
+
+    SP = 0x7000
+
+    def _ctx(self, types):
+        ctx = SPARC32SysVCallingContext()
+        ctx.set_argument_types(types)
+        emu = _RegMemEmulator()
+        emu.write_register("sp", self.SP)
+        return ctx, emu
+
+    def _stack_word(self, emu, offset):
+        return int.from_bytes(emu.read_memory(self.SP + offset, 4), "big")
+
+    def test_long_long_takes_the_next_two_registers_unaligned(self):
+        ctx, emu = self._ctx([ArgumentType.INT, ArgumentType.LONGLONG])
+        self.assertEqual(ctx._on_stack, [False, False])
+        self.assertEqual(ctx._arg_offset, [0, 1])
+        ctx.set_argument(1, emu, 0x1122334455667788)
+        # Big-endian: the high word comes first.
+        self.assertEqual(emu.regs["o1"], 0x11223344)
+        self.assertEqual(emu.regs["o2"], 0x55667788)
+        self.assertEqual(
+            ctx.get_argument(1, ArgumentType.LONGLONG, emu), 0x1122334455667788
+        )
+
+    def test_long_long_splits_between_o5_and_the_stack(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 5 + [ArgumentType.LONGLONG] * 2)
+        ctx.set_argument(5, emu, -2)
+        self.assertEqual(emu.regs["o5"], 0xFFFFFFFF)
+        self.assertEqual(self._stack_word(emu, 92), 0xFFFFFFFE)
+        self.assertEqual(ctx.get_argument(5, ArgumentType.LONGLONG, emu), -2)
+        # The next argument starts right after the split one's stack word.
+        self.assertTrue(ctx._on_stack[6])
+        self.assertEqual(ctx._arg_offset[6], 96)
+
+    def test_long_long_on_the_stack_is_word_aligned(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 6 + [ArgumentType.LONGLONG] * 2)
+        self.assertEqual(ctx._arg_offset[6], 92)
+        self.assertEqual(ctx._arg_offset[7], 100)
+        ctx.set_argument(7, emu, 0x0102030405060708)
+        self.assertEqual(
+            ctx.get_argument(7, ArgumentType.LONGLONG, emu), 0x0102030405060708
+        )
+
+    def test_double_travels_in_integer_words_and_splits_too(self):
+        ctx, emu = self._ctx([ArgumentType.INT] * 5 + [ArgumentType.DOUBLE])
+        ctx.set_argument(5, emu, 1.5)
+        # 1.5 is 0x3ff8000000000000.
+        self.assertEqual(emu.regs["o5"], 0x3FF80000)
+        self.assertEqual(self._stack_word(emu, 92), 0)
+        self.assertEqual(ctx.get_argument(5, ArgumentType.DOUBLE, emu), 1.5)
+
+    def test_variadic_long_long_splits_like_a_fixed_one(self):
+        ctx, emu = self._ctx([ArgumentType.POINTER])
+        emu.write_register("o1", 1)
+        emu.write_register("o2", 2)
+        emu.write_register("o3", 3)
+        emu.write_register("o4", 4)
+        emu.write_register("o5", 0x11223344)
+        emu.write_memory(self.SP + 92, (0x55667788).to_bytes(4, "big"))
+        emu.write_memory(self.SP + 96, (7).to_bytes(4, "big"))
+        varargs = ctx.get_varargs()
+        for expected in (1, 2, 3, 4):
+            self.assertEqual(varargs.get_next_argument(ArgumentType.INT, emu), expected)
+        self.assertEqual(
+            varargs.get_next_argument(ArgumentType.LONGLONG, emu), 0x1122334455667788
+        )
+        self.assertEqual(varargs.get_next_argument(ArgumentType.INT, emu), 7)
+
+    def test_returns(self):
+        ctx, emu = self._ctx([])
+        ctx.return_type = ArgumentType.LONGLONG
+        ctx.set_return_value(emu, 0x1122334455667788)
+        self.assertEqual((emu.regs["o0"], emu.regs["o1"]), (0x11223344, 0x55667788))
+        self.assertEqual(ctx.get_return_value(emu), 0x1122334455667788)
+
+        ctx.return_type = ArgumentType.INT
+        ctx.set_return_value(emu, -1)
+        self.assertEqual(emu.regs["o0"], 0xFFFFFFFF)
+        self.assertEqual(ctx.get_return_value(emu), -1)
+
+        # %f0 is not modeled.
+        ctx.return_type = ArgumentType.DOUBLE
+        with self.assertRaises(NotImplementedError):
+            ctx.set_return_value(emu, 1.0)
+
+
+class SysVStackFloatSlotTests(unittest.TestCase):
+    """Where a float passed on the stack sits in its 8-byte slot.
+
+    The offsets are what the compilers' callees load from (zig cc, the ninth
+    float argument): AArch64 puts the float where a register store would, at
+    the end of the slot on big-endian; n64 puts it at the start on both byte
+    orders. A set/get round-trip can't tell a wrong offset from a right one,
+    so these check the bytes.
+    """
+
+    SP = 0x7000
+
+    def _context(self, cls):
+        ctx = cls()
+        ctx.set_argument_types([ArgumentType.FLOAT] * 10)
+        # arg 8 is the first stack float (eight floats fill the FP registers).
+        self.assertTrue(ctx._on_stack[8], msg=cls.__name__)
+        emu = _RegMemEmulator()
+        emu.write_register(ctx.platdef.sp_register, self.SP)
+        return ctx, emu, self.SP + ctx._arg_offset[8]
+
+    def _check(self, cls, offset, byteorder):
+        fmt = ">f" if byteorder == "big" else "<f"
+        ctx, emu, slot = self._context(cls)
+        ctx.set_argument(8, emu, 1.5)
+        self.assertEqual(
+            emu.read_memory(slot, 8),
+            struct.pack(fmt, 1.5).rjust(offset + 4, b"\0").ljust(8, b"\0"),
+            msg=cls.__name__,
+        )
+
+        ctx, emu, slot = self._context(cls)
+        emu.write_memory(slot + offset, struct.pack(fmt, -2.25))
+        self.assertEqual(
+            ctx.get_argument(8, ArgumentType.FLOAT, emu), -2.25, msg=cls.__name__
+        )
+
+    def test_aarch64_big_endian_float_is_at_the_end_of_the_slot(self):
+        for cls in (AArch64BESysVCallingContext, AArch64V85ABESysVCallingContext):
+            self._check(cls, 4, "big")
+
+    def test_aarch64_little_endian_float_is_at_the_start_of_the_slot(self):
+        self._check(AArch64SysVCallingContext, 0, "little")
+
+    def test_mips64_float_is_at_the_start_of_the_slot(self):
+        self._check(MIPS64SysVCallingContext, 0, "big")
+        self._check(MIPS64ELSysVCallingContext, 0, "little")
+
+
+class ArmV7AVfpBackfillTests(unittest.TestCase):
+    """AAPCS-VFP back-fill allocation for ARMv7-A hard-float FP args (SW-093).
 
     ARM's d(k) register aliases the s-pair s(2k):s(2k+1). A double takes the
     lowest free even pair; a float takes the lowest free single register,
@@ -4958,7 +6897,7 @@ class ArmHFVfpBackfillTests(unittest.TestCase):
 
     @staticmethod
     def _place(types):
-        ctx = ArmHFSysVCallingContext()
+        ctx = ArmV7ASysVCallingContext()
         for i, t in enumerate(types):
             ctx.add_argument(i, t)
         placed = []
@@ -5257,6 +7196,402 @@ class Dup2ModelTests(ModelTestCase):
         self.assertIn(7, fdmgr._fds)
         self.assertEqual(fdmgr.get_fd(7).name, fdmgr.get_fd(1).name)
         self.assertTrue(fdmgr.get_fd(7).writable())
+
+
+MODELS_ARMV7M = platforms.Platform(
+    platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+)
+
+
+class ModelHookAddressTests(ModelTestCase):
+    """model.py Model: where a model hooks, given a function's address."""
+
+    def lookup(self, platform, address):
+        return state.models.Model.lookup("time", platform, MODELS_SYSV, address)
+
+    def test_arm32_clears_the_thumb_bit(self):
+        # A Thumb function's symbol value has bit 0 set, but the core executes
+        # at the even address; a hook on the odd one would never fire.
+        for arch in (
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7M,
+        ):
+            with self.subTest(arch=arch):
+                platform = platforms.Platform(arch, platforms.Byteorder.LITTLE)
+                self.assertEqual(self.lookup(platform, 0x10001)._address, 0x10000)
+
+    def test_arm32_keeps_an_even_address(self):
+        self.assertEqual(self.lookup(MODELS_ARMV7M, 0x10000)._address, 0x10000)
+
+    def test_other_architectures_keep_an_odd_address(self):
+        # x86 code can start at any address.
+        self.assertEqual(self.lookup(MODELS_AMD64, 0x10001)._address, 0x10001)
+
+
+class Time64ModelTests(ModelTestCase):
+    """c99/time.py __*64: the 64-bit time_t functions on a 32-bit ABI."""
+
+    # Past 2**32, so a 32-bit time_t would lose the high word.
+    BIG = 0x1_0000_0005
+
+    def setUp(self):
+        super().setUp()
+        self.emu = ModelTestEmulator(MODELS_ARMV7M)
+
+    def lookup(self, name):
+        return state.models.Model.lookup(name, MODELS_ARMV7M, MODELS_SYSV, 0x10000)
+
+    def test_time64_writes_and_returns_64_bits(self):
+        self.emu.map_memory(0x2000, 8)
+        self.emu.write_register("r0", 0x2000)
+        with mock.patch("time.time", return_value=float(self.BIG)):
+            self.lookup("__time64").model(self.emu)
+        self.assertEqual(
+            self.emu.read_memory(0x2000, 8), self.BIG.to_bytes(8, "little")
+        )
+        self.assertEqual(self.emu.read_register("r0"), self.BIG & 0xFFFFFFFF)
+        self.assertEqual(self.emu.read_register("r1"), self.BIG >> 32)
+
+    def test_difftime64_takes_64_bit_arguments(self):
+        # time1 in r0:r1, time0 in r2:r3; soft-float double back in r0:r1.
+        time0 = self.BIG - 3
+        for i, reg in enumerate(("r0", "r1")):
+            self.emu.write_register(reg, (self.BIG >> (32 * i)) & 0xFFFFFFFF)
+        for i, reg in enumerate(("r2", "r3")):
+            self.emu.write_register(reg, (time0 >> (32 * i)) & 0xFFFFFFFF)
+        self.lookup("__difftime64").model(self.emu)
+        bits = self.emu.read_register("r0") | self.emu.read_register("r1") << 32
+        self.assertEqual(struct.unpack("<d", bits.to_bytes(8, "little"))[0], 3.0)
+
+    def test_gmtime64_reads_a_64_bit_time_t(self):
+        model = self.lookup("__gmtime64")
+        model.static_buffer_address = 0x3000
+        self.emu.map_memory(0x3000, model.static_space_required)
+        self.emu.map_memory(0x2000, 8)
+        self.emu.write_memory(0x2000, self.BIG.to_bytes(8, "little"))
+        self.emu.write_register("r0", 0x2000)
+        model.model(self.emu)
+        # 2106-02-07 06:28:21 UTC
+        year = int.from_bytes(self.emu.read_memory(0x3000 + 0x14, 4), "little")
+        self.assertEqual(year + 1900, 2106)
+
+    def test_glibc_abi_platforms_have_no_time64_models(self):
+        armv5t = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        with self.assertRaises(ValueError):
+            state.models.Model.lookup("__time64", armv5t, MODELS_SYSV, 0x10000)
+
+
+class BE8Tests(unittest.TestCase):
+    """Big-endian ARMv6 and later: little-endian code, big-endian data."""
+
+    def test_angr_makes_memory_big_endian(self):
+        import archinfo
+        import pyvex
+
+        from smallworld.emulators.angr.be8 import make_big_endian
+
+        # ldr r0, [r1]; str r0, [r2]; vldr s0, [r0]
+        code = bytes.fromhex("000091e5000082e5000a90ed")
+        irsb = pyvex.lift(code, 0x1000, archinfo.ArchARMEL())
+        make_big_endian(irsb)
+        make_big_endian(irsb)
+        ends = [s.end for s in irsb.statements if isinstance(s, pyvex.stmt.Store)]
+        ends += [e.end for e in irsb.expressions if isinstance(e, pyvex.expr.Load)]
+        self.assertEqual(len(ends), 3)
+        self.assertEqual(set(ends), {archinfo.Endness.BE})
+
+    def run_exclusive_doubleword(self, emulator, code, pc):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(code, address=0x1000))
+        memory = state.memory.Memory(0x2000, 0x10)
+        memory[0] = state.BytesValue(bytes.fromhex("0000000100000002"), None)
+        machine.add(memory)
+        cpu.pc.set(pc)
+        cpu.r4.set(0x2000)
+        cpu.r8.set(0xAA)
+        cpu.r9.set(0xBB)
+        emulator.add_exit_point(0x1000 + len(code))
+        cpu = machine.emulate(emulator).get_cpu()
+        # The first register is the word at the lower address.
+        self.assertEqual((cpu.r0.get(), cpu.r1.get()), (1, 2))
+        self.assertEqual(cpu.r2.get(), 0)
+        self.assertEqual((cpu.r5.get(), cpu.r6.get()), (0xAA, 0xBB))
+
+    def test_angr_exclusive_doubleword_word_order(self):
+        # ldrexd r0, r1, [r4]; strexd r2, r8, r9, [r4];
+        # ldr r5, [r4]; ldr r6, [r4, #4]
+        code = bytes.fromhex("9f0fb4e1982fa4e1005094e5046094e5")
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_exclusive_doubleword(emulators.AngrEmulator(platform), code, 0x1000)
+
+    def test_angr_thumb_exclusive_doubleword_word_order(self):
+        # The same in Thumb
+        code = bytes.fromhex("d4e87f01c4e8728925686668")
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        self.run_exclusive_doubleword(emulators.AngrEmulator(platform), code, 0x1001)
+
+    def test_unicorn_holds_cpsr_e(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        emu = emulators.UnicornEmulator(platform)
+        self.assertTrue(emu.read_register("cpsr") & (1 << 9))
+        # A harness writing CPSR mustn't make data little-endian.
+        emu.write_register("cpsr", 0x1D3)
+        self.assertEqual(emu.read_register("cpsr") & (1 << 9), 1 << 9)
+
+    def test_ghidra_q_registers_hold_d_registers_in_order(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        emu = emulators.GhidraEmulator(platform)
+        # d0 is q0's low half, as on hardware, not Ghidra's high half.
+        emu.write_register_content("q0", 0x1111111122222222_3333333344444444)
+        self.assertEqual(emu.read_register_content("d0"), 0x3333333344444444)
+        self.assertEqual(emu.read_register_content("d1"), 0x1111111122222222)
+        emu.write_register_content("d1", 0x5555555566666666)
+        self.assertEqual(
+            emu.read_register_content("q0"), 0x5555555566666666_3333333344444444
+        )
+
+    def test_ghidra_symbolic_q_register_halves(self):
+        import claripy
+
+        from smallworld.emulators.ghidra.machdefs import GhidraMachineDef
+
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG
+        )
+        machdef = GhidraMachineDef.for_platform(platform)
+        bv = claripy.BVV(0x1111111122222222_3333333344444444, 128)
+        swapped = machdef.fix_register_bv("q0", bv)
+        self.assertEqual(swapped.concrete_value, 0x3333333344444444_1111111122222222)
+        self.assertIs(machdef.fix_register_bv("d0", bv), bv)
+
+    def test_unicorn_little_endian_leaves_cpsr_e_clear(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        emu.write_register("cpsr", 0x1D3)
+        self.assertEqual(emu.read_register("cpsr") & (1 << 9), 0)
+
+
+class AArch64BETests(unittest.TestCase):
+    """Big-endian aarch64: little-endian code, big-endian data."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.BIG
+    )
+
+    # mov x0, #0x1122; movk x0, #0x3344, lsl #16; str x0, [x1];
+    # ldr w2, [x1]; fmov s0, w0; str s0, [x1, #8]
+    code = bytes.fromhex("402482d28068a6f2200000f9220040b90000271e200800bd")
+
+    def run_code(self, emulator):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(self.code, address=0x1000))
+        machine.add(state.memory.Memory(0x2000, 0x100))
+        cpu.pc.set(0x1000)
+        cpu.x1.set(0x2000)
+        emulator.add_exit_point(0x1000 + len(self.code))
+        final = machine.emulate(emulator)
+        return final.get_cpu(), emulator.read_memory(0x2000, 12)
+
+    def check(self, emulator):
+        cpu, data = self.run_code(emulator)
+        self.assertEqual(data, bytes.fromhex("000000003344112233441122"))
+        # The 32-bit load reads x0's high half, which comes first.
+        self.assertEqual(cpu.w2.get(), 0)
+
+    def test_unicorn_stores_big_endian(self):
+        self.check(emulators.UnicornEmulator(self.platform))
+
+    def test_angr_stores_big_endian(self):
+        self.check(emulators.AngrEmulator(self.platform))
+
+    def test_ghidra_stores_big_endian(self):
+        self.check(emulators.GhidraEmulator(self.platform))
+
+    def test_relocator_keeps_instructions_little_endian(self):
+        from smallworld.state.memory.elf.rela import AArch64BEElfRelocator
+
+        relocator = AArch64BEElfRelocator()
+        self.assertEqual(relocator._pack_insn(0x94000001), bytes.fromhex("01000094"))
+        self.assertEqual(relocator._pack(0x1122, 4), bytes.fromhex("00001122"))
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.platform, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64be")
+
+
+class AArch64V85ATests(unittest.TestCase):
+    """aarch64-v8.5a: the ARMv8.1-ARMv8.5 instructions, apart from aarch64."""
+
+    v85a = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.LITTLE
+    )
+    v80a = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+    )
+
+    # ldadd x2, x0, [x1] (ARMv8.1 LSE)
+    code = bytes.fromhex("200022f8")
+
+    def run_ldadd(self, platform):
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(cpu)
+        machine.add(state.memory.code.Executable.from_bytes(self.code, address=0x1000))
+        memory = state.memory.Memory(0x2000, 0x100)
+        memory[0] = state.IntegerValue(5, 8, None, platform.byteorder, False)
+        machine.add(memory)
+        cpu.pc.set(0x1000)
+        cpu.x1.set(0x2000)
+        cpu.x2.set(3)
+        emulator = emulators.UnicornEmulator(platform)
+        emulator.add_exit_point(0x1000 + len(self.code))
+        final = machine.emulate(emulator)
+        return final.get_cpu().x0.get(), emulator.read_memory(0x2000, 8)
+
+    def test_unicorn_runs_lse_on_v85a(self):
+        old, new = self.run_ldadd(self.v85a)
+        self.assertEqual(old, 5)
+        self.assertEqual(int.from_bytes(new, "little"), 8)
+
+    def test_unicorn_rejects_lse_on_v80a(self):
+        with self.assertRaises(exceptions.EmulationError):
+            self.run_ldadd(self.v80a)
+
+    def elf(self, **kwargs):
+        path = pathlib.Path(__file__).parent / "sysv" / "sysv.aarch64.elf"
+        with open(path, "rb") as f:
+            return state.memory.code.Executable.from_elf(f, address=0x400000, **kwargs)
+
+    def test_elf_defaults_to_v80a(self):
+        self.assertEqual(self.elf().platform, self.v80a)
+
+    def test_elf_takes_a_requested_v85a(self):
+        self.assertEqual(self.elf(platform=self.v85a).platform, self.v85a)
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.v85a, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64v85a")
+
+
+class AArch64V85ABETests(AArch64V85ATests):
+    """aarch64-v8.5a, big-endian: the same, with big-endian data."""
+
+    v85a = platforms.Platform(
+        platforms.Architecture.AARCH64_V8_5A, platforms.Byteorder.BIG
+    )
+    v80a = platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.BIG)
+
+    def test_unicorn_runs_lse_on_v85a(self):
+        old, new = self.run_ldadd(self.v85a)
+        self.assertEqual(old, 5)
+        self.assertEqual(int.from_bytes(new, "big"), 8)
+
+    def elf(self, **kwargs):
+        path = pathlib.Path(__file__).parent / "sysv" / "sysv.aarch64be.elf"
+        with open(path, "rb") as f:
+            return state.memory.code.Executable.from_elf(f, address=0x400000, **kwargs)
+
+    def test_models_resolve(self):
+        model = state.models.Model.lookup("strlen", self.v85a, MODELS_SYSV, 0x10000)
+        self.assertEqual(type(model).__module__.split(".")[3], "aarch64v85abe")
+
+
+class ArmDoubleWordReturnTests(ModelTestCase):
+    """armv5t/armv5tbe: a double word returns in r0:r1 as ldm would load it."""
+
+    def make(self, byteorder):
+        platform = platforms.Platform(platforms.Architecture.ARM_V5T, byteorder)
+        self.emu = ModelTestEmulator(platform)
+        return state.models.Model.lookup("time", platform, MODELS_SYSV, 0x10000)
+
+    def test_big_endian_puts_the_high_word_in_r0(self):
+        model = self.make(platforms.Byteorder.BIG)
+        model._return_8_byte(self.emu, 0x1122334455667788)
+        self.assertEqual(self.emu.read_register("r0"), 0x11223344)
+        self.assertEqual(self.emu.read_register("r1"), 0x55667788)
+        self.assertEqual(model._read_return_8_byte(self.emu), 0x1122334455667788)
+
+    def test_big_endian_double(self):
+        model = self.make(platforms.Byteorder.BIG)
+        model._return_double(self.emu, 1.0)
+        self.assertEqual(self.emu.read_register("r0"), 0x3FF00000)
+        self.assertEqual(self.emu.read_register("r1"), 0)
+        self.assertEqual(model._read_return_double(self.emu), 1.0)
+
+    def test_little_endian_puts_the_low_word_in_r0(self):
+        model = self.make(platforms.Byteorder.LITTLE)
+        model._return_8_byte(self.emu, 0x1122334455667788)
+        self.assertEqual(self.emu.read_register("r0"), 0x55667788)
+        self.assertEqual(self.emu.read_register("r1"), 0x11223344)
+
+
+class LibraryStaticBufferTests(unittest.TestCase):
+    """library.py ElfModelLibrary: static buffer layout."""
+
+    def test_static_buffers_are_aligned_and_inside_the_library(self):
+        # ctime and asctime reserve 26 bytes each; packed, the buffers after
+        # them start misaligned, which faults on ARMv6-M.
+        armv6m = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        libc = state.models.posix.libc.POSIXLibc(0x900000, armv6m, MODELS_SYSV)
+        end = libc.address + libc.get_capacity()
+        buffers = [m for m in libc.models.values() if m.static_space_required > 0]
+        self.assertGreater(len(buffers), 2)
+        for model in buffers:
+            with self.subTest(model=model.name):
+                self.assertEqual(model.static_buffer_address % 8, 0)
+                self.assertLessEqual(
+                    model.static_buffer_address + model.static_space_required, end
+                )
+
+
+class LibraryThumbOnlyLinkTests(unittest.TestCase):
+    """library.py ElfModelLibrary.link on a Thumb-only CPU."""
+
+    def test_tls_descriptor_resolver_carries_the_thumb_bit(self):
+        # Code reaches the resolver with blx, so an even address would switch
+        # to ARM state, which M-profile faults on. Only amd64 models the
+        # resolver so far, so stand one in.
+        armv7m = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        libc = state.models.posix.libc.POSIXLibc(0x900000, armv7m, MODELS_SYSV)
+        resolver = types.SimpleNamespace(_address=0x900100)
+        libc.models["__tlsdesc_resolve"] = resolver
+        bound = []
+        relocator = types.SimpleNamespace(
+            tls_descriptors=[0x4000],
+            bind_tls_descriptor_resolver=lambda elf, address: bound.append(address),
+        )
+        elf = types.SimpleNamespace(
+            _dynamic_relas=[],
+            _static_relas=[],
+            tls_image=b"",
+            relocator=relocator,
+        )
+        libc.link(elf)
+        self.assertEqual(bound, [0x900101])
 
 
 class ReturnConstantModelTests(ModelTestCase):
@@ -6542,6 +8877,183 @@ class ElfIgnorePlatformTests(unittest.TestCase):
         self.assertIsNone(elf.platform)
 
 
+class ElfArmFlaglessPlatformTests(unittest.TestCase):
+    """An ARM ELF with no ABI flags, like a core dump, must honor an
+    explicitly requested ARM32 platform instead of forcing ARM_V7A."""
+
+    ELF = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "elf",
+        "elf.armv6k.elf",
+    )
+
+    def _flagless(self):
+        if not os.path.exists(self.ELF):
+            self.skipTest(f"{self.ELF} not built (run `make armv6k` in tests/)")
+        with open(self.ELF, "rb") as f:
+            image = bytearray(f.read())
+        # e_flags is at offset 0x24 in an ELF32 header.
+        image[0x24:0x28] = b"\0\0\0\0"
+        return io.BytesIO(bytes(image))
+
+    def test_requested_arm32_platform_wins(self):
+        plat = platforms.Platform(
+            platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE
+        )
+        elf = ElfExecutable(self._flagless(), platform=plat)
+        self.assertEqual(elf.platform, plat)
+
+    def test_unrequested_falls_back_to_v7a(self):
+        elf = ElfExecutable(self._flagless())
+        self.assertEqual(elf.platform.architecture, platforms.Architecture.ARM_V7A)
+
+
+class ElfArmFloatAbiPlatformTests(unittest.TestCase):
+    """A requested ARM32 platform wins over the ELF's float ABI.
+
+    The float ABI is a build choice, not the architecture, but loading
+    honored a requested platform only if its C models used the same float
+    ABI, so a soft-float Cortex-M4 image couldn't load as ARMv7E-M.
+    """
+
+    LOGGER = "smallworld.state.memory.elf.elf"
+    SOFT = ("elf", "elf.armv7m.elf")
+    HARD = ("elf", "elf.armv7a.elf")
+
+    def load(self, parts, arch, byteorder=platforms.Byteorder.LITTLE):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built")
+        platform = platforms.Platform(arch, byteorder)
+        with open(path, "rb") as f:
+            return ElfExecutable(f, platform=platform), platform
+
+    def test_soft_float_image_on_hard_float_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V7EM,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V8A,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertLogs(self.LOGGER, "WARNING") as caught:
+                    elf, platform = self.load(self.SOFT, arch)
+                self.assertEqual(elf.platform, platform)
+                self.assertIn("soft-float ABI", "\n".join(caught.output))
+
+    def test_hard_float_image_on_soft_float_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7M,
+            platforms.Architecture.ARM_V8M,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertLogs(self.LOGGER, "WARNING") as caught:
+                    elf, platform = self.load(self.HARD, arch)
+                self.assertEqual(elf.platform, platform)
+                self.assertIn("hard-float ABI", "\n".join(caught.output))
+
+    def test_matching_float_abi_loads_without_a_warning(self):
+        for parts, arch in (
+            (self.SOFT, platforms.Architecture.ARM_V7M),
+            (self.HARD, platforms.Architecture.ARM_V7R),
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertNoLogs(self.LOGGER, "WARNING"):
+                    elf, platform = self.load(parts, arch)
+                self.assertEqual(elf.platform, platform)
+
+    def test_unrequested_platform_follows_the_float_abi(self):
+        for parts, arch in (
+            (self.SOFT, platforms.Architecture.ARM_V5T),
+            (self.HARD, platforms.Architecture.ARM_V7A),
+        ):
+            with self.subTest(arch=arch.name):
+                path = os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
+                with open(path, "rb") as f:
+                    elf = ElfExecutable(f)
+                self.assertEqual(elf.platform.architecture, arch)
+
+    def test_byteorder_mismatch_still_raises(self):
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "mismatch"):
+            self.load(
+                self.SOFT, platforms.Architecture.ARM_V7EM, platforms.Byteorder.BIG
+            )
+
+
+class ElfArmBe8Tests(unittest.TestCase):
+    """A big-endian ARM ELF's EF_ARM_BE8 flag picks BE8 or BE32.
+
+    BE8 code is little-endian and BE32 code big-endian, but loading ignored
+    the flag: a BE8 ARMv6 image became BE32 ARMv5T, and a requested platform
+    of the other kind was accepted, so every instruction decoded wrongly.
+    """
+
+    BE = platforms.Byteorder.BIG
+    BE32 = "elf.armv5tbe.elf"
+    BE8_SOFT = "elf.armv6kbe.elf"
+    BE8_HARD = "elf.armv7abe.elf"
+
+    def load(self, name, arch=None, byteorder=BE):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "elf", name)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built")
+        platform = None if arch is None else platforms.Platform(arch, byteorder)
+        with open(path, "rb") as f:
+            return ElfExecutable(f, platform=platform)
+
+    def test_unrequested_platform_follows_the_flag(self):
+        for name, arch in (
+            (self.BE32, platforms.Architecture.ARM_V5T),
+            (self.BE8_SOFT, platforms.Architecture.ARM_V6K),
+            (self.BE8_HARD, platforms.Architecture.ARM_V7A),
+        ):
+            with self.subTest(name=name):
+                elf = self.load(name)
+                self.assertEqual(
+                    elf.platform, platforms.Platform(arch, platforms.Byteorder.BIG)
+                )
+
+    def test_be32_image_on_be8_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V6K,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V8R,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertRaisesRegex(
+                    exceptions.ConfigurationError, "ELF code is BE32"
+                ):
+                    self.load(self.BE32, arch)
+
+    def test_be8_image_on_be32_platforms(self):
+        for arch in (
+            platforms.Architecture.ARM_V4,
+            platforms.Architecture.ARM_V4T,
+            platforms.Architecture.ARM_V5T,
+        ):
+            with self.subTest(arch=arch.name):
+                with self.assertRaisesRegex(
+                    exceptions.ConfigurationError, "ELF code is BE8"
+                ):
+                    self.load(self.BE8_SOFT, arch)
+
+    def test_matching_requests_load(self):
+        for name, arch in (
+            (self.BE32, platforms.Architecture.ARM_V4T),
+            (self.BE8_SOFT, platforms.Architecture.ARM_V7A),
+            (self.BE8_HARD, platforms.Architecture.ARM_V8A),
+        ):
+            with self.subTest(name=name, arch=arch.name):
+                elf = self.load(name, arch)
+                self.assertEqual(elf.platform.architecture, arch)
+
+    def test_little_endian_images_are_unaffected(self):
+        elf = self.load(
+            "elf.armv5t.elf", platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.assertEqual(elf.platform.architecture, platforms.Architecture.ARM_V7A)
+
+
 class ElfPickleTests(unittest.TestCase):
     """An ElfExecutable round-trips through pickle with its TLS state: the
     TLS image, and the TLS descriptors its relocator holds."""
@@ -6796,6 +9308,48 @@ class TlsUninitializedBlockTests(unittest.TestCase):
                 for d in elf.relocator.tls_descriptors
             )
             self.assertEqual(args, sorted(self.OFFSETS.values()), name)
+
+
+class LibraryThumbAddressTests(unittest.TestCase):
+    """Only Thumb-only ARM gets odd model addresses from link().
+
+    The check tested the Thumb bit of the Capstone mode alone, and platforms
+    Capstone lacks (LoongArch, Xtensa, MSP430) have a mode of -1, so every
+    LoongArch library call went to an odd address the model never hooks.
+    """
+
+    @staticmethod
+    def linked(arch):
+        from smallworld.state.models.c99.libc import C99Libc
+
+        libc = C99Libc(
+            0x10000,
+            platforms.Platform(arch, platforms.Byteorder.LITTLE),
+            platforms.ABI.SYSTEMV,
+        )
+        symbol = types.SimpleNamespace(name="puts", defined=False)
+        bound = {}
+        elf = types.SimpleNamespace(
+            _dynamic_relas=[types.SimpleNamespace(symbol=symbol)],
+            _static_relas=[],
+            tls_image=None,
+            relocator=None,
+            update_symbol_value=lambda sym, value: bound.__setitem__(sym.name, value),
+        )
+        libc.link(elf)
+        return bound["puts"], libc.models["puts"]._address
+
+    def test_loongarch_model_addresses_stay_even(self):
+        bound, address = self.linked(platforms.Architecture.LOONGARCH64)
+        self.assertEqual(bound, address)
+
+    def test_a_profile_model_addresses_stay_even(self):
+        bound, address = self.linked(platforms.Architecture.ARM_V7A)
+        self.assertEqual(bound, address)
+
+    def test_m_profile_model_addresses_are_thumb(self):
+        bound, address = self.linked(platforms.Architecture.ARM_V7M)
+        self.assertEqual(bound, address | 1)
 
 
 class TlsImageSeedingTests(unittest.TestCase):
@@ -8275,6 +10829,386 @@ class ElfRelocatorTlsDescriptorQueryTests(unittest.TestCase):
             )
 
 
+def _little_endian(relocator_class):
+    """A relocator for the little-endian member of its platforms."""
+    (platform,) = (
+        p
+        for p in relocator_class.supported_platforms
+        if p.byteorder is platforms.Byteorder.LITTLE
+    )
+    return relocator_class(platform)
+
+
+class _FakeArmObject:
+    """An object file: no GOT, so GOT entries are synthesized on request."""
+
+    _dtags: dict = {}
+    _elf = None
+    address = 0x400000
+
+    slot_base = 0x9000
+
+    def __init__(self):
+        self.slots: list = []
+        self.memory: dict = {}
+
+    def reserve_synthetic(self, size: int, description: str) -> int:
+        self.slots.append(self.slot_base + size * len(self.slots))
+        return self.slots[-1]
+
+    def write_bytes(self, address: int, data: bytes) -> None:
+        self.memory[address] = data
+
+
+class ArmGotEntryRelocatorTests(unittest.TestCase):
+    """R_ARM_GOT_PREL in an object file points at a synthesized GOT entry.
+
+    An object file has no GOT, so these relocations used to refuse to load,
+    leaving PIC objects (static_rela) unloadable on every ARM-state platform.
+    """
+
+    _R_ARM_GOT_PREL = 96
+    _R_ARM_GLOB_DAT = 21
+
+    def _rela(self, symbol, offset=0x1000, addend=0):
+        rela = ElfRela(
+            is_rela=True,
+            offset=offset,
+            type=self._R_ARM_GOT_PREL,
+            symbol=symbol,
+            addend=addend,
+        )
+        symbol.relas.append(rela)
+        return rela
+
+    def test_object_file_gets_a_filled_got_entry(self):
+        relocator = _little_endian(Armv7AElfRelocator)
+        elf = _FakeArmObject()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        val = relocator._compute_value(self._rela(symbol, addend=-8), elf)
+        slot = relocator._synthetic_slots[("got", symbol.idx)]
+        # GOT(S) + A - P
+        self.assertEqual(int.from_bytes(val, "little"), slot - 8 - 0x1000)
+        # The entry holds the symbol's address, as GLOB_DAT would write it.
+        self.assertEqual(elf.memory[slot], (0x402340).to_bytes(4, "little"))
+
+    def test_call_sites_share_an_entry_that_follows_the_symbol(self):
+        # update_symbol_value re-relocates every rela of a symbol, so a
+        # rebound symbol must rewrite its one entry, not allocate another.
+        relocator = _little_endian(Armv7AElfRelocator)
+        elf = _FakeArmObject()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        first = self._rela(symbol, offset=0x1000)
+        second = self._rela(symbol, offset=0x1010)
+        relocator._compute_value(first, elf)
+        relocator._compute_value(second, elf)
+        self.assertEqual(len(elf.slots), 1)
+        symbol.value = 0x5000
+        relocator._compute_value(first, elf)
+        self.assertEqual(
+            elf.memory[relocator._synthetic_slots[("got", symbol.idx)]],
+            (0x405000).to_bytes(4, "little"),
+        )
+
+    def test_linked_image_uses_its_own_got_entry(self):
+        relocator = _little_endian(Armv7AElfRelocator)
+        elf = _FakeArmObject()
+        elf._dtags = {3: 0x8000}  # DT_PLTGOT
+        elf._rebase_file = lambda address: address
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        symbol.relas.append(
+            ElfRela(
+                is_rela=True,
+                offset=0x8010,
+                type=self._R_ARM_GLOB_DAT,
+                symbol=symbol,
+                addend=0,
+            )
+        )
+        val = relocator._compute_value(self._rela(symbol), elf)
+        self.assertEqual(int.from_bytes(val, "little"), 0x8010 - 0x1000)
+        self.assertEqual(elf.slots, [])
+
+
+class ArmCallToThumbRelocatorTests(unittest.TestCase):
+    """An Arm call to Thumb becomes BLX only where the architecture has it.
+
+    ARMv4 and ARMv4T have no BLX, but the relocator patched one in anyway,
+    leaving an instruction those cores can't execute.
+    """
+
+    _R_ARM_CALL = 28
+    BL = 0xEBFFFFFE  # bl .
+
+    class _Object(_FakeArmObject):
+        def __init__(self, word, byteorder):
+            super().__init__()
+            self.word = word
+
+        def read_int(self, offset, size, byteorder):
+            return self.word
+
+    def relocate(self, relocator, target):
+        symbol = _make_symbol(value=target, baseaddr=0x400000)
+        rela = ElfRela(
+            is_rela=False,
+            offset=0x1000,
+            type=self._R_ARM_CALL,
+            symbol=symbol,
+            addend=0,
+        )
+        symbol.relas.append(rela)
+        out = relocator._compute_value(rela, self._Object(self.BL, relocator.byteorder))
+        return int.from_bytes(out, relocator.byteorder.name.lower())
+
+    def test_no_blx_on_v4_and_v4t(self):
+        for cls in (Armv4ElfRelocator, Armv4TElfRelocator, Armv4TBEElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                with self.assertRaisesRegex(exceptions.ConfigurationError, "no BLX"):
+                    self.relocate(_little_endian(cls), 0x2001)
+
+    def test_blx_from_v5t(self):
+        for cls in (Armv5TElfRelocator, Armv7AElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                self.assertEqual(
+                    self.relocate(_little_endian(cls), 0x2001) >> 25, 0xFA >> 1
+                )
+
+    def test_v4t_arm_call_stays_bl(self):
+        self.assertEqual(
+            self.relocate(_little_endian(Armv4TElfRelocator), 0x2000) >> 24, 0xEB
+        )
+
+
+class ThumbBranchRangeRelocatorTests(unittest.TestCase):
+    """Thumb branches fit the encodings the architecture has.
+
+    Before Thumb-2, BL reaches only +-4 MB, and B.W and B<c>.W don't exist.
+    The relocator allowed +-16 MB and patched both wide branches anyway, so a
+    far call silently became two BL prefixes and never branched.
+    """
+
+    _R_ARM_THM_CALL = 10
+    _R_ARM_THM_JUMP24 = 30
+    _R_ARM_THM_JUMP19 = 51
+    BL = 0xF000F800  # bl, offset 0
+    B_W = 0xF0009000  # b.w, offset 0
+    BEQ_W = 0xF0008000  # beq.w, offset 0
+    NO_THUMB2 = (
+        Armv4TElfRelocator,
+        Armv5TElfRelocator,
+        Armv5TBEElfRelocator,
+        Armv6KElfRelocator,
+    )
+
+    class _Object(_FakeArmObject):
+        def __init__(self, word):
+            super().__init__()
+            self.word = word
+
+        def read_int(self, offset, size, byteorder):
+            return self.word >> 16 if offset == 0x1000 else self.word & 0xFFFF
+
+    def relocate(self, relocator, type, word, distance):
+        symbol = _make_symbol(value=0x1000 + distance + 1, baseaddr=0)
+        rela = ElfRela(is_rela=True, offset=0x1000, type=type, symbol=symbol, addend=0)
+        symbol.relas.append(rela)
+        out = relocator._compute_value(rela, self._Object(word))
+        order = relocator.byteorder.name.lower()
+        return int.from_bytes(out[:2], order), int.from_bytes(out[2:], order)
+
+    def test_bl_reaches_4mb_without_thumb2(self):
+        for cls in self.NO_THUMB2:
+            with self.subTest(relocator=cls.__name__):
+                for distance in (0x3FFFFE, -0x400000):
+                    _, hw2 = self.relocate(
+                        _little_endian(cls), self._R_ARM_THM_CALL, self.BL, distance
+                    )
+                    # The pre-Thumb-2 BL suffix
+                    self.assertEqual(hw2 >> 11, 0b11111)
+                for distance in (0x400000, -0x400002):
+                    with self.assertRaisesRegex(
+                        exceptions.ConfigurationError, "overflowed THM_CALL"
+                    ):
+                        self.relocate(
+                            _little_endian(cls), self._R_ARM_THM_CALL, self.BL, distance
+                        )
+
+    def test_bl_reaches_16mb_with_thumb2(self):
+        for cls in (Armv6MElfRelocator, Armv7AElfRelocator):
+            with self.subTest(relocator=cls.__name__):
+                hw1, hw2 = self.relocate(
+                    _little_endian(cls), self._R_ARM_THM_CALL, self.BL, 0x500000
+                )
+                self.assertEqual((hw1, hw2), (0xF100, 0xF000))
+
+    def test_no_wide_branches_without_thumb2(self):
+        for cls in self.NO_THUMB2 + (Armv6MElfRelocator,):
+            for type, word in (
+                (self._R_ARM_THM_JUMP24, self.B_W),
+                (self._R_ARM_THM_JUMP19, self.BEQ_W),
+            ):
+                with self.subTest(relocator=cls.__name__, type=type):
+                    with self.assertRaisesRegex(
+                        exceptions.ConfigurationError, "no 32-bit Thumb branches"
+                    ):
+                        self.relocate(_little_endian(cls), type, word, 0x100)
+
+    def test_wide_branches_with_thumb2(self):
+        for type, word in (
+            (self._R_ARM_THM_JUMP24, self.B_W),
+            (self._R_ARM_THM_JUMP19, self.BEQ_W),
+        ):
+            with self.subTest(type=type):
+                _, hw2 = self.relocate(
+                    _little_endian(Armv7AElfRelocator), type, word, 0x100
+                )
+                self.assertEqual(hw2 & 0x7FF, 0x80)
+
+
+class _FakeAArch64Object(_FakeArmObject):
+    """An AArch64 object file whose relocated instructions all start as
+    ``insn``, with GOT entries a page above the code."""
+
+    def __init__(self, insn: int):
+        super().__init__()
+        self.insn = insn
+
+    slot_base = 0x403000
+
+    def read_int(self, address, size, byteorder) -> int:
+        return self.insn
+
+
+class AArch64GotEntryRelocatorTests(unittest.TestCase):
+    """adrp + ldr through the GOT in an object file reach a synthesized entry.
+
+    An object file has no GOT, so these relocations used to refuse to load,
+    leaving PIC objects (static_rela) unloadable on every AArch64 platform.
+    """
+
+    _R_AARCH64_ADR_GOT_PAGE = 311
+    _R_AARCH64_LD64_GOT_LO12_NC = 312
+    _R_AARCH64_LD64_GOTPAGE_LO15 = 313
+    _R_AARCH64_GLOB_DAT = 1025
+    _ADRP_X0 = 0x90000000  # adrp x0, 0
+    _LDR_X0 = 0xF9400000  # ldr x0, [x0]
+
+    def _rela(self, symbol, type_, offset=0x400010):
+        rela = ElfRela(is_rela=True, offset=offset, type=type_, symbol=symbol, addend=0)
+        symbol.relas.append(rela)
+        return rela
+
+    def test_object_file_gets_a_filled_got_entry(self):
+        relocator = AArch64ElfRelocator()
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        adrp = self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE)
+        ldr = self._rela(symbol, self._R_AARCH64_LD64_GOT_LO12_NC, 0x400014)
+
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        insn = int.from_bytes(relocator._compute_value(adrp, elf), "little")
+        slot = relocator._synthetic_slots[("got", symbol.idx)]
+        # Page(G(S)) - Page(P), in pages, split across immlo and immhi.
+        pages = (slot >> 12) - (0x400010 >> 12)
+        self.assertEqual(((insn >> 29) & 0x3) | (((insn >> 5) & 0x7FFFF) << 2), pages)
+        # The entry holds the symbol's address, as GLOB_DAT would write it.
+        self.assertEqual(elf.memory[slot], (0x402340).to_bytes(8, "little"))
+
+        elf.insn = self._LDR_X0
+        insn = int.from_bytes(relocator._compute_value(ldr, elf), "little")
+        self.assertEqual(((insn >> 10) & 0xFFF) << 3, slot & 0xFFF)
+        self.assertEqual(len(elf.slots), 1)
+
+    def test_entry_follows_a_rebound_symbol(self):
+        # update_symbol_value re-relocates every rela of a symbol, so a
+        # rebound symbol must rewrite its one entry, not allocate another.
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        rela = self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE)
+        relocator._compute_value(rela, elf)
+        symbol.value = 0x5000
+        relocator._compute_value(rela, elf)
+        self.assertEqual(len(elf.slots), 1)
+        self.assertEqual(
+            elf.memory[relocator._synthetic_slots[("got", symbol.idx)]],
+            (0x405000).to_bytes(8, "little"),
+        )
+
+    def test_big_endian_entry_is_big_endian(self):
+        from smallworld.state.memory.elf.rela import AArch64BEElfRelocator
+
+        relocator = AArch64BEElfRelocator()
+        elf = _FakeAArch64Object(self._ADRP_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        relocator._compute_value(self._rela(symbol, self._R_AARCH64_ADR_GOT_PAGE), elf)
+        self.assertEqual(
+            elf.memory[relocator._synthetic_slots[("got", symbol.idx)]],
+            (0x402340).to_bytes(8, "big"),
+        )
+
+    def test_linked_image_uses_its_own_got_entry(self):
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._LDR_X0)
+        elf._dtags = {3: 0x408000}  # DT_PLTGOT
+        elf._rebase_file = lambda address: address
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        self._rela(symbol, self._R_AARCH64_GLOB_DAT, 0x408018)
+        insn = int.from_bytes(
+            relocator._compute_value(
+                self._rela(symbol, self._R_AARCH64_LD64_GOT_LO12_NC), elf
+            ),
+            "little",
+        )
+        self.assertEqual(((insn >> 10) & 0xFFF) << 3, 0x018)
+        self.assertEqual(elf.slots, [])
+
+    def test_got_relative_forms_still_need_a_got(self):
+        # LD64_GOTPAGE_LO15 is an offset from the GOT's page, which an object
+        # file doesn't have.
+        relocator = AArch64ElfRelocator()
+        elf = _FakeAArch64Object(self._LDR_X0)
+        symbol = _make_symbol(value=0x2340, baseaddr=0x400000)
+        rela = self._rela(symbol, self._R_AARCH64_LD64_GOTPAGE_LO15)
+        with self.assertRaisesRegex(exceptions.ConfigurationError, "GOT base"):
+            relocator._compute_value(rela, elf)
+
+
+class AArch64Lo12RelocatorTests(unittest.TestCase):
+    """A scaled LO12 load or store takes its target's offset into its page.
+
+    The relocator used to scale the whole address before masking, so any
+    target above the first 4KiB got the wrong offset.
+    """
+
+    _R_AARCH64_LDST16_ABS_LO12_NC = 284
+    _R_AARCH64_LDST64_ABS_LO12_NC = 286
+    _R_AARCH64_LDST128_ABS_LO12_NC = 299
+
+    def _imm12(self, type_, insn, target):
+        symbol = _make_symbol(value=target - 0x400000, baseaddr=0x400000)
+        rela = ElfRela(
+            is_rela=True, offset=0x400010, type=type_, symbol=symbol, addend=0
+        )
+        val = AArch64ElfRelocator()._compute_value(rela, _FakeAArch64Object(insn))
+        return (int.from_bytes(val, "little") >> 10) & 0xFFF
+
+    def test_offset_is_taken_within_the_page(self):
+        # ldrh w0, [x0]; ldr x0, [x0]; ldr q0, [x0]
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST16_ABS_LO12_NC, 0x79400000, 0x403456),
+            0x456 >> 1,
+        )
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST64_ABS_LO12_NC, 0xF9400000, 0x403458),
+            0x458 >> 3,
+        )
+        self.assertEqual(
+            self._imm12(self._R_AARCH64_LDST128_ABS_LO12_NC, 0x3DC00000, 0x403450),
+            0x450 >> 4,
+        )
+
+
 class I386RelocatorTests(unittest.TestCase):
     def test_r_386_32_masks_overflow_to_32_bits(self):
         # A symbol+addend sum that overflows 32 bits must be truncated,
@@ -9347,6 +12281,217 @@ class GhidraNegativeRegisterWriteTests(unittest.TestCase):
         self.assertEqual(self.emu.read_register("eax"), 0xFFFFFFFF)
 
 
+class GhidraThumbOnlyPcTests(unittest.TestCase):
+    """M-profile pc writes drop the Thumb bit on both Ghidra emulators.
+
+    The Thumb-only language decodes at whatever pc holds, so an odd pc, such
+    as a model's return through lr, faulted as a misaligned fetch.
+    """
+
+    M_PROFILES = (
+        platforms.Architecture.ARM_V6M,
+        platforms.Architecture.ARM_V7M,
+        platforms.Architecture.ARM_V8M,
+    )
+
+    # movs r0, #1; movs r1, #2; nop
+    MOVS = bytes.fromhex("0120022100bf")
+    # bl 0x1100; movs r0, #5
+    CALL = bytes.fromhex("00f07ef80520")
+
+    def emulator(self, cls, arch, code):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(arch, platforms.Byteorder.LITTLE))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        return emu
+
+    def test_odd_pc_write_steps_thumb_code(self):
+        for cls in (
+            emulators.ghidra.GhidraEmulator,
+            emulators.ghidra.GhidraSymbolicEmulator,
+        ):
+            for arch in self.M_PROFILES:
+                with self.subTest(emulator=cls.__name__, arch=arch.name):
+                    emu = self.emulator(cls, arch, self.MOVS)
+                    emu.write_register("r0", 0)
+                    emu.write_register("pc", 0x1001)
+                    self.assertEqual(emu.read_register("pc"), 0x1000)
+                    emu.step()
+                    self.assertEqual(emu.read_register("pc"), 0x1002)
+                    self.assertEqual(emu.read_register("r0"), 1)
+
+    def test_symbolic_function_hook_returns_through_lr(self):
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                emu = self.emulator(
+                    emulators.ghidra.GhidraSymbolicEmulator, arch, self.CALL
+                )
+                emu.write_register("r0", 0)
+                emu.write_register("pc", 0x1000)
+                emu.add_exit_point(0x1006)
+                lrs = []
+
+                def model(emu):
+                    lrs.append(emu.read_register("lr"))
+                    emu.write_register("pc", emu.read_register("lr"))
+
+                emu.hook_function(0x1100, model)
+                emu.run()
+                self.assertEqual(lrs, [0x1005])
+                self.assertEqual(emu.read_register("r0"), 5)
+
+    def test_m_profile_is_thumb_only(self):
+        for arch in self.M_PROFILES:
+            with self.subTest(arch=arch.name):
+                emu = self.emulator(emulators.ghidra.GhidraEmulator, arch, self.MOVS)
+                self.assertTrue(emu.get_isa_mode())
+                emu.set_isa_mode(1)
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_isa_mode(0)
+
+
+class GhidraThumbTests(unittest.TestCase):
+    """On A- and R-profile, an odd pc enters Thumb state on both Ghidra
+    emulators, as on Unicorn and angr, and get_isa_mode/set_isa_mode work.
+
+    Ghidra picks ARM or Thumb decoding from its TMode context register, so an
+    odd pc used to be fetched as is and fault as misaligned.
+    """
+
+    EMULATORS = (
+        emulators.ghidra.GhidraEmulator,
+        emulators.ghidra.GhidraSymbolicEmulator,
+    )
+
+    # (architecture, byte order, Thumb code is big-endian (BE32))
+    PLATFORMS = (
+        (platforms.Architecture.ARM_V4T, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V5T, platforms.Byteorder.BIG, True),
+        (platforms.Architecture.ARM_V6K, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V7A, platforms.Byteorder.BIG, False),
+        (platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE, False),
+        (platforms.Architecture.ARM_V8R, platforms.Byteorder.BIG, False),
+    )
+
+    # movs r0, #1; movs r1, #2; nop
+    MOVS = "2001" "2102" "bf00"
+    # bl 0x1100; movs r0, #5
+    CALL = "f000" "f87e" "2005"
+
+    def emulator(self, cls, arch, byteorder, be32, halfwords):
+        _ensure_pyghidra_started()
+        code = bytes.fromhex(halfwords)
+        if not be32:
+            code = b"".join(code[i : i + 2][::-1] for i in range(0, len(code), 2))
+        emu = cls(platforms.Platform(arch, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        emu.write_code(0x1000, code)
+        emu.write_register("r0", 0)
+        emu.write_register("r1", 0)
+        return emu
+
+    def cases(self):
+        """(subtest parameters, emulator factory) for each emulator and platform"""
+        return [
+            (
+                dict(emulator=cls.__name__, arch=arch.name, byteorder=byteorder.name),
+                functools.partial(self.emulator, cls, arch, byteorder, be32),
+            )
+            for cls in self.EMULATORS
+            for arch, byteorder, be32 in self.PLATFORMS
+        ]
+
+    def test_odd_pc_write_enters_thumb(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                self.assertFalse(emu.get_isa_mode())
+                emu.write_register("pc", 0x1001)
+                self.assertTrue(emu.get_isa_mode())
+                self.assertEqual(emu.read_register("pc"), 0x1000)
+                emu.step()
+                self.assertEqual(emu.read_register("pc"), 0x1002)
+                self.assertEqual(emu.read_register("r0"), 1)
+                # Writing back the even pc keeps Thumb state, as on Unicorn.
+                emu.write_register("pc", 0x1002)
+                self.assertTrue(emu.get_isa_mode())
+                emu.step()
+                self.assertEqual(emu.read_register("r1"), 2)
+
+    def test_set_thumb(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                emu.write_register("pc", 0x1000)
+                emu.set_isa_mode(1)
+                self.assertTrue(emu.get_isa_mode())
+                emu.step()
+                self.assertEqual(emu.read_register("r0"), 1)
+                emu.set_isa_mode(0)
+                self.assertFalse(emu.get_isa_mode())
+                self.assertEqual(emu.read_register("pc"), 0x1002)
+
+    def test_function_hook_returns_into_thumb_code(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.CALL)
+                emu.write_register("pc", 0x1001)
+                emu.add_exit_point(0x1006)
+                lrs = []
+
+                def model(emu):
+                    lrs.append(emu.read_register("lr"))
+                    emu.write_register("pc", emu.read_register("lr"))
+
+                emu.hook_function(0x1100, model)
+                emu.run()
+                self.assertEqual(lrs, [0x1005])
+                self.assertEqual(emu.read_register("r0"), 5)
+
+    def test_cpsr_t_bit_is_thumb_state(self):
+        for params, make in self.cases():
+            with self.subTest(**params):
+                emu = make(self.MOVS)
+                emu.write_register("pc", 0x1001)
+                self.assertEqual(emu.read_register("cpsr") & 0x20, 0x20)
+                cpsr = emu.read_register("cpsr")
+                emu.write_register("cpsr", cpsr & ~0x20)
+                self.assertFalse(emu.get_isa_mode())
+                emu.write_register("cpsr", cpsr)
+                self.assertTrue(emu.get_isa_mode())
+                emu.step()
+                self.assertEqual(emu.read_register("r0"), 1)
+
+    def test_v4_has_no_thumb(self):
+        _ensure_pyghidra_started()
+        for cls in self.EMULATORS:
+            with self.subTest(emulator=cls.__name__):
+                emu = cls(
+                    platforms.Platform(
+                        platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+                    )
+                )
+                # ARMv4 has one instruction set, so no ISA mode to read or set.
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.get_isa_mode()
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_isa_mode(1)
+                # cpsr's T bit has nothing to select.
+                emu.write_register("cpsr", 0x30)
+
+    def test_get_thumb_needs_arm32(self):
+        for arch in (platforms.Architecture.AARCH64, platforms.Architecture.X86_64):
+            with self.subTest(arch=arch.name):
+                emu = _ghidra_concrete_emulator(arch)
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.get_isa_mode()
+                with self.assertRaises(exceptions.ConfigurationError):
+                    emu.set_isa_mode(1)
+
+
 class _GhidraFakeConcretePair:
     """Stand-in for a Java Pair<byte[], SymValueZ3> with no symbolic side.
 
@@ -9510,6 +12655,680 @@ class GhidraSymbolicWriteHookByteOrderTests(unittest.TestCase):
         self.assertFalse(value.symbolic)
         self.assertEqual(value.size(), 64)
         self.assertEqual(value.concrete_value, 0x11223344)
+
+
+_GHIDRA_CONCRETE_THEN_SYMBOLIC = """
+from smallworld import emulators, platforms
+
+platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
+emulators.ghidra.GhidraEmulator(platform)
+emulators.ghidra.GhidraSymbolicEmulator(platform)
+"""
+
+
+class GhidraEmulatorStartOrderTests(unittest.TestCase):
+    """A GhidraSymbolicEmulator must work after a GhidraEmulator started the JVM.
+
+    The SymbolicSummaryZ3 native libraries can only be registered before the
+    JVM starts, so the concrete factory has to prepare them too. This needs a
+    fresh JVM, so it runs in a subprocess.
+    """
+
+    def test_symbolic_after_concrete(self):
+        cmd = ["python3", "-c", _GHIDRA_CONCRETE_THEN_SYMBOLIC]
+        result = subprocess.run(
+            wrap_python_command(cmd),
+            cwd=os.path.abspath(os.path.dirname(__file__)),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+
+
+class GhidraSymbolicUseropTests(unittest.TestCase):
+    """The symbolic Ghidra emulator runs the userops SmallWorld implements.
+
+    ``crc32w`` lifts to a Crc32Calc userop Ghidra's emulator doesn't
+    implement. SmallWorld runs it on concrete values, and refuses an argument
+    that depends on a symbolic input.
+    """
+
+    CODE = 0x1000
+    CRC32W = bytes.fromhex("401041e1")  # crc32w r1, r1, r0
+
+    def _emulator(self):
+        _ensure_pyghidra_started()
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V8A, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.ghidra.GhidraSymbolicEmulator(platform)
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, self.CRC32W)
+        emu.write_register("pc", self.CODE)
+        emu.write_register("r0", 0x12345678)
+        emu.write_register("r1", 0xFFFFFFFF)
+        return emu
+
+    def test_runs_userop_on_concrete_values(self):
+        emu = self._emulator()
+        emu.step_instruction()
+        # crc32w applies no inversion, so from all ones it gives zlib's CRC-32
+        # inverted.
+        expected = zlib.crc32((0x12345678).to_bytes(4, "little")) ^ 0xFFFFFFFF
+        self.assertEqual(emu.read_register("r1"), expected)
+
+    def test_refuses_symbolic_argument(self):
+        emu = self._emulator()
+        emu.write_register_label("r0", "crc_input")
+        with self.assertRaisesRegex(exceptions.SymbolicValueError, "Crc32Calc"):
+            emu.step_instruction()
+
+    def test_runs_a_userop_that_decodes_the_instruction(self):
+        # vrinta lifts to cdp2's coprocessor_function2, whose implementation
+        # reads the instruction's bytes and registers from the emulator.
+        emu = self._emulator()
+        emu.write_memory_content(self.CODE, bytes.fromhex("400ab8fe"))
+        emu.write_register("s0", int.from_bytes(struct.pack("<f", -2.5), "little"))
+        emu.step_instruction()
+        self.assertEqual(
+            struct.unpack("<f", emu.read_register("s0").to_bytes(4, "little"))[0],
+            -3.0,
+        )
+
+
+class GhidraUpstreamCanaryTests(unittest.TestCase):
+    """Ghidra still has the userops SmallWorld runs, and still can't run them.
+
+    A failure after an upgrade means Ghidra changed: review the machine
+    definition's ``userops`` or ``nop_userops``, which may now be redundant or
+    never match, rather than changing the test to pass.
+    """
+
+    # Ghidra's setISAMode fails on the v4 language, which has no TMode, so
+    # SmallWorld deliberately runs it as a no-op there.
+    DELIBERATE_OVERRIDES = {(platforms.Architecture.ARM_V4, "setISAMode")}
+
+    @classmethod
+    def setUpClass(cls):
+        _ensure_pyghidra_started()
+        from ghidra.pcode.emu import PcodeEmulator
+
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        cls.machdefs = []
+        for arch in platforms.Architecture:
+            if not arch.name.startswith(("ARM", "AARCH64")):
+                continue
+            for byteorder in (platforms.Byteorder.LITTLE, platforms.Byteorder.BIG):
+                platform = platforms.Platform(arch, byteorder)
+                try:
+                    machdef = GhidraMachineDef.for_platform(platform)
+                except ValueError:
+                    continue
+                language = machdef.language
+                declared = {
+                    str(language.getUserDefinedOpName(i))
+                    for i in range(language.getNumberOfUserDefinedOpNames())
+                }
+                library = PcodeEmulator(language).newThread().getUseropLibrary()
+                native = {str(name) for name in library.getUserops().keySet()}
+                cls.machdefs.append((platform, machdef, declared, native))
+
+    def test_every_userop_is_declared_by_a_language(self):
+        # Crc32Calc is in every ARM machdef but only the v8 languages have it.
+        declared = set().union(*(entry[2] for entry in self.machdefs))
+        for platform, machdef, _, _ in self.machdefs:
+            for name in set(machdef.userops) | set(machdef.nop_userops):
+                with self.subTest(platform=str(platform), userop=name):
+                    self.assertIn(
+                        name,
+                        declared,
+                        "No Ghidra language declares this userop now: review "
+                        f"{type(machdef).__name__}'s userops",
+                    )
+
+    def test_ghidra_runs_none_of_the_userops_smallworld_runs(self):
+        for platform, machdef, _, native in self.machdefs:
+            for name in set(machdef.userops) | set(machdef.nop_userops):
+                if (platform.architecture, name) in self.DELIBERATE_OVERRIDES:
+                    continue
+                with self.subTest(platform=str(platform), userop=name):
+                    self.assertNotIn(
+                        name,
+                        native,
+                        "Ghidra's emulator runs this userop now: review "
+                        f"{type(machdef).__name__}'s userops",
+                    )
+
+
+class GhidraAArch64Crc32Tests(unittest.TestCase):
+    """AArch64's crc32 and crc32c run on Ghidra.
+
+    They lift to crc32b, crc32h, crc32w and crc32x userops, with the
+    polynomial as an argument, which Ghidra's emulator doesn't implement.
+    """
+
+    # crc32{b,h,w,x} w0, w1, {w2,w2,w2,x2}; crc32c sets bit 12.
+    ENCODINGS = {"b": 0x1AC24020, "h": 0x1AC24420, "w": 0x1AC24820, "x": 0x9AC24C20}
+    SIZES = {"b": 1, "h": 2, "w": 4, "x": 8}
+    FORMS = ("crc32b", "crc32h", "crc32w", "crc32x")
+    FORMS += ("crc32cb", "crc32ch", "crc32cw", "crc32cx")
+
+    def emulator(self, cls, byteorder=platforms.Byteorder.LITTLE):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(platforms.Architecture.AARCH64, byteorder))
+        emu.map_memory(0x1000, 0x1000)
+        return emu
+
+    def crc(self, emu, form, acc, value):
+        word = self.ENCODINGS[form[-1]] | (0x1000 if form.startswith("crc32c") else 0)
+        # Ghidra caches what it decodes, so each form gets its own address.
+        address = 0x1000 + 4 * self.FORMS.index(form)
+        # Instructions are little-endian on big-endian AArch64 too.
+        emu.write_memory_content(address, word.to_bytes(4, "little"))
+        emu.write_register("x1", acc)
+        emu.write_register("x2", value)
+        emu.write_register("pc", address)
+        emu.step_instruction()
+        return emu.read_register("x0") & 0xFFFFFFFF
+
+    def test_crc32_matches_zlib(self):
+        emu = self.emulator(emulators.ghidra.GhidraEmulator)
+        value = 0x0123456789ABCDEF
+        for form, size in self.SIZES.items():
+            with self.subTest(form=f"crc32{form}"):
+                data = (value & ((1 << (size * 8)) - 1)).to_bytes(size, "little")
+                # zlib inverts before and after; the instruction doesn't.
+                expected = zlib.crc32(data, 0x5A5A5A5A ^ 0xFFFFFFFF) ^ 0xFFFFFFFF
+                self.assertEqual(
+                    self.crc(emu, f"crc32{form}", 0x5A5A5A5A, value), expected
+                )
+
+    def test_crc32c_check_value(self):
+        # CRC-32C of "123456789" is 0xE3069283, starting from and inverting
+        # with all ones.
+        emu = self.emulator(emulators.ghidra.GhidraEmulator)
+        for chunks in (("x", "b"), ("w", "h", "h", "b")):
+            with self.subTest(forms=chunks):
+                acc, data = 0xFFFFFFFF, b"123456789"
+                for form in chunks:
+                    size = self.SIZES[form]
+                    chunk, data = data[:size], data[size:]
+                    acc = self.crc(
+                        emu, f"crc32c{form}", acc, int.from_bytes(chunk, "little")
+                    )
+                self.assertEqual(acc ^ 0xFFFFFFFF, 0xE3069283)
+
+    def test_big_endian_and_symbolic_emulators(self):
+        expected = zlib.crc32(b"1", 0) ^ 0xFFFFFFFF
+        for cls, byteorder in (
+            (emulators.ghidra.GhidraEmulator, platforms.Byteorder.BIG),
+            (emulators.ghidra.GhidraSymbolicEmulator, platforms.Byteorder.LITTLE),
+        ):
+            with self.subTest(emulator=cls.__name__, byteorder=byteorder.name):
+                emu = self.emulator(cls, byteorder)
+                self.assertEqual(
+                    self.crc(emu, "crc32b", 0xFFFFFFFF, ord("1")), expected
+                )
+
+
+class Z3BridgeImpliesTests(unittest.TestCase):
+    """SymZ3 expressions with implications convert to claripy.
+
+    Ghidra's SymZ3 uses implication in, for one, ARM's carry and overflow
+    flags, which claripy's z3 backend can't abstract, so reading a register
+    whose value depended on a label through them raised ClaripyError.
+    """
+
+    def _bv(self, condition):
+        import z3
+
+        from smallworld.emulators.ghidra import z3bridge
+
+        bv = z3.If(condition, z3.BitVecVal(1, 8), z3.BitVecVal(0, 8))
+        solver = z3.Solver()
+        solver.add(bv == bv)
+        return z3bridge.smt2_to_claripy_bv("V:" + solver.to_smt2())
+
+    def test_implication_converts(self):
+        import z3
+
+        x = z3.BitVec("x", 8)
+        # x > 1 implies x > 0 (unsigned), so this is always 1.
+        bv = self._bv(z3.Implies(z3.UGT(x, 1), z3.UGT(x, 0)))
+        self.assertEqual(set(claripy.Solver().eval(bv, 3)), {1})
+
+    def test_nested_implication_converts(self):
+        import z3
+
+        x = z3.BitVec("x", 8)
+        # (x == 1 implies x == 2) implies x == 3: holds only for x == 1 or 3.
+        bv = self._bv(z3.Implies(z3.Implies(x == 1, x == 2), x == 3))
+        x_claripy = next(leaf for leaf in bv.leaf_asts() if leaf.symbolic)
+        solver = claripy.Solver()
+        solver.add(bv == 1)
+        self.assertEqual(set(solver.eval(x_claripy, 4)), {1, 3})
+
+    def test_shared_implications_convert(self):
+        import z3
+
+        from smallworld.emulators.ghidra import z3bridge
+
+        # Each level uses the one below twice, as the carry and overflow
+        # flags reuse a sum, so walking it as a tree takes 2**200 steps.
+        a, b, c = z3.Bools("a b c")
+        expr = a
+        for _ in range(200):
+            expr = z3.And(z3.Implies(expr, b), z3.Or(expr, c))
+        rewritten = z3bridge._for_claripy(expr)
+        solver = z3.Solver()
+        solver.add(rewritten != expr)
+        self.assertEqual(solver.check(), z3.unsat)
+        self.assertEqual(self._bv(expr).op, "If")
+
+
+class GhidraArmPsrTests(unittest.TestCase):
+    """cpsr and psr hold the flags Ghidra's ARM languages keep elsewhere.
+
+    Ghidra tests and sets N, Z, C, V, Q and GE in registers of their own, and
+    never updates its cpsr register from them, so cpsr used to read stale
+    flags, and writing it didn't change the flags instructions use.
+    """
+
+    CODE = 0x1000
+    N, Z, C, V = 1 << 31, 1 << 30, 1 << 29, 1 << 28
+    GE = 0xF << 16
+
+    def _emulator(self, cls, code, arch=platforms.Architecture.ARM_V7A):
+        _ensure_pyghidra_started()
+        emu = cls(platforms.Platform(arch, platforms.Byteorder.LITTLE))
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_memory_content(self.CODE, code)
+        emu.write_register("pc", self.CODE)
+        return emu
+
+    def _classes(self):
+        return (emulators.GhidraEmulator, emulators.GhidraSymbolicEmulator)
+
+    def test_cpsr_reads_the_flags_instructions_set(self):
+        cmp = (0xE1500001).to_bytes(4, "little")  # cmp r0, r1
+        for cls in self._classes():
+            for r0, r1, flags in (
+                (1, 2, self.N),
+                (2, 2, self.Z | self.C),
+                (0x80000000, 1, self.C | self.V),
+            ):
+                emu = self._emulator(cls, cmp)
+                emu.write_register("r0", r0)
+                emu.write_register("r1", r1)
+                emu.step_instruction()
+                self.assertEqual(
+                    emu.read_register("cpsr") & (self.N | self.Z | self.C | self.V),
+                    flags,
+                    (cls.__name__, r0, r1),
+                )
+
+    def test_writing_cpsr_sets_the_flags_instructions_test(self):
+        moveq = (0x03A02007).to_bytes(4, "little")  # moveq r2, #7
+        for cls in self._classes():
+            for z, expected in ((0, 0), (self.Z, 7)):
+                emu = self._emulator(cls, moveq)
+                emu.write_register("cpsr", 0x10 | z)
+                emu.write_register("r2", 0)
+                emu.step_instruction()
+                self.assertEqual(emu.read_register("r2"), expected, cls.__name__)
+
+    def test_ge_bits_round_trip_and_reach_sel(self):
+        # sel r2, r0, r1 takes each byte from r0 where its GE bit is set.
+        sel = (0xE6802FB1).to_bytes(4, "little")
+        for cls in self._classes():
+            emu = self._emulator(cls, sel)
+            emu.write_register("cpsr", 0x10 | (0b0101 << 16))
+            self.assertEqual(emu.read_register("cpsr") & self.GE, 0b0101 << 16)
+            emu.write_register("r0", 0xAAAAAAAA)
+            emu.write_register("r1", 0xBBBBBBBB)
+            emu.step_instruction()
+            self.assertEqual(emu.read_register("r2"), 0xBBAABBAA, cls.__name__)
+
+    def test_m_profile_psr(self):
+        cmp = bytes.fromhex("8842")  # cmp r0, r1
+        emu = self._emulator(
+            emulators.GhidraEmulator, cmp, platforms.Architecture.ARM_V7M
+        )
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.step_instruction()
+        self.assertEqual(emu.read_register("psr") & (self.Z | self.C), self.Z | self.C)
+
+    def test_label_binds_to_the_live_flags(self):
+        # Labelling cpsr binds the label to its current value, which must
+        # include the flags cmp set, not cpsr's stale ones.
+        cmp = (0xE1500001).to_bytes(4, "little")
+        emu = self._emulator(emulators.GhidraSymbolicEmulator, cmp)
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.step_instruction()
+        emu.write_register_label("cpsr", "psr_in")
+        solver = claripy.Solver()
+        solver.add(emu._user_constraints)
+        label = emu.read_register_symbolic("cpsr")
+        self.assertEqual(
+            set(solver.eval(label & (self.Z | self.C), 2)), {self.Z | self.C}
+        )
+
+    def test_flags_a_label_reaches_read_symbolically(self):
+        # cmp's carry and overflow flags involve implications, which once
+        # stopped the symbolic read.
+        cmp = (0xE1500001).to_bytes(4, "little")
+        emu = self._emulator(emulators.GhidraSymbolicEmulator, cmp)
+        emu.write_register("r0", 2)
+        emu.write_register("r1", 2)
+        emu.write_register_label("r0", "x")
+        emu.step_instruction()
+        cpsr = emu.read_register_symbolic("cpsr")
+        self.assertTrue(cpsr.symbolic)
+        solver = claripy.Solver()
+        solver.add(emu._symbolic_inputs["x"] == 2)
+        self.assertEqual(
+            set(solver.eval(cpsr & (self.Z | self.C), 2)), {self.Z | self.C}
+        )
+
+
+class _FakeArmFpEmulator:
+    """Just enough emulator for the ARMv8 FP userops: the instruction's
+    bytes, s/d/fpscr/cpsr registers, and Ghidra's TMode."""
+
+    def __init__(self, insn: int, thumb: bool = False, **registers):
+        if thumb:
+            self.data = (insn >> 16).to_bytes(2, "little") + (insn & 0xFFFF).to_bytes(
+                2, "little"
+            )
+        else:
+            self.data = insn.to_bytes(4, "little")
+        self.registers = {"pc": 0x1000, "fpscr": 0, **registers}
+        self.sleigh = {"TMode": int(thumb)}
+
+    def current_instruction_bytes(self):
+        return self.data
+
+    def read_sleigh_register(self, name):
+        return self.sleigh[name]
+
+    def read_register_content(self, name):
+        return self.registers.get(name, 0)
+
+    def write_register_content(self, name, value):
+        self.registers[name] = value
+
+
+def _f32(value):
+    return int.from_bytes(struct.pack("<f", value), "little")
+
+
+def _from_f32(bits):
+    return struct.unpack("<f", bits.to_bytes(4, "little"))[0]
+
+
+def _f32_lanes(*values):
+    return sum(_f32(v) << (32 * i) for i, v in enumerate(values))
+
+
+class ArmV8FpUseropTests(unittest.TestCase):
+    """The ARMv8 AArch32 FP instructions Ghidra's emulator can't run.
+
+    Ghidra's ARMv8 language decodes vsel and the scalar vrint instructions as
+    cdp and cdp2, and lifts vcvt{a,n,p,m}, vmaxnm and vminnm to userops its
+    emulator doesn't implement, so SmallWorld runs them. Encodings checked
+    against Capstone, and results against Unicorn.
+    """
+
+    # FPRounding values, as SLEIGH passes them.
+    TIEEVEN, POSINF, NEGINF, ZERO, TIEAWAY = range(5)
+    DENORMAL = 0x00000001
+
+    @classmethod
+    def setUpClass(cls):
+        _ensure_pyghidra_started()
+        from smallworld.emulators.ghidra.machdefs import userops
+
+        cls.userops = userops
+
+    def _cdp2(self, insn, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        self.assertIsNone(self.userops.coprocessor_function2(emu, "cdp2", []))
+        return emu
+
+    def test_vrint_rounds_as_its_mode_says(self):
+        # vrint{a,n,p,m}.f32 s0, s1
+        cases = {
+            0xFEB80A60: {2.5: 3.0, -2.5: -3.0, 1.5: 2.0, 2.4: 2.0},  # a: ties away
+            0xFEB90A60: {2.5: 2.0, -2.5: -2.0, 1.5: 2.0, 3.5: 4.0},  # n: ties even
+            0xFEBA0A60: {2.1: 3.0, -2.9: -2.0},  # p: up
+            0xFEBB0A60: {2.9: 2.0, -2.1: -3.0},  # m: down
+        }
+        for insn, results in cases.items():
+            for value, expected in results.items():
+                emu = self._cdp2(insn, s1=_f32(value))
+                self.assertEqual(
+                    _from_f32(emu.registers["s0"]), expected, (insn, value)
+                )
+
+    def test_vrint_keeps_the_sign_of_zero_and_passes_specials(self):
+        emu = self._cdp2(0xFEB80A60, s1=_f32(-0.3))  # vrinta.f32 s0, s1
+        self.assertEqual(emu.registers["s0"], 0x80000000)
+        emu = self._cdp2(0xFEB80A60, s1=_f32(float("-inf")))
+        self.assertEqual(emu.registers["s0"], 0xFF800000)
+        # A signalling NaN comes back quieted.
+        emu = self._cdp2(0xFEB80A60, s1=0x7F800001)
+        self.assertEqual(emu.registers["s0"], 0x7FC00001)
+
+    def test_vrint_f64(self):
+        emu = self._cdp2(
+            0xFEB82B43, d3=int.from_bytes(struct.pack("<d", -7.5), "little")
+        )  # vrinta.f64 d2, d3
+        self.assertEqual(
+            struct.unpack("<d", emu.registers["d2"].to_bytes(8, "little"))[0], -8.0
+        )
+
+    def test_vrint_r_z_x_round_by_fpscr_or_towards_zero(self):
+        # vrintr.f32 and vrintx.f32 s0, s1 follow FPSCR.RMode; vrintz.f32
+        # rounds towards zero whatever it says.
+        vrintr, vrintx, vrintz = 0xEEB60A60, 0xEEB70A60, 0xEEB60AE0
+        for insn, rmode, expected in (
+            (vrintr, 0b00, 2.0),  # to nearest, ties to even
+            (vrintr, 0b01, 3.0),  # up
+            (vrintx, 0b10, 2.0),  # down
+            (vrintz, 0b01, 2.0),
+        ):
+            emu = _FakeArmFpEmulator(insn, s1=_f32(2.5), fpscr=rmode << 22)
+            self.userops.coprocessor_function(emu, "cdp", [])
+            self.assertEqual(_from_f32(emu.registers["s0"]), expected, hex(insn))
+
+    def test_flush_to_zero(self):
+        # FPSCR.FZ reads a denormal as zero: vrintp.f32 s0, s1 would give 1.
+        emu = self._cdp2(0xFEBA0A60, s1=self.DENORMAL)
+        self.assertEqual(_from_f32(emu.registers["s0"]), 1.0)
+        emu = self._cdp2(0xFEBA0A60, s1=self.DENORMAL, fpscr=1 << 24)
+        self.assertEqual(emu.registers["s0"], 0)
+
+    def test_vrint_default_nan(self):
+        # FPSCR.DN replaces a NaN with the default NaN; without it the NaN is
+        # only quieted. Expected values from Unicorn.
+        nan32, nan64 = 0x7F800123, 0x7FF0000000000123
+        for insn, function, source, dest, nan, quiet, default in (
+            # vrinta.f32 s0, s1 and vrintz.f32 s0, s1
+            (
+                0xFEB80A60,
+                "coprocessor_function2",
+                "s1",
+                "s0",
+                nan32,
+                0x7FC00123,
+                0x7FC00000,
+            ),
+            (
+                0xEEB60AE0,
+                "coprocessor_function",
+                "s1",
+                "s0",
+                nan32,
+                0x7FC00123,
+                0x7FC00000,
+            ),
+            # vrinta.f64 d0, d1 and vrintz.f64 d0, d1
+            (
+                0xFEB80B41,
+                "coprocessor_function2",
+                "d1",
+                "d0",
+                nan64,
+                0x7FF8000000000123,
+                0x7FF8000000000000,
+            ),
+            (
+                0xEEB60BC1,
+                "coprocessor_function",
+                "d1",
+                "d0",
+                nan64,
+                0x7FF8000000000123,
+                0x7FF8000000000000,
+            ),
+        ):
+            for dn, expected in ((0, quiet), (1, default)):
+                with self.subTest(insn=hex(insn), dn=dn):
+                    emu = _FakeArmFpEmulator(insn, fpscr=dn << 25, **{source: nan})
+                    getattr(self.userops, function)(emu, "cdp", [])
+                    self.assertEqual(emu.registers[dest], expected)
+
+    def test_vcvt_rounds_and_saturates(self):
+        emu = _FakeArmFpEmulator(0xFEBC2AC0)  # vcvta.s32.f32 s4, s0
+        for value, rounding, expected in (
+            (2.5, self.TIEAWAY, 3),
+            (-2.5, self.TIEAWAY, -3),
+            (2.5, self.TIEEVEN, 2),
+            (3e10, self.TIEAWAY, 0x7FFFFFFF),
+            (-3e10, self.TIEAWAY, -(1 << 31)),
+            (float("nan"), self.TIEAWAY, 0),
+        ):
+            self.assertEqual(
+                self.userops.float_to_signed_round(
+                    emu, "vcvta", [_f32(value), rounding]
+                ),
+                expected & 0xFFFFFFFF,
+                value,
+            )
+        emu = _FakeArmFpEmulator(0xFEFF0A41)  # vcvtm.u32.f32 s1, s2
+        for value, expected in ((-0.5, 0), (2.9, 2), (5e9, 0xFFFFFFFF)):
+            self.assertEqual(
+                self.userops.float_to_unsigned_round(
+                    emu, "vcvtm", [_f32(value), self.NEGINF]
+                ),
+                expected,
+                value,
+            )
+        emu = _FakeArmFpEmulator(0xFEBF0B41)  # vcvtm.u32.f64 s0, d1
+        double = int.from_bytes(struct.pack("<d", 7.9), "little")
+        self.assertEqual(
+            self.userops.float_to_unsigned_round(emu, "vcvtm", [double, self.NEGINF]),
+            7,
+        )
+
+    def test_vector_vcvt_works_lane_by_lane_and_flushes(self):
+        # vcvtp.u32.f32 q0, q1: up, saturating, a denormal read as zero.
+        emu = _FakeArmFpEmulator(0xF3BB02C2)
+        result = self.userops.vector_float_to_unsigned_round(
+            emu,
+            "vcvtp",
+            [_f32_lanes(1.5, -3.0, 5e9, 0.0) | self.DENORMAL << 96, 1, self.POSINF],
+        )
+        self.assertEqual(result, 2 | 0 << 32 | 0xFFFFFFFF << 64 | 0 << 96)
+
+    def test_vsel_follows_the_condition(self):
+        # vsel{eq,vs,ge,gt}.f32 s3, s1, s2: s1 when the condition holds.
+        n, m = _f32(1.0), _f32(2.0)
+        N, Z, V = 1 << 31, 1 << 30, 1 << 28
+        cases = [
+            (0xFE401A81, Z, n),
+            (0xFE401A81, 0, m),
+            (0xFE501A81, V, n),
+            (0xFE601A81, N | V, n),
+            (0xFE601A81, N, m),
+            (0xFE701A81, 0, n),
+            (0xFE701A81, Z, m),
+        ]
+        for insn, cpsr, expected in cases:
+            emu = _FakeArmFpEmulator(insn, s1=n, s2=m, cpsr=cpsr)
+            self.userops.coprocessor_function2(emu, "cdp2", [])
+            self.assertEqual(emu.registers["s3"], expected, (hex(insn), hex(cpsr)))
+
+    def test_thumb_encoding(self):
+        emu = self._cdp2(0xFEB80A40, thumb=True, s0=_f32(-2.5))  # vrinta.f32 s0, s0
+        self.assertEqual(_from_f32(emu.registers["s0"]), -3.0)
+
+    def test_other_coprocessor_instructions_are_refused(self):
+        emu = _FakeArmFpEmulator(0xFE000E00)  # cdp2 p14, ...
+        with self.assertRaises(exceptions.EmulationExecFailure):
+            self.userops.coprocessor_function2(emu, "cdp2", [])
+        emu = _FakeArmFpEmulator(0xEE000E00)  # cdp p14, ...
+        with self.assertRaises(exceptions.EmulationExecFailure):
+            self.userops.coprocessor_function(emu, "cdp", [])
+
+    def _max(self, insn, a, b, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        return self.userops.fp_max_num(emu, "vmaxnm", [a, b])
+
+    def _min(self, insn, a, b, thumb=False, **registers):
+        emu = _FakeArmFpEmulator(insn, thumb, **registers)
+        return self.userops.fp_min_num(emu, "vminnm", [a, b])
+
+    def test_maxnum_and_minnum(self):
+        vmaxnm, vminnm = 0xFE801A20, 0xFE801A60  # v{max,min}nm.f32 s2, s0, s1
+        qnan, snan = 0x7FC00000, 0x7F800001
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), _f32(2.0)), _f32(2.0))
+        self.assertEqual(self._min(vminnm, _f32(1.0), _f32(2.0)), _f32(1.0))
+        # A number beats a quiet NaN, in either position.
+        self.assertEqual(self._max(vmaxnm, qnan, _f32(-1.0)), _f32(-1.0))
+        self.assertEqual(self._min(vminnm, _f32(-1.0), qnan), _f32(-1.0))
+        # +0 is the larger zero.
+        self.assertEqual(self._max(vmaxnm, 0x80000000, 0), 0)
+        self.assertEqual(self._min(vminnm, 0, 0x80000000), 0x80000000)
+        # A signalling NaN propagates, quieted, unless FPSCR.DN asks for the
+        # default NaN.
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), snan), 0x7FC00001)
+        self.assertEqual(self._max(vmaxnm, _f32(1.0), snan, fpscr=1 << 25), qnan)
+
+    def test_scalar_f16_maxnum_clears_the_upper_half(self):
+        vmaxnm, vminnm = 0xFE801920, 0xFE801960  # v{max,min}nm.f16 s2, s0, s1
+        one, two = 0x3C00, 0x4000
+        # The upper halves of the operands mustn't reach the result.
+        a, b = 0x12340000 | one, 0x56780000 | two
+        self.assertEqual(self._max(vmaxnm, a, b), two)
+        self.assertEqual(self._min(vminnm, a, b), one)
+
+    def test_simd_maxnum_works_lane_by_lane(self):
+        vmaxnm_d = 0xF3010F12  # vmaxnm.f32 d0, d1, d2
+        self.assertEqual(
+            self._max(vmaxnm_d, _f32_lanes(1.0, 5.0), _f32_lanes(3.0, -5.0)),
+            _f32_lanes(3.0, 5.0),
+        )
+        # vminnm.f32 q0, q1, q2, in Thumb
+        self.assertEqual(
+            self._min(
+                0xFF220F54,
+                _f32_lanes(1.0, 5.0, -1.0, 0.0),
+                _f32_lanes(3.0, -5.0, 2.0, -0.0),
+                thumb=True,
+            ),
+            _f32_lanes(1.0, -5.0, -1.0, -0.0),
+        )
+        # Advanced SIMD always gives the default NaN for a signalling one, and
+        # reads a denormal as zero.
+        snan = 0x7F800001
+        self.assertEqual(
+            self._max(vmaxnm_d, _f32_lanes(1.0, -1.0), snan | self.DENORMAL << 32),
+            0x7FC00000,
+        )
 
 
 class GhidraSymbolicRegisterLabelTests(unittest.TestCase):
@@ -9980,6 +13799,7 @@ class PandaRegisterAccessExceptionTests(unittest.TestCase):
         self.emu.cpu = mock.Mock()
         md = self.emu.panda_thread.machdef
         md.check_panda_reg.return_value = True
+        md.is_state_register.return_value = False
         # "pc" maps to a distinct reg so a plain register name isn't mistaken
         # for the program counter and short-circuited.
         md.panda_reg.side_effect = lambda reg, *a, **k: (
@@ -11562,6 +15382,81 @@ class MicroMIPSIsaModeTests(unittest.TestCase):
         self.assertEqual(emu.read_register("pc"), 0x1001)
 
 
+class ArmIsaModeTests(unittest.TestCase):
+    """get_isa_mode/set_isa_mode on ARM read and write cpsr's T bit, or the
+    backend's own Thumb state where its registers don't reach it."""
+
+    A_PROFILE = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+    )
+    CODE = 0x1000
+    # movs r0, #42 twice, in Thumb; mov r0, #7 twice, in ARM.
+    THUMB = (0x202A).to_bytes(2, "little") * 2
+    ARM = (0xE3A00007).to_bytes(4, "little") * 2
+
+    def _emulators(self):
+        yield "unicorn", lambda p: emulators.UnicornEmulator(p)
+        yield "angr", lambda p: emulators.AngrEmulator(p)
+
+        def ghidra(p):
+            _ensure_pyghidra_started()
+            return emulators.GhidraEmulator(p)
+
+        yield "ghidra", ghidra
+        if _TRITON_AVAILABLE:
+            yield "triton", lambda p: emulators.TritonEmulator(p)
+        if _STYX_AVAILABLE:
+            yield "styx", lambda p: emulators.StyxEmulator(p)
+
+    def _run(self, emu, mode):
+        code = self.THUMB if mode else self.ARM
+        emu.map_memory(self.CODE, 0x1000)
+        emu.write_code(self.CODE, code)
+        emu.write_register("r0", 0)
+        emu.write_register("pc", self.CODE)
+        emu.set_isa_mode(mode)
+        self.assertEqual(emu.get_isa_mode(), mode)
+        emu.add_exit_point(self.CODE + len(code))
+        emu.step()
+        self.assertEqual(emu.read_register("r0"), 0x2A if mode else 7)
+        self.assertEqual(emu.get_isa_mode(), mode)
+
+    def test_mode_selects_the_instruction_set(self):
+        for name, make in self._emulators():
+            for mode in (1, 0):
+                with self.subTest(emulator=name, mode=mode):
+                    self._run(make(self.A_PROFILE), mode)
+
+    def test_get_and_set_thumb_are_deprecated(self):
+        emu = emulators.UnicornEmulator(self.A_PROFILE)
+        with self.assertWarns(DeprecationWarning):
+            emu.set_thumb(True)
+        self.assertEqual(emu.get_isa_mode(), 1)
+        with self.assertWarns(DeprecationWarning):
+            self.assertIs(emu.get_thumb(), True)
+        with self.assertWarns(DeprecationWarning):
+            emu.set_thumb(False)
+        self.assertEqual(emu.get_isa_mode(), 0)
+
+    def test_m_profile_runs_only_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        self.assertEqual(emu.get_isa_mode(), 1)
+        emu.set_isa_mode(1)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.set_isa_mode(0)
+
+    def test_armv4_has_no_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V4, platforms.Byteorder.LITTLE
+        )
+        emu = emulators.UnicornEmulator(platform)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emu.get_isa_mode()
+
+
 class MicroMIPSSymbolicIsaModeTests(unittest.TestCase):
     """The isa_mode pseudo-register and an odd pc on the symbolic Ghidra
     emulator, which handles them as the concrete one does."""
@@ -12654,9 +16549,7 @@ class FieldDetectionDescribeFieldTests(unittest.TestCase):
         return SimpleNamespace(fda_bindings=bindings or {})
 
     def _describe(self, fda, label, val):
-        from smallworld.analyses.field_detection.field_analysis import (
-            _describe_field,
-        )
+        from smallworld.analyses.field_detection.field_analysis import _describe_field
 
         return _describe_field(fda, label, val)
 

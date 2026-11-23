@@ -98,11 +98,16 @@ let
       };
       patchedUnicorn = pkgs.unicorn.overrideAttrs (old: {
         src = patchedUnicornSrc;
-        # Without these, no PPC64 code runs: an explicit CPU model selects a
-        # PPC32 CPU, and the default POWER10 faults on its first fetch.
+        # Without the PPC64 patches, no PPC64 code runs: an explicit CPU model
+        # selects a PPC32 CPU, and the default POWER10 faults on its first
+        # fetch. Without the SPARC ones, every SPARC indirect jump (ret, retl,
+        # jmp) traps whenever a code hook is installed, which SmallWorld always
+        # does, and a SPARC CPU stopped at an exit address reports the wrong pc.
         patches = (old.patches or [ ]) ++ [
           ./patches/unicorn-ppc64-cpu-model.patch
           ./patches/unicorn-ppc64-reset-hv.patch
+          ./patches/unicorn-sparc-dynamic-npc-hook.patch
+          ./patches/unicorn-sparc-exit-pc.patch
         ];
       });
       mkUnicornafl = pkgs.callPackage ./unicornafl-build {

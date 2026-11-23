@@ -1,3 +1,5 @@
+import typing
+
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
@@ -178,7 +180,6 @@ R_ARM_RPC24 = 254  # Legacy non-AAELF ARM relocation; semantics are platform-spe
 R_ARM_RBASE = 255  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
 R_ARM_NUM = 256  # This and higher are not valid standard ARM relocation codes.
 
-DT_PLTGOT = 3  # Dynamic tag for the GOT base address.
 ARM_OPCODE_SUB = 0b0010
 ARM_OPCODE_ADD = 0b0100
 THUMB_NOP_W = 0xF3AF8000
@@ -187,8 +188,18 @@ THUMB_NOP_W = 0xF3AF8000
 class ArmElfRelocator(ElfRelocator):
     """Shared ARM ELF relocator; each subclass covers one architecture."""
 
-    def _symbol_name(self, rela: ElfRela) -> str:
-        return rela.symbol.name if rela.symbol.name else "<anonymous>"
+    # Does the architecture have BLX (ARMv5 and later)? Without it, an Arm
+    # call to Thumb needs an interworking veneer, which this loader can't
+    # emit.
+    has_blx = True
+
+    # Before Thumb-2 (ARMv6T2), Thumb BL keeps no J1/J2 offset bits, so it
+    # reaches only +-4 MB rather than +-16 MB.
+    thumb_bl_range = 1 << 24
+
+    # Does the architecture have the 32-bit Thumb branches B.W and B<c>.W?
+    # They came with Thumb-2; ARMv6-M has its 32-bit BL but not these.
+    has_wide_thumb_branches = True
 
     def _symbol_value(self, rela: ElfRela) -> int:
         # ARM ELF function symbols conventionally carry the Thumb entry-state bit
@@ -390,11 +401,13 @@ class ArmElfRelocator(ElfRelocator):
                 f"requires {detail} aligned to {alignment} bytes, got {value}"
             )
 
-    def _missing_context(self, rela: ElfRela, detail: str) -> None:
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
-            f"{detail}, which is not available to ArmElfRelocator._compute_value()"
-        )
+    def _check_wide_thumb_branch(self, rela: ElfRela) -> None:
+        if not self.has_wide_thumb_branches:
+            raise ConfigurationError(
+                f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} "
+                f"patches a B.W or B<c>.W, but {self.arch} has no 32-bit Thumb "
+                "branches"
+            )
 
     def _ror32(self, value: int, amount: int) -> int:
         amount %= 32
@@ -573,36 +586,13 @@ class ArmElfRelocator(ElfRelocator):
             patched = (patched & ~(0x7F << 16)) | (((value >> 12) & 0x7F) << 16)
         return patched
 
-    def _got_base(self, rela: ElfRela, elf) -> int:
-        dtags = getattr(elf, "_dtags", {})
-        if DT_PLTGOT in dtags:
-            return elf._rebase_file(dtags[DT_PLTGOT])
-
-        lief_elf = getattr(elf, "_elf", None)
-        section_offsets = getattr(elf, "_section_offsets", {})
-        if lief_elf is not None:
-            for name in (".got.plt", ".got"):
-                for idx, section in enumerate(lief_elf.sections):
-                    if section.name != name:
-                        continue
-                    if getattr(section, "virtual_address", 0):
-                        return elf._rebase_file(section.virtual_address)
-                    if idx in section_offsets:
-                        return elf.address + section_offsets[idx]
-
-        self._missing_context(rela, "the GOT base address")
-        raise Exception("Reached an unreachable line")
-
-    def _proxy_offset(self, rela: ElfRela, proxy_types, detail: str) -> int:
-        offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
-        if len(offsets) == 1:
-            return offsets[0]
-        if len(offsets) == 0:
-            self._missing_context(rela, detail)
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} has "
-            f"multiple candidate proxy entries for {detail}: "
-            f"{', '.join(map(hex, offsets))}"
+    def _got_entry(self, rela: ElfRela, elf) -> int:
+        return self._got_entry_for(
+            rela,
+            elf,
+            (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
+            4,
+            self._symbol_addr(rela, include_thumb_bit=True),
         )
 
     def _tls_pair_base(self, rela: ElfRela, proxy_types, detail: str) -> int:
@@ -698,18 +688,10 @@ class ArmElfRelocator(ElfRelocator):
             orig = self._read_arm32(rela, elf)
             return self._pack_arm32((orig & 0x80000000) | (value & 0x7FFFFFFF))
         elif rela.type == R_ARM_GOT_ABS:
-            got_entry = self._proxy_offset(
-                rela,
-                (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
-                "the symbol's GOT entry address",
-            )
+            got_entry = self._got_entry(rela, elf)
             return self._pack(got_entry + self._get_data_addend(rela, elf, 4), 4)
         elif rela.type == R_ARM_GOT_PREL:
-            got_entry = self._proxy_offset(
-                rela,
-                (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
-                "the symbol's GOT entry address",
-            )
+            got_entry = self._got_entry(rela, elf)
             return self._pack(
                 got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4
             )
@@ -809,6 +791,11 @@ class ArmElfRelocator(ElfRelocator):
             value = sym_t + self._get_arm_branch_addend(rela, elf) - rela.offset
             orig = self._read_arm32(rela, elf)
             if sym_t & 1:
+                if not self.has_blx:
+                    self._missing_context(
+                        rela,
+                        f"an Arm-to-Thumb interworking veneer ({self.arch} has no BLX)",
+                    )
                 self._check_range(value & ~1, -(1 << 25), 1 << 25, rela, "Arm BLX call")
                 self._check_aligned(value & ~1, 2, rela, "Arm BLX call")
                 return self._pack_arm32(self._patch_arm_blx(value))
@@ -1032,12 +1019,19 @@ class ArmElfRelocator(ElfRelocator):
                     rela, "Thumb-to-Arm interworking call/veneer generation"
                 )
             value = sym_t + self._get_thumb_bl_addend(rela, elf) - rela.offset
-            self._check_range(value & ~1, -(1 << 24), 1 << 24, rela, "THM_CALL")
+            self._check_range(
+                value & ~1,
+                -self.thumb_bl_range,
+                self.thumb_bl_range,
+                rela,
+                "THM_CALL",
+            )
             patched = self._patch_thumb_bl(
                 self._read_thumb32(rela, elf), value & 0x01FFFFFE
             )
             return self._pack_thumb32(patched)
         elif rela.type == R_ARM_THM_JUMP24:
+            self._check_wide_thumb_branch(rela)
             if not (sym_t & 1):
                 self._missing_context(
                     rela, "Thumb-to-Arm interworking jump/veneer generation"
@@ -1073,6 +1067,7 @@ class ArmElfRelocator(ElfRelocator):
                 )
             )
         elif rela.type == R_ARM_THM_JUMP19:
+            self._check_wide_thumb_branch(rela)
             if not (sym_t & 1):
                 self._missing_context(
                     rela, "Thumb-to-Arm conditional jump veneer generation"
@@ -1298,31 +1293,89 @@ class ArmElfRelocator(ElfRelocator):
             )
 
 
+def _platforms(
+    architecture: platforms.Architecture, big_endian: bool = True
+) -> typing.FrozenSet[platforms.Platform]:
+    """The little-endian platform, and the big-endian one where it exists.
+
+    Big-endian ARMv4 and ARMv5 are BE32, so instructions are packed
+    big-endian too, like data. Big-endian ARMv6 and later are BE8: a linked
+    BE8 image holds its code little-endian, but needs only data relocations,
+    which are big-endian, and object files hold their code big-endian until
+    the linker converts it. Both follow from the platform's byte order.
+    """
+    byteorders = [platforms.Byteorder.LITTLE]
+    if big_endian:
+        byteorders.append(platforms.Byteorder.BIG)
+    return frozenset(platforms.Platform(architecture, b) for b in byteorders)
+
+
+class Armv4ElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V4)
+    has_blx = False
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
+
+
+class Armv4TElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V4T)
+    has_blx = False
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
+
+
 class Armv5TElfRelocator(ArmElfRelocator):
-    supported_platforms = frozenset(
-        {platforms.Platform(platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE)}
-    )
+    supported_platforms = _platforms(platforms.Architecture.ARM_V5T)
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
+
+
+class Armv6KElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V6K)
+    thumb_bl_range = 1 << 22
+    has_wide_thumb_branches = False
 
 
 class Armv6MElfRelocator(ArmElfRelocator):
-    supported_platforms = frozenset(
-        {platforms.Platform(platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE)}
-    )
+    supported_platforms = _platforms(platforms.Architecture.ARM_V6M, big_endian=False)
+    has_wide_thumb_branches = False
 
 
 class Armv7MElfRelocator(ArmElfRelocator):
-    supported_platforms = frozenset(
-        {platforms.Platform(platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE)}
-    )
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7M, big_endian=False)
+
+
+class Armv7EMElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7EM, big_endian=False)
 
 
 class Armv7RElfRelocator(ArmElfRelocator):
-    supported_platforms = frozenset(
-        {platforms.Platform(platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE)}
-    )
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7R)
 
 
 class Armv7AElfRelocator(ArmElfRelocator):
-    supported_platforms = frozenset(
-        {platforms.Platform(platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE)}
-    )
+    supported_platforms = _platforms(platforms.Architecture.ARM_V7A)
+
+
+class Armv8AElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8A)
+
+
+class Armv8RElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8R)
+
+
+class Armv8MElfRelocator(ArmElfRelocator):
+    supported_platforms = _platforms(platforms.Architecture.ARM_V8M, big_endian=False)
+
+
+# The big-endian relocators were once classes of their own; the names stay
+# so that pickled images still load.
+Armv4BEElfRelocator = Armv4ElfRelocator
+Armv4TBEElfRelocator = Armv4TElfRelocator
+Armv5TBEElfRelocator = Armv5TElfRelocator
+Armv6KBEElfRelocator = Armv6KElfRelocator
+Armv7ABEElfRelocator = Armv7AElfRelocator
+Armv7RBEElfRelocator = Armv7RElfRelocator
+Armv8ABEElfRelocator = Armv8AElfRelocator
+Armv8RBEElfRelocator = Armv8RElfRelocator

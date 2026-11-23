@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "stdio.h"
 #include "stdlib.h"
 
@@ -5,19 +6,19 @@ void test_void(void) {
     return;
 }
 
-__int32_t test_int32(__int32_t arg1) {
+int32_t test_int32(int32_t arg1) {
     return arg1;
 }
 
-__uint32_t test_uint32(__uint32_t arg1) {
+uint32_t test_uint32(uint32_t arg1) {
     return arg1;
 }
 
-__int64_t test_int64(__int64_t arg1) {
+int64_t test_int64(int64_t arg1) {
     return arg1;
 }
 
-__uint64_t test_uint64(__uint64_t arg1) {
+uint64_t test_uint64(uint64_t arg1) {
     return arg1;
 }
 
@@ -32,10 +33,10 @@ double test_double(double arg1) {
 // model this function
 int test(
     void (*_test_void)(void),
-    __int32_t (*_test_int32)(__int32_t),
-    __uint32_t (*_test_uint32)(__uint32_t),
-    __int64_t (*_test_int64)(__int64_t),
-    __uint64_t (*_test_uint64)(__uint64_t),
+    int32_t (*_test_int32)(int32_t),
+    uint32_t (*_test_uint32)(uint32_t),
+    int64_t (*_test_int64)(int64_t),
+    uint64_t (*_test_uint64)(uint64_t),
     float (*_test_float)(float),
     double (*_test_double)(double)
 ) {

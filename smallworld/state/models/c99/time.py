@@ -12,7 +12,7 @@ from .utils import _emu_strlen
 
 
 class TimeModel(CStdModel):
-    # The type of time_t, for platforms where it isn't a long.
+    # The C type of time_t. The `__*64` subclasses below make it 64-bit.
     time_t = ArgumentType.LONG
 
     def time_struct_to_tuple(self, ptr: int, emulator: Emulator):
@@ -337,6 +337,49 @@ class Clock(TimeModel):
         self.set_return_value(emulator, int(floatval))
 
 
+# Since musl 1.2 every 32-bit target has a 64-bit time_t, and glibc does with
+# _TIME_BITS=64. The headers redirect each function taking or returning one to
+# a `__*64` symbol, called like the original with 64-bit time_t; struct tm is
+# unchanged.
+
+
+class Time64(Time):
+    name = "__time64"
+
+    # time_t time(time_t *tloc);
+    time_t = ArgumentType.LONGLONG
+    return_type = ArgumentType.LONGLONG
+
+
+class Localtime64(Localtime):
+    name = "__localtime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Gmtime64(Gmtime):
+    name = "__gmtime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Ctime64(Ctime):
+    name = "__ctime64"
+    time_t = ArgumentType.LONGLONG
+
+
+class Difftime64(Difftime):
+    name = "__difftime64"
+
+    # double difftime(time_t time1, time_t time0);
+    argument_types = [ArgumentType.LONGLONG, ArgumentType.LONGLONG]
+
+
+class Mktime64(Mktime):
+    name = "__mktime64"
+
+    # time_t mktime(struct tm *tp);
+    return_type = ArgumentType.LONGLONG
+
+
 __all__ = [
     "Time",
     "Localtime",
@@ -347,4 +390,10 @@ __all__ = [
     "Difftime",
     "Mktime",
     "Clock",
+    "Time64",
+    "Localtime64",
+    "Gmtime64",
+    "Ctime64",
+    "Difftime64",
+    "Mktime64",
 ]

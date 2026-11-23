@@ -57,6 +57,23 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
     address_size: int = 4
     """Address size in bytes (4 for 32-bit ARM)."""
 
+    interworking: bool = False
+    """Does bit 0 of an address written to pc select the instruction set?
+
+    True for ARM with both ARM and Thumb (A- and R-profile, v4T and later):
+    an odd address runs Thumb, an even one ARM, as ``bx`` does.
+    """
+
+    hook_registers: typing.Optional[typing.Mapping[str, str]] = None
+    """Map from SmallWorld register name (lowercase) to the name a hook's CPU
+    knows it by, if that differs from the Styx register enum's name.
+
+    A hook can't use the Processor, so it reaches registers through the CPU
+    it's handed, which takes a name and knows fewer registers. A register
+    missing from this map can't be reached from a hook. ``None`` means every
+    register goes by its enum's name.
+    """
+
     def styx_register(self, name: str) -> typing.Any:
         """Translate a SmallWorld register name into a Styx register enum value."""
         key = name.lower()
@@ -65,6 +82,20 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
                 f"Styx machine def for {self.arch}:{self.byteorder} has no register '{name}'"
             )
         return self._registers[key]
+
+    def hook_register(self, name: str) -> str:
+        """Translate a SmallWorld register name into the name a hook's CPU uses."""
+        enum = self.styx_register(name)
+        if self.hook_registers is None:
+            # The CPU names registers as the enum does, as a string.
+            return str(enum).rsplit(".", 1)[-1]
+        key = name.lower()
+        if key not in self.hook_registers:
+            raise exceptions.UnsupportedRegisterError(
+                f"Styx hooks can't reach register '{name}' on "
+                f"{self.arch}:{self.byteorder}"
+            )
+        return self.hook_registers[key]
 
     def _resolve_cpu_model(
         self, cpu_model: typing.Optional[str]
@@ -114,7 +145,7 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
         except Exception as e:
             raise exceptions.ConfigurationError(
                 f"Styx has no target for {platform.architecture}:{platform.byteorder}. "
-                f"32-bit ARM (armhf/armel), 32-bit PowerPC (ppc, big-endian only - "
+                f"32-bit ARM (except ARMv7-R and ARMv8), 32-bit PowerPC (ppc, big-endian only - "
                 f"Styx has no 64-bit PowerPC core) and SH-2A-FPU (big-endian only, "
                 f"as that is the only SH-2A model Ghidra's sleigh provides) are the "
                 f"supported families at this time. SH-4 (both endiannesses) is also "

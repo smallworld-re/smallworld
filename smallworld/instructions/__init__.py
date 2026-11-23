@@ -1,4 +1,9 @@
-from .aarch64 import AArch64Instruction
+from .aarch64 import (
+    AArch64BEInstruction,
+    AArch64Instruction,
+    AArch64V85ABEInstruction,
+    AArch64V85AInstruction,
+)
 from .arm import ARMInstruction
 from .bsid import BSIDMemoryReferenceOperand, x86BSIDMemoryReferenceOperand
 from .instructions import Instruction, Operand, RegisterOperand
@@ -13,6 +18,9 @@ from .x86 import (
 
 __all__ = [
     "AArch64Instruction",
+    "AArch64BEInstruction",
+    "AArch64V85AInstruction",
+    "AArch64V85ABEInstruction",
     "ARMInstruction",
     "AMD64Instruction",
     "BSIDMemoryReferenceOperand",

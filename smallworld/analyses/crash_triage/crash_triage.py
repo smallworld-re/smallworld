@@ -374,17 +374,23 @@ class CrashTriage(analysis.Analysis):
     def _get_target_type(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
     ) -> str:
-        # Recover the vex that got us here
-        old_state = emu.state
-        emu.state = state
-        emu.write_register("pc", pc)
-        vex = state.block(opt_level=0).vex
-        emu.state = old_state
+        # Recover the vex that got us here: the block that just ran, at the
+        # address angr ran it at, which carries the ISA bit where the
+        # platform has one (Thumb). The state's own pc is where that block
+        # went, which may be symbolic, so it can't say which mode the block
+        # was in.
+        addr = state.history.addr
+        if addr is None:
+            raise exceptions.AnalysisError(f"No history for the block at {pc:x}")
+        vex = state.block(addr, opt_level=0).vex
         # Vex only allows indirect jumps as default block exits.
         # We can look at the default jumpkind for this block
         # to tell us
 
-        if vex.jumpkind == "Ijk_Ret":
+        if vex.jumpkind == "Ijk_Boring" and self._is_arm_link_call(state, pc, vex.size):
+            log.debug("Caused by an unbounded indirect function call.")
+            return "call"
+        elif vex.jumpkind == "Ijk_Ret":
             log.debug("Caused by an unbounded return.")
             return "return"
         elif vex.jumpkind == "Ijk_Call":
@@ -396,6 +402,19 @@ class CrashTriage(analysis.Analysis):
         else:
             log.error(f"Unexpected cause: {vex.jumpkind}")
             return "unknown"
+
+    def _is_arm_link_call(self, state: angr.SimState, pc: int, size: int) -> bool:
+        # ARM before v5 has no blx, so an indirect call is
+        # `mov lr, pc` then `bx rN` (or `mov pc, rN`). Vex lifts the
+        # pair as a call, but stepping one instruction at a time lifts
+        # the branch alone, as a plain jump. It's a call if lr already
+        # holds the address just past the branch.
+        if not state.arch.name.startswith("ARM"):
+            return False
+        lr = state.regs.lr
+        if lr.symbolic:
+            return False
+        return state.solver.eval(lr) == (pc & ~1) + size
 
     def _diagnose_unconstrained(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
@@ -620,7 +639,7 @@ class CrashTriage(analysis.Analysis):
         bad_op = None
 
         disas = self._disassemble(emu, pc)
-        insn = instructions.Instruction.from_capstone(disas)
+        insn = instructions.Instruction.from_capstone(disas, platform=self.platform)
         ops = insn.reads if is_read else insn.writes
         for op in ops:
             if isinstance(op, instructions.BSIDMemoryReferenceOperand):

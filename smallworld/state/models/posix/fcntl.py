@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 # open()'s access mode occupies the low two bits and is identical across every
 # Linux ABI. The option bits are not: the asm-generic values below hold on
 # every architecture we model except MIPS, which uses its own O_CREAT and
-# O_APPEND (its O_TRUNC coincidentally matches). Selecting the right set by
-# architecture is what keeps open()/creat() faithful on MIPS.
+# O_APPEND (its O_TRUNC coincidentally matches), and SPARC, which uses the
+# SunOS values for all three. Selecting the right set by architecture is what
+# keeps open()/creat() faithful on those.
 O_ACCMODE = 0o3
 O_RDONLY = 0o0
 O_WRONLY = 0o1
@@ -23,6 +24,8 @@ O_RDWR = 0o2
 _GENERIC_OFLAGS = (0o100, 0o1000, 0o2000)
 #: (O_CREAT, O_TRUNC, O_APPEND) for MIPS.
 _MIPS_OFLAGS = (0o400, 0o1000, 0o10)
+#: (O_CREAT, O_TRUNC, O_APPEND) for SPARC (arch/sparc/include/uapi/asm/fcntl.h).
+_SPARC_OFLAGS = (0x200, 0x400, 0x8)
 
 
 class Open(FDModel):
@@ -40,6 +43,8 @@ class Open(FDModel):
             Architecture.MIPS64,
         ):
             return _MIPS_OFLAGS
+        if self.platform.architecture == Architecture.SPARC32:
+            return _SPARC_OFLAGS
         return _GENERIC_OFLAGS
 
     def _decode_flags(self, flags: int) -> tuple:

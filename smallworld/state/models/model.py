@@ -287,12 +287,19 @@ class Model(Hook):
             return (emulator.read_register("cs") << 4) + ip
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.AARCH64_V8_5A
+            or self.platform.architecture == platforms.Architecture.ARM_V4
+            or self.platform.architecture == platforms.Architecture.ARM_V4T
             or self.platform.architecture == platforms.Architecture.ARM_V5T
+            or self.platform.architecture == platforms.Architecture.ARM_V6K
             or self.platform.architecture == platforms.Architecture.ARM_V6M
-            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
             or self.platform.architecture == platforms.Architecture.ARM_V7A
             or self.platform.architecture == platforms.Architecture.ARM_V7M
+            or self.platform.architecture == platforms.Architecture.ARM_V7EM
             or self.platform.architecture == platforms.Architecture.ARM_V7R
+            or self.platform.architecture == platforms.Architecture.ARM_V8A
+            or self.platform.architecture == platforms.Architecture.ARM_V8R
+            or self.platform.architecture == platforms.Architecture.ARM_V8M
             or self.platform.architecture == platforms.Architecture.POWERPC32
             or self.platform.architecture == platforms.Architecture.POWERPC32_VLE
             or self.platform.architecture == platforms.Architecture.POWERPC64

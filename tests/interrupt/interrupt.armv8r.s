@@ -1,0 +1,3 @@
+    .text
+_start:
+    bkpt

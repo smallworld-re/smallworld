@@ -57,17 +57,58 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
-    def configure_engine(self, engine: unicorn.Uc) -> None:
-        """Set up a newly created Unicorn engine
+    def is_fetch_fault(self, intno: int) -> bool:
+        """Whether interrupt `intno` reports a failed instruction fetch
 
-        This is for CPU state the machine state doesn't model,
-        but that user-space code expects, such as enabled FPUs.
-        The default does nothing.
+        Some cores report a fetch from unmapped memory as an exception
+        rather than as a Unicorn fetch error.
+        """
+        return False
+
+    def configure_engine(self, engine: unicorn.Uc) -> None:
+        """Adjust a newly created Unicorn engine's processor state
+
+        Called once, before any memory or register is set, for state
+        Unicorn's CPU reset leaves unsuitable for running user code, such
+        as disabled FPUs. The default does nothing.
 
         Arguments:
             engine: The new engine
+
+        Raises:
+            ConfigurationError: if this Unicorn build cannot run the machine.
         """
         pass
+
+    def adjust_register_write(self, name: str, value: int) -> int:
+        """The value to write to a register, for a write of `value`.
+
+        For bits the platform holds fixed, which a harness's write must not
+        change. The default writes the value unchanged.
+
+        Arguments:
+            name: The register's name
+            value: The value written
+
+        Returns:
+            The value to give Unicorn
+        """
+        return value
+
+    def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
+        """The capstone mode to decode the next instruction with.
+
+        For a machine whose instruction set can change at runtime. The
+        default is the platform's mode, unchanged.
+
+        Arguments:
+            engine: The Unicorn engine
+            mode: The platform's capstone mode
+
+        Returns:
+            The capstone mode for the instruction set the CPU runs now
+        """
+        return mode
 
     def pc_from_engine(self, engine: typing.Any, value: int) -> int:
         """Convert the engine's program counter register to SmallWorld's pc.

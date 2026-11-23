@@ -40,6 +40,14 @@ _VARIANTS = (
         for arch in ("micromips", "micromipsel")
         for variant in (arch, f"{arch}.angr", f"{arch}.pcode")
     )
+    + (
+        # SPARC is the fourth.  Unicorn steps a branch together with its delay
+        # slot but reports the slot's own pc; the sleigh-derived engines fold
+        # the slot into the branch, as they do for SuperH.
+        ("sparc32", None),
+        ("sparc32.angr", None),
+        ("sparc32.pcode", None),
+    )
 )
 
 SCENARIO_INFO = ScenarioInfo(

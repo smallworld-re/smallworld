@@ -13,7 +13,7 @@ Notable differences from the Unicorn / Ghidra backends:
   the builder. Once built, registration order doesn't matter — hooks and
   writes are routed straight through to the live processor.
 - **No symbolic values**: ``SymbolicValueError`` for any ``claripy`` input.
-- **Limited target set**: 32-bit ARM (armhf/armel), 32-bit PowerPC (ppc),
+- **Limited target set**: 32-bit ARM (except ARMv7-R and ARMv8), 32-bit PowerPC (ppc),
   SH-2A-FPU and SH-4 are supported; anything else raises
   ``ConfigurationError``. For PowerPC an optional ``cpu_model`` selects the Styx
   core (``"ppc405"`` default, or ``"mpc860"``). SH-2A-FPU is the one target with
@@ -34,6 +34,7 @@ import logging
 import tempfile
 import typing
 
+import capstone
 import claripy
 
 from ... import exceptions, platforms, utils
@@ -116,7 +117,15 @@ class StyxEmulator(
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
 ):
-    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH)."""
+    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH).
+
+    Hooks reach registers through the CPU Styx hands them, which knows fewer
+    registers than the emulator does outside a hook. On ARM, a hook can use
+    the core registers, their aliases and the status register (cpsr, or psr
+    on M-profile), but not the floating-point registers, fpscr, apsr or spsr;
+    those raise ``UnsupportedRegisterError``. A model that takes or returns
+    a float on hard-float ARMv7E-M can't run on Styx.
+    """
 
     name = "styx-emulator"
     description = "emulator based on the styx-emulator firmware emulation framework"
@@ -138,6 +147,12 @@ class StyxEmulator(
         super().__init__(platform)
         self.platform: platforms.Platform = platform
         self.machdef: StyxMachineDef = StyxMachineDef.for_platform(platform)
+        # Thumb-only platforms (M-profile) must keep the Thumb bit in the PC;
+        # an even PC means ARM state, which faults.
+        self._thumb_only: bool = bool(
+            platforms.PlatformDef.for_platform(platform).capstone_mode
+            & capstone.CS_MODE_THUMB
+        )
         # Which Styx ``Target`` to build. Multi-core families (PowerPC) use an
         # optional ``cpu_model`` to choose; otherwise the machdef default applies.
         self.cpu_model: typing.Optional[str] = cpu_model
@@ -180,6 +195,11 @@ class StyxEmulator(
         # Tracks which exit points already have their internal CodeHook
         # installed so we don't add duplicates on subsequent runs.
         self._installed_exit_points: typing.Set[int] = set()
+        # The core a hook callback was handed, while the callback runs. The
+        # Processor deadlocks if used mid-run, so register and memory access
+        # in a hook goes through the core instead.
+        self._hook_cpu: typing.Optional[typing.Any] = None
+        self._hook_error: typing.Optional[BaseException] = None
 
     # ------------------------------------------------------------------ build
 
@@ -235,7 +255,57 @@ class StyxEmulator(
 
     # ---------------------------------------------------------------- helpers
 
+    def _in_hook(self, cpu: typing.Any, function: typing.Callable, *args) -> typing.Any:
+        """Run a hook callback, routing emulator access through ``cpu``"""
+        outer = self._hook_cpu
+        self._hook_cpu = cpu
+        try:
+            return function(self, *args)
+        except BaseException as e:
+            # Styx aborts the process on an exception from a hook, so stop
+            # the CPU and raise it once Styx has stopped, as Unicorn does.
+            if self._hook_error is None:
+                self._hook_error = e
+            cpu.stop()
+            return None
+        finally:
+            self._hook_cpu = outer
+
+    def _stopped(self, report: typing.Any) -> None:
+        error, self._hook_error = self._hook_error, None
+        if error is not None:
+            raise error
+        self._translate_exit(report)
+
+    @staticmethod
+    def _substituting(cpu: typing.Any, function: typing.Callable) -> typing.Callable:
+        """Wrap a read hook to write what it returns where the read will look.
+
+        Styx ignores what a read hook returns, but the hook runs before the
+        read, so a substitute written into memory is what it reads.
+        """
+
+        def substitute(emu, address, size, data):
+            ret = function(emu, address, size, data)
+            if ret is None:
+                return
+            # Any other length would spill into the neighbouring memory or
+            # leave stale bytes in the read.
+            if len(ret) != size:
+                raise exceptions.EmulationError(
+                    f"Read hook at {hex(address)} returned {len(ret)} bytes; need {size} bytes"
+                )
+            cpu.write_data(address, bytes(ret))
+
+        return substitute
+
     def _do_write(self, address: int, data: bytes, *, is_code: bool) -> None:
+        if self._hook_cpu is not None:
+            if is_code:
+                self._hook_cpu.write_code(address, data)
+            else:
+                self._hook_cpu.write_data(address, data)
+            return
         assert self._proc is not None
         if is_code:
             self._proc.write_code(address, data)
@@ -243,8 +313,14 @@ class StyxEmulator(
             self._proc.write_data(address, data)
 
     def _do_write_register(self, name: str, value: int) -> None:
-        assert self._proc is not None
         reg = self.machdef.styx_register(name)
+        # r15 and PC name pc too; Styx matches register names in any case.
+        if self._thumb_only and name.lower() in (self.machdef.pc_register, "r15"):
+            value |= 1
+        if self._hook_cpu is not None:
+            self._hook_cpu.write_register(self.machdef.hook_register(name), int(value))
+            return
+        assert self._proc is not None
         # The Styx pyi names the single-register-write method ``write_registers``
         # despite operating on one register at a time.
         self._proc.write_registers(reg, int(value))
@@ -252,10 +328,13 @@ class StyxEmulator(
     # --------------------------------------------------------------- registers
 
     def read_register_content(self, name: str) -> int:
-        self._lazy_build()
-        reg = self.machdef.styx_register(name)
-        assert self._proc is not None  # _lazy_build set it
-        value = self._proc.read_register(reg)
+        if self._hook_cpu is not None:
+            value = self._hook_cpu.read_register(self.machdef.hook_register(name))
+        else:
+            self._lazy_build()
+            reg = self.machdef.styx_register(name)
+            assert self._proc is not None  # _lazy_build set it
+            value = self._proc.read_register(reg)
         if value is None:
             raise exceptions.UnsupportedRegisterError(
                 f"Styx returned no value for register '{name}'"
@@ -273,7 +352,7 @@ class StyxEmulator(
             )
         if not isinstance(content, int):
             raise TypeError(f"Cannot write register '{name}' with non-int value")
-        if self._proc is None:
+        if self._proc is None and self._hook_cpu is None:
             # Queue until build; we still validate the register name eagerly so
             # callers get an immediate error for typos.
             _ = self.machdef.styx_register(name)
@@ -284,6 +363,8 @@ class StyxEmulator(
     # ------------------------------------------------------------------ memory
 
     def read_memory_content(self, address: int, size: int) -> bytes:
+        if self._hook_cpu is not None:
+            return bytes(self._hook_cpu.read_data(address, size))
         self._lazy_build()
         # ``read_data`` is the primary entry point; for code regions the user
         # may have written via ``write_code`` we still expect ``read_data`` to
@@ -299,14 +380,14 @@ class StyxEmulator(
                 "StyxEmulator is a concrete emulator; symbolic values are not supported"
             )
         data = bytes(content)
-        if self._proc is None:
+        if self._proc is None and self._hook_cpu is None:
             self._pending_writes.append((address, data, False))
         else:
             self._do_write(address, data, is_code=False)
 
     def write_code(self, address: int, content: bytes) -> None:
         data = bytes(content)
-        if self._proc is None:
+        if self._proc is None and self._hook_cpu is None:
             self._pending_writes.append((address, data, True))
         else:
             self._do_write(address, data, is_code=True)
@@ -374,7 +455,7 @@ class StyxEmulator(
         assert proc is not None  # _lazy_build set it
         proc.start(inst=1)
         report = proc.wait_for_stop()
-        self._translate_exit(report)
+        self._stopped(report)
 
     def step_block(self) -> None:
         # Styx has no native "single block" step; approximate by installing a
@@ -406,7 +487,7 @@ class StyxEmulator(
         try:
             proc.start()
             report = proc.wait_for_stop()
-            self._translate_exit(report)
+            self._stopped(report)
         finally:
             try:
                 proc.delete_hook(state["token"])
@@ -420,7 +501,10 @@ class StyxEmulator(
         assert proc is not None  # _lazy_build set it above
         proc.start()
         report = proc.wait_for_stop()
-        self._translate_exit(report)
+        try:
+            self._stopped(report)
+        except exceptions.EmulationStop:
+            pass
 
     # ----------------------------------------------------------------- hooks
 
@@ -435,8 +519,8 @@ class StyxEmulator(
     ) -> None:
         super().hook_instruction(address, function)
 
-        def _cb(_cpu, _self=self, _fn=function):
-            _fn(_self)
+        def _cb(cpu, _self=self, _fn=function):
+            _self._in_hook(cpu, _fn)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 
@@ -445,8 +529,8 @@ class StyxEmulator(
     ) -> None:
         super().hook_instructions(function)
 
-        def _cb(_cpu, _self=self, _fn=function):
-            _fn(_self)
+        def _cb(cpu, _self=self, _fn=function):
+            _self._in_hook(cpu, _fn)
 
         self._register_styx_hook(CodeHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
@@ -457,18 +541,26 @@ class StyxEmulator(
         lr_name = self.machdef.lr_register
 
         def _cb(cpu, _self=self, _fn=function, _lr=lr_name):
-            _fn(_self)
+            _self._in_hook(cpu, _fn)
             if _lr is None:
                 return
             # Step out of the hooked function by jumping to the link register.
-            # Mask the Thumb bit if present so PC stays aligned.
+            # On a Thumb-only platform the Thumb bit must stay set. Where
+            # bit 0 selects ARM or Thumb, keep it, as bx lr does, so a Thumb
+            # caller gets its Thumb state back. Elsewhere, mask it so pc
+            # stays aligned.
             try:
                 ret = cpu.read_register(_lr)
             except Exception:
                 ret = None
             if ret is None:
                 return
-            cpu.write_register("pc", int(ret) & ~0x1)
+            if _self._thumb_only:
+                cpu.write_register("pc", int(ret) | 0x1)
+            elif _self.machdef.interworking:
+                cpu.write_register("pc", int(ret))
+            else:
+                cpu.write_register("pc", int(ret) & ~0x1)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 
@@ -482,10 +574,10 @@ class StyxEmulator(
     ) -> None:
         super().hook_memory_read(start, end, function)
 
-        def _cb(_cpu, addr, size, data, _self=self, _fn=function):
-            # Styx's read-hook return values are ignored by the C backend; we
-            # forward the call but discard any substitute the user returns.
-            _fn(_self, int(addr), int(size), bytes(data))
+        def _cb(cpu, addr, size, data, _self=self, _fn=function):
+            _self._in_hook(
+                cpu, _self._substituting(cpu, _fn), int(addr), int(size), bytes(data)
+            )
 
         self._register_styx_hook(MemoryReadHook(start, end, _cb))
 
@@ -497,8 +589,10 @@ class StyxEmulator(
     ) -> None:
         super().hook_memory_reads(function)
 
-        def _cb(_cpu, addr, size, data, _self=self, _fn=function):
-            _fn(_self, int(addr), int(size), bytes(data))
+        def _cb(cpu, addr, size, data, _self=self, _fn=function):
+            _self._in_hook(
+                cpu, _self._substituting(cpu, _fn), int(addr), int(size), bytes(data)
+            )
 
         self._register_styx_hook(MemoryReadHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
@@ -510,8 +604,8 @@ class StyxEmulator(
     ) -> None:
         super().hook_memory_write(start, end, function)
 
-        def _cb(_cpu, addr, size, data, _self=self, _fn=function):
-            _fn(_self, int(addr), int(size), bytes(data))
+        def _cb(cpu, addr, size, data, _self=self, _fn=function):
+            _self._in_hook(cpu, _fn, int(addr), int(size), bytes(data))
 
         self._register_styx_hook(MemoryWriteHook(start, end, _cb))
 
@@ -521,8 +615,8 @@ class StyxEmulator(
     ) -> None:
         super().hook_memory_writes(function)
 
-        def _cb(_cpu, addr, size, data, _self=self, _fn=function):
-            _fn(_self, int(addr), int(size), bytes(data))
+        def _cb(cpu, addr, size, data, _self=self, _fn=function):
+            _self._in_hook(cpu, _fn, int(addr), int(size), bytes(data))
 
         self._register_styx_hook(MemoryWriteHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
@@ -557,13 +651,15 @@ class StyxEmulator(
         if self._has_styx_interrupt_hook():
             return
 
-        def _cb(_cpu, intno, _self=self):
-            intno = int(intno)
-            if _self.all_interrupts_hook is not None:
-                _self.all_interrupts_hook(_self, intno)
-            handler = _self.interrupt_hooks.get(intno)
+        def _dispatch(emu, intno):
+            if emu.all_interrupts_hook is not None:
+                emu.all_interrupts_hook(emu, intno)
+            handler = emu.interrupt_hooks.get(intno)
             if handler is not None:
-                handler(_self)
+                handler(emu)
+
+        def _cb(cpu, intno, _self=self):
+            _self._in_hook(cpu, _dispatch, int(intno))
 
         self._register_styx_hook(InterruptHook(_cb))
         self._styx_interrupt_hook_installed = True

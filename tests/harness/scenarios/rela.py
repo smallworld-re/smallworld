@@ -7,7 +7,9 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     StringSource,
+    code_pointer,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -40,6 +42,33 @@ _SPECS = {
         string_source=StringSource(register="x0"),
         load_address=0x400000,
     ),
+    "aarch64v85a": RelaSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+        load_address=0x400000,
+    ),
+    "aarch64be": RelaSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+        load_address=0x400000,
+    ),
+    "aarch64v85abe": RelaSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pointer_size=8,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="x0"),
+        load_address=0x400000,
+    ),
     "amd64": RelaSpec(
         platform=PlatformSpec("X86_64", "LITTLE"),
         pointer_size=8,
@@ -49,8 +78,8 @@ _SPECS = {
         string_source=StringSource(register="rdi"),
         load_address=0x400000,
     ),
-    "armel": RelaSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+    "armv6k": RelaSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -58,8 +87,160 @@ _SPECS = {
         string_source=StringSource(register="r0"),
         print_entrypoint=True,
     ),
-    "armhf": RelaSpec(
+    "armv6kbe": RelaSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv5t": RelaSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv5tbe": RelaSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv4t": RelaSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv4tbe": RelaSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv7m": RelaSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv7em": RelaSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv6m": RelaSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8m": RelaSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        print_entrypoint=True,
+    ),
+    "armv7a": RelaSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv7abe": RelaSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv7r": RelaSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv7rbe": RelaSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8a": RelaSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8abe": RelaSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8r": RelaSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "panda", "pcode"),
+        string_source=StringSource(register="r0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
+    "armv8rbe": RelaSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
@@ -184,6 +365,16 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    "sparc32": RelaSpec(
+        platform=PlatformSpec("SPARC32", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("unicorn", "angr", "pcode"),
+        string_source=StringSource(register="o0"),
+        load_address=0x400000,
+        print_entrypoint=True,
+    ),
     "tricore": RelaSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pointer_size=4,
@@ -248,8 +439,25 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
         stack.push_integer(0x7FFFFFF8, 4, "fake return address")
     elif arch in {"mips64", "mips64el", "la64", "riscv64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch == "armhf" and engine == "panda":
+    elif (
+        arch
+        in {
+            "armv7a",
+            "armv7abe",
+            "armv7r",
+            "armv7rbe",
+            "armv8a",
+            "armv8abe",
+            "armv8r",
+            "armv8rbe",
+        }
+        and engine == "panda"
+    ):
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+    elif arch == "sparc32":
+        # The caller's 92-byte frame (window save area, struct-return word,
+        # argument home slots), which main may write through %fp.
+        stack.push_bytes(bytes(96), None)
 
     return stack
 
@@ -257,22 +465,60 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
 def _configure_exit(
     machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int
 ) -> None:
-    if arch == "armhf" and engine == "panda":
+    if (
+        arch
+        in {
+            "armv7a",
+            "armv7abe",
+            "armv7r",
+            "armv7rbe",
+            "armv8a",
+            "armv8abe",
+            "armv8r",
+            "armv8rbe",
+        }
+        and engine == "panda"
+    ):
         emulator.add_exit_point(entrypoint + 40)
         return
     if arch == "ppc" and engine == "panda":
         emulator.add_exit_point(entrypoint + 68)
         return
 
-    exitpoint = entrypoint + code.get_symbol_size("main")
+    exitpoint = instruction_address(arch, entrypoint) + code.get_symbol_size("main")
     machine.add_exit_point(exitpoint)
 
     if arch == "amd64":
         stack.push_integer(exitpoint, 8, None)
     elif arch in {"i386", "m68k"}:
         stack.push_integer(exitpoint, 4, None)
-    elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
-        set_register(cpu, "lr", exitpoint)
+    elif arch in {
+        "aarch64",
+        "aarch64v85a",
+        "aarch64be",
+        "aarch64v85abe",
+        "armv6k",
+        "armv6kbe",
+        "armv5t",
+        "armv5tbe",
+        "armv4t",
+        "armv4tbe",
+        "armv7m",
+        "armv7em",
+        "armv6m",
+        "armv8m",
+        "armv7a",
+        "armv7abe",
+        "armv7r",
+        "armv7rbe",
+        "armv8a",
+        "armv8abe",
+        "armv8r",
+        "armv8rbe",
+        "ppc",
+        "ppc64",
+    }:
+        set_register(cpu, "lr", code_pointer(arch, exitpoint))
     elif arch in {
         "la64",
         "mips",
@@ -284,6 +530,9 @@ def _configure_exit(
         "tricore",
     }:
         set_register(cpu, "ra", exitpoint)
+    elif arch == "sparc32":
+        # SPARC returns to %o7 + 8, past the call and its delay slot.
+        set_register(cpu, "o7", exitpoint - 8)
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
@@ -326,7 +575,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             source=spec.string_source,
         )
     )
-    code.update_symbol_value("puts", 0x10000)
+    code.update_symbol_value("puts", code_pointer(arch, 0x10000))
 
     if arch in {"mips", "mipsel", "mips64", "mips64el"}:
         set_register(cpu, "t9", entrypoint)

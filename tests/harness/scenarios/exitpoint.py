@@ -7,7 +7,9 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    code_pointer,
     enroll_triton,
+    instruction_address,
     load_elf_code,
     load_raw_code,
     make_emulator,
@@ -52,7 +54,34 @@ _SPECS = {
         platform=PlatformSpec("AARCH64", "LITTLE"),
         pc_register="pc",
         result_register="x0",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="lr",
+    ),
+    "aarch64v85a": ExitpointSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "LITTLE"),
+        pc_register="pc",
+        result_register="x0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="lr",
+    ),
+    "aarch64be": ExitpointSpec(
+        platform=PlatformSpec("AARCH64", "BIG"),
+        pc_register="pc",
+        result_register="x0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=4,
+        load_address=0x400000,
+        link_register="lr",
+    ),
+    "aarch64v85abe": ExitpointSpec(
+        platform=PlatformSpec("AARCH64_V8_5A", "BIG"),
+        pc_register="pc",
+        result_register="x0",
+        engines=("unicorn", "angr", "pcode", "panda"),
         mid_exit_offset=4,
         load_address=0x400000,
         link_register="lr",
@@ -66,19 +95,178 @@ _SPECS = {
         load_address=0x400000,
         stack_pointer_register="rsp",
     ),
-    "armel": ExitpointSpec(
-        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+    "armv6k": ExitpointSpec(
+        platform=PlatformSpec("ARM_V6K", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # ARMv6K has no movw, so main's constants sit in a literal pool
+        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
+        mid_exit_offset=24,
+        link_register="lr",
+    ),
+    "armv6kbe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V6K", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # ARMv6K has no movw, so main's constants sit in a literal pool
+        # after its `pop {fp, pc}`; the pop is 24 bytes from the end.
+        mid_exit_offset=24,
+        link_register="lr",
+    ),
+    "armv5t": ExitpointSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main returns with `pop {fp, pc}`, followed by a two-word literal
+        # pool, so the pop is 12 bytes from the end.
         mid_exit_offset=12,
         link_register="lr",
     ),
-    "armhf": ExitpointSpec(
+    "armv5tbe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V5T", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main returns with `pop {fp, pc}`, followed by a two-word literal
+        # pool, so the pop is 12 bytes from the end.
+        mid_exit_offset=12,
+        link_register="lr",
+    ),
+    "armv4t": ExitpointSpec(
+        platform=PlatformSpec("ARM_V4T", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # As on ARMv5T, but ARMv4T can't pop into pc and switch state, so
+        # main returns with `pop {fp, lr}; bx lr`: the pop is 16 bytes from
+        # the end.
+        mid_exit_offset=16,
+        link_register="lr",
+    ),
+    "armv4tbe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V4T", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # As on ARMv5T, but ARMv4T can't pop into pc and switch state, so
+        # main returns with `pop {fp, lr}; bx lr`: the pop is 16 bytes from
+        # the end.
+        mid_exit_offset=16,
+        link_register="lr",
+    ),
+    "armv7m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main's Thumb `pop {r7, pc}` is followed by a 4-byte literal pool,
+        # so the pop is 6 bytes from the end.
+        mid_exit_offset=6,
+        link_register="lr",
+    ),
+    "armv7em": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7EM", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main's Thumb `pop {r7, pc}` is followed by a 4-byte literal pool,
+        # so the pop is 6 bytes from the end.
+        mid_exit_offset=6,
+        link_register="lr",
+    ),
+    "armv6m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V6M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main's Thumb `pop {r7, pc}` is followed by a 2-byte pad and an
+        # 8-byte literal pool (its long calls), so the pop is 12 bytes from
+        # the end.
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv8m": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8M", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        # main's Thumb `pop {r7, pc}` is followed by a 4-byte literal pool,
+        # so the pop is 6 bytes from the end.
+        mid_exit_offset=6,
+        link_register="lr",
+    ),
+    "armv7a": ExitpointSpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "pcode"),
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv7abe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7A", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv7r": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7R", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv7rbe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V7R", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv8a": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8A", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv8abe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8A", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv8r": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8R", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
+        mid_exit_offset=12,
+        load_address=0x4000000,
+        link_register="lr",
+    ),
+    "armv8rbe": ExitpointSpec(
+        platform=PlatformSpec("ARM_V8R", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("unicorn", "angr", "pcode", "panda"),
         mid_exit_offset=12,
         load_address=0x4000000,
         link_register="lr",
@@ -314,10 +502,7 @@ _SPECS = {
 _SPECS = enroll_triton(_SPECS)
 
 _SKIP_REASONS = {
-    "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
-    "armel.panda": "Waiting for panda-ng",
-    "armhf.panda": "Waiting for panda-ng",
     "i386.panda": "Waiting for panda-ng",
     "mips.panda": "Waiting for panda-ng",
     "mips64.panda": "Waiting for panda-ng",
@@ -384,7 +569,7 @@ def _build_machine(smallworld, arch: str, engine: str, spec: ExitpointSpec):
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer() + stack_adjust)
 
     if spec.link_register is not None:
-        set_register(cpu, spec.link_register, spec.fake_exitpoint)
+        set_register(cpu, spec.link_register, code_pointer(arch, spec.fake_exitpoint))
     for register_name in spec.zero_register_overrides.get(engine, ()):
         set_register(cpu, register_name, 0)
 
@@ -467,6 +652,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             return 0
 
     _, platform, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
-    mid_exitpoint = _mid_exitpoint(entrypoint, platform, code, engine, spec)
+    mid_exitpoint = _mid_exitpoint(
+        instruction_address(arch, entrypoint), platform, code, engine, spec
+    )
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
     return 0

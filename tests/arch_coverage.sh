@@ -15,8 +15,10 @@ from harness.manifest import all_cases
 preferred_arches = [
     "aarch64",
     "amd64",
-    "armel",
-    "armhf",
+    "armv5t",
+    "armv6k",
+    "armv7a",
+    "armv7r",
     "i386",
     "la64",
     "m68k",
@@ -32,6 +34,7 @@ preferred_arches = [
     "sh2a",
     "sh4",
     "sh4el",
+    "sparc32",
     "xtensa",
 ]
 # The familiar engines in a familiar order. This is a preference, not the whole

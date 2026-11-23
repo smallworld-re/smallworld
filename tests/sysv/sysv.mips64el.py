@@ -44,6 +44,11 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 
+# The names of the models that ran. The real foo and bar do nothing, so a
+# model whose hook never fires still lets the program exit cleanly.
+called: set[str] = set()
+
+
 class Foo(smallworld.state.models.mips64el.systemv.systemv.MIPS64ELSysVModel):
     name = "foo"
 
@@ -58,6 +63,7 @@ class Foo(smallworld.state.models.mips64el.systemv.systemv.MIPS64ELSysVModel):
     return_type = smallworld.state.models.cstd.ArgumentType.VOID
 
     def model(self, emulator) -> None:
+        called.add(self.name)
         arg1_expected = 0x123456789ABCDEF
         arg1_actual = self.get_arg1(emulator)
         assert isinstance(arg1_actual, int)
@@ -147,6 +153,7 @@ class Bar(smallworld.state.models.mips64el.systemv.systemv.MIPS64ELSysVModel):
     return_type = smallworld.state.models.cstd.ArgumentType.VOID
 
     def model(self, emulator) -> None:
+        called.add(self.name)
         # arg1 (int) fixes the first slot; on MIPS n64 this shifts every
         # following FP argument by one register.
         arg1_expected = 0x2468ACE0
@@ -254,3 +261,6 @@ try:
 
 except FailExitException:
     pass
+
+if called != {"foo", "bar"}:
+    raise Exception(f"Models never called: {sorted({'foo', 'bar'} - called)}")

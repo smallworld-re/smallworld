@@ -368,22 +368,101 @@ class AArch64ErrnoResolver(ErrnoResolver):
     # aarch64 uses generic errno
 
 
+class AArch64BEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class AArch64V85AErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64_V8_5A, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+
+
+class AArch64V85ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.AARCH64_V8_5A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
 class AMD64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
     # amd64 uses generic errno
 
 
-class ArmELErrnoResolver(ErrnoResolver):
-    platform = Platform(Architecture.ARM_V6M, Byteorder.LITTLE)
+class ArmV6KErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6K, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armel uses generic errno
+    # ARMv6K uses generic errno
 
 
-class ArmHFErrnoResolver(ErrnoResolver):
+class ArmV7AErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.ARM_V7A, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
-    # armhf uses generic errno
+    # ARMv7-A uses generic errno
+
+
+class ArmV4TErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V4T, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv4T uses generic errno
+
+
+class ArmV5TErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V5T, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv5T uses generic errno
+
+
+class ArmV4TBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V4T, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV5TBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V5T, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV6MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv6-M uses generic errno
+
+
+class ArmV7EMErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7EM, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7E-M uses generic errno
+
+
+class ArmV7MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7-M uses generic errno
+
+
+class ArmV7RErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7R, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv7-R uses generic errno
+
+
+class ArmV8AErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-A AArch32 uses generic errno
+
+
+class ArmV8RErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-R uses generic errno
+
+
+class ArmV8MErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8M, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # ARMv8-M uses generic errno
 
 
 class I386ErrnoResolver(ErrnoResolver):
@@ -600,6 +679,118 @@ class PowerPCErrnoResolver(ErrnoResolver):
     errno_to_label = ErrnoResolver.errno_to_label | {35: "EDEADLCK", 58: "EDEADLOCK"}
 
 
+class SPARC32ErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.SPARC32, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+    # SPARC follows the SunOS numbering above ERANGE; numbers 1-34 are generic.
+    # From arch/sparc/include/uapi/asm/errno.h.
+    errno_to_label = {
+        k: v for k, v in ErrnoResolver.errno_to_label.items() if k <= 34
+    } | {
+        36: "EINPROGRESS",
+        37: "EALREADY",
+        38: "ENOTSOCK",
+        39: "EDESTADDRREQ",
+        40: "EMSGSIZE",
+        41: "EPROTOTYPE",
+        42: "ENOPROTOOPT",
+        43: "EPROTONOSUPPORT",
+        44: "ESOCKTNOSUPPORT",
+        45: "EOPNOTSUPP",
+        46: "EPFNOSUPPORT",
+        47: "EAFNOSUPPORT",
+        48: "EADDRINUSE",
+        49: "EADDRNOTAVAIL",
+        50: "ENETDOWN",
+        51: "ENETUNREACH",
+        52: "ENETRESET",
+        53: "ECONNABORTED",
+        54: "ECONNRESET",
+        55: "ENOBUFS",
+        56: "EISCONN",
+        57: "ENOTCONN",
+        58: "ESHUTDOWN",
+        59: "ETOOMANYREFS",
+        60: "ETIMEDOUT",
+        61: "ECONNREFUSED",
+        62: "ELOOP",
+        63: "ENAMETOOLONG",
+        64: "EHOSTDOWN",
+        65: "EHOSTUNREACH",
+        66: "ENOTEMPTY",
+        67: "EPROCLIM",
+        68: "EUSERS",
+        69: "EDQUOT",
+        70: "ESTALE",
+        71: "EREMOTE",
+        72: "ENOSTR",
+        73: "ETIME",
+        74: "ENOSR",
+        75: "ENOMSG",
+        76: "EBADMSG",
+        77: "EIDRM",
+        78: "EDEADLK",
+        79: "ENOLCK",
+        80: "ENONET",
+        81: "ERREMOTE",
+        82: "ENOLINK",
+        83: "EADV",
+        84: "ESRMNT",
+        85: "ECOMM",
+        86: "EPROTO",
+        87: "EMULTIHOP",
+        88: "EDOTDOT",
+        89: "EREMCHG",
+        90: "ENOSYS",
+        91: "ESTRPIPE",
+        92: "EOVERFLOW",
+        93: "EBADFD",
+        94: "ECHRNG",
+        95: "EL2NSYNC",
+        96: "EL3HLT",
+        97: "EL3RST",
+        98: "ELNRNG",
+        99: "EUNATCH",
+        100: "ENOCSI",
+        101: "EL2HLT",
+        102: "EBADE",
+        103: "EBADR",
+        104: "EXFULL",
+        105: "ENOANO",
+        106: "EBADRQC",
+        107: "EBADSLT",
+        108: "EDEADLOCK",
+        109: "EBFONT",
+        110: "ELIBEXEC",
+        111: "ENODATA",
+        112: "ELIBBAD",
+        113: "ENOPKG",
+        114: "ELIBACC",
+        115: "ENOTUNIQ",
+        116: "ERESTART",
+        117: "EUCLEAN",
+        118: "ENOTNAM",
+        119: "ENAVAIL",
+        120: "EISNAM",
+        121: "EREMOTEIO",
+        122: "EILSEQ",
+        123: "ELIBMAX",
+        124: "ELIBSCN",
+        125: "ENOMEDIUM",
+        126: "EMEDIUMTYPE",
+        127: "ECANCELED",
+        128: "ENOKEY",
+        129: "EKEYEXPIRED",
+        130: "EKEYREVOKED",
+        131: "EKEYREJECTED",
+        132: "EOWNERDEAD",
+        133: "ENOTRECOVERABLE",
+        134: "ERFKILL",
+        135: "EHWPOISON",
+        136: "EFTYPE",
+    }
+
+
 class PowerPC64ErrnoResolver(PowerPCErrnoResolver):
     # Linux shares one errno list between 32- and 64-bit PowerPC.
     platform = Platform(Architecture.POWERPC64, Byteorder.BIG)
@@ -615,6 +806,31 @@ class RiscV64ErrnoResolver(ErrnoResolver):
     platform = Platform(Architecture.RISCV64, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
     # riscv64 uses the generic errno list
+
+
+class ArmV6KBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V6K, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV7RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V7R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8ABEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8A, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+
+
+class ArmV8RBEErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.ARM_V8R, Byteorder.BIG)
+    abi = ABI.SYSTEMV
 
 
 __all__ = ["ErrnoResolver"]

@@ -29,20 +29,32 @@ class ARM(PrStatus):
     ]
 
 
+class ARMv4(ARM):
+    architecture = platforms.Architecture.ARM_V4
+
+
+class ARMv4T(ARM):
+    architecture = platforms.Architecture.ARM_V4T
+
+
 class ARMv5T(ARM):
     architecture = platforms.Architecture.ARM_V5T
+
+
+class ARMv6K(ARM):
+    architecture = platforms.Architecture.ARM_V6K
 
 
 class ARMv6M(ARM):
     architecture = platforms.Architecture.ARM_V6M
 
 
-class ARMv6MThumb(ARM):
-    architecture = platforms.Architecture.ARM_V6M_THUMB
-
-
 class ARMv7M(ARM):
     architecture = platforms.Architecture.ARM_V7M
+
+
+class ARMv7EM(ARM):
+    architecture = platforms.Architecture.ARM_V7EM
 
 
 class ARMv7R(ARM):
@@ -51,3 +63,15 @@ class ARMv7R(ARM):
 
 class ARMv7A(ARM):
     architecture = platforms.Architecture.ARM_V7A
+
+
+class ARMv8A(ARM):
+    architecture = platforms.Architecture.ARM_V8A
+
+
+class ARMv8R(ARM):
+    architecture = platforms.Architecture.ARM_V8R
+
+
+class ARMv8M(ARM):
+    architecture = platforms.Architecture.ARM_V8M

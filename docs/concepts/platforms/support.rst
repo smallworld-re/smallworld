@@ -34,10 +34,140 @@ Specific Emulator Notes
 Specific ISA Notes
 ------------------
 
-**arm32 Unicorn:** Unicorn only has one arm32 model.
-It appears to support up to arm-v7 application code, 
-but its privileged features are a mash-up of v6, v7, A-series, and M-series.  
-Support for privileged operations is unknown.
+**arm32 Unicorn:** SmallWorld runs arm-v4 on Unicorn's StrongARM SA-1110,
+arm-v4t on its TI925T, arm-v5t on its ARM926 (ARMv5TEJ),
+arm-v6k on its ARM1176, arm-v6m on its Cortex-M0, arm-v7m on its Cortex-M3,
+arm-v7em on its Cortex-M4 (with its FPv4-SP FPU),
+arm-v7r on its Cortex-R5F, arm-v7a on its Cortex-A15, and arm-v8m on its
+Cortex-M33. Unicorn has no 32-bit ARMv8-A or ARMv8-R core, so arm-v8a and
+arm-v8r run on its "max" model, which accepts a superset of their instructions.
+SmallWorld hasn't tested these cores' privileged operations.
+
+**ARMv8-M Baseline:** arm-v8m is ARMv8-M Mainline. SmallWorld doesn't support
+ARMv8-M Baseline (Cortex-M23) explicitly, as no engine models it: Unicorn has
+no Cortex-M23, and Ghidra's one ``ARM:LE:32:v8-m`` language serves both
+profiles. Baseline's instructions and registers are a subset of Mainline's,
+so Baseline code should run on arm-v8m. Mainline is more permissive, though:
+it runs instructions outside Baseline's subset, and unaligned loads and
+stores, where a Cortex-M23 would fault.
+
+**ARMv8.1-M:** SmallWorld doesn't support ARMv8.1-M (Cortex-M55 and M85),
+as Unicorn has no core for it, so it has neither the M-Profile Vector
+Extension (Helium) nor low-overhead loops.
+
+**ARMv5TE:** arm-v5t runs on Unicorn's ARM926, an ARMv5TEJ core, and Ghidra's
+v5t language includes the 5E extensions, so both decode ARMv5TE's DSP
+instructions (``qadd``, ``smla<x><y>``, ``ldrd`` and the like). Tests cover
+the saturating arithmetic, halfword multiplies and doubleword loads and stores.
+Unicorn, PANDA and Styx run all of them. Ghidra and angr don't run the
+saturating instructions: Ghidra doesn't implement them (see below), and
+angr's ``qadd`` fails. Triton runs only ``ldrd`` and ``strd``.
+
+**Saturating arithmetic on Ghidra:** Ghidra can't run 32-bit ARM's
+saturating instructions, on any platform. Its SLEIGH specification computes
+them through four userops (``SignedSaturate``, ``SignedDoesSaturate``,
+``UnsignedSaturate`` and ``UnsignedDoesSaturate``) that Ghidra's emulator
+doesn't implement, so it stops with an error naming the userop rather than
+computing a result. SmallWorld doesn't implement them either, because for most
+of these instructions the specification itself is wrong: ``qadd`` and its
+relatives saturate the sum after it has already wrapped to 32 bits, and
+``ssat16`` and ``usat16`` take their halfwords unsigned, so implementing the
+userops would turn a loud failure into a silently wrong result. The affected
+instructions are:
+
+- ``ssat`` and ``usat`` (ARMv6 and later), which compilers emit for clamping
+  idioms, so they can turn up in ordinary optimized code, particularly image
+  and audio code;
+- ARMv5TE's ``qadd``, ``qsub``, ``qdadd`` and ``qdsub``, and ARMv6's SIMD
+  ``qadd16``, ``qadd8``, ``qasx``, ``qsax``, ``qsub16``, ``qsub8``, their
+  ``uq`` forms, ``ssat16`` and ``usat16``, which compilers emit only from
+  intrinsics or hand-written DSP code, such as CMSIS-DSP on Cortex-M4 and M7;
+- ARMv8.1-M's saturating shifts and MVE narrowing instructions, which
+  SmallWorld doesn't model anyway.
+
+Run such code on Unicorn or PANDA, which implement all of them. AArch64 is
+unaffected, as its SLEIGH specification computes saturation inline.
+
+**aarch64-v8.5a:** aarch64 is ARMv8.0-A: Unicorn runs it on its default
+AArch64 core, which rejects the instructions later versions added.
+aarch64-v8.5a adds those of ARMv8.1-A to ARMv8.5-A, such as the LSE atomics,
+pointer authentication and BTI. Unicorn and PANDA run it on their "max" models,
+which accept a superset of its instructions, and Ghidra runs them on its
+AARCH64 language, though its ``sqrdmlah`` and ``sqrdmlsh`` don't set FPSR.QC
+when they saturate. angr can't decode any of them, and Triton
+runs only ``ldapr`` and its relatives, so both run only ARMv8.0 code on
+aarch64-v8.5a. The pointer authentication hints that ``-mbranch-protection``
+emits, such as ``paciasp`` and ``autiasp``, run on every engine, but angr,
+Ghidra and Triton step over them without signing, so a signed ``lr`` reads
+unsigned there. An ELF header doesn't record the architecture version, so
+SmallWorld loads an AArch64 ELF as aarch64 unless asked for aarch64-v8.5a.
+No engine here runs SVE.
+
+**Big-endian aarch64:** aarch64 also comes big-endian (``Byteorder.BIG``), as
+``aarch64_be``: data is big-endian, but instructions stay little-endian, as
+they always are on AArch64. Unicorn runs it in its big-endian mode, which
+fetches little-endian instructions; angr lifts through VEX's little-endian
+AArch64 guest, as VEX's big-endian one decodes nothing, then makes each load
+and store big-endian; Ghidra uses its ``AARCH64:BE:64:v8A`` language; and
+PANDA runs its little-endian core with SCTLR.EE and SCTLR.E0E set at every
+exception level, which make data accesses big-endian. Triton has no
+big-endian AArch64. aarch64-v8.5a comes big-endian too, running the same way
+on Unicorn's and PANDA's "max" models, angr and Ghidra.
+
+**Other ARM variants:** SmallWorld doesn't model ARMv2 or ARMv3 (26-bit
+addressing), ARMv6 without the K extensions or ARMv6T2 (ARM1156, the first with
+Thumb-2) as platforms of their own; arm-v6k covers most ARMv6 code, but not
+Thumb-2. Nor does it run ARMv6 in BE32 mode, only in BE8.
+
+**ARMv6Z:** arm-v6k covers ARMv6Z too, as its Unicorn core, the ARM1176, is an
+ARMv6KZ core. ARMv6Z adds the Security Extensions, whose one instruction,
+``smc``, Unicorn and Ghidra decode but angr does not.
+
+**arm-v4 PANDA:** arm-v4 runs on PANDA's StrongARM SA-1110, and arm-v4t on its
+TI925T.
+
+**Big-endian arm32:** arm-v4, arm-v4t and arm-v5t also come big-endian
+(``Byteorder.BIG``), as BE32: instructions are big-endian, like data, as on
+those cores. They run on Unicorn, angr and Ghidra (its ``ARM:BE:32`` languages).
+SmallWorld configures no big-endian ARM machine for Styx, and Triton has no
+big-endian ARM. Nor does it run BE32 on PANDA: QEMU's system emulation models
+BE32 as word-invariant, keeping each word little-endian in memory and swapping
+byte addresses instead, so memory SmallWorld reads or writes would come out
+swapped within each word.
+
+arm-v6k, arm-v7a, arm-v7r, arm-v8a and arm-v8r come big-endian as BE8, as
+ARMv6 and later do: data is big-endian, but instructions stay little-endian.
+Unicorn runs them on its little-endian cores with CPSR.E, which makes data
+accesses big-endian, held set; PANDA does the same, setting SCTLR.EE too so
+that exceptions stay big-endian; angr lifts through VEX's little-endian ARM
+guest, as VEX's big-endian one decodes no single-precision VFP, then makes
+each load and store big-endian; and Ghidra uses its ``ARM:LEBE:32``
+languages, which exist for v7 and v8 only, so arm-v6k-be uses the v7 one.
+Those languages lay out the FPU registers for little-endian in a big-endian
+register file, so Ghidra treats s0 as the high half of d0, not the low half.
+SmallWorld corrects the q registers' halves, but Ghidra runs code wrong that
+writes a register as one width and reads it as another. A BE8 object
+file still holds its code big-endian, as only the linker converts it, so
+SmallWorld can't run code straight from one. SmallWorld doesn't support
+big-endian M-profile.
+
+**arm-v8 PANDA:** arm-v8r runs on PANDA's Cortex-R52. PANDA's 32-bit ARM build
+has no ARMv8-A core, so arm-v8a runs on its "max" model.
+
+**M-profile PANDA:** PANDA runs Cortex-M CPUs only on the boards built
+around them, not on the configurable machine it uses for the other ARM
+platforms. arm-v7m runs on its MPS2 AN385 board (a Cortex-M3), arm-v7em on
+AN386 (a Cortex-M4 with its FPU enabled) and arm-v8m on AN505 (a Cortex-M33).
+Each board brings its own memory map, mostly RAM low in the address space and
+devices from 0x40000000. SmallWorld reports reads, writes and fetches of
+memory it didn't map as unmapped, as on the other engines, even where the
+board has RAM. But the board's devices take precedence over memory SmallWorld
+maps over them, so map memory clear of those. arm-v6m doesn't run on PANDA:
+its only Cortex-M0 board, the BBC micro:bit, has flash at the addresses code is
+usually loaded at, and flash ignores the writes that would load it.
+
+**arm-v6k on Styx:** Styx has no ARM11 target, so arm-v6k runs on its
+Cortex-A9 (CycloneV) target, which accepts instructions an ARM1176 would not.
 
 **la32:** 32-bit LoongArch, on Ghidra and angr. Both run Ghidra's
 ``Loongarch:LE:32:ilp32d`` language, the one with the double-precision FPU's
@@ -298,6 +428,106 @@ registers, or ``a7`` and the stack when only ``a7`` is left, and a
 floating-point argument with no FP argument register left goes in integer
 registers, as on riscv64.  ELF images with ``R_RISCV_COPY`` or
 ``R_RISCV_TLS_TPREL32`` relocations are refused, as on riscv64.
+
+**sparc32:** 32-bit SPARC V8 (big-endian), aimed at LEON-class processors and
+user-mode code. Ghidra has no V8 language, so the angr and Ghidra backends use
+Ghidra's 32-bit V9 language, which decodes the V8 privileged instructions
+(``rd``/``wr`` of ``%psr``, ``%wim`` and ``%tbr``) as unrelated V9 instructions.
+It also decodes V9-only user instructions, some with the wrong semantics for
+32-bit registers (``ldx`` becomes a 4-byte load), which Unicorn's V8 core and
+real V8 hardware reject. Code must therefore be V8 to run the same on every
+backend. ELF images for V8+ (``EM_SPARC32PLUS``) and V9 (``EM_SPARCV9``) are
+refused.
+
+SPARC's register windows are where the backends differ most, so the platform
+models only the 32 integer registers visible through the current window
+(``%g``, ``%o``, ``%l`` and ``%i``, with ``sp`` and ``fp`` aliasing ``%o6`` and
+``%i6``), plus ``pc`` and ``y``. ``%psr`` (with the condition codes), ``%wim``,
+``%tbr``, ``%fsr`` and the floating-point registers are not modeled on any
+backend. ``npc`` is part of the CPU state but no backend supports it: Unicorn
+2.1.4 cannot access it, and Ghidra's sleigh folds each delay slot into its
+branch's p-code and never reads or writes nPC, so reading or writing ``npc``
+raises ``UnsupportedRegisterError`` everywhere. The windows belonging to
+callers are not part of the CPU state, so they are not transferred between
+emulators; a state captured partway through a call chain loses its callers'
+``%l`` and ``%i`` registers.
+
+Window spill and fill are out of scope. On real hardware, running out of
+windows raises a window overflow or underflow trap, and an operating system's
+handler spills the oldest window to its stack save area or fills it back. That
+part of the calling convention depends on trap handlers, which a
+micro-execution framework does not provide; a full-system image would bring its
+own. SmallWorld therefore does not emulate spill and fill, does not write
+caller windows to the stack when capturing state, and does not restore them
+when loading it. What happens when a program runs out of windows is up to each
+emulator, as described below.
+
+- **Unicorn** (LEON3) rotates its windows like the hardware does, over 8
+  windows, but never raises a window overflow or underflow trap. A call chain
+  nested 8 or more ``save``\ s deep overwrites the outermost window, and may
+  not finish at all. Unicorn 2.1.4 cannot access ``npc`` or ``y``, and reading
+  ``%psr`` crashes it.
+  Upstream Unicorn 2.1.4 also sends every ``jmpl``-based transfer (``ret``,
+  ``retl``, ``jmp``, a ``call`` through a register) to address 1 whenever a code
+  hook is installed, which SmallWorld always does, and a CPU stopped at an exit
+  address reports ``pc`` as the address after it. SmallWorld's build carries
+  ``nix/patches/unicorn-sparc-dynamic-npc-hook.patch`` and
+  ``nix/patches/unicorn-sparc-exit-pc.patch`` to fix them. **SPARC32 on
+  Unicorn therefore requires SmallWorld's nix environment.** A pip install
+  gets upstream Unicorn from PyPI, without the patches; there, creating a
+  SPARC32 ``UnicornEmulator`` raises ``ConfigurationError``, and the angr and
+  Ghidra backends still work. The ``recursion`` scenario's deep inputs nest
+  more than 8 windows, so Unicorn runs only its shallow ones.
+- **angr** and **Ghidra** use Ghidra's model, which copies the current window to
+  and from a backing bank on ``save`` and ``restore``, with no window limit and
+  no traps. Ghidra 12.1.2's copy stores ``%l3`` in ``%l2``'s slot and restores
+  ``%l7`` from ``%l6``'s; both backends correct those ops before running them.
+  The window copy also requires Ghidra's ``DECOMPILE_MODE`` register to be 0:
+  angr stores 0 there before each block, and Ghidra's emulator starts it at 0,
+  which SmallWorld never changes. angr drops the ``call``/``restore`` tail-call
+  check Ghidra emits after a ``call``, which it would otherwise treat as a
+  second successor.
+- **GhidraSymbolicEmulator** cannot run ``save`` or ``restore``: its Z3-backed
+  state rejects the computed register addresses of the window bank, and it
+  raises ``EmulationExecInvalidFailure`` at the instruction.
+
+Ghidra 12.1.2's sleigh has two more defects that angr and Ghidra share, and
+that Unicorn does not:
+
+- ``mulscc`` skips its add with a p-code-relative branch when ``Y``'s low bit
+  is clear, which angr's p-code engine cannot take. angr therefore refuses
+  ``mulscc`` with ``EmulationExecInvalidFailure``, after running the
+  instructions before it. Ghidra runs it correctly. gcc's V8 code uses
+  ``umul``/``smul`` instead.
+- ``udiv`` and ``sdiv`` return the low 32 bits of a quotient that does not fit
+  in 32 bits, where V8 saturates it (to ``0xffffffff`` unsigned, or
+  ``0x7fffffff``/``0x80000000`` signed). gcc clears ``Y`` before a 32-bit
+  division, so ordinary C code never overflows.
+
+A function model returns to ``%o7 + 8``, past the call and its delay slot. The
+generic ``Model`` does not know that rule, so a SPARC32 model must derive from
+``smallworld.state.models.sparc32.SPARC32Model``, as the System V C library
+models do. Those take their arguments from the caller's ``%o0``-``%o5`` and the
+stack from ``%sp + 92``, and return in ``%o0`` (and ``%o1``); models that return
+``float`` or ``double`` raise ``NotImplementedError``, because SPARC returns
+those in ``%f0`` and the platform does not model the floating-point registers.
+The ABI also has every caller reserve 92 bytes at ``%sp`` (the window save
+area, the hidden struct-return word, and home slots for ``%o0``-``%o5``), which
+a callee may write through ``%fp``. ``SPARC32Stack`` does not reserve them, so
+a harness that starts a function should push 96 bytes (92, kept
+doubleword-aligned) before setting ``%sp``.
+
+Every branch and jump has one delay slot. Running is the same on every backend,
+but single-stepping is not:
+
+- Stepping a branch also runs its delay slot, on every backend.
+- When the branch annuls its slot (an untaken conditional ``b<cc>,a``, or
+  ``ba,a``), Unicorn's step also runs the instruction after the annulled slot;
+  angr and Ghidra stop before it.
+- Do not put an exit point in a delay slot. angr then fails to lift the branch
+  ("Undecodable instruction") and runs none of its block, Ghidra runs past the
+  exit point, and Unicorn stops in the slot after the branch has run, in a
+  state that cannot be resumed, because ``npc`` is not modeled.
 
 **SuperH:** SmallWorld models two SuperH generations, and they are not the same ISA.
 
@@ -919,7 +1149,13 @@ The entries mean the following:
 A few notes:
 
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
-- Panda can probably emulate many of these, but it needs to be modified to expose the FPU registers.
+- Panda exposes the ARM and AArch64 FP and SIMD registers, and ``cpacr`` and
+  ``cpacr_el1``, which gate access to them. On A- and R-profile ARM it starts
+  with the FPU disabled, as Unicorn does, so set ``cpacr`` and ``fpexc`` as an
+  OS would. arm-v7em has neither register (its CPACR is memory-mapped), and
+  the machine enables its FPU itself.
+  On most other architectures it would need to be modified to expose the
+  FPU registers.
 - Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
 - **angr's p-code engine leaves floating point unimplemented upstream**: every
   ``OpBehaviorFloat*`` in ``angr/engines/pcode/behavior.py`` raises
@@ -1033,7 +1269,7 @@ picks an entry point, patches the single arithmetic instruction in place, and
 lets the guest walk an array. The contract has the same *shape* everywhere - an
 input cursor, an output cursor and a case count - but each architecture names its
 own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
-on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
+on SuperH, ``r0``/``r1``/``r2`` on armv7a, ``x0``/``x1``/``x2`` on aarch64,
 ``esi``/``edi``/``ecx`` on i386, ``rdi``/``rsi``/``rdx`` on amd64 and
 ``r3``/``r4``/``r5`` on PowerPC, where the kernel moves the count into ``CTR``. On SuperH
 ``r7`` additionally carries the FPSCR value that the kernel installs with
@@ -1075,8 +1311,16 @@ and square root.
 Little-endian SuperH (``sh4el``) matches big-endian ``sh4`` in every cell. The
 PowerPC rows were measured at the default 3000 cases, and 32- and 64-bit PowerPC
 share one kernel and give identical results.
+Each big-endian ARM variant (``armv7abe``, ``armv7rbe``, ``armv8abe``,
+``armv8rbe``, BE8 throughout) matches its little-endian row, and big-endian
+AArch64 (``aarch64be`` and ``aarch64v85abe``) matches ``aarch64``, except that
+Styx is skipped on all of them because no big-endian ARM machine is configured
+for it. Styx has no ARMv7-R or ARMv8 target, hence the ``skipped`` rows, and
+Styx is absent from the AArch64 rows because the scenario does not run
+AArch64 on it.
 
-Every skip is an upstream defect, reduced to a minimal case first:
+Every skip other than ARMv7E-M's double precision and the missing Styx targets
+is an upstream defect, reduced to a minimal case first:
 
 - **angr** is skipped on SH-4, whose floating-point instructions branch within
   the instruction, which angr's p-code engine cannot do (see above). The
@@ -1098,33 +1342,34 @@ Every skip is an upstream defect, reduced to a minimal case first:
   and passes all five single-precision functions - so the defect is in Ghidra's
   float evaluation and is not specific to SuperH. Double precision is
   unaffected. It reproduces on **three** unrelated instruction sets, which is
-  what settles the attribution: SuperH ``fmul``, armhf ``vmul.f32`` and amd64
+  what settles the attribution: SuperH ``fmul``, armv7a ``vmul.f32`` and amd64
   ``mulss`` all return signed zero for the same operands, so ``amd64`` and
-  ``armhf`` carry the same two per-function skips as SuperH.
-- **armhf square root** is skipped under ``angr``. ARM's ``vsqrt.f32`` and
-  ``vsqrt.f64`` lower to VEX's *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and
-  angr implements neither, so the run raises
-  ``UnsupportedIROpError``. This is specific to the scalar opcodes rather than
-  to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
+  every ARM and AArch64 variant carry the same two per-function skips as
+  SuperH.
+- **ARM and AArch64 square root** is skipped under ``angr``. ARM's
+  ``vsqrt.f32``/``vsqrt.f64`` and AArch64's scalar ``fsqrt`` lower to VEX's
+  *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and angr implements neither, so the
+  run raises ``UnsupportedIROpError``. This is specific to the scalar opcodes
+  rather than to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
   ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
-  ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
+  ``amd64.angr`` passes all five functions.
+- **ARMv7E-M double precision** is skipped on every backend, because its
+  FPv4-SP unit is single precision only and has no ``f64`` arithmetic to test.
 - **PowerPC single precision** is skipped under ``angr``. PowerPC computes
   single-precision results in its double-format registers and rounds once, so
   VEX lifts ``fadds`` and its siblings to ``Iop_AddF64r32`` and friends, and
   ``stfs`` to ``Iop_TruncF64asF32``; angr implements none of them. PowerPC
   square root lowers to scalar ``Iop_SqrtF64`` and is skipped under ``angr``
-  for the same reason as armhf's. Double-precision add, subtract, multiply and
+  for the same reason as ARM's. Double-precision add, subtract, multiply and
   divide pass.
-- **Panda is skipped on x86 and armhf**, always because its
-  bare ``-M configurable`` machine brings the CPU up with the floating-point
-  unit switched off and nothing in the harness able to switch it on. On x86-64
-  the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
-  ``#UD``; on i386 likewise; on ARM every VFP instruction raises ``EXCP_UDEF``
-  (reported as ``Panda exception 1``), which a bare ``vmov.f32 s0,s1`` blob
-  reproduces on its own, and the ``FPEXC.EN`` write the kernels already perform
-  for Unicorn's benefit is not sufficient - ARMv7-A also gates VFP behind
-  ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
-  the exception because its FPU needs no enable step, which is why Panda is the
+- **Panda is skipped on x86 here**, because its bare ``-M configurable``
+  machine brings the CPU up with the floating-point unit switched off and
+  nothing in the harness able to switch it on: on x86-64 the CPU starts in real
+  mode with ``CR4=0`` and every ``xmm`` instruction is ``#UD``, and on i386
+  likewise. ARM's CPU also starts with its FPU off, gated by ``CPACR``'s
+  ``cp10``/``cp11`` fields and ``FPEXC.EN``, but SmallWorld can write both on
+  Panda, so the harness grants ``CPACR`` access and the kernels set
+  ``FPEXC.EN``. SuperH's FPU needs no enable step, which is why Panda is the
   only backend passing all ten SuperH functions.
 - **PowerPC under Panda:** QEMU's system-mode reset leaves ``MSR[FP]`` clear,
   so ``PandaEmulator`` sets ``MSR[FP]``, ``MSR[VEC]`` and ``MSR[VSX]`` when it

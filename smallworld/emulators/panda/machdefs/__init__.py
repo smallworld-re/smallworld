@@ -1,6 +1,8 @@
-from .aarch64 import AArch64MachineDef
+from .aarch64 import AArch64MachineDef, AArch64V85AMachineDef
 from .amd64 import AMD64MachineDef
-from .arm import (  # ARMv6MMachineDef,; ARMv6MThumbMachineDef,
+from .arm import (  # ARMv6MMachineDef,
+    ARMv4MachineDef,
+    ARMv4TMachineDef,
     ARMv5TMachineDef,
     ARMv7MMachineDef,
 )
@@ -15,11 +17,13 @@ from .tricore import TriCoreMachineDef
 
 __all__ = [
     "AArch64MachineDef",
+    "AArch64V85AMachineDef",
     "AMD64MachineDef",
     "PandaMachineDef",
+    "ARMv4MachineDef",
+    "ARMv4TMachineDef",
     "ARMv5TMachineDef",
     #    "ARMv6MMachineDef",
-    #    "ARMv6MThumbMachineDef",
     "ARMv7MMachineDef",
     "i386MachineDef",
     "MIPSBEMachineDef",

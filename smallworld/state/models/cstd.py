@@ -5,6 +5,8 @@ import struct
 import typing
 from ctypes import c_int32, c_int64, c_uint32, c_uint64
 
+import capstone
+
 from smallworld import platforms, utils
 from smallworld.exceptions.exceptions import ConfigurationError
 
@@ -93,9 +95,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
     # An eight-byte value in a pair of argument registers that finds only the
     # last register free goes wholly on the stack on most ABIs.  RiscV ilp32
-    # splits it: its first word in memory order in that register, the second
-    # in the next four-byte stack slot.  On little-endian RiscV the register
-    # holds the low word; on a big-endian ABI it would hold the high word.
+    # and SPARC split it: its first word in memory order in that register, the
+    # second in the next four-byte stack slot.  On little-endian RiscV the
+    # register holds the low word; on big-endian SPARC, the high word.
     _eight_byte_args_split: bool = False
 
     def __init__(self):
@@ -340,6 +342,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Size of a double on the stack"""
         raise NotImplementedError()
 
+    # Where a float sits in a stack slot wider than it. Most ABIs put it at the
+    # start of the slot; big-endian AArch64 puts it at the end.
+    _float_stack_offset = 0
+
     def _return_pointer(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a pointer type
 
@@ -429,7 +435,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         arguments consume one register-file entry apiece. Architectures whose
         single- and double-precision registers physically overlap (ARM
         AAPCS-VFP) override this to model back-filling; see
-        ArmHFSysVCallingContext.
+        ArmV7ASysVCallingContext.
         """
         if kind == ArgumentType.FLOAT:
             if self._fp_shares_int_regs:
@@ -724,6 +730,8 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             if on_stack:
                 # Stored on the stack
                 addr = emulator.read_register(sp) + arg_offset
+                if not self._floats_are_doubles:
+                    addr += self._float_stack_offset
                 emulator.write_memory(addr, as_bytes)
             elif self._soft_float or layout == _FP_IN_INT_REGS:
                 # Soft-float ABI, or out of FP registers; treat as a four-byte int
@@ -851,14 +859,12 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 # Stored on the stack. When floats are promoted to doubles the
                 # slot holds 8 bytes (see add_argument / set_argument).
                 addr = emulator.read_register(sp) + arg_offset
-                data = emulator.read_memory(
-                    addr,
-                    (
-                        self._double_stack_size
-                        if self._floats_are_doubles
-                        else self._float_stack_size
-                    ),
-                )
+                if self._floats_are_doubles:
+                    data = emulator.read_memory(addr, self._double_stack_size)
+                else:
+                    data = emulator.read_memory(
+                        addr + self._float_stack_offset, self._float_stack_size
+                    )
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
                 else:
@@ -1154,16 +1160,28 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             emulator.write_memory(sp, as_bytes)
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.AARCH64_V8_5A
+            or self.platform.architecture == platforms.Architecture.ARM_V4
+            or self.platform.architecture == platforms.Architecture.ARM_V4T
             or self.platform.architecture == platforms.Architecture.ARM_V5T
+            or self.platform.architecture == platforms.Architecture.ARM_V6K
             or self.platform.architecture == platforms.Architecture.ARM_V6M
-            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
             or self.platform.architecture == platforms.Architecture.ARM_V7A
             or self.platform.architecture == platforms.Architecture.ARM_V7M
+            or self.platform.architecture == platforms.Architecture.ARM_V7EM
             or self.platform.architecture == platforms.Architecture.ARM_V7R
+            or self.platform.architecture == platforms.Architecture.ARM_V8A
+            or self.platform.architecture == platforms.Architecture.ARM_V8R
+            or self.platform.architecture == platforms.Architecture.ARM_V8M
             or self.platform.architecture == platforms.Architecture.POWERPC32
             or self.platform.architecture == platforms.Architecture.POWERPC64
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+            platdef = platforms.PlatformDef.for_platform(self.platform)
+            if platdef.capstone_mode & capstone.CS_MODE_THUMB:
+                # On a Thumb-only CPU (M-profile), a return address must carry
+                # the Thumb bit; an even one means ARM state, which faults.
+                address |= 1
             emulator.write_register("lr", address)
         elif self.platform.architecture == platforms.Architecture.V850:
             # v850: jarl leaves the return address in 'lp'
@@ -1409,6 +1427,7 @@ class VariadicContext:
         self._four_byte_stack_size = parent._four_byte_stack_size
         self._eight_byte_stack_size = parent._eight_byte_stack_size
         self._float_stack_size = parent._float_stack_size
+        self._float_stack_offset = parent._float_stack_offset
         self._double_stack_size = parent._double_stack_size
 
         # Copy the parent's current argument state

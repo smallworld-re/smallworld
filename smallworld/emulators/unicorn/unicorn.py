@@ -331,10 +331,24 @@ class UnicornEmulator(
         )
 
         def interrupt_callback(uc, index, user_data):
-            # On some ISAs, Unicorn will already have set PC
-            # to the interrupt handler address,
-            # which is probably garbage.  Put it back.
-            self.write_register("pc", self.curr_pc)
+            if self.machdef.is_fetch_fault(index):
+                # The core faulted fetching its next instruction; PC holds
+                # the address it tried to fetch. If that's an exit point,
+                # this is reaching it, as a core that reports the fault as
+                # a fetch error would have stopped there cleanly.
+                target = uc.reg_read(self.machdef.uc_reg(self.platdef.pc_register))
+                if (target & ~1) in self._exit_points or target in self._exit_points:
+                    self.state = EmulatorState.EXIT
+                    self.engine.emu_stop()
+                    return
+                # Otherwise leave PC at the target, where a core that
+                # reports a fetch error leaves it, so the fault is reported
+                # at the address that couldn't be fetched.
+            else:
+                # On some ISAs, Unicorn will already have set PC
+                # to the interrupt handler address,
+                # which is probably garbage.  Put it back.
+                self.write_register("pc", self.curr_pc)
 
             if self.state == EmulatorState.EXIT:
                 # This is a vestigial instruction.
@@ -471,7 +485,16 @@ class UnicornEmulator(
             )
 
         if name == "pc":
-            content = self._handle_thumb_interwork(content)
+            if self.platdef.isa_bit is platforms.IsaBit.SELECTS and content & 1:
+                # An odd pc selects the alternate instruction set, as a jump
+                # to it does; an even one leaves the mode as it is.
+                try:
+                    self.set_isa_mode(1)
+                except exceptions.UnsupportedRegisterError:
+                    # This machine runs one of them only.
+                    pass
+                content &= ~1
+        content = self.machdef.adjust_register_write(name, content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
         if reg == 0:
@@ -668,6 +691,7 @@ class UnicornEmulator(
     def _disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
+        self._update_disassembler_mode()
         instructions = self.disassembler.disasm(code, base)
         disassembly = []
         insns = []
@@ -680,11 +704,24 @@ class UnicornEmulator(
 
     def current_instruction(self) -> capstone.CsInsn:
         pc = self.read_register("pc")
-        code = self.read_memory(pc, 15)
+        # The longest instruction on any platform is 15 bytes (x86), but code
+        # may end closer than that to the end of its mapping.
+        size = 15
+        mapped, found = self.memory_map.find_closest_range(pc)
+        if found and mapped is not None:
+            size = min(size, mapped[1] - pc)
+        code = self.read_memory(pc, size)
         if code is None:
             raise AssertionError("invalid state")
+        self._update_disassembler_mode()
         for i in self.disassembler.disasm(code, pc):
             return i
+
+    def _update_disassembler_mode(self) -> None:
+        # Decode the instruction set the CPU runs now.
+        self.disassembler.mode = self.machdef.disassembler_mode(
+            self.engine, self.platdef.capstone_mode
+        )
 
     def _check(self) -> None:
         # check if it's ok to begin emulating
@@ -705,64 +742,6 @@ class UnicornEmulator(
             raise exceptions.ConfigurationError(
                 "at least one exit point or bound must be set, emulation cannot start"
             )
-
-    def _check_arm32_platform(self):
-        """Check for ARM32 platform architecture"""
-        return self.platform.architecture in [
-            platforms.Architecture.ARM_V5T,
-            platforms.Architecture.ARM_V6M,
-            platforms.Architecture.ARM_V7A,
-            platforms.Architecture.ARM_V7M,
-            platforms.Architecture.ARM_V7R,
-        ]
-
-    def get_thumb(self) -> bool:
-        if not self._check_arm32_platform():
-            raise exceptions.ConfigurationError(
-                "called get_thumb() on non-ARM32 system"
-            )
-
-        CPSR_THUMB_MODE_MASK = 0x20
-        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-        if cpsr & CPSR_THUMB_MODE_MASK:
-            return True
-        else:
-            return False
-
-    def set_thumb(self, enabled=True) -> None:
-        if not self._check_arm32_platform():
-            raise exceptions.ConfigurationError(
-                "called set_thumb() on non-ARM32 system"
-            )
-
-        CPSR_THUMB_MODE_MASK = 0x20
-        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-
-        if enabled:
-            self.engine.reg_write(
-                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | CPSR_THUMB_MODE_MASK
-            )
-        elif cpsr & CPSR_THUMB_MODE_MASK:
-            self.engine.reg_write(
-                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr ^ CPSR_THUMB_MODE_MASK
-            )
-
-    # Handle Thumb ISA exchange for ARM32
-    def _handle_thumb_interwork(self, pc) -> int:
-        if not self._check_arm32_platform():
-            return pc
-
-        # emu_start clears thumb mode if the low bit of pc != 1.
-        # We use CPSR to determine if unicorn was previously in thumb
-        # mode and set the low bit to 1 to maintain it. We also set
-        # the mode of the disassembler.
-        if self.get_thumb() or pc & 1:
-            pc |= 1
-            self.disassembler.mode = capstone.CS_MODE_THUMB
-        else:
-            self.disassembler.mode = capstone.CS_MODE_ARM
-
-        return pc
 
     def _diagnose_clean_stop(self) -> None:
         """Diagnose an emu_start() call that returned without raising.
@@ -817,8 +796,6 @@ class UnicornEmulator(
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint
 
-        pc = self._handle_thumb_interwork(pc)
-
         if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
             if disas is None:
@@ -845,7 +822,6 @@ class UnicornEmulator(
     def step_block(self) -> None:
         self._check()
         pc = self.read_register("pc")
-        pc = self._handle_thumb_interwork(pc)
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint
 
@@ -863,7 +839,6 @@ class UnicornEmulator(
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
-            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(
                 self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
             )
@@ -881,7 +856,6 @@ class UnicornEmulator(
 
         try:
             pc = self.read_register("pc")
-            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(
                 self.machdef.pc_to_start(self.engine, pc), self.exit_sentinel
             )
@@ -913,10 +887,8 @@ class UnicornEmulator(
             # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
             res = self.engine.mem_read(pc, 16)
             code = bytes(res)
-            # on arm32, update disassembler for ARM vs Thumb
-            _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
-            i = instructions.Instruction.from_capstone(insns[0])
+            i = instructions.Instruction.from_capstone(insns[0], platform=self.platform)
         except:
             # looks like that code is not available
             i = None
@@ -1002,11 +974,11 @@ class UnicornEmulator(
                     try:
                         res = self.engine.mem_read(prev_addr, prev_size)
                         code = bytes(res)
-                        # on arm32, update disassembler for ARM vs Thumb
-                        _ = self._handle_thumb_interwork(pc)
                         insns, _ = self._disassemble(code, prev_addr, 1)
                         prev_mnem = insns[0].mnemonic
-                        prev_i = instructions.Instruction.from_capstone(insns[0])
+                        prev_i = instructions.Instruction.from_capstone(
+                            insns[0], platform=self.platform
+                        )
                         # A fetch fault's responsible operand is where the
                         # branch sends the next instruction fetch -- [t9] for
                         # jr $t9 -- which is a fetch, not one of the branch's

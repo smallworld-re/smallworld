@@ -147,7 +147,12 @@ class PandaEmulator(
                     f"./smallworld-panda-{self.machdef.panda_arch}-debug.log",
                 ]
 
-            self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
+            panda_kwargs = {}
+            if self.machdef.mem is not None:
+                panda_kwargs["mem"] = self.machdef.mem
+            self.panda = pandare2.Panda(
+                self.machdef.panda_arch, extra_args=panda_args, **panda_kwargs
+            )
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
@@ -193,6 +198,22 @@ class PandaEmulator(
                     logger.debug("\ton_insn: block")
 
                 logger.debug(f"Panda: on_insn: {hex(pc)}, {self.state}")
+                # Models and other hooks can sit at addresses nothing maps.
+                if (
+                    self.machdef.checks_fetches
+                    and not self.manager._memory_is_mapped(pc, 1)
+                    and not self.manager.is_instruction_hooked(pc)
+                    and not self.manager.is_function_hooked(pc)
+                ):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationFetchUnmappedFailure(
+                            "Fetched unmapped memory",
+                            pc,
+                            address=pc,
+                        )
+                    )
+                    return
                 # Check if our pc is in bounds; if not stop
                 if (
                     not self.manager._bounds.is_empty()
@@ -423,6 +444,12 @@ class PandaEmulator(
                         pc = self.panda.arch.get_pc(cpu)
                     except Exception:  # noqa: BLE001
                         pc = self.manager.pc
+                    # An exit point outside QEMU's memory faults on fetch
+                    # before on_insn sees it, so reaching it ends the run.
+                    if pc in self.manager._exit_points:
+                        self.update_state(cpu, pc)
+                        self.signal_and_wait()
+                        return
                     try:
                         self.machdef.handle_interrupt(exception_index, pc)
                         # handle_interrupt always raises; guard a non-raising override.
@@ -516,6 +543,13 @@ class PandaEmulator(
         ):
             return self.pc
 
+        if self.panda_thread.machdef.is_state_register(name):
+            if not self.panda_thread.panda:
+                raise exceptions.EmulationError("PANDA not started")
+            return self.panda_thread.machdef.read_state_register(
+                name, self.panda_thread.panda, self.cpu
+            )
+
         if not self.panda_thread.machdef.check_panda_reg(
             name, self.panda_thread.panda, self.cpu
         ):
@@ -535,6 +569,29 @@ class PandaEmulator(
             raise exceptions.AnalysisError(
                 f"Failed reading {panda_reg_name} (id: {name})"
             ) from e
+
+    def get_isa_mode(self) -> int:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            # The CPU runs one instruction set; the generic path says so.
+            return super().get_isa_mode()
+        if not self.panda_thread.panda:
+            raise exceptions.EmulationError("PANDA not started")
+        mode = self.panda_thread.machdef.read_isa_mode(
+            self.panda_thread.panda, self.cpu
+        )
+        return super().get_isa_mode() if mode is None else mode
+
+    def set_isa_mode(self, mode: int) -> None:
+        if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+            # The CPU runs one instruction set; the generic path says so.
+            super().set_isa_mode(mode)
+            return
+        if not self.panda_thread.panda:
+            raise exceptions.EmulationError("PANDA not started")
+        if not self.panda_thread.machdef.write_isa_mode(
+            mode, self.panda_thread.panda, self.cpu
+        ):
+            super().set_isa_mode(mode)
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -561,8 +618,18 @@ class PandaEmulator(
                         "pc", self.panda_thread.panda, self.cpu
                     )
                     self.panda_thread.panda.arch.set_reg(self.cpu, panda_pc, content)
+                self.panda_thread.machdef.pc_written(self.panda_thread.panda, self.cpu)
             else:
                 raise exceptions.EmulationError("PANDA not started")
+            return
+
+        if self.panda_thread.machdef.is_state_register(name):
+            if not self.panda_thread.panda:
+                raise exceptions.EmulationError("PANDA not started")
+            self.panda_thread.machdef.write_state_register(
+                name, content, self.panda_thread.panda, self.cpu
+            )
+            logger.debug(f"set register {name} = {content}")
             return
 
         if not self.panda_thread.machdef.check_panda_reg(

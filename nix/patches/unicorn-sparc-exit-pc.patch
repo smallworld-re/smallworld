@@ -1,0 +1,22 @@
+Leave a stopped SPARC32 CPU's pc at the exit address.
+
+When translation reaches an exit address (emu_start's `until`, or one set
+with UC_CTL_EXITS), the SPARC32 translator stops by calling
+helper_power_down. That helper resumes at npc (pc = npc; npc = pc + 4), so
+uc_reg_read(UC_SPARC_REG_PC) afterwards returned whatever npc held -- the
+next sequential address, or after a jump to the exit address, the address
+past it -- instead of the exit address. Point npc at the exit address first
+so pc lands on it.
+
+--- a/qemu/target/sparc/translate.c	2026-10-21 13:17:37.725420184 -0400
++++ b/qemu/target/sparc/translate.c	2026-10-21 13:17:37.770420325 -0400
+@@ -5953,6 +5953,9 @@
+     // Unicorn: end address tells us to stop emulation
+     if (uc_addr_is_exit(uc, dc->pc)) {
+ #ifndef TARGET_SPARC64
++        // power_down resumes at npc, so point npc at the exit address to
++        // leave pc there; otherwise pc reads back as wherever npc pointed.
++        tcg_gen_movi_tl(tcg_ctx, tcg_ctx->cpu_npc, dc->pc);
+         gen_helper_power_down(tcg_ctx, tcg_ctx->cpu_env);
+ #endif
+         dcbase->is_jmp = DISAS_NORETURN;

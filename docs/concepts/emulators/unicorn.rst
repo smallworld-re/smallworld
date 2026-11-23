@@ -22,13 +22,15 @@ Execution Control
     platforms that include multiple ISAs.
     The only currently-supported example is arm32, which supports ARM and THUMB.
 
-    The function ``UnicornEmulator.set_thumb()`` allows a harness to specify
-    that the current machine state should be interpreted using the THUMB isa.
+    The function ``UnicornEmulator.set_isa_mode()`` allows a harness to
+    specify that the current machine state should be interpreted using the
+    THUMB isa (1) or the ARM isa (0), and writing an odd ``pc`` selects THUMB.
     The mode will be tracked internally as code executes,
-    and can be referenced using ``UnicornEmulator.get_thumb()``.
+    and can be referenced using ``UnicornEmulator.get_isa_mode()``.
+    ``get_thumb()`` and ``set_thumb()`` do the same, but are deprecated.
 
-    Both of these functions will fail if the emulator
-    is configured for a platform other than arm32. 
+    Both of these functions will fail on a platform with one instruction
+    set, such as ARMv4 or aarch64.
 
 .. note::
    ``UnicornEmulator.step()`` may execute more than one instruction.

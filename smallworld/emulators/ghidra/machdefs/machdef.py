@@ -1,8 +1,10 @@
 import abc
 import typing
 
+import claripy
 from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
+from ghidra.program.model.pcode import PcodeOp
 from java.math import BigInteger
 
 from .... import exceptions, platforms, utils
@@ -83,6 +85,29 @@ class GhidraMachineDef:
     # This flag indicates that this machine uses such instructions,
     # and is not safe to step in this manner
     supports_single_step: bool = True
+
+    # Does this machine correct the p-code Ghidra produces for an instruction.
+    #
+    # When set, the emulators ask `pcode_fixes()` for replacements before
+    # running each instruction's p-code.
+    fixes_pcode: bool = False
+
+    def pcode_fixes(self, code: typing.Sequence[PcodeOp]) -> typing.Dict[int, PcodeOp]:
+        """Replacements for ops in one instruction's p-code.
+
+        Any op can be replaced, the first included.  A replacement runs as
+        it is, without the emulator's usual inspection of the op it stands
+        in for: it gets no memory hooks, no unmapped-memory check, and no
+        symbolic fork.  So a replacement must not branch and must not
+        access the default (memory) space.
+
+        Arguments:
+            code: The p-code ops of the instruction about to run
+
+        Returns:
+            A map from an index in `code` to the op to run in its place.
+        """
+        return {}
 
     #: Address spaces SmallWorld's flat memory map covers, as
     #: (Ghidra space name, flat base address, size).  None means the
@@ -199,6 +224,17 @@ class GhidraMachineDef:
     # even address. An even pc leaves the field as it is.
     isa_bit_context: typing.Optional[str] = None
 
+    # Registers whose halves Ghidra holds in the opposite order to the
+    # architecture, for a language that lays out its registers for the other
+    # byte order.
+    swapped_halves: typing.FrozenSet[str] = frozenset()
+
+    # Bits of a register that the language keeps in registers of their own,
+    # as {register: {bit: SLEIGH register}}. Each SLEIGH register holds its
+    # bit as a 0 or 1 byte, or is a one-bit context field; reads merge the
+    # bits in, and writes split them back out.
+    split_bits: typing.Mapping[str, typing.Mapping[int, str]] = {}
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def apply_context(self, thread) -> None:
@@ -252,17 +288,6 @@ class GhidraMachineDef:
         self.language: Language = slp.getLanguage(langID)
         assert self.language is not None
 
-    def pcode_reg(self, name: str) -> Register:
-        if name not in self._registers:
-            raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
-        if self._registers[name] is None:
-            raise exceptions.UnsupportedRegisterError(
-                f"Register {name} not recognized by pcode for {self.arch}:{self.byteorder}"
-            )
-        reg = self.language.getRegister(self._registers[name])
-        assert reg is not None, name
-        return reg
-
     def userop_name(self, op) -> typing.Optional[str]:
         """The name of the userop this p-code op calls, if it calls one."""
         if op.getOpcode() != op.CALLOTHER:
@@ -282,6 +307,34 @@ class GhidraMachineDef:
             return None
         name = self.userop_name(op)
         return None if name is None else self.userops.get(name)
+
+    def pcode_reg(self, name: str) -> Register:
+        if name not in self._registers:
+            raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
+        if self._registers[name] is None:
+            raise exceptions.UnsupportedRegisterError(
+                f"Register {name} not recognized by pcode for {self.arch}:{self.byteorder}"
+            )
+        reg = self.language.getRegister(self._registers[name])
+        assert reg is not None, name
+        return reg
+
+    def fix_register_bytes(self, name: str, data: bytes) -> bytes:
+        """Convert a register's bytes between Ghidra's order and ours
+
+        This is its own inverse, so it serves for reads and writes.
+        """
+        if name not in self.swapped_halves:
+            return data
+        half = len(data) // 2
+        return data[half:] + data[:half]
+
+    def fix_register_bv(self, name: str, bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:
+        """:meth:`fix_register_bytes` for a symbolic value"""
+        if name not in self.swapped_halves:
+            return bv
+        half = bv.size() // 2
+        return claripy.Concat(bv[half - 1 : 0], bv[bv.size() - 1 : half])
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

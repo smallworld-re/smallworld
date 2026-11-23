@@ -16,14 +16,17 @@ log = logging.getLogger(__name__)
 
 # ELF machine values
 # See /usr/include/elf.h for the complete list
+EM_SPARC = 2  # SPARC 32-bit (V7/V8)
 EM_386 = 3  # Intel 80386
 EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
+EM_SPARC32PLUS = 18  # SPARC V8+ (32-bit, V9 instructions)
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
 EM_V800 = 36  # NEC V800; the RH850 ELF ABI, which GNU as uses by default
 EM_ARM = 40  # ARM 32-bit
 EM_SH = 42  # Renesas/Hitachi SuperH; all generations
+EM_SPARCV9 = 43  # SPARC V9 (64-bit)
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
 EM_V850 = 87  # NEC/Renesas V850, the GCC ELF ABI
@@ -36,6 +39,65 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+EF_ARM_EABIMASK = 0xFF000000
+EF_ARM_BE8 = 0x00800000
+
+_AARCH64_ARCHITECTURES = frozenset(
+    {
+        Architecture.AARCH64,
+        Architecture.AARCH64_V8_5A,
+    }
+)
+
+_ARM32_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
+        Architecture.ARM_V5T,
+        Architecture.ARM_V6K,
+        Architecture.ARM_V6M,
+        Architecture.ARM_V7M,
+        Architecture.ARM_V7EM,
+        Architecture.ARM_V7R,
+        Architecture.ARM_V7A,
+        Architecture.ARM_V8A,
+        Architecture.ARM_V8R,
+        Architecture.ARM_V8M,
+    }
+)
+
+# ARM32 platforms whose C models pass floats soft- or hard-float.
+# The float ABI is a build choice, so an ELF's can differ from its platform's;
+# loading warns when it does, since float arguments to models won't match.
+# Big-endian ARMv4 and ARMv5 are BE32, with big-endian code; big-endian ARMv6
+# and later are BE8, with little-endian code.
+_ARM32_BE32_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
+        Architecture.ARM_V5T,
+    }
+)
+_ARM32_SOFT_FLOAT_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V4,
+        Architecture.ARM_V4T,
+        Architecture.ARM_V5T,
+        Architecture.ARM_V6K,
+        Architecture.ARM_V6M,
+        Architecture.ARM_V7M,
+        Architecture.ARM_V8M,
+    }
+)
+_ARM32_HARD_FLOAT_ARCHITECTURES = frozenset(
+    {
+        Architecture.ARM_V7A,
+        Architecture.ARM_V7EM,
+        Architecture.ARM_V7R,
+        Architecture.ARM_V8A,
+        Architecture.ARM_V8R,
+    }
+)
 
 # V850-specific flag values: the field naming the core, and its value for
 # V850E3v5.
@@ -142,26 +204,75 @@ def _architecture_by_class(
     return detect
 
 
+def _aarch64_architecture(elf, requested):
+    # The header doesn't record the architecture version, so a requested
+    # version wins over the ARMv8.0 default.
+    if requested is not None and requested.architecture in _AARCH64_ARCHITECTURES:
+        return requested.architecture
+    return Architecture.AARCH64
+
+
 def _arm_architecture(elf, requested):
     # Some kind of arm32
     flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
 
     # NOTE: ELF stopped numbering ARM version numbers at 5.
     # This would be fine, except v6 and v7 are absolutely not
-    # binary compatible with v5.
-    if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
+    # binary compatible with v5. Past that, the flags only record
+    # the float ABI, which is a build choice, not the architecture.
+    soft_float = EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags
+    hard_float = EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags
+    # A big-endian EABI image records whether its code is BE8. Core
+    # dumps carry no flags at all, so they say nothing either way.
+    raw_flags = elf.header.processor_flag & 0xFFFFFFFF
+    be8: typing.Optional[bool] = None
+    if elf.header.identity_data.value == 2 and raw_flags & EF_ARM_EABIMASK:
+        be8 = bool(raw_flags & EF_ARM_BE8)
+    if requested is not None and requested.architecture in _ARM32_ARCHITECTURES:
+        # An explicitly requested ARM32 platform wins, whatever the
+        # float ABI. The file might also be a core dump, which
+        # carries no ABI flags.
+        architecture = requested.architecture
+        # Unlike the float ABI, the code byte order is fixed by the
+        # image: on the wrong one, every instruction decodes wrongly.
+        if be8 is not None and be8 == (architecture in _ARM32_BE32_ARCHITECTURES):
+            image, wanted = ("BE8", "BE32") if be8 else ("BE32", "BE8")
+            raise ConfigurationError(
+                f"ELF code is {image} (EF_ARM_BE8 {'set' if be8 else 'clear'}), "
+                f"but big-endian {architecture} is {wanted}"
+            )
+        if (soft_float and architecture in _ARM32_HARD_FLOAT_ARCHITECTURES) or (
+            hard_float and architecture in _ARM32_SOFT_FLOAT_ARCHITECTURES
+        ):
+            elf_abi, model_abi = ("soft", "hard") if soft_float else ("hard", "soft")
+            log.warning(
+                f"ELF uses the {elf_abi}-float ABI, but {architecture}'s "
+                f"C models use {model_abi}-float; float arguments and "
+                "return values of C models won't match"
+            )
+        return architecture
+    elif soft_float and be8:
+        # Big-endian ARMv6 or later; ARMv6K is the oldest BE8 platform.
+        log.warning("Ambiguous ARM ABI version; assuming v6k (BE8)")
+        return Architecture.ARM_V6K
+    elif soft_float:
         # This is either ARMv5T or some kind of ARMv6.
         # We're currently assuming v5T,
-        # unless the user specifically asks for v6.
-        if requested is not None and requested.architecture is Architecture.ARM_V6M:
-            return Architecture.ARM_V6M
-        elif requested is not None and requested.architecture is Architecture.ARM_V5T:
-            return Architecture.ARM_V5T
-        else:
-            log.warning("Ambiguous ARM ABI version; assuming v5t")
-            return Architecture.ARM_V5T
-    elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
-        # This is ARMv7a, as built by gcc.
+        # unless the user specifically asks for another platform.
+        log.warning("Ambiguous ARM ABI version; assuming v5t")
+        return Architecture.ARM_V5T
+    elif hard_float and be8 is False:
+        # BE32 code is ARMv5 or older, and no BE32 platform has
+        # hard-float C models.
+        log.warning(
+            "Hard-float BE32 image; assuming v5t, whose C models use "
+            "soft-float, so float arguments and return values of C "
+            "models won't match"
+        )
+        return Architecture.ARM_V5T
+    elif hard_float:
+        # This is ARMv7a, as built by gcc, unless the user asks for
+        # another platform.
         return Architecture.ARM_V7A
     else:
         # The file might be a core dump or some uncommon flavor of ARM.
@@ -171,6 +282,13 @@ def _arm_architecture(elf, requested):
             "defaulting to ARM_V7A."
         )
         return Architecture.ARM_V7A
+
+
+def _sparc_v9_architecture(elf, requested):
+    # V8+ and V9 images use V9 instructions, which SPARC32 does not model.
+    raise ConfigurationError(
+        "SPARC V8+/V9 images are not supported; only EM_SPARC (V7/V8)"
+    )
 
 
 def _superh_architecture(elf, requested):
@@ -298,7 +416,7 @@ def _mips_architecture(elf, requested):
 ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_386: _fixed_architecture(Architecture.X86_32),
     EM_68K: _fixed_architecture(Architecture.M68K),
-    EM_AARCH64: _fixed_architecture(Architecture.AARCH64),
+    EM_AARCH64: _aarch64_architecture,
     EM_ARM: _arm_architecture,
     EM_LOONGARCH: _architecture_by_class(
         Architecture.LOONGARCH32, Architecture.LOONGARCH64
@@ -308,6 +426,9 @@ ARCHITECTURE_DETECTORS: typing.Dict[int, ArchitectureDetector] = {
     EM_PPC64: _fixed_architecture(Architecture.POWERPC64),
     EM_RISCV: _architecture_by_class(Architecture.RISCV32, Architecture.RISCV64),
     EM_SH: _superh_architecture,
+    EM_SPARC: _fixed_architecture(Architecture.SPARC32),
+    EM_SPARC32PLUS: _sparc_v9_architecture,
+    EM_SPARCV9: _sparc_v9_architecture,
     EM_TRICORE: _fixed_architecture(Architecture.TRICORE),
     EM_V800: _v800_architecture,
     EM_V850: _v850_architecture,

@@ -129,6 +129,48 @@
       # this cpu variant", so a test source cannot silently drift generations.
       mkSuperHBinutils = system: (pkgsFor system).pkgsCross.sh4.buildPackages.binutils-unwrapped;
 
+      # SPARC is a first-class binutils target too, but nixpkgs has no
+      # `pkgsCross` entry for 32-bit SPARC, so instantiate the cross package set
+      # from the triple. The assembly tests need only the unwrapped binutils;
+      # the C tests use mkSparcGcc below. (zig can assemble SPARC, but its lld
+      # cannot link it.) The tools come out prefixed `sparc-unknown-linux-gnu-*`.
+      mkSparcBinutils =
+        system:
+        (import nixpkgs {
+          inherit system;
+          crossSystem.config = "sparc-unknown-linux-gnu";
+        }).buildPackages.binutils-unwrapped;
+
+      # The C tests need a full gcc and glibc, which nixpkgs does not build for
+      # 32-bit SPARC out of the box: its glibc platform list stops at V9, even
+      # though upstream glibc still supports V8 CPUs with CAS, such as LEON.
+      # Target LEON3 so gcc emits V8 code and glibc's atomics have CAS. gcc's
+      # libitm uses V9 instructions on SPARC and fails to assemble for LEON,
+      # so leave it out, and libsanitizer with it; no test needs either.
+      mkSparcPkgs =
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnsupportedSystem = true;
+          crossSystem = {
+            config = "sparc-unknown-linux-gnu";
+            gcc.cpu = "leon3";
+          };
+        };
+      mkSparcGcc =
+        system:
+        let
+          sparcPkgs = mkSparcPkgs system;
+        in
+        sparcPkgs.buildPackages.wrapCC (
+          sparcPkgs.buildPackages.gcc.cc.overrideAttrs (old: {
+            configureFlags = (old.configureFlags or [ ]) ++ [
+              "--disable-libitm"
+              "--disable-libsanitizer"
+            ];
+          })
+        );
+
       # nixpkgs has no V850 platform (lib.systems rejects the CPU type), so
       # there is no pkgsCross toolchain, and LLVM has no V850 target. Build
       # GNU binutils for `v850-elf` from nixpkgs' own binutils source instead;
@@ -236,12 +278,20 @@
           xtensaGcc = mkXtensaGcc system;
           tricoreGcc = mkTricoreGcc system;
           superHBinutils = mkSuperHBinutils system;
+          sparcBinutils = mkSparcBinutils system;
+          sparcGcc = mkSparcGcc system;
+          sparcGlibc = (mkSparcPkgs system).glibc;
+          sparcLinuxHeaders = (mkSparcPkgs system).linuxHeaders;
           v850Binutils = mkV850Binutils system;
           ppcVleBinutils = mkPpcVleBinutils system;
 
           tests = pkgs.callPackage ../tests {
             inherit
               ppcVleBinutils
+              sparcBinutils
+              sparcGcc
+              sparcGlibc
+              sparcLinuxHeaders
               superHBinutils
               tricoreGcc
               v850Binutils
@@ -351,6 +401,12 @@
             AMD64_SYSROOT = x86LinuxPkgs.glibc.outPath;
             AARCH64_SYSROOT = pkgs.pkgsCross.aarch64-multiplatform.glibc.outPath;
             PPC_SYSROOT = pkgs.pkgsCross.ppc32.glibc.outPath;
+            # Matches tests/default.nix.
+            SPARC32_LIBC_CFLAGS =
+              let
+                sparcPkgs = mkSparcPkgs system;
+              in
+              "-isystem ${sparcPkgs.glibc.dev}/include -isystem ${sparcPkgs.linuxHeaders}/include";
             PPC64_SYSROOT = pkgs.pkgsCross.ppc64.glibc.outPath;
           };
 
