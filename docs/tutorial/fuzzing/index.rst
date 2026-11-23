@@ -15,7 +15,7 @@ exiting if they are not equal. If it makes it through all of the compares it
 crashes by writing to an unmapped address.
 
 .. literalinclude:: fuzz.armv5t.s
-  :language: NASM
+  :language: none
 
 .. _AFL++: https://aflplus.plus/
 
