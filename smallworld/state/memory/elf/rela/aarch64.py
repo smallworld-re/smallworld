@@ -1,5 +1,3 @@
-import typing
-
 from ..... import platforms
 from .....exceptions import ConfigurationError
 from ..structs import ElfRela
@@ -276,7 +274,6 @@ R_AARCH64_AUTH_GLOB_DAT = (
 R_AARCH64_AUTH_TLSDESC = 1043  # Fill an authenticated TLS descriptor pair in the GOT.
 R_AARCH64_AUTH_IRELATIVE = 1044  # Pointer-authenticated IFUNC relocation.
 
-DT_PLTGOT = 3  # Dynamic tag for the GOT base address.
 MOVW_OP_MOVN = 0
 MOVW_OP_MOVZ = 2
 
@@ -285,9 +282,6 @@ class AArch64ElfRelocator(ElfRelocator):
     supported_platforms = frozenset(
         {platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE)}
     )
-
-    def _symbol_name(self, rela: ElfRela) -> str:
-        return rela.symbol.name if rela.symbol.name else "<anonymous>"
 
     def _symbol_value(self, rela: ElfRela) -> int:
         return rela.symbol.value + rela.symbol.baseaddr
@@ -348,12 +342,6 @@ class AArch64ElfRelocator(ElfRelocator):
 
     def _page(self, value: int) -> int:
         return value & ~0xFFF
-
-    def _missing_context(self, rela: ElfRela, detail: str) -> None:
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
-            f"{detail}, which is not available to AArch64ElfRelocator._compute_value()"
-        )
 
     def _patch_mov_imm16(self, orig: int, imm16: int, movop=None) -> int:
         patched = (orig & ~(0xFFFF << 5)) | ((imm16 & 0xFFFF) << 5)
@@ -446,62 +434,13 @@ class AArch64ElfRelocator(ElfRelocator):
         imm16 = (~((value >> shift) & 0xFFFF)) & 0xFFFF
         return self._pack_insn(self._patch_mov_imm16(orig, imm16, movop=MOVW_OP_MOVN))
 
-    def _find_got_base(self, elf) -> typing.Optional[int]:
-        dtags = getattr(elf, "_dtags", {})
-        if DT_PLTGOT in dtags:
-            return elf._rebase_file(dtags[DT_PLTGOT])
-
-        lief_elf = getattr(elf, "_elf", None)
-        section_offsets = getattr(elf, "_section_offsets", {})
-        if lief_elf is not None:
-            for name in (".got.plt", ".got"):
-                for idx, section in enumerate(lief_elf.sections):
-                    if section.name != name:
-                        continue
-                    if getattr(section, "virtual_address", 0):
-                        return elf._rebase_file(section.virtual_address)
-                    if idx in section_offsets:
-                        return elf.address + section_offsets[idx]
-        return None
-
-    def _got_base(self, rela: ElfRela, elf) -> int:
-        got_base = self._find_got_base(elf)
-        if got_base is None:
-            self._missing_context(rela, "the GOT base address")
-            raise Exception("Reached an unreachable line")
-        return got_base
-
     def _got_entry(self, rela: ElfRela, elf) -> int:
-        proxy_types = (R_AARCH64_GLOB_DAT, R_AARCH64_AUTH_GLOB_DAT)
-        if self._find_got_base(elf) is None and not any(
-            r.type in proxy_types for r in rela.symbol.relas
-        ):
-            # An object file has no GOT -- building one is the linker's job --
-            # so synthesize the symbol's entry, and fill it in as GLOB_DAT
-            # would. Rewritten whenever the symbol is re-relocated.
-            slot = self.synthetic_slot(
-                elf,
-                ("got", rela.symbol.idx),
-                self._word_size(elf),
-                "synthetic GOT entry",
-            )
-            elf.write_bytes(
-                slot, self._pack(self._symbol_value(rela), self._word_size(elf))
-            )
-            return slot
-        return self._proxy_offset(rela, proxy_types, "the symbol's GOT entry address")
-
-    def _proxy_offset(self, rela: ElfRela, proxy_types, detail: str) -> int:
-        offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
-        if len(offsets) == 1:
-            return offsets[0]
-        if len(offsets) == 0:
-            self._missing_context(rela, detail)
-
-        raise ConfigurationError(
-            f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} has "
-            f"multiple candidate proxy entries for {detail}: "
-            f"{', '.join(map(hex, offsets))}"
+        return self._got_entry_for(
+            rela,
+            elf,
+            (R_AARCH64_GLOB_DAT, R_AARCH64_AUTH_GLOB_DAT),
+            self._word_size(elf),
+            self._symbol_value(rela),
         )
 
     def _tls_pair_base(self, rela: ElfRela, elf, proxy_types, detail: str) -> int:
