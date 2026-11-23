@@ -35,9 +35,10 @@ class AngrMachineDef:
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False
 
-    # Does this machine build a cpsr angr has no register for?
-    # See read_cpsr() and write_cpsr().
-    has_cpsr: bool = False
+    # Registers angr has no storage for, which this machine builds from
+    # angr's state instead (ARM: cpsr). See read_synthesized() and
+    # write_synthesized().
+    synthesized_registers: typing.FrozenSet[str] = frozenset()
 
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
@@ -224,13 +225,30 @@ class AngrMachineDef:
             state, extra_stop_points=exit_points, **kwargs
         )
 
-    def read_cpsr(self, state: angr.SimState) -> claripy.ast.bv.BV:
-        """Build cpsr from angr's state"""
-        raise exceptions.UnsupportedRegisterError(f"No cpsr for {self.arch}")
+    def read_synthesized(self, state: angr.SimState, name: str) -> claripy.ast.bv.BV:
+        """Build a register in `synthesized_registers` from angr's state.
 
-    def write_cpsr(self, state: angr.SimState, value: claripy.ast.bv.BV) -> None:
-        """Write cpsr's bits to where angr's state keeps them"""
-        raise exceptions.UnsupportedRegisterError(f"No cpsr for {self.arch}")
+        Arguments:
+            state: The emulator's angr state
+            name: The register's name
+
+        Returns:
+            The register's value
+        """
+        raise exceptions.UnsupportedRegisterError(f"No {name} for {self.arch}")
+
+    def write_synthesized(
+        self, state: angr.SimState, name: str, value: claripy.ast.bv.BV
+    ) -> None:
+        """Write a register in `synthesized_registers` to where angr's state
+        keeps its parts.
+
+        Arguments:
+            state: The emulator's angr state
+            name: The register's name
+            value: Its new value
+        """
+        raise exceptions.UnsupportedRegisterError(f"No {name} for {self.arch}")
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

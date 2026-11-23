@@ -494,10 +494,7 @@ class UnicornEmulator(
                     # This machine runs one of them only.
                     pass
                 content &= ~1
-        elif name == "cpsr":
-            # Keep the bits the platform holds set: a harness writing CPSR
-            # mustn't switch a BE8 CPU's data accesses to little-endian.
-            content |= self.machdef.cpsr_fixed_bits
+        content = self.machdef.adjust_register_write(name, content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
         if reg == 0:

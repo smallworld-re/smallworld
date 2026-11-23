@@ -18,6 +18,16 @@ class ARMMachineDef(UnicornMachineDef):
     uc_arch = unicorn.UC_ARCH_ARM
     uc_mode = unicorn.UC_MODE_ARM
 
+    # CPSR bits the platform holds set, such as E on a BE8 CPU.
+    cpsr_fixed_bits: int = 0
+
+    def adjust_register_write(self, name: str, value: int) -> int:
+        if name == "cpsr":
+            # A harness writing CPSR mustn't switch a BE8 CPU's data accesses
+            # to little-endian.
+            return value | self.cpsr_fixed_bits
+        return value
+
     # Unicorn keeps Thumb state in CPSR.T, but emu_start() and a pc write
     # take it from bit 0 of the address, so an even one leaves Thumb state.
 

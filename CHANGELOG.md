@@ -414,6 +414,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Writing an odd pc to Unicorn on a `SELECTS` platform selects the alternate
   instruction set. On ARMv4, which has no Thumb, `get_thumb()` and
   `set_thumb()` now raise `ConfigurationError`, as the ISA-mode API does.
+- Machine-definition hooks for registers the engine doesn't hold as given:
+  `AngrMachineDef.synthesized_registers`, with `read_synthesized()` and
+  `write_synthesized()`, for a register angr has no storage for, which the
+  machine builds from angr's state (ARM's cpsr); and
+  `UnicornMachineDef.adjust_register_write()`, for bits the platform holds
+  fixed (BE8's CPSR.E).
 - Machine-definition hooks that convert SmallWorld's pc to the backend's:
   `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
   pc writes, and `UnicornMachineDef.pc_to_start()`, for the address

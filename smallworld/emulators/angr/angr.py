@@ -439,8 +439,8 @@ class AngrEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
-        if name == "cpsr" and self.machdef.has_cpsr:
-            return self.machdef.read_cpsr(self.state)
+        if name in self.machdef.synthesized_registers:
+            return self.machdef.read_synthesized(self.state, name)
 
         off, size = self.machdef.angr_reg(name)
         value = self.state.registers.load(off, size)
@@ -472,7 +472,7 @@ class AngrEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
-        if name == "cpsr" and self.machdef.has_cpsr:
+        if name in self.machdef.synthesized_registers:
             # Built from several of angr's registers, so never a pure label
             return None
 
@@ -504,8 +504,8 @@ class AngrEmulator(
         if content is not None and self._is_pc(name):
             content = self._pc_to_engine(content)
 
-        if name == "cpsr" and self.machdef.has_cpsr and content is not None:
-            self._write_cpsr(content)
+        if name in self.machdef.synthesized_registers and content is not None:
+            self._write_synthesized(name, content)
             return
 
         if not self._initialized and content is not None:
@@ -550,9 +550,6 @@ class AngrEmulator(
     ) -> None:
         pass
 
-    # Bit 5 of cpsr is the Thumb bit.
-    _CPSR_T = 1 << 5
-
     def _is_pc(self, name: str) -> bool:
         """Whether a register name, or an alias such as r15, names pc."""
         if name == "pc" or name == self.platdef.pc_register:
@@ -592,18 +589,30 @@ class AngrEmulator(
         value = self.machdef.pc_to_engine(state, value)
         return value if size is None else claripy.BVV(value, size)
 
-    def _write_cpsr(self, content: typing.Union[int, claripy.ast.bv.BV]) -> None:
-        value = claripy.BVV(content, 32) if isinstance(content, int) else content
+    def _write_synthesized(
+        self, name: str, content: typing.Union[int, claripy.ast.bv.BV]
+    ) -> None:
         if not self._initialized:
-            self._register_contents["cpsr"] = content
-            if not value.symbolic:
-                self._pending_isa_mode = int(bool(value.concrete_value & self._CPSR_T))
+            # Replayed by initialize(), once there is a state to build it in.
+            self._register_contents[name] = content
+            isa_mode_register = self.platdef.isa_mode_register
+            if isa_mode_register is not None and isa_mode_register[0] == name:
+                # The mode it holds is pending until then, too.
+                concrete: typing.Optional[int]
+                if isinstance(content, int):
+                    concrete = content
+                else:
+                    concrete = None if content.symbolic else content.concrete_value
+                if concrete is not None:
+                    self._pending_isa_mode = (concrete >> isa_mode_register[1]) & 1
         elif self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
         else:
-            self.machdef.write_cpsr(self.state, value)
+            size = self.platdef.registers[name].size * 8
+            value = claripy.BVV(content, size) if isinstance(content, int) else content
+            self.machdef.write_synthesized(self.state, name, value)
 
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None

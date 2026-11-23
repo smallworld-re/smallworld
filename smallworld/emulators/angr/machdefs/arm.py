@@ -151,7 +151,7 @@ class ARMMachineMixinBanked:
     # from those. angr has no processor modes, so the mode and mask bits
     # read as an A-profile core's out of reset (SVC, with A, I and F
     # masked) and are ignored on a write, as are the IT bits.
-    has_cpsr = True
+    synthesized_registers = frozenset({"cpsr"})
     angr_engine: typing.Any
 
     _CPSR_FIXED = 0x1D3
@@ -161,7 +161,11 @@ class ARMMachineMixinBanked:
     _CPSR_GE_SHIFT = 16
     _CPSR_NZCV = 0xF0000000
 
-    def read_cpsr(self, state: angr.SimState) -> claripy.ast.bv.BV:
+    def read_synthesized(self, state: angr.SimState, name: str) -> claripy.ast.bv.BV:
+        if name != "cpsr":
+            raise exceptions.UnsupportedRegisterError(
+                f"No {name} for {type(self).__name__}"
+            )
         regs = state.regs
         cpsr = ccall.armg_calculate_flags_nzcv(
             state, regs.cc_op, regs.cc_dep1, regs.cc_dep2, regs.cc_ndep
@@ -183,7 +187,13 @@ class ARMMachineMixinBanked:
         cpsr |= (pc & 1) << 5
         return cpsr
 
-    def write_cpsr(self, state: angr.SimState, value: claripy.ast.bv.BV) -> None:
+    def write_synthesized(
+        self, state: angr.SimState, name: str, value: claripy.ast.bv.BV
+    ) -> None:
+        if name != "cpsr":
+            raise exceptions.UnsupportedRegisterError(
+                f"No {name} for {type(self).__name__}"
+            )
         regs = state.regs
         # A copied thunk holds NZCV as they are, in bits 31:28.
         regs.cc_op = claripy.BVV(ccall.ARMG_CC_OP_COPY, 32)

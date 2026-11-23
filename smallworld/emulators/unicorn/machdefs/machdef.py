@@ -32,9 +32,6 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
     uc_cpu: typing.Optional[int] = None
     """The Unicorn CPU ID, if needed"""
 
-    cpsr_fixed_bits: int = 0
-    """ARM CPSR bits the platform holds set, such as E on a BE8 CPU"""
-
     @property
     @abc.abstractmethod
     def uc_mode(self) -> int:
@@ -79,6 +76,21 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             engine: The new engine
         """
         pass
+
+    def adjust_register_write(self, name: str, value: int) -> int:
+        """The value to write to a register, for a write of `value`.
+
+        For bits the platform holds fixed, which a harness's write must not
+        change. The default writes the value unchanged.
+
+        Arguments:
+            name: The register's name
+            value: The value written
+
+        Returns:
+            The value to give Unicorn
+        """
+        return value
 
     def disassembler_mode(self, engine: typing.Any, mode: int) -> int:
         """The capstone mode to decode the next instruction with.
