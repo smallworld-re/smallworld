@@ -63,7 +63,7 @@ for arch in [
 
     # test step_instruction starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb(True)
+    emulator.set_isa_mode(1)
     cpu.r0.set(0)
     for step in machine.step(emulator):
         pass
@@ -85,7 +85,7 @@ for arch in [
 
     # test step_block starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb(True)
+    emulator.set_isa_mode(1)
     cpu.r0.set(0)
     machine.apply(emulator)
     try:
@@ -105,7 +105,7 @@ for arch in [
 
     # test run starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb(True)
+    emulator.set_isa_mode(1)
     cpu.r0.set(0)
     machine.emulate(emulator)
     cpu.r0.extract(emulator)
@@ -114,7 +114,7 @@ for arch in [
     # test ISA persistance across emulator instances
     emulator2 = smallworld.emulators.UnicornEmulator(platform)
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb(True)
+    emulator.set_isa_mode(1)
     cpu.r0.set(0)
     next(machine.step(emulator))
     machine.extract(emulator)
@@ -125,17 +125,17 @@ for arch in [
 
     # test mode change Thumb->ARM
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb(True)
-    print(f"GET_THUMB_PRE1_{arch.name}={emulator.get_thumb()}")
+    emulator.set_isa_mode(1)
+    print(f"GET_THUMB_PRE1_{arch.name}={bool(emulator.get_isa_mode())}")
     cpu.r0.set(0)
     machine.emulate(emulator)
     cpu.extract(emulator)
-    print(f"GET_THUMB_POST1_{arch.name}={emulator.get_thumb()}")
+    print(f"GET_THUMB_POST1_{arch.name}={bool(emulator.get_isa_mode())}")
 
     # test mode change ARM->Thumb
     cpu.pc.set(code.address)
-    print(f"GET_THUMB_PRE2_{arch.name}={emulator.get_thumb()}")
+    print(f"GET_THUMB_PRE2_{arch.name}={bool(emulator.get_isa_mode())}")
     machine.add_exit_point(code.address + 0x14)
     cpu.r0.set(0)
     machine.emulate(emulator)
-    print(f"GET_THUMB_POST2_{arch.name}={emulator.get_thumb()}")
+    print(f"GET_THUMB_POST2_{arch.name}={bool(emulator.get_isa_mode())}")

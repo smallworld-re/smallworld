@@ -2116,10 +2116,10 @@ class AngrThumbTests(unittest.TestCase):
         emu.add_exit_point(0x1006)
         emu.step()
         self.assertEqual(emu.read_register("pc"), 0x1002)
-        self.assertTrue(emu.get_thumb())
+        self.assertTrue(emu.get_isa_mode())
         # Writing back the even pc keeps Thumb state, as on Unicorn.
         emu.write_register("pc", 0x1002)
-        self.assertTrue(emu.get_thumb())
+        self.assertTrue(emu.get_isa_mode())
         emu.step()
         self.assertEqual(emu.read_register("r1"), 2)
 
@@ -2142,31 +2142,31 @@ class AngrThumbTests(unittest.TestCase):
         code = bytes.fromhex("3e0000fa" "0500a0e3")
         emu = self.emulator(platforms.Architecture.ARM_V7A, code, 0x1000)
         seen = []
-        emu.hook_function(0x1100, lambda e: seen.append(e.get_thumb()))
+        emu.hook_function(0x1100, lambda e: seen.append(e.get_isa_mode()))
         emu.add_exit_point(0x1008)
         emu.run()
         self.assertEqual(seen, [True])
         # The hook returns to the ARM caller.
         self.assertEqual(emu.read_register("r0"), 5)
-        self.assertFalse(emu.get_thumb())
+        self.assertFalse(emu.get_isa_mode())
 
     def test_set_thumb_before_and_after_initialization(self):
         emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
-        self.assertFalse(emu.get_thumb())
-        emu.set_thumb(True)
-        self.assertTrue(emu.get_thumb())
+        self.assertFalse(emu.get_isa_mode())
+        emu.set_isa_mode(1)
+        self.assertTrue(emu.get_isa_mode())
         emu.add_exit_point(0x1006)
         emu.step()
         self.assertEqual(emu.read_register("r0"), 1)
-        emu.set_thumb(False)
-        self.assertFalse(emu.get_thumb())
+        emu.set_isa_mode(0)
+        self.assertFalse(emu.get_isa_mode())
         self.assertEqual(emu.read_register("pc"), 0x1002)
 
     def test_m_profile_is_thumb_only(self):
         emu = self.emulator(platforms.Architecture.ARM_V7M, self.THUMB, 0x1000)
-        self.assertTrue(emu.get_thumb())
+        self.assertTrue(emu.get_isa_mode())
         with self.assertRaises(exceptions.ConfigurationError):
-            emu.set_thumb(False)
+            emu.set_isa_mode(0)
 
     def test_get_thumb_needs_arm32(self):
         emu = emulators.AngrEmulator(
@@ -2175,7 +2175,7 @@ class AngrThumbTests(unittest.TestCase):
             )
         )
         with self.assertRaises(exceptions.ConfigurationError):
-            emu.get_thumb()
+            emu.get_isa_mode()
 
     def test_cpsr_holds_flags_and_thumb_state(self):
         emu = self.emulator(platforms.Architecture.ARM_V7A, self.CMP, 0x1000)
@@ -2186,13 +2186,13 @@ class AngrThumbTests(unittest.TestCase):
         emu.write_register("cpsr", 0x88070030)
         # N, Q and GE[2:0] stick, mode bits read fixed, and T moves pc.
         self.assertEqual(emu.read_register("cpsr"), 0x880701F3)
-        self.assertTrue(emu.get_thumb())
+        self.assertTrue(emu.get_isa_mode())
         self.assertEqual(emu.read_register("pc"), 0x1004)
 
     def test_cpsr_before_initialization_sets_thumb_state(self):
         emu = self.emulator(platforms.Architecture.ARM_V7A, self.THUMB, 0x1000)
         emu.write_register("cpsr", 0x20)
-        self.assertTrue(emu.get_thumb())
+        self.assertTrue(emu.get_isa_mode())
         emu.add_exit_point(0x1006)
         emu.step()
         self.assertEqual(emu.read_register("r0"), 1)
@@ -11767,15 +11767,15 @@ class GhidraThumbOnlyPcTests(unittest.TestCase):
         for arch in self.M_PROFILES:
             with self.subTest(arch=arch.name):
                 emu = self.emulator(emulators.ghidra.GhidraEmulator, arch, self.MOVS)
-                self.assertTrue(emu.get_thumb())
-                emu.set_thumb(True)
+                self.assertTrue(emu.get_isa_mode())
+                emu.set_isa_mode(1)
                 with self.assertRaises(exceptions.ConfigurationError):
-                    emu.set_thumb(False)
+                    emu.set_isa_mode(0)
 
 
 class GhidraThumbTests(unittest.TestCase):
     """On A- and R-profile, an odd pc enters Thumb state on both Ghidra
-    emulators, as on Unicorn and angr, and get_thumb/set_thumb work.
+    emulators, as on Unicorn and angr, and get_isa_mode/set_isa_mode work.
 
     Ghidra picks ARM or Thumb decoding from its TMode context register, so an
     odd pc used to be fetched as is and fault as misaligned.
@@ -11830,16 +11830,16 @@ class GhidraThumbTests(unittest.TestCase):
         for params, make in self.cases():
             with self.subTest(**params):
                 emu = make(self.MOVS)
-                self.assertFalse(emu.get_thumb())
+                self.assertFalse(emu.get_isa_mode())
                 emu.write_register("pc", 0x1001)
-                self.assertTrue(emu.get_thumb())
+                self.assertTrue(emu.get_isa_mode())
                 self.assertEqual(emu.read_register("pc"), 0x1000)
                 emu.step()
                 self.assertEqual(emu.read_register("pc"), 0x1002)
                 self.assertEqual(emu.read_register("r0"), 1)
                 # Writing back the even pc keeps Thumb state, as on Unicorn.
                 emu.write_register("pc", 0x1002)
-                self.assertTrue(emu.get_thumb())
+                self.assertTrue(emu.get_isa_mode())
                 emu.step()
                 self.assertEqual(emu.read_register("r1"), 2)
 
@@ -11848,12 +11848,12 @@ class GhidraThumbTests(unittest.TestCase):
             with self.subTest(**params):
                 emu = make(self.MOVS)
                 emu.write_register("pc", 0x1000)
-                emu.set_thumb(True)
-                self.assertTrue(emu.get_thumb())
+                emu.set_isa_mode(1)
+                self.assertTrue(emu.get_isa_mode())
                 emu.step()
                 self.assertEqual(emu.read_register("r0"), 1)
-                emu.set_thumb(False)
-                self.assertFalse(emu.get_thumb())
+                emu.set_isa_mode(0)
+                self.assertFalse(emu.get_isa_mode())
                 self.assertEqual(emu.read_register("pc"), 0x1002)
 
     def test_function_hook_returns_into_thumb_code(self):
@@ -11881,9 +11881,9 @@ class GhidraThumbTests(unittest.TestCase):
                 self.assertEqual(emu.read_register("cpsr") & 0x20, 0x20)
                 cpsr = emu.read_register("cpsr")
                 emu.write_register("cpsr", cpsr & ~0x20)
-                self.assertFalse(emu.get_thumb())
+                self.assertFalse(emu.get_isa_mode())
                 emu.write_register("cpsr", cpsr)
-                self.assertTrue(emu.get_thumb())
+                self.assertTrue(emu.get_isa_mode())
                 emu.step()
                 self.assertEqual(emu.read_register("r0"), 1)
 
@@ -11909,9 +11909,9 @@ class GhidraThumbTests(unittest.TestCase):
             with self.subTest(arch=arch.name):
                 emu = _ghidra_concrete_emulator(arch)
                 with self.assertRaises(exceptions.ConfigurationError):
-                    emu.get_thumb()
+                    emu.get_isa_mode()
                 with self.assertRaises(exceptions.ConfigurationError):
-                    emu.set_thumb(True)
+                    emu.set_isa_mode(1)
 
 
 class _GhidraFakeConcretePair:
@@ -14848,6 +14848,17 @@ class ArmIsaModeTests(unittest.TestCase):
             for mode in (1, 0):
                 with self.subTest(emulator=name, mode=mode):
                     self._run(make(self.A_PROFILE), mode)
+
+    def test_get_and_set_thumb_are_deprecated(self):
+        emu = emulators.UnicornEmulator(self.A_PROFILE)
+        with self.assertWarns(DeprecationWarning):
+            emu.set_thumb(True)
+        self.assertEqual(emu.get_isa_mode(), 1)
+        with self.assertWarns(DeprecationWarning):
+            self.assertIs(emu.get_thumb(), True)
+        with self.assertWarns(DeprecationWarning):
+            emu.set_thumb(False)
+        self.assertEqual(emu.get_isa_mode(), 0)
 
     def test_m_profile_runs_only_thumb(self):
         platform = platforms.Platform(

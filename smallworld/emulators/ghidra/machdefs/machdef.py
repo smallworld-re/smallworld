@@ -264,14 +264,6 @@ class GhidraMachineDef:
         self.language: Language = slp.getLanguage(langID)
         assert self.language is not None
 
-    def get_thumb(self, thread) -> bool:
-        """Whether a p-code thread is in Thumb state, for ARM32."""
-        raise exceptions.ConfigurationError(f"called get_thumb() on {self.arch}")
-
-    def set_thumb(self, thread, enabled: bool) -> None:
-        """Put a p-code thread in Thumb or ARM state, for ARM32."""
-        raise exceptions.ConfigurationError(f"called set_thumb() on {self.arch}")
-
     def userop_name(self, op) -> typing.Optional[str]:
         """The name of the userop this p-code op calls, if it calls one."""
         if op.getOpcode() != op.CALLOTHER:

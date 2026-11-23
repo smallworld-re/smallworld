@@ -991,12 +991,6 @@ class AngrEmulator(
         if not self.machdef.write_isa_mode(self.state, mode):
             super().set_isa_mode(mode)
 
-    def get_thumb(self) -> bool:
-        return bool(self.get_isa_mode())
-
-    def set_thumb(self, enabled=True) -> None:
-        self.set_isa_mode(int(bool(enabled)))
-
     def hook_syscall(
         self, number: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:

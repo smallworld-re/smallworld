@@ -58,8 +58,9 @@ Setting labels on registers has no effect on ``GhidraEmulator``,
 and the labels are not preserved after execution starts.
 
 .. note::
-   On arm32, ``set_thumb()`` and ``get_thumb()`` work as they do on Unicorn:
-   they set and report whether the core runs ARM or Thumb code,
+   On arm32, ``set_isa_mode()`` and ``get_isa_mode()`` work as they do on
+   Unicorn: they set and report whether the core runs ARM (0) or Thumb (1)
+   code,
    writing an odd ``pc`` enters Thumb state,
    and writing an even one keeps the state the core is in.
    ``cpsr``'s T bit reads and writes the same state.

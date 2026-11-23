@@ -899,12 +899,6 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 self._run_userop(op)
                 skip = True
 
-    def get_thumb(self) -> bool:
-        return bool(self.get_isa_mode())
-
-    def set_thumb(self, enabled=True) -> None:
-        self.set_isa_mode(int(bool(enabled)))
-
     def current_instruction_bytes(self) -> bytes:
         """The bytes of the instruction being executed, in memory order, for a
         userop that decodes the instruction itself."""

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import typing
+import warnings
 
 import claripy
 
@@ -530,28 +531,42 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return platdef
 
     def get_thumb(self) -> bool:
-        """For applicable platforms, checks if the CPU is in ARM or Thumb mode.
+        """Whether an ARM CPU is running Thumb code.
+
+        .. deprecated::
+            Use :meth:`get_isa_mode`, which this calls.
 
         Returns:
             True if in Thumb mode, otherwise False.
 
         Raises:
-            ConfigurationError: if not using an ARM32 platform.
-            NotImplementedError: if not using a supported emulator.
+            ConfigurationError: if the platform has one instruction set.
         """
-        raise NotImplementedError("get_thumb() is not supported for this emulator")
+        warnings.warn(
+            "get_thumb() is deprecated; use get_isa_mode()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return bool(self.get_isa_mode())
 
     def set_thumb(self, enabled=True) -> None:
-        """For applicable platforms, set the CPU to Thumb or ARM mode.
+        """Put an ARM CPU in Thumb or ARM mode.
+
+        .. deprecated::
+            Use :meth:`set_isa_mode`, which this calls.
 
         Arguments:
             enabled: True for Thumb mode, False for ARM mode.
 
         Raises:
-            ConfigurationError: if not using an ARM32 platform.
-            NotImplementedError: if not using a supported emulator.
+            ConfigurationError: if the platform has one instruction set.
         """
-        raise NotImplementedError("set_thumb() is not supported for this emulator")
+        warnings.warn(
+            "set_thumb() is deprecated; use set_isa_mode()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.set_isa_mode(int(bool(enabled)))
 
     @abc.abstractmethod
     def __repr__(self) -> str:

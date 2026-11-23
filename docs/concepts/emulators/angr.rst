@@ -64,9 +64,10 @@ In linear mode (the default), it is possible to access emulator state once emula
    particularly MIPS and MIPS64.
 
 .. note::
-   On arm32, ``AngrEmulator.set_thumb()`` and ``AngrEmulator.get_thumb()``
-   work as they do on Unicorn: they set and report whether the core
-   runs ARM or Thumb code, writing an odd ``pc`` enters Thumb state,
+   On arm32, ``AngrEmulator.set_isa_mode()`` and
+   ``AngrEmulator.get_isa_mode()`` work as they do on Unicorn: they set and
+   report whether the core runs ARM (0) or Thumb (1) code, writing an odd
+   ``pc`` enters Thumb state,
    and writing an even one keeps the state the core is in.
 
    angr itself addresses Thumb code with bit 0 set.

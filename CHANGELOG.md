@@ -518,6 +518,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tlsdesc_got_slot()` and `note_tlsdesc_descriptor()` are gone. An
   `ElfExecutable` pickled by an earlier version no longer unpickles.
 
+### Deprecated
+
+- `Emulator.get_thumb()` and `Emulator.set_thumb()`, in favor of
+  `get_isa_mode()` and `set_isa_mode()`, which they now call: Thumb is mode
+  1, ARM mode 0. They raise `DeprecationWarning`. The backends' own
+  versions are gone.
+
 ## [0.0.1] - 2024-02-26
 
 ### Added

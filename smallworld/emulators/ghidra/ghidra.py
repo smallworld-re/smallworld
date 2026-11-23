@@ -770,12 +770,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             raise exceptions.EmulationBounds()
 
-    def get_thumb(self) -> bool:
-        return bool(self.get_isa_mode())
-
-    def set_thumb(self, enabled=True) -> None:
-        self.set_isa_mode(int(bool(enabled)))
-
     def current_instruction_bytes(self) -> bytes:
         """The bytes of the instruction being executed, in memory order, for a
         userop that decodes the instruction itself."""

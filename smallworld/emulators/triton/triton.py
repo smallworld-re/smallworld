@@ -784,20 +784,6 @@ class TritonEmulator(
             return
         self.ctx.setThumb(bool(mode))
 
-    def get_thumb(self) -> bool:
-        if not self._is_arm32():
-            raise exceptions.ConfigurationError(
-                "get_thumb() is only meaningful on ARM32 platforms"
-            )
-        return bool(self.ctx.isThumb())
-
-    def set_thumb(self, enabled: bool = True) -> None:
-        if not self._is_arm32():
-            raise exceptions.ConfigurationError(
-                "set_thumb() is only meaningful on ARM32 platforms"
-            )
-        self.ctx.setThumb(bool(enabled))
-
     # ---------------------------------------------------------- syscall hooks
 
     def hook_syscall(

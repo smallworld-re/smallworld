@@ -745,12 +745,6 @@ class UnicornEmulator(
                 "at least one exit point or bound must be set, emulation cannot start"
             )
 
-    def get_thumb(self) -> bool:
-        return bool(self.get_isa_mode())
-
-    def set_thumb(self, enabled=True) -> None:
-        self.set_isa_mode(int(bool(enabled)))
-
     def _diagnose_clean_stop(self) -> None:
         """Diagnose an emu_start() call that returned without raising.
 
