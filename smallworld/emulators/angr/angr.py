@@ -578,13 +578,13 @@ class AngrEmulator(
         if self.platdef.isa_bit is platforms.IsaBit.SELECTS and value & 1:
             # An odd pc selects the alternate instruction set, as a jump to
             # it does; an even one leaves the mode as it is, so pc can be
-            # written back as read.
+            # written back as read. pc_to_engine() still sees the bit, so
+            # it needn't read the mode back from the state.
             try:
                 self.set_isa_mode(1)
             except exceptions.UnsupportedRegisterError:
                 # This machine runs one of them only.
                 pass
-            value &= ~1
         state = self.state if self._initialized else None
         value = self.machdef.pc_to_engine(state, value)
         return value if size is None else claripy.BVV(value, size)

@@ -35,7 +35,7 @@ class ARMMachineDef(AngrMachineDef):
         return True
 
     def pc_to_engine(self, state: typing.Optional[angr.SimState], pc: int) -> int:
-        if self.is_thumb:
+        if self.is_thumb or pc & 1:
             return pc | 1
         if state is None:
             # The emulator sets the mode once it has a state.
