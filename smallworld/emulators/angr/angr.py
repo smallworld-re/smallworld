@@ -133,8 +133,10 @@ class AngrEmulator(
             str, typing.Union[int, claripy.ast.bv.BV]
         ] = dict()
         self._register_labels: typing.Dict[str, str] = dict()
-        # Thumb state before initialization, for 32-bit ARM
-        self._pending_thumb: bool = False
+        # The instruction-set mode set before initialization, on a machine
+        # that keeps it where angr's registers don't reach (see
+        # AngrMachineDef.read_isa_mode); None if none was set.
+        self._pending_isa_mode: typing.Optional[int] = None
         self._memory_maps: typing.List[typing.Tuple[int, int]] = list()
         self._memory_contents: typing.List[
             typing.Tuple[int, typing.Union[bytes, claripy.ast.bv.BV]]
@@ -364,9 +366,14 @@ class AngrEmulator(
         for name, content in self._register_contents.items():
             self.write_register_content(name, content)
 
-        if self.machdef.thumb_bit_in_pc and not self.machdef.is_thumb:
-            # The pending writes left the core in this state.
-            self.set_thumb(self._pending_thumb)
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS:
+            # The pending writes left the core in this mode, or it starts in
+            # the machine's reset mode.
+            mode = self._pending_isa_mode
+            if mode is None:
+                mode = self.machdef.read_isa_mode(None)
+            if mode is not None:
+                self.set_isa_mode(mode)
 
         for name, label in self._register_labels.items():
             self.write_register_label(name, label)
@@ -428,7 +435,7 @@ class AngrEmulator(
                 "Reading registers not supported once execution begins."
             )
 
-        is_pc = self.machdef.thumb_bit_in_pc and self._is_pc(name)
+        is_pc = self._is_pc(name)
         if name == "pc":
             name = self.platdef.pc_register
 
@@ -438,9 +445,7 @@ class AngrEmulator(
         off, size = self.machdef.angr_reg(name)
         value = self.state.registers.load(off, size)
         if is_pc:
-            # angr addresses Thumb code with the Thumb bit set; report the
-            # address the core executes at, as the other emulators do.
-            value = self._with_thumb_bit(value, False)
+            value = self.machdef.pc_from_engine(self.state, value)
         return value
 
     def read_register_content(self, name: str) -> int:
@@ -496,22 +501,12 @@ class AngrEmulator(
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
-        if name in ("pc", self.platdef.pc_register):
-            state = self.state if self._initialized else None
-            if isinstance(content, int):
-                content = self.machdef.pc_to_engine(state, content)
-            elif isinstance(content, claripy.ast.bv.BV) and not content.symbolic:
-                content = claripy.BVV(
-                    self.machdef.pc_to_engine(state, content.concrete_value),
-                    content.size(),
-                )
+        if content is not None and self._is_pc(name):
+            content = self._pc_to_engine(content)
 
         if name == "cpsr" and self.machdef.has_cpsr and content is not None:
             self._write_cpsr(content)
             return
-
-        if self.machdef.thumb_bit_in_pc and content is not None and self._is_pc(name):
-            content = self._thumb_pc(content)
 
         if not self._initialized and content is not None:
             if name == "pc":
@@ -571,42 +566,38 @@ class AngrEmulator(
             # Left for the register lookup itself to report
             return False
 
-    @staticmethod
-    def _with_thumb_bit(value: claripy.ast.bv.BV, thumb: bool) -> claripy.ast.bv.BV:
-        size = value.size()
-        value = value & claripy.BVV(~1 & ((1 << size) - 1), size)
-        return value | 1 if thumb else value
-
-    def _thumb_pc(
+    def _pc_to_engine(
         self, content: typing.Union[int, claripy.ast.bv.BV]
     ) -> typing.Union[int, claripy.ast.bv.BV]:
-        """The value angr's pc holds for a write of `content` to pc
-
-        angr addresses Thumb code with the Thumb bit set, and keeps Thumb
-        state nowhere else.
-        """
-        if self.machdef.is_thumb:
-            # Reads of pc clear the bit, so writes restore it.
-            return content | 1
+        """The value angr's pc holds for a write of `content` to pc"""
         if isinstance(content, claripy.ast.bv.BV):
             if content.symbolic:
                 return content
-            content = content.concrete_value
-        # As on Unicorn, an odd pc enters Thumb state, and an even one keeps
-        # the core in the state it's in, so pc can be written back as read.
-        thumb = bool(content & 1) or self.get_thumb()
-        if not self._initialized:
-            # initialize() sets the bit once every pending write is in.
-            self._pending_thumb = thumb
-            return content & ~1
-        return content & ~1 | int(thumb)
+            size: typing.Optional[int] = content.size()
+            value = content.concrete_value
+        else:
+            size = None
+            value = content
+        if self.platdef.isa_bit is platforms.IsaBit.SELECTS and value & 1:
+            # An odd pc selects the alternate instruction set, as a jump to
+            # it does; an even one leaves the mode as it is, so pc can be
+            # written back as read.
+            try:
+                self.set_isa_mode(1)
+            except exceptions.UnsupportedRegisterError:
+                # This machine runs one of them only.
+                pass
+            value &= ~1
+        state = self.state if self._initialized else None
+        value = self.machdef.pc_to_engine(state, value)
+        return value if size is None else claripy.BVV(value, size)
 
     def _write_cpsr(self, content: typing.Union[int, claripy.ast.bv.BV]) -> None:
         value = claripy.BVV(content, 32) if isinstance(content, int) else content
         if not self._initialized:
             self._register_contents["cpsr"] = content
             if not value.symbolic:
-                self._pending_thumb = bool(value.concrete_value & self._CPSR_T)
+                self._pending_isa_mode = int(bool(value.concrete_value & self._CPSR_T))
         elif self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
@@ -861,7 +852,6 @@ class AngrEmulator(
                 # Unclobber it, just in case
                 state.inspect.action_attrs_set = True
 
-            # angr addresses Thumb code with the Thumb bit set.
             self.state.scratch.insn_bps[address] = [
                 self.state.inspect.b(
                     "instruction",
@@ -869,7 +859,7 @@ class AngrEmulator(
                     action=hook_handler,
                     instruction=addr,
                 )
-                for addr in self._code_addresses(address)
+                for addr in self.machdef.code_addresses(address)
             ]
 
     def unhook_instruction(self, address: int) -> None:
@@ -954,9 +944,7 @@ class AngrEmulator(
 
         else:
             hook = HookHandler(callback=function, parent=self)
-            # angr addresses Thumb code with the Thumb bit set,
-            # so a call into Thumb code arrives at address | 1.
-            for addr in self._code_addresses(address):
+            for addr in self.machdef.code_addresses(address):
                 self.proj.hook(addr, hook, 0)
                 self.state.scratch.func_bps[addr] = None
 
@@ -970,69 +958,44 @@ class AngrEmulator(
             raise NotImplementedError("Cannot unhook functions once emulation starts")
 
         else:
-            for addr in self._code_addresses(address):
+            for addr in self.machdef.code_addresses(address):
                 self.proj.unhook(addr)
 
-    def _code_addresses(self, address: int) -> typing.Tuple[int, ...]:
-        """The addresses angr may use for code at `address`.
-
-        angr addresses Thumb code with the Thumb bit set.
-        """
-        if self.machdef.thumb_bit_in_pc:
-            return (address & ~1, address | 1)
-        return (address,)
-
     def get_isa_mode(self) -> int:
-        if self.machdef.thumb_bit_in_pc:
-            # angr keeps Thumb state in its pc, and before initialization in
-            # _pending_thumb, where reading cpsr can't reach it.
-            self._check_isa_bit()
-            return int(self.get_thumb())
-        return super().get_isa_mode()
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            return super().get_isa_mode()
+        state = self.state if self._initialized else None
+        if state is None and self._pending_isa_mode is not None:
+            return self._pending_isa_mode
+        mode = self.machdef.read_isa_mode(state)
+        return super().get_isa_mode() if mode is None else mode
 
     def set_isa_mode(self, mode: int) -> None:
-        if self.machdef.thumb_bit_in_pc:
-            if self._check_isa_bit().isa_bit is platforms.IsaBit.REQUIRED:
+        platdef = self._check_isa_bit()
+        if platdef.isa_bit is platforms.IsaBit.REQUIRED:
+            super().set_isa_mode(mode)
+            return
+        if not self._initialized:
+            if self.machdef.read_isa_mode(None) is None:
+                # The generic path queues it as a register write.
                 super().set_isa_mode(mode)
-                return
-            self.set_thumb(bool(mode))
-            return
-        super().set_isa_mode(mode)
-
-    def get_thumb(self) -> bool:
-        if not self.machdef.thumb_bit_in_pc:
-            raise exceptions.ConfigurationError(
-                "called get_thumb() on non-ARM32 system"
-            )
-        if self.machdef.is_thumb:
-            return True
-        if not self._initialized:
-            return self._pending_thumb
-        off, size = self.machdef.angr_reg(self.platdef.pc_register)
-        pc = self.state.registers.load(off, size)
-        if pc.symbolic:
-            raise exceptions.SymbolicValueError("pc is symbolic")
-        return bool(pc.concrete_value & 1)
-
-    def set_thumb(self, enabled=True) -> None:
-        if not self.machdef.thumb_bit_in_pc:
-            raise exceptions.ConfigurationError(
-                "called set_thumb() on non-ARM32 system"
-            )
-        if self.machdef.is_thumb:
-            if not enabled:
-                raise exceptions.ConfigurationError(f"{self.platform} is Thumb-only")
-            return
-        if not self._initialized:
-            self._pending_thumb = bool(enabled)
+            else:
+                # initialize() sets it once every pending write is in.
+                self._pending_isa_mode = int(mode) & 1
             return
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
-        off, size = self.machdef.angr_reg(self.platdef.pc_register)
-        pc = self.state.registers.load(off, size)
-        self.state.registers.store(off, self._with_thumb_bit(pc, enabled))
+        if not self.machdef.write_isa_mode(self.state, mode):
+            super().set_isa_mode(mode)
+
+    def get_thumb(self) -> bool:
+        return bool(self.get_isa_mode())
+
+    def set_thumb(self, enabled=True) -> None:
+        self.set_isa_mode(int(bool(enabled)))
 
     def hook_syscall(
         self, number: int, function: typing.Callable[[emulator.Emulator], None]
@@ -1707,10 +1670,9 @@ class AngrEmulator(
         )
 
         def filter_func(state):
-            ip = state.solver.eval_exact(state._ip, 1)[0]
-            if self.machdef.thumb_bit_in_pc:
-                # angr addresses Thumb code with the Thumb bit set.
-                ip &= ~1
+            ip = self.machdef.pc_from_engine(
+                state, state.solver.eval_exact(state._ip, 1)[0]
+            )
             if (
                 not self.state.scratch.bounds.is_empty()
                 and not self.state.scratch.bounds.contains_value(ip)

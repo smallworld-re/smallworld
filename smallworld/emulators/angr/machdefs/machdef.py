@@ -35,10 +35,6 @@ class AngrMachineDef:
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False
 
-    # Is bit 0 of pc the Thumb bit, as on every 32-bit ARM?
-    # angr addresses Thumb code with it set.
-    thumb_bit_in_pc: bool = False
-
     # Does this machine build a cpsr angr has no register for?
     # See read_cpsr() and write_cpsr().
     has_cpsr: bool = False
@@ -122,6 +118,67 @@ class AngrMachineDef:
         """
         return pc
 
+    def pc_from_engine(
+        self, state: angr.SimState, value: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        """Convert the value angr stores in its pc register to SmallWorld's pc.
+
+        The inverse of :meth:`pc_to_engine`. The default reads the value
+        unchanged.
+
+        Arguments:
+            state: The emulator's angr state
+            value: The contents of angr's pc register, or an address angr
+                reached
+
+        Returns:
+            The address of the next instruction
+        """
+        return value
+
+    def code_addresses(self, address: int) -> typing.Tuple[int, ...]:
+        """The addresses angr may use for the code at `address`.
+
+        Hooks and exit points cover them all. The default is `address` alone.
+
+        Arguments:
+            address: The address of an instruction
+
+        Returns:
+            Each address angr may reach that instruction at
+        """
+        return (address,)
+
+    def read_isa_mode(
+        self, state: typing.Optional[angr.SimState]
+    ) -> typing.Optional[int]:
+        """The CPU's instruction-set mode, where angr keeps it outside the
+        register the platform names; see :meth:`.Emulator.get_isa_mode`.
+
+        Arguments:
+            state: The emulator's angr state, or None before it has one,
+                for the mode the CPU starts in
+
+        Returns:
+            The mode, or None, the default, to leave it to the emulator's
+            generic path
+        """
+        return None
+
+    def write_isa_mode(self, state: angr.SimState, mode: int) -> bool:
+        """Set the CPU's instruction-set mode, where angr keeps it outside the
+        register the platform names; see :meth:`.Emulator.set_isa_mode`.
+
+        Arguments:
+            state: The emulator's angr state
+            mode: The mode to set
+
+        Returns:
+            Whether it was set; False, the default, leaves it to the
+            emulator's generic path
+        """
+        return False
+
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture
 
@@ -161,9 +218,7 @@ class AngrMachineDef:
         else:
             exit_points = state.scratch.exit_points
 
-        if self.thumb_bit_in_pc:
-            # angr addresses Thumb code with the Thumb bit set.
-            exit_points = exit_points | {p | 1 for p in exit_points}
+        exit_points = {a for p in exit_points for a in self.code_addresses(p)}
 
         return state.project.factory.successors(
             state, extra_stop_points=exit_points, **kwargs

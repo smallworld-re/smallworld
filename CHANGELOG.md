@@ -399,6 +399,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ARM. `PandaEmulator` and `TritonEmulator`, whose cpsr doesn't hold the T
   bit, reach the mode through their own Thumb state, PANDA through the new
   `PandaMachineDef.read_isa_mode()` and `write_isa_mode()`.
+- `AngrEmulator` keeps no Thumb code of its own: `AngrMachineDef` gains
+  `pc_from_engine()`, the inverse of `pc_to_engine()`, `code_addresses()`,
+  the addresses angr may reach an instruction at, which hooks and exit
+  points cover, and `read_isa_mode()` and `write_isa_mode()`, for a mode
+  angr keeps outside the platform's register (ARM: bit 0 of pc). Writing an
+  odd pc on a platform whose `isa_bit` is `SELECTS` selects the alternate
+  instruction set, as on Ghidra, and a mode set before initialization takes
+  effect once the emulator has a state.
 - Machine-definition hooks that convert SmallWorld's pc to the backend's:
   `AngrMachineDef.pc_to_engine()` and `GhidraMachineDef.pc_to_engine()`, for
   pc writes, and `UnicornMachineDef.pc_to_start()`, for the address

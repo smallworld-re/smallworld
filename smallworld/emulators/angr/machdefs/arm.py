@@ -5,6 +5,7 @@ import archinfo
 import claripy
 from angr.engines.vex.claripy import ccall
 
+from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from ..be8 import BE8Engine, be8_arch
 from ..v8fp import BE8V8FPEngine, V8FPEngine
@@ -13,7 +14,46 @@ from .machdef import AngrMachineDef
 
 
 class ARMMachineDef(AngrMachineDef):
-    thumb_bit_in_pc = True
+    # angr keeps Thumb state nowhere but in bit 0 of pc, and addresses Thumb
+    # code with that bit set; SmallWorld's pc is the address the core
+    # executes at.
+
+    def read_isa_mode(
+        self, state: typing.Optional[angr.SimState]
+    ) -> typing.Optional[int]:
+        if state is None:
+            # Out of reset, an A- or R-profile core runs ARM code.
+            return 0
+        pc = typing.cast(claripy.ast.bv.BV, state.regs.pc)
+        if pc.symbolic:
+            raise exceptions.SymbolicValueError("pc is symbolic")
+        return pc.concrete_value & 1
+
+    def write_isa_mode(self, state: angr.SimState, mode: int) -> bool:
+        pc = typing.cast(claripy.ast.bv.BV, state.regs.pc)
+        state.regs.pc = (pc & ~1) | (int(mode) & 1)
+        return True
+
+    def pc_to_engine(self, state: typing.Optional[angr.SimState], pc: int) -> int:
+        if self.is_thumb:
+            return pc | 1
+        if state is None:
+            # The emulator sets the mode once it has a state.
+            return pc
+        mode = self.read_isa_mode(state)
+        assert mode is not None
+        return pc & ~1 | mode
+
+    def pc_from_engine(
+        self, state: angr.SimState, value: typing.Union[int, claripy.ast.bv.BV]
+    ) -> typing.Union[int, claripy.ast.bv.BV]:
+        if isinstance(value, int):
+            return value & ~1
+        size = value.size()
+        return value & claripy.BVV(((1 << size) - 1) & ~1, size)
+
+    def code_addresses(self, address: int) -> typing.Tuple[int, ...]:
+        return (address & ~1, address | 1)
 
     def __init__(self):
         self._registers = {
