@@ -109,4 +109,4 @@ To build all examples, execute the following:
 .. code-block:: bash
 
    nix build ./ci#tests
-   tar -C tests --zstd -xvf result/test_binaries.tar.zst
+   nix shell --inputs-from . nixpkgs#zstd -c tar -C tests --zstd -xvf result/test_binaries.tar.zst
